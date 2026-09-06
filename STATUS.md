@@ -2,7 +2,8 @@
 
 > Creado: 2026-09-05 (docs) · scaffold: 2026-09-06
 > Plugin: `woonderful-stock-sync-for-woocommerce` | WP 6.5+ | PHP 8.1+ | WC 8.0+
-> Repo propio: pendiente de crear.
+> Repo propio: [woonderful-stock-sync-for-woocommerce](https://github.com/julianjuan77/woonderful-stock-sync-for-woocommerce)
+> Checks automáticos: sitio `sandbox` (montado vía `DEV_PLUGINS`).
 
 Sincroniza el stock de un mismo depósito físico entre dos o más tiendas WooCommerce
 propias. **Pool único, sin reparto:** si hay 10 unidades, las 10 se ven en cada tienda, y
@@ -16,7 +17,7 @@ colchón de stock por canal.
 | Área                        | Estado |
 |-----------------------------|--------|
 | SPEC funcional              | ✅ 100% (8 casos de uso, UC-01→UC-08) |
-| ADRs                        | 🟡 3 aprobados; ADR-001 caducado por un bug del gate |
+| ADRs                        | ✅ 3 aprobados (scaffold, esquema del libro, toolchain) |
 | Estructura y scaffold       | ✅ 100% |
 | Capa de base de datos       | ✅ 100% (20 tests en verde, lint limpio) |
 | Detección de movimientos    | ⬜ 0% |
@@ -88,16 +89,17 @@ colchón de stock por canal.
 
 ## 🔄 En progreso — sesión actual (2026-09-06)
 
-- **Repo git y primer commit.** Bloqueado: el pre-commit rechaza commits con ADRs
-  caducados, y ADR-001 figura caducado por un bug del gate (ver abajo). Done cuando:
-  `git init`, fila en `PROJECTS.md`, repo remoto creado y commit inicial.
+_(nada — la capa de base de datos quedó cerrada y commiteada)_
+
+**Próximo paso sugerido:** UC-07, el bootstrap de un producto que entra a la malla. Es el
+único caso de uso que no depende del ADR de transporte, y ejercita las dos tablas de punta
+a punta.
 
 ---
 
 ## ⬜ Pendiente
 
 - **`readme.txt`** de WordPress.org y `.pot` de traducciones.
-- **Repo propio + fila en `PROJECTS.md`.** El plugin todavía no es un repo git.
 - **`Frontend.php`** — ADR-000 lo autoriza pero el plugin no tiene salida al frontend
   (se entera de las ventas por hooks). No se creó para no dejar una clase vacía; si
   aparece la necesidad, el ADR ya lo cubre.
@@ -115,7 +117,7 @@ humana registrada. Acá solo el índice:
 | ADR | Título | Estado |
 |-----|--------|--------|
 | ADR-000 | Scaffold estándar de plugin (namespace + PSR-4) | ✅ Aprobada |
-| ADR-001 | Esquema del libro de movimientos (dos tablas, patrón inbox) | ⚠️ Caducada por un bug del gate — re-aprobar |
+| ADR-001 | Esquema del libro de movimientos (dos tablas, patrón inbox) | ✅ Aprobada |
 | ADR-002 | Toolchain de calidad y tests de integración contra base real | ✅ Aprobada |
 
 ### Pendientes de ADR

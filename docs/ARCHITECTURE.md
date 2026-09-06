@@ -260,9 +260,15 @@ condicionado del claim. Un `$wpdb` simulado devuelve lo que el test le pide, as�
 igual con el índice borrado.
 
 ```bash
-make test-plugin SITE=<sitio> PLUGIN=woonderful-stock-sync-for-woocommerce
-make lint-plugin SITE=<sitio> PLUGIN=woonderful-stock-sync-for-woocommerce
+make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce
+make lint-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce
 ```
+
+**Los checks automáticos corren en `sandbox`**, que es el sitio sin datos de clientes y el
+default de `gate-run-checks.sh`. El plugin está montado ahí vía `DEV_PLUGINS`, y por eso el
+pre-commit funciona sin pasarle nada. Se puede correr contra otro sitio con
+`WP_GATES_SITE=<slug>`, pero no hay motivo: los tests no necesitan datos reales —ni siquiera
+WooCommerce activo— porque solo ejercitan la capa de base de datos.
 
 **Aislamiento.** La suite de WordPress hace `DROP DATABASE` de su base al inicializarse, así
 que `tests/wp-tests-config.php` apunta siempre a una base dedicada (`wss_tests`, prefijo
