@@ -1,0 +1,22 @@
+parameters:
+    level: 6
+    reportUnmatchedIgnoredErrors: false
+    paths:
+        - includes
+        - woonderful-stock-sync-for-woocommerce.php
+        - uninstall.php
+    excludePaths:
+        - vendor/*
+        - node_modules/*
+        - build/*
+    bootstrapFiles:
+        - vendor/php-stubs/wordpress-stubs/wordpress-stubs.php
+    scanFiles:
+        - vendor/php-stubs/wordpress-stubs/wordpress-stubs.php
+    ignoreErrors:
+        # Constantes del plugin definidas en el archivo principal — PHPStan no las ve.
+        - '#Constant WSS_(DIR|URL|VERSION|FILE) not found#'
+        # WooCommerce y Action Scheduler no están en los stubs de WordPress: existen en
+        # runtime y su ausencia ya se verifica con class_exists()/function_exists().
+        - '#unknown class Automattic\\WooCommerce\\Utilities\\FeaturesUtil#'
+        - '#Function as_unschedule_all_actions not found#'

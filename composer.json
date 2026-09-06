@@ -1,0 +1,41 @@
+{
+  "name": "woonderful/stock-sync-for-woocommerce",
+  "description": "Sincroniza el stock de un mismo depósito entre dos o más tiendas WooCommerce propias.",
+  "type": "wordpress-plugin",
+  "license": "GPL-2.0-or-later",
+  "require": {
+    "php": ">=8.1"
+  },
+  "require-dev": {
+    "wp-coding-standards/wpcs": "^3.1",
+    "dealerdirect/phpcodesniffer-composer-installer": "^1.0",
+    "phpcompatibility/phpcompatibility-wp": "^2.1",
+    "phpstan/phpstan": "^1.11",
+    "php-stubs/wordpress-stubs": "^6.5",
+    "phpunit/phpunit": "^9.6",
+    "yoast/phpunit-polyfills": "^2.0",
+    "wp-phpunit/wp-phpunit": "^6.5"
+  },
+  "autoload": {
+    "psr-4": {
+      "Woonderful\\StockSync\\": "includes/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "Woonderful\\StockSync\\Tests\\": "tests/"
+    }
+  },
+  "config": {
+    "allow-plugins": {
+      "dealerdirect/phpcodesniffer-composer-installer": true
+    },
+    "sort-packages": true
+  },
+  "scripts": {
+    "lint": "phpcs",
+    "lint:fix": "phpcbf",
+    "analyse": "phpstan analyse",
+    "test": "phpunit"
+  }
+}

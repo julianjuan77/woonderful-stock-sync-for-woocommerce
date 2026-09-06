@@ -1,0 +1,84 @@
+<?xml version="1.0"?>
+<ruleset name="Woonderful Stock Sync for WooCommerce">
+	<description>PHPCS para Woonderful Stock Sync for WooCommerce</description>
+
+	<file>.</file>
+	<exclude-pattern>vendor/*</exclude-pattern>
+	<exclude-pattern>node_modules/*</exclude-pattern>
+	<exclude-pattern>build/*</exclude-pattern>
+	<exclude-pattern>tests/bootstrap.php</exclude-pattern>
+
+	<arg name="basepath" value="."/>
+	<arg name="extensions" value="php"/>
+	<arg name="colors"/>
+	<arg value="sp"/>
+
+	<rule ref="WordPress-Core"/>
+	<rule ref="WordPress-Docs"/>
+	<rule ref="WordPress-Extra"/>
+
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+		<properties>
+			<property name="prefixes" type="array">
+				<element value="wss_"/>
+				<element value="WSS_"/>
+				<element value="Woonderful\StockSync"/>
+			</property>
+		</properties>
+	</rule>
+
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array">
+				<element value="woonderful-stock-sync-for-woocommerce"/>
+			</property>
+		</properties>
+	</rule>
+
+	<!--
+		Las clases van en el namespace Woonderful\StockSync (ADR-000), no con prefijo:
+		el sniff no reconoce namespaces como prefijo válido para clases.
+	-->
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedClassFound"><severity>0</severity></rule>
+
+	<!--
+		WPCS pide class-plugin.php; PSR-4 exige Plugin.php. Son incompatibles por
+		definición y ADR-000 eligió PSR-4, así que el autoloader manda: con el nombre en
+		minúsculas el plugin directamente no carga.
+	-->
+	<rule ref="WordPress.Files.FileName.NotHyphenatedLowercase"><severity>0</severity></rule>
+	<rule ref="WordPress.Files.FileName.InvalidClassFileName"><severity>0</severity></rule>
+
+	<!--
+		Toda interpolación en SQL de este plugin es un nombre de tabla derivado de
+		$wpdb->prefix — nunca entrada de usuario. Los valores van siempre por prepare().
+		La justificación vive acá y no repetida en cada llamada: son quince y dirían todas
+		lo mismo.
+	-->
+	<rule ref="WordPress.DB.PreparedSQL.InterpolatedNotPrepared"><severity>0</severity></rule>
+	<rule ref="WordPress.DB.DirectDatabaseQuery.DirectQuery"><severity>0</severity></rule>
+	<rule ref="WordPress.DB.DirectDatabaseQuery.NoCaching"><severity>0</severity></rule>
+
+	<!--
+		Las firmas están tipadas (PHP 8.1). Repetir cada tipo en @param/@return es
+		duplicación que se desactualiza sola. Se mantiene la exigencia de resumen y de
+		@var en propiedades, que es lo que PHPStan sí necesita.
+	-->
+	<rule ref="Squiz.Commenting.FunctionComment.MissingParamTag"><severity>0</severity></rule>
+	<rule ref="Squiz.Commenting.FunctionComment.MissingParamComment"><severity>0</severity></rule>
+	<rule ref="Squiz.Commenting.FunctionComment.MissingReturn"><severity>0</severity></rule>
+
+	<!-- Idem para propiedades: están tipadas. El @var se usa solo donde PHPStan necesita
+	     el genérico del array, y ahí sí se escribe. -->
+	<rule ref="Squiz.Commenting.VariableComment.Missing"><severity>0</severity></rule>
+
+	<!-- Los mensajes de excepción de este plugin van a logs y a quien depura, nunca al
+	     navegador. Escaparlos con esc_html() los ensucia sin proteger nada. -->
+	<rule ref="WordPress.Security.EscapeOutput.ExceptionNotEscaped"><severity>0</severity></rule>
+
+	<exclude-pattern>tests/*</exclude-pattern>
+	<rule ref="Generic.Files.LineLength"><severity>0</severity></rule>
+
+	<config name="minimum_supported_wp_version" value="6.5"/>
+	<config name="testVersion" value="8.1-"/>
+</ruleset>
