@@ -27,7 +27,8 @@ define( 'WSS_FILE', __FILE__ );
 define( 'WSS_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WSS_URL', plugin_dir_url( __FILE__ ) );
 
-// Sin autoloader no hay plugin: se avisa en el admin en vez de morir con un fatal.
+// Sin el autoloader de Composer ninguna clase del plugin se puede cargar. Se corta acá
+// con un aviso en vez de dejar que reviente con un fatal en la primera llamada.
 if ( ! is_readable( WSS_DIR . 'vendor/autoload.php' ) ) {
 	add_action(
 		'admin_notices',
@@ -47,13 +48,17 @@ if ( ! is_readable( WSS_DIR . 'vendor/autoload.php' ) ) {
 
 require_once WSS_DIR . 'vendor/autoload.php';
 
-// Se registra en cada carga: es como WordPress sabe a quién llamar cuando alguien active.
+// register_activation_hook() tiene que ejecutarse en cada carga del plugin, no solo al
+// activar: es así como WordPress guarda a quién llamar cuando alguien lo active.
 register_activation_hook( WSS_FILE, array( \Woonderful\StockSync\Activator::class, 'activate' ) );
 
 /*
- * El plugin no lee ni escribe pedidos —se entera de las ventas por los hooks de stock—, así
- * que es compatible con HPOS por construcción. Sin declararlo, WooCommerce lo marca
- * incompatible y desactiva HPOS.
+ * Declara compatibilidad con HPOS (los pedidos en tablas propias de WooCommerce en vez de
+ * wp_posts). Es válido porque el plugin no lee ni escribe pedidos: se entera de las ventas
+ * por los hooks de stock.
+ *
+ * Sin esta declaración WooCommerce marca el plugin como incompatible y desactiva HPOS en
+ * el sitio.
  */
 add_action(
 	'before_woocommerce_init',
@@ -71,8 +76,9 @@ add_action(
 add_action(
 	'plugins_loaded',
 	static function (): void {
-		// No se autodesactiva: así el aviso sigue visible en lugar de que el plugin
-		// desaparezca sin explicación.
+		// Sin WooCommerce el plugin no tiene stock que sincronizar. Avisa y no registra
+		// ningún hook, pero no se autodesactiva: si lo hiciera, el aviso desaparecería con
+		// él y no quedaría rastro de por qué dejó de funcionar.
 		if ( ! class_exists( 'WooCommerce' ) ) {
 			add_action(
 				'admin_notices',

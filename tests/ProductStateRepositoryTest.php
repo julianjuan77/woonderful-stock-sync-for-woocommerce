@@ -1,6 +1,6 @@
 <?php
 /**
- * TC-09 a TC-11 — el snapshot de estado.
+ * Tests de ProductStateRepository — TC-09 a TC-11 de tests/TEST-CASES.md.
  *
  * @package Woonderful\StockSync
  */
@@ -11,7 +11,7 @@ use Woonderful\StockSync\Db\Schema;
 
 class ProductStateRepositoryTest extends TestCase {
 
-	/** TC-10 — re-bootstrapear reemplaza el base, no lo acumula. */
+	/** TC-10 — bootstrap() sobre un SKU que ya existe reemplaza base_qty en vez de sumarlo. */
 	public function test_re_bootstrapear_reemplaza_no_acumula(): void {
 		$this->state->bootstrap( 'SKU-1', 10, 0 );
 		$this->state->bootstrap( 'SKU-1', 7, 0 );
@@ -22,7 +22,7 @@ class ProductStateRepositoryTest extends TestCase {
 		$this->assertSame( 7, (int) $fila->base_qty, 'Un recuento físico corrige el base.' );
 	}
 
-	/** TC-09 — absorb() no retrocede: aplicar dos veces la misma consolidación restaría de más. */
+	/** TC-09 — absorb() solo aplica si new_up_to avanza; repetir la misma llamada no vuelve a restar. */
 	public function test_absorb_no_retrocede(): void {
 		$this->state->bootstrap( 'SKU-1', 10, 0 );
 
@@ -35,7 +35,7 @@ class ProductStateRepositoryTest extends TestCase {
 		$this->assertSame( 100, (int) $fila->base_up_to );
 	}
 
-	/** TC-11 — sacar un SKU de la malla no toca su libro. */
+	/** TC-11 — forget() borra la fila de wss_product_state y deja intactos los movimientos del SKU. */
 	public function test_forget_no_borra_el_libro(): void {
 		global $wpdb;
 

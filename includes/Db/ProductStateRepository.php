@@ -12,15 +12,18 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * El snapshot del libro. Ver ADR-001 y ARCHITECTURE.md §1.
+ * Lectura y escritura de la tabla wss_product_state.
  *
- * Guarda la parte fija del stock (`base_qty`) y hasta dónde está consolidada
- * (`base_up_to`). La parte móvil la calcula MovementRepository; componer las dos es
- * trabajo del reconciliador, no de los repositorios.
+ * Guarda por SKU el stock base (`base_qty`) y hasta qué id de movimiento está incluido en
+ * ese base (`base_up_to`). No calcula el stock esperado: eso combina esta tabla con
+ * MovementRepository::sum_applied_after(). Ver docs/ARCHITECTURE.md §1.
  */
 class ProductStateRepository {
 
-	/** Fija el stock base de un SKU que entra a la malla (UC-07). Upsert: un recuento físico corrige el base. */
+	/**
+	 * Fija el stock base de un SKU. Si ya existe, reemplaza sus valores en vez de fallar,
+	 * para poder corregir el base tras un recuento físico.
+	 */
 	public function bootstrap( string $sku, int $qty, int $up_to_id ): bool {
 		global $wpdb;
 
@@ -45,15 +48,15 @@ class ProductStateRepository {
 	}
 
 	/**
-	 * Avanza el base absorbiendo los deltas que están por purgarse.
+	 * Suma $absorbed_delta a `base_qty` y mueve `base_up_to` a $new_up_to. Devuelve true si
+	 * modificó la fila.
 	 *
-	 * El stock esperado tiene que dar el mismo número antes y después de purgar: ésa es la
-	 * restricción dura de ADR-001. Por eso el UPDATE es relativo (`base_qty + %d`) y no
-	 * absoluto, y el WHERE exige avanzar: aplicar dos veces la misma consolidación
-	 * restaría stock inventado.
+	 * $absorbed_delta es la suma de los `delta` de los movimientos que se van a borrar, y
+	 * $new_up_to el id del último de ellos. Se llama justo antes de
+	 * MovementRepository::delete_applied_up_to() con el mismo corte.
 	 *
-	 * `$absorbed_delta` es la suma de los deltas que se van a borrar; `$new_up_to`, el
-	 * último ID que queda consolidado.
+	 * El UPDATE suma en vez de fijar un total, y el WHERE exige que $new_up_to sea mayor al
+	 * `base_up_to` actual: así repetir la llamada no vuelve a restar los mismos deltas.
 	 */
 	public function absorb( string $sku, int $absorbed_delta, int $new_up_to ): bool {
 		global $wpdb;
@@ -76,7 +79,7 @@ class ProductStateRepository {
 		return 1 === (int) $rows;
 	}
 
-	/** Estado de un SKU, o null si nunca entró a la malla. */
+	/** Fila de wss_product_state del SKU, o null si no tiene ninguna. */
 	public function get( string $sku ): ?object {
 		global $wpdb;
 
@@ -89,13 +92,14 @@ class ProductStateRepository {
 		return $row instanceof \stdClass ? $row : null;
 	}
 
-	/** Un cambio de stock en un SKU sin bootstrap no se propaga: se bootstrapea (UC-07). */
+	/** Devuelve true si el SKU ya tiene fila en wss_product_state. */
 	public function is_bootstrapped( string $sku ): bool {
 		return null !== $this->get( $sku );
 	}
 
 	/**
-	 * Todos los SKU de la malla. Paginado: la reconciliación recorre el catálogo entero.
+	 * SKUs con fila en wss_product_state, en orden alfabético. Paginado porque la
+	 * reconciliación recorre el catálogo completo.
 	 *
 	 * @return array<int, string>
 	 */
@@ -115,7 +119,7 @@ class ProductStateRepository {
 		return is_array( $skus ) ? $skus : array();
 	}
 
-	/** Saca un SKU de la malla. No borra sus movimientos: el libro es inmutable. */
+	/** Borra la fila del SKU en wss_product_state. Sus movimientos quedan intactos. */
 	public function forget( string $sku ): bool {
 		global $wpdb;
 

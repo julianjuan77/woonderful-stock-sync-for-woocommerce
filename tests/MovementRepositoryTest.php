@@ -1,6 +1,6 @@
 <?php
 /**
- * TC-01 a TC-07 — el libro de movimientos.
+ * Tests de MovementRepository — TC-01 a TC-07 de tests/TEST-CASES.md.
  *
  * @package Woonderful\StockSync
  */
@@ -13,7 +13,7 @@ use Woonderful\StockSync\Db\Schema;
 
 class MovementRepositoryTest extends TestCase {
 
-	/** TC-01 — el mismo (origin_store, sequence) dos veces se guarda una sola vez. */
+	/** TC-01 — registrar dos veces el mismo (origin_store, sequence) deja una sola fila. */
 	public function test_un_movimiento_repetido_se_registra_una_sola_vez(): void {
 		global $wpdb;
 
@@ -27,7 +27,7 @@ class MovementRepositoryTest extends TestCase {
 		$this->assertSame( '1', $wpdb->get_var( "SELECT COUNT(*) FROM $table" ) );
 	}
 
-	/** TC-01b — el índice único es por tienda: otra tienda puede usar la misma secuencia. */
+	/** TC-01b — el índice único es (origin_store, sequence): otra tienda puede repetir la secuencia. */
 	public function test_la_misma_secuencia_de_otra_tienda_no_choca(): void {
 		$a = $this->movements->record( $this->movement( array( 'origin_store' => 'tienda-a', 'sequence' => 7 ) ) );
 		$b = $this->movements->record( $this->movement( array( 'origin_store' => 'tienda-b', 'sequence' => 7 ) ) );
@@ -37,7 +37,7 @@ class MovementRepositoryTest extends TestCase {
 		$this->assertNotSame( $a, $b );
 	}
 
-	/** TC-02 — una razón desconocida se rechaza en el borde y no escribe nada. */
+	/** TC-02 — un reason fuera de MovementRepository::REASONS lanza y no escribe ninguna fila. */
 	public function test_una_razon_desconocida_se_rechaza(): void {
 		global $wpdb;
 
@@ -51,7 +51,7 @@ class MovementRepositoryTest extends TestCase {
 		}
 	}
 
-	/** TC-03 — dos claims sobre el mismo movimiento: solo uno gana. */
+	/** TC-03 — dos claim() sobre el mismo movimiento: el primero devuelve true, el segundo false. */
 	public function test_dos_claims_sobre_el_mismo_movimiento_solo_uno_gana(): void {
 		$id = $this->movements->record( $this->movement() );
 
@@ -59,7 +59,7 @@ class MovementRepositoryTest extends TestCase {
 		$this->assertFalse( $this->movements->claim( $id ), 'El segundo llega tarde.' );
 	}
 
-	/** TC-04 — un claim vencido se puede retomar; uno reciente no. */
+	/** TC-04 — claim() retoma un movimiento cuyo claimed_at superó STALE_CLAIM_SECONDS, y rechaza uno reciente. */
 	public function test_un_claim_vencido_se_puede_retomar(): void {
 		$id = $this->movements->record( $this->movement() );
 		$this->movements->claim( $id );
@@ -77,7 +77,7 @@ class MovementRepositoryTest extends TestCase {
 		);
 	}
 
-	/** TC-05 — pending() trae lo pendiente y los claims vencidos, no los recientes. */
+	/** TC-05 — pending() devuelve los movimientos en 'pending' y los 'claimed' vencidos, no los 'claimed' recientes. */
 	public function test_pending_incluye_los_claims_vencidos(): void {
 		$pendiente = $this->movements->record( $this->movement( array( 'sequence' => 1 ) ) );
 
@@ -93,7 +93,7 @@ class MovementRepositoryTest extends TestCase {
 		$this->assertCount( 2, $ids, 'Muerto el job, su movimiento vuelve a estar disponible.' );
 	}
 
-	/** TC-06 — cerrar un movimiento que no se tomó falla en vez de pasar desapercibido. */
+	/** TC-06 — mark_applied() sobre un movimiento en 'pending' devuelve false y no cambia el status. */
 	public function test_cerrar_un_movimiento_no_tomado_devuelve_false(): void {
 		global $wpdb;
 
@@ -106,7 +106,7 @@ class MovementRepositoryTest extends TestCase {
 		$this->assertSame( MovementRepository::STATUS_PENDING, $estado, 'Sigue pendiente.' );
 	}
 
-	/** TC-07 — la suma cuenta lo aplicado e ignora lo pendiente. */
+	/** TC-07 — sum_applied_after() suma solo los movimientos en 'applied'. */
 	public function test_sum_applied_after_ignora_lo_pendiente(): void {
 		$this->apply_movement( array( 'sequence' => 1, 'delta' => -3 ) );
 		$this->apply_movement( array( 'sequence' => 2, 'delta' => -2 ) );
@@ -115,7 +115,7 @@ class MovementRepositoryTest extends TestCase {
 		$this->assertSame( -5, $this->movements->sum_applied_after( 'SKU-1', 0 ) );
 	}
 
-	/** TC-07b — el corte por ID excluye lo ya consolidado. */
+	/** TC-07b — sum_applied_after() cuenta solo los movimientos con id mayor al corte. */
 	public function test_sum_applied_after_respeta_el_corte(): void {
 		$primero = $this->apply_movement( array( 'sequence' => 1, 'delta' => -3 ) );
 		$this->apply_movement( array( 'sequence' => 2, 'delta' => -2 ) );

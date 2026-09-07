@@ -1,10 +1,12 @@
 <?php
 /**
- * TC-08 — purgar no cambia el stock esperado.
+ * TC-08 — el stock esperado no cambia al purgar el libro.
  *
- * El test que más importa de la suite: es la restricción dura de ADR-001, y su modo de
- * falla es silencioso. Si esto se rompe, la reconciliación empieza a reportar diferencias
- * que no existen en todos los productos con historia, y nada más se ve raro.
+ * El stock esperado se calcula como base_qty + suma de los deltas aplicados posteriores a
+ * base_up_to. Purgar borra parte de esos deltas, así que antes hay que sumarlos a base_qty
+ * y avanzar base_up_to. Estos tests comparan el número antes y después.
+ *
+ * Por qué la restricción existe: ver docs/ARCHITECTURE.md §1 y ADR-001.
  *
  * @package Woonderful\StockSync
  */
@@ -13,7 +15,7 @@ namespace Woonderful\StockSync\Tests;
 
 class PurgeConsolidationTest extends TestCase {
 
-	/** El stock esperado: la parte fija del snapshot más los deltas aplicados posteriores. */
+	/** Calcula el stock esperado de un SKU: base_qty + deltas aplicados con id > base_up_to. */
 	private function stock_esperado( string $sku ): int {
 		$fila = $this->state->get( $sku );
 
@@ -24,7 +26,7 @@ class PurgeConsolidationTest extends TestCase {
 		return (int) $fila->base_qty + $this->movements->sum_applied_after( $sku, (int) $fila->base_up_to );
 	}
 
-	/** TC-08 — consolidar y después borrar deja el mismo número. */
+	/** TC-08 — absorb() y después delete_applied_up_to() dejan el stock esperado igual. */
 	public function test_purgar_no_cambia_el_stock_esperado(): void {
 		$this->state->bootstrap( 'SKU-1', 10, 0 );
 
@@ -35,7 +37,8 @@ class PurgeConsolidationTest extends TestCase {
 		$antes = $this->stock_esperado( 'SKU-1' );
 		$this->assertSame( 6, $antes, '10 − 2 − 3 + 1' );
 
-		// La secuencia correcta, y el orden no es negociable.
+		// Delta a absorber: lo que suman los movimientos que se van a borrar, es decir el
+		// total menos lo que queda después del corte.
 		$absorbido = $this->movements->sum_applied_after( 'SKU-1', 0 )
 			- $this->movements->sum_applied_after( 'SKU-1', $corte );
 
@@ -45,7 +48,7 @@ class PurgeConsolidationTest extends TestCase {
 		$this->assertSame( $antes, $this->stock_esperado( 'SKU-1' ), 'El número no puede moverse.' );
 	}
 
-	/** El modo de falla que TC-08 existe para atrapar: borrar sin consolidar. */
+	/** Verifica que borrar sin absorber sí altera el número — es lo que TC-08 previene. */
 	public function test_purgar_sin_consolidar_corrompe_el_stock_esperado(): void {
 		$this->state->bootstrap( 'SKU-1', 10, 0 );
 
@@ -54,7 +57,7 @@ class PurgeConsolidationTest extends TestCase {
 
 		$antes = $this->stock_esperado( 'SKU-1' );
 
-		// A propósito: borrar sin llamar a absorb() antes.
+		// Sin absorb() antes: los deltas borrados desaparecen del cálculo.
 		$this->movements->delete_applied_up_to( 'SKU-1', $corte );
 
 		$this->assertNotSame(
@@ -64,7 +67,7 @@ class PurgeConsolidationTest extends TestCase {
 		);
 	}
 
-	/** Purgar todo el historial también tiene que preservar el número. */
+	/** TC-08b — purgar el historial completo tampoco cambia el stock esperado. */
 	public function test_purgar_todo_el_historial_preserva_el_numero(): void {
 		$this->state->bootstrap( 'SKU-1', 10, 0 );
 

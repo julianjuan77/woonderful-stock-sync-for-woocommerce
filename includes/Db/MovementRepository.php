@@ -12,10 +12,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * El libro de movimientos. Ver ADR-001 y ARCHITECTURE.md §1.
+ * Lectura y escritura de la tabla wss_movements.
  *
- * Las dos invariantes las hace cumplir MySQL, no este código: la idempotencia con el índice
- * único, y la ejecución única con el UPDATE condicionado de claim().
+ * Estructura de la tabla e invariantes que garantiza: docs/ARCHITECTURE.md §1.
  */
 class MovementRepository {
 
@@ -25,12 +24,12 @@ class MovementRepository {
 	public const STATUS_REJECTED = 'rejected';
 
 	/**
-	 * Razones válidas. Son identificadores, no texto: la pantalla de UC-05 los mapea a
-	 * etiquetas traducidas. `refund` cubre devoluciones y cancelaciones (UC-02).
+	 * Valores admitidos en la columna `reason`. Son identificadores, no texto para mostrar.
+	 * `refund` cubre tanto devoluciones como cancelaciones.
 	 */
 	public const REASONS = array( 'bootstrap', 'sale', 'refund', 'adjustment', 'reconciliation' );
 
-	/** Tras esto, un claim se considera un job muerto y otro puede retomarlo. */
+	/** Segundos desde `claimed_at` tras los cuales claim() vuelve a entregar el movimiento. */
 	public const STALE_CLAIM_SECONDS = 300;
 
 	/**
@@ -44,8 +43,6 @@ class MovementRepository {
 	public function record( array $movement ): int {
 		global $wpdb;
 
-		// Una razón desconocida es un bug del emisor; guardarla contamina el libro, que es
-		// la fuente de verdad para auditar.
 		if ( ! in_array( $movement['reason'], self::REASONS, true ) ) {
 			throw new \InvalidArgumentException(
 				sprintf( 'Unknown movement reason: %s', $movement['reason'] )
@@ -56,12 +53,10 @@ class MovementRepository {
 		$now   = current_time( 'mysql', true );
 
 		/*
-		 * INSERT IGNORE: el duplicado es un caso esperado —el mismo movimiento puede llegar
-		 * dos veces si se reintenta un envío— y no un error. No hay SELECT previo porque
-		 * tendría una carrera entre la consulta y el INSERT.
-		 *
-		 * El costo es que IGNORE degrada otros errores a warning, así que después se mira
-		 * last_error para no confundir un fallo real con un duplicado.
+		 * INSERT IGNORE convierte el choque contra el índice único (origin_store, sequence)
+		 * en 0 filas afectadas y sin error, en vez de un fallo. Pero también degrada otros
+		 * errores a warning, así que se limpia last_error antes para poder distinguir
+		 * después un duplicado de un fallo real.
 		 */
 		$wpdb->last_error = '';
 
@@ -90,10 +85,13 @@ class MovementRepository {
 	}
 
 	/**
-	 * Toma un movimiento para aplicarlo, en exclusión mutua. true si este proceso se lo quedó.
+	 * Marca el movimiento como 'claimed' si está disponible. Devuelve true si lo tomó este
+	 * proceso.
 	 *
-	 * Dos pasadas concurrentes ejecutan el mismo UPDATE y MySQL garantiza que solo una
-	 * afecte la fila. Quien ve 0 filas sabe que otro se lo llevó, sin bloqueos.
+	 * Disponible significa: status 'pending', o status 'claimed' con `claimed_at` anterior a
+	 * ahora menos $stale_after. El UPDATE lleva esa condición en el WHERE, así que si dos
+	 * procesos lo ejecutan a la vez MySQL deja que solo uno afecte la fila; por eso el
+	 * resultado se decide comparando las filas afectadas contra 1.
 	 */
 	public function claim( int $id, int $stale_after = self::STALE_CLAIM_SECONDS ): bool {
 		global $wpdb;
@@ -136,8 +134,8 @@ class MovementRepository {
 
 		$table = Schema::movements_table();
 
-		// El WHERE exige 'claimed': cerrar algo que no se tomó es un bug de secuencia y
-		// tiene que devolver false en vez de pasar desapercibido.
+		// El WHERE exige status 'claimed': cerrar un movimiento que nadie tomó devuelve
+		// false en vez de escribir.
 		$rows = $wpdb->query(
 			$wpdb->prepare(
 				"UPDATE $table
@@ -154,12 +152,12 @@ class MovementRepository {
 	}
 
 	/**
-	 * Movimientos con trabajo disponible, en orden de llegada.
+	 * Movimientos disponibles para trabajar, del más viejo al más nuevo.
 	 *
-	 * Incluye los claims vencidos: si no aparecieran, un job que murió a mitad dejaría su
-	 * movimiento sin aplicar para siempre.
+	 * Devuelve los de status 'pending' y también los 'claimed' con `claimed_at` vencido —
+	 * los que quedaron tomados por un proceso que no llegó a cerrarlos.
 	 *
-	 * @return array<int, object>
+	 * @return array<int, object> Filas completas de wss_movements.
 	 */
 	public function pending( int $limit = 50, int $stale_after = self::STALE_CLAIM_SECONDS ): array {
 		global $wpdb;
@@ -185,10 +183,10 @@ class MovementRepository {
 	}
 
 	/**
-	 * Suma de los deltas aplicados de un SKU posteriores a un ID.
+	 * Suma los `delta` del SKU con id mayor a $after_id, contando solo los de status
+	 * 'applied'.
 	 *
-	 * Solo cuenta lo aplicado: lo pendiente todavía no movió stock local, e incluirlo haría
-	 * que la reconciliación reporte desvíos que no existen.
+	 * Los pendientes quedan afuera porque todavía no modificaron el stock de WooCommerce.
 	 */
 	public function sum_applied_after( string $sku, int $after_id ): int {
 		global $wpdb;
@@ -208,7 +206,7 @@ class MovementRepository {
 		return (int) $sum;
 	}
 
-	/** El ID aplicado más alto de un SKU: hasta dónde puede consolidar el purgado. */
+	/** Id más alto entre los movimientos 'applied' del SKU, o 0 si no tiene ninguno. */
 	public function max_applied_id( string $sku ): int {
 		global $wpdb;
 
@@ -227,11 +225,12 @@ class MovementRepository {
 	}
 
 	/**
-	 * Borra los movimientos aplicados de un SKU hasta un ID inclusive. Devuelve cuántos.
+	 * Borra los movimientos 'applied' del SKU con id menor o igual a $up_to_id. Devuelve
+	 * cuántas filas borró.
 	 *
-	 * ⚠️ Peligroso solo: hay que consolidar el base con ProductStateRepository::absorb()
-	 * ANTES de borrar. Al revés, el stock esperado cambia de valor y la reconciliación
-	 * reporta discrepancias falsas en todos los productos con historia.
+	 * ⚠️ Llamar SIEMPRE después de ProductStateRepository::absorb() con el mismo corte. Los
+	 * deltas que se borran acá son parte del stock esperado, y si no se sumaron antes a
+	 * `base_qty` el número cambia. Ver docs/ARCHITECTURE.md §1.
 	 */
 	public function delete_applied_up_to( string $sku, int $up_to_id ): int {
 		global $wpdb;
@@ -252,9 +251,9 @@ class MovementRepository {
 	}
 
 	/**
-	 * Historial de un SKU, lo más reciente primero. Alimenta la pantalla de UC-05.
+	 * Movimientos del SKU, del más reciente al más viejo, sin filtrar por status.
 	 *
-	 * @return array<int, object>
+	 * @return array<int, object> Filas completas de wss_movements.
 	 */
 	public function history( string $sku, int $limit = 50 ): array {
 		global $wpdb;

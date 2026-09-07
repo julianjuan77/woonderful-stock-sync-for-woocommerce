@@ -12,7 +12,10 @@ use Woonderful\StockSync\Db\MovementRepository;
 use Woonderful\StockSync\Db\ProductStateRepository;
 use Woonderful\StockSync\Db\Schema;
 
-/** Deja las tablas vacías antes de cada test y da los repositorios armados. */
+/**
+ * Base de los tests: vacía las dos tablas del plugin antes de cada caso y expone los
+ * repositorios ya instanciados en $this->movements y $this->state.
+ */
 abstract class TestCase extends WP_UnitTestCase {
 
 	protected MovementRepository $movements;
@@ -24,9 +27,9 @@ abstract class TestCase extends WP_UnitTestCase {
 
 		global $wpdb;
 
-		// WP_UnitTestCase revierte cada test, pero el AUTO_INCREMENT no vuelve atrás y
-		// varios casos comparan IDs. TRUNCATE lo reinicia y deja cada test en el mismo
-		// punto de partida.
+		// TRUNCATE y no DELETE: además de vaciar la tabla reinicia el AUTO_INCREMENT. Hace
+		// falta porque WP_UnitTestCase revierte los datos de cada test pero no el contador,
+		// y varios casos comparan IDs concretos.
 		$movements     = Schema::movements_table();
 		$product_state = Schema::product_state_table();
 
@@ -38,7 +41,10 @@ abstract class TestCase extends WP_UnitTestCase {
 	}
 
 	/**
-	 * Un movimiento con valores por defecto razonables.
+	 * Arma el array de un movimiento válido, listo para pasarle a record().
+	 *
+	 * $overrides pisa los campos que el test necesite cambiar; el resto quedan en valores
+	 * por defecto que no son significativos para ningún caso.
 	 *
 	 * @param array<string, mixed> $overrides Campos a pisar.
 	 *
@@ -59,10 +65,12 @@ abstract class TestCase extends WP_UnitTestCase {
 	}
 
 	/**
-	 * Envejece el claim de un movimiento, como si el job que lo tomó hubiera muerto.
+	 * Retrasa $seconds el claimed_at de un movimiento, para simular un job que murió
+	 * mientras lo tenía tomado.
 	 *
-	 * Se toca la base en vez de pasar stale_after = 0: con 0 el corte es "ahora" y un claim
-	 * recién hecho no es anterior a ahora, así que no probaría nada.
+	 * Se escribe en la tabla en vez de llamar a claim() con stale_after = 0, porque claim()
+	 * compara claimed_at < (ahora - stale_after): con 0 el corte es "ahora" y un claim hecho
+	 * en el mismo segundo no es anterior a ahora, así que nunca se retomaría.
 	 */
 	protected function backdate_claim( int $id, int $seconds ): void {
 		global $wpdb;
@@ -78,7 +86,7 @@ abstract class TestCase extends WP_UnitTestCase {
 		);
 	}
 
-	/** Registra un movimiento y lo deja en 'applied'. Devuelve su ID. */
+	/** Registra un movimiento y lo lleva hasta status 'applied'. Devuelve su ID. */
 	protected function apply_movement( array $overrides = array() ): int {
 		$id = $this->movements->record( $this->movement( $overrides ) );
 

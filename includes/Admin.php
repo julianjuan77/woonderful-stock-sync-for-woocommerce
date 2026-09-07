@@ -11,15 +11,20 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-/** Menú y pantallas del plugin. La pantalla de estado real llega con UC-05. */
+/**
+ * Menú y pantallas del plugin dentro del admin.
+ *
+ * La pantalla de estado todavía no tiene contenido: solo está reservado su lugar en el
+ * menú.
+ */
 class Admin {
 
-	/** Se pide manage_woocommerce y no manage_options: quien administra la tienda no siempre es admin del sitio. */
+	/** Capability requerida para ver cualquier pantalla del plugin. */
 	private const CAPABILITY = 'manage_woocommerce';
 
 	private const MENU_SLUG = 'wss-status';
 
-	/** Cuelga la pantalla de estado del menú de WooCommerce. */
+	/** Registra la pantalla de estado como submenú de WooCommerce. */
 	public function register_menu(): void {
 		add_submenu_page(
 			'woocommerce',
@@ -31,10 +36,10 @@ class Admin {
 		);
 	}
 
-	/** Renderiza la pantalla de estado. */
+	/** Imprime la pantalla de estado. */
 	public function render_status_page(): void {
-		// Repetido a propósito: add_submenu_page() oculta el item del menú, pero no
-		// impide entrar por la URL directa.
+		// Se vuelve a comprobar acá porque add_submenu_page() solo oculta el item del menú:
+		// la URL de la pantalla sigue siendo accesible directamente.
 		if ( ! current_user_can( self::CAPABILITY ) ) {
 			wp_die( esc_html__( 'You do not have permission to view this screen.', 'woonderful-stock-sync-for-woocommerce' ) );
 		}

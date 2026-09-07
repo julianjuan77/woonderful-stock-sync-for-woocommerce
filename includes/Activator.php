@@ -13,10 +13,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-/** Lo que corre una sola vez, al activar el plugin. */
+/** Callback de register_activation_hook: corre al activar el plugin. */
 class Activator {
 
-	/** Crea las tablas. Reactivar no pierde datos: dbDelta es idempotente. */
+	/** Crea las tablas del plugin. Reactivar no borra las filas existentes. */
 	public static function activate(): void {
 		Schema::create_tables();
 	}

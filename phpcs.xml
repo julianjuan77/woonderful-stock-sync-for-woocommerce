@@ -72,6 +72,13 @@
 	     el genérico del array, y ahí sí se escribe. -->
 	<rule ref="Squiz.Commenting.VariableComment.Missing"><severity>0</severity></rule>
 
+	<!-- Exigir un docblock por método produce líneas que repiten el nombre del método
+	     ("Declara los hooks del admin" sobre define_admin_hooks()). El criterio de este
+	     repo es que un comentario diga algo que el código no dice; donde no hay nada que
+	     agregar, no va comentario. El costo asumido es que nada obliga a documentar un
+	     método que sí lo necesitaría. -->
+	<rule ref="Squiz.Commenting.FunctionComment.Missing"><severity>0</severity></rule>
+
 	<!-- Los mensajes de excepción de este plugin van a logs y a quien depura, nunca al
 	     navegador. Escaparlos con esc_html() los ensucia sin proteger nada. -->
 	<rule ref="WordPress.Security.EscapeOutput.ExceptionNotEscaped"><severity>0</severity></rule>

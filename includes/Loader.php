@@ -12,10 +12,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Junta los hooks de todos los componentes y los registra de una sola vez.
+ * Acumula los hooks de todos los componentes y los registra de una sola vez en run().
  *
- * Permite instanciar un componente en un test sin que registre nada en el estado global
- * de WordPress: los hooks se declaran acá, no en los constructores.
+ * Los componentes declaran qué escuchan a través de esta clase en vez de llamar a
+ * add_action() ellos mismos, así instanciarlos no toca el estado global de WordPress.
  */
 class Loader {
 
@@ -33,7 +33,7 @@ class Loader {
 	 */
 	private array $filters = array();
 
-	/** Declara una acción, sin registrarla todavía. */
+	/** Encola una acción. No llama a add_action(): eso pasa en run(). */
 	public function add_action(
 		string $hook,
 		object $component,
@@ -44,7 +44,7 @@ class Loader {
 		$this->actions[] = compact( 'hook', 'component', 'callback', 'priority', 'accepted_args' );
 	}
 
-	/** Declara un filtro, sin registrarlo todavía. */
+	/** Encola un filtro. No llama a add_filter(): eso pasa en run(). */
 	public function add_filter(
 		string $hook,
 		object $component,
@@ -55,7 +55,7 @@ class Loader {
 		$this->filters[] = compact( 'hook', 'component', 'callback', 'priority', 'accepted_args' );
 	}
 
-	/** Registra en WordPress todo lo declarado. */
+	/** Registra en WordPress todos los hooks encolados. */
 	public function run(): void {
 		foreach ( $this->filters as $entry ) {
 			add_filter(

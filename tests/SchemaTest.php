@@ -1,9 +1,9 @@
 <?php
 /**
- * TC-12 y TC-13 — las tablas y sus índices.
+ * Tests de Schema — TC-12 y TC-13 de tests/TEST-CASES.md.
  *
- * Sin el índice único, TC-01 pasaría por casualidad. Este test es el que garantiza que la
- * garantía existe.
+ * Verifican la estructura de las tablas, no su contenido. TC-12 comprueba que el índice
+ * origin_sequence existe y es UNIQUE, que es lo que TC-01 asume para probar idempotencia.
  *
  * @package Woonderful\StockSync
  */
@@ -15,7 +15,8 @@ use Woonderful\StockSync\Db\Schema;
 class SchemaTest extends TestCase {
 
 	/**
-	 * Índices de una tabla, agrupados por nombre.
+	 * Lee los índices de una tabla con SHOW INDEX y los agrupa por nombre de índice, con sus
+	 * columnas en orden.
 	 *
 	 * @return array<string, array{unique: bool, columns: array<int, string>}>
 	 */
@@ -40,7 +41,7 @@ class SchemaTest extends TestCase {
 		return $out;
 	}
 
-	/** TC-12 — las dos tablas existen con sus índices. */
+	/** TC-12 — las dos tablas existen, y wss_movements tiene sus tres índices con las columnas correctas. */
 	public function test_las_tablas_se_crean_con_sus_indices(): void {
 		global $wpdb;
 
@@ -61,7 +62,7 @@ class SchemaTest extends TestCase {
 		$this->assertSame( array( 'sku' ), $this->indices( $product_state )['PRIMARY']['columns'] );
 	}
 
-	/** TC-13 — create_tables() dos veces no rompe ni pierde datos. */
+	/** TC-13 — llamar create_tables() sobre tablas que ya existen no borra sus filas. */
 	public function test_create_tables_es_idempotente(): void {
 		global $wpdb;
 

@@ -11,7 +11,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-/** Las dos tablas del libro. Ver ADR-001 y ARCHITECTURE.md §1. */
+/**
+ * Definición y ciclo de vida de wss_movements y wss_product_state.
+ *
+ * Qué guarda cada columna y por qué: docs/ARCHITECTURE.md §1.
+ */
 class Schema {
 
 	public const VERSION = '1';
@@ -32,7 +36,12 @@ class Schema {
 		return $wpdb->prefix . 'wss_product_state';
 	}
 
-	/** Crea o actualiza las tablas. Idempotente: dbDelta emite solo los ALTER que falten. */
+	/**
+	 * Crea las tablas si no existen, o las alinea con la definición de acá si cambiaron.
+	 *
+	 * Usa dbDelta, que compara contra la tabla real y emite solo los ALTER que falten, así
+	 * que se puede llamar cuantas veces haga falta sin perder datos.
+	 */
 	public static function create_tables(): void {
 		global $wpdb;
 
@@ -43,12 +52,13 @@ class Schema {
 		$product_state   = self::product_state_table();
 
 		/*
-		 * Formato sensible a dbDelta: dos espacios después de PRIMARY KEY, tipos e índices
-		 * en minúscula, una definición por línea. Un desvío hace que dbDelta crea que la
-		 * tabla difiere y emita el mismo ALTER en cada carga.
+		 * El formato de este SQL no es libre: dbDelta lo parsea con expresiones regulares.
+		 * Dos espacios después de PRIMARY KEY, tipos e índices en minúscula, una definición
+		 * por línea, y sin backticks. Cualquier desvío hace que dbDelta no reconozca la
+		 * columna, crea que la tabla difiere y emita el mismo ALTER en cada carga.
 		 *
-		 * `sequence` va sin backticks acá aunque sea palabra clave en MariaDB: dbDelta
-		 * parsea estas definiciones y los backticks lo confunden. En el DML sí se escapa.
+		 * Por eso `sequence` va sin escapar acá, aunque sea palabra reservada en MariaDB.
+		 * En las consultas de MovementRepository sí lleva backticks.
 		 */
 		$sql_movements = "CREATE TABLE $movements (
 	id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -83,7 +93,11 @@ class Schema {
 		update_option( self::VERSION_OPTION, self::VERSION, false );
 	}
 
-	/** Reaplica el esquema si quedó atrás: actualizar un plugin no dispara la activación. */
+	/**
+	 * Reaplica el esquema si la versión guardada no es la del código.
+	 *
+	 * Hace falta porque actualizar un plugin no vuelve a disparar el hook de activación.
+	 */
 	public static function maybe_upgrade(): void {
 		if ( self::installed_version() === self::VERSION ) {
 			return;
@@ -92,12 +106,12 @@ class Schema {
 		self::create_tables();
 	}
 
-	/** Versión del esquema aplicada en esta instalación. */
+	/** Versión del esquema aplicada en esta instalación, o '0' si nunca se creó. */
 	public static function installed_version(): string {
 		return (string) get_option( self::VERSION_OPTION, '0' );
 	}
 
-	/** Borra las tablas. Solo la llama uninstall.php: desactivar no debe perder datos. */
+	/** Borra las dos tablas y la opción de versión. La llama uninstall.php, no la desactivación. */
 	public static function drop_tables(): void {
 		global $wpdb;
 

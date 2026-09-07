@@ -11,12 +11,16 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-/** Punto de entrada. Instanciarla no toca WordPress; los hooks se registran en run(). */
+/**
+ * Arma los componentes del plugin y declara sus hooks.
+ *
+ * El constructor no registra nada en WordPress: los hooks quedan encolados en el Loader y
+ * se aplican recién al llamar run().
+ */
 class Plugin {
 
 	private Loader $loader;
 
-	/** Arma los componentes y declara sus hooks. No registra nada. */
 	public function __construct() {
 		$this->loader = new Loader();
 
@@ -24,23 +28,26 @@ class Plugin {
 		$this->define_admin_hooks();
 	}
 
-	/** Declara los hooks de traducciones. */
 	private function define_i18n_hooks(): void {
 		$this->loader->add_action( 'init', $this, 'load_textdomain' );
 	}
 
-	/** Declara los hooks del admin. */
 	private function define_admin_hooks(): void {
 		$admin = new Admin();
 
 		$this->loader->add_action( 'admin_menu', $admin, 'register_menu' );
 
-		// En admin_init y no en cada request: una actualización del plugin sin reactivarlo
-		// no dispara el hook de activación, y el esquema quedaría atrasado.
+		// En admin_init y no en un hook del frontend: la comprobación consulta una opción
+		// en cada request y solo hace falta cuando alguien entra al admin.
 		$this->loader->add_action( 'admin_init', $this, 'maybe_upgrade_schema' );
 	}
 
-	/** Carga las traducciones. En init: antes, WordPress 6.7+ avisa. */
+	/**
+	 * Carga el archivo de traducciones del plugin.
+	 *
+	 * Colgado de init y no antes: desde WordPress 6.7, llamar a load_plugin_textdomain()
+	 * más temprano dispara un aviso de _doing_it_wrong().
+	 */
 	public function load_textdomain(): void {
 		load_plugin_textdomain(
 			'woonderful-stock-sync-for-woocommerce',
@@ -49,12 +56,12 @@ class Plugin {
 		);
 	}
 
-	/** Pasa dbDelta si el esquema guardado quedó atrás. */
+	/** Actualiza las tablas si la versión del esquema guardada quedó atrás. */
 	public function maybe_upgrade_schema(): void {
 		Db\Schema::maybe_upgrade();
 	}
 
-	/** Registra en WordPress todo lo declarado. */
+	/** Registra en WordPress los hooks de todos los componentes. */
 	public function run(): void {
 		$this->loader->run();
 	}
