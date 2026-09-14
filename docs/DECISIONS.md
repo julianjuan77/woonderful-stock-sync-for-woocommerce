@@ -92,8 +92,23 @@ Scheduler y el del movimiento en el libro: dos verdades sobre lo mismo, y la rec
 lee el libro. Además una ráfaga de importación (UC-04) crearía miles de acciones para algo que
 el lote resuelve en una.
 
-**Por qué no un cron propio.** Habría que reimplementar el claim con candado, el solapamiento
-de pasadas y el disparo por loopback. Action Scheduler ya resolvió eso y está instalado igual.
+**Por qué no un cron propio.** Action Scheduler aporta el disparo por loopback, la
+recurrencia y el no solapamiento de su propia acción, que es trabajo real y ya está instalado.
+No aporta más que eso.
+
+**Lo que Action Scheduler no resuelve, y es código propio: el claim de las filas.** Que no
+corran dos instancias de la misma acción no equivale a marcar atómicamente qué movimientos
+tomó un worker, y AS puede tener runners concurrentes en requests distintos. Sin claim, dos
+pasadas envían el mismo lote. El emisor no rompe nada por eso —el receptor deduplica por
+identificador (§3)— pero es trabajo duplicado y un ACK que llega dos veces sobre una fila que
+otro worker ya está moviendo.
+
+El claim va en el libro y es un `UPDATE` condicional que pasa las filas de `pendiente` a
+`en-vuelo` marcando quién las tomó y cuándo; sólo las filas que ese `UPDATE` efectivamente
+cambió se envían. Un worker que muere a mitad deja filas en `en-vuelo` para siempre, así que
+el estado **vence**: pasado un plazo vuelven a `pendiente` y otra pasada las toma. Es la misma
+lógica del candado de UC-06 y por el mismo motivo: sin vencimiento, el primer timeout de PHP
+apaga la entrega y nadie se entera.
 
 **Reintentos finitos, como exige UC-01.** El envío reintenta con backoff un número finito de
 veces; agotados, el movimiento pasa a **abandonado** y queda registrado en el log. No se
@@ -111,10 +126,15 @@ obliga a toda consulta a preguntar antes de quién es el movimiento. Se separan:
 | **Entrega** | `pendiente` · `en-vuelo` · `confirmado` · `abandonado` | Sólo a los movimientos **propios**. Un movimiento recibido no tiene entrega que hacer. |
 | **Aplicación** | `aplicado` · `retenido` | A todo movimiento que deba tocar el stock local. |
 
-Con esto, el caso que §3 dejó abierto —el movimiento que llega para un par suspendido— deja
-de ser especial: es **`confirmado` + `retenido`**, y se lee solo. El emisor recibió su ACK
-porque cumplió; el receptor lo guardó durablemente y lo aplicará cuando el par se restablezca
-(UC-03). Ninguna de las dos cosas contradice a la otra.
+**Los dos ejes no conviven en la misma fila: conviven en la misma malla.** Un movimiento
+existe como dos filas, una en cada libro, y cada una usa el eje que le toca. La del emisor
+lleva estado de entrega y ninguno de aplicación; la del receptor, al revés.
+
+Con eso, el caso que §3 dejó abierto —el movimiento que llega para un par suspendido— deja de
+ser especial: queda **`confirmado` en el libro del emisor y `retenido` en el del receptor**.
+El emisor recibió su ACK porque cumplió y deja de reintentar; el receptor lo guardó
+durablemente y lo aplicará cuando el par se restablezca (UC-03). Las dos filas dicen la
+verdad sobre lo que le consta a su tienda, que es todo lo que cada una puede saber.
 
 Consultas que esto deja triviales, y que son las que el diseño realmente hace:
 
@@ -137,10 +157,24 @@ código de un solo uso:
 
 | Endpoint | Quién lo llama | Para qué |
 | --- | --- | --- |
-| `POST /pair` | La secundaria, una vez | Canjea el código de emparejamiento. Devuelve identidad de la maestra y secreto compartido. |
+| `POST /pair` | La secundaria, una vez | Canjea el código de emparejamiento. Ver abajo. |
 | `POST /movements` | Cualquiera de las dos | Entrega un **lote** de movimientos. |
 | `POST /reconcile/digest` | Quien lanza la pasada | Fase 1 de UC-06: intercambia los límites acordados y qué identificadores conoce cada una dentro de ellos. |
 | `GET /health` | Cualquiera | Verifica canal, firma y versión del plugin del otro lado. Es lo que consulta la pantalla de ajustes. |
+
+**El canje de emparejamiento, en detalle.** La secundaria llama a `POST /pair` de la maestra
+con el código, **su propia URL de REST y su identificador de tienda**. Antes de responder
+nada, la maestra llama a `GET /health` de esa URL firmando con el **código de emparejamiento**
+—lo único que las dos conocen todavía— y sólo sigue si responde y declara el mismo
+identificador que vino en el request. Recién entonces genera el secreto compartido, lo guarda
+junto a la URL e identidad de la secundaria, invalida el código y lo devuelve en la respuesta
+al canje.
+
+Sin ese callback, la maestra guardaría una URL que nadie comprobó: un error de tipeo o un
+sitio detrás de un firewall que no acepta entrantes (§5) recién se descubriría con la primera
+venta. Y de paso prueba el canal en la dirección maestra → secundaria, que si no quedaría sin
+probar hasta ese mismo momento. La secundaria acepta un `GET /health` firmado con el código
+**sólo mientras tiene un canje en curso**; fuera de esa ventana, el código no autentica nada.
 
 **El ACK es por movimiento, no por lote.** La respuesta de `POST /movements` devuelve una
 entrada por cada identificador recibido. Un lote de 50 donde uno falla confirma los otros 49;
@@ -170,6 +204,13 @@ anti-eco (ADR del detector).
   reintento en el eje de entrega.
 - La **identidad de tienda** tiene que quedar fijada en el emparejamiento: el identificador
   que firma es el mismo que numera los movimientos.
+- La **retención** del libro se apoya en el eje de entrega: una fila propia no se purga
+  mientras no esté `confirmada`, porque purgarla borra la única copia que la fase 1 de UC-06
+  podía reentregar (§3). Eso choca de frente con los 90 días de §5 cuando una tienda estuvo
+  caída más tiempo, y la precedencia hay que declararla en el ADR del esquema: **90 días es el
+  mínimo, no el máximo**, y lo no confirmado se conserva hasta que se confirme. Queda abierto
+  ahí qué se hace con un libro que crece sin techo porque la otra tienda no vuelve nunca: es
+  una condición que hay que avisar (UC-08), no purgar en silencio.
 - Las **opciones** guardan por cada tienda remota: URL, identificador, secreto compartido y
   fecha del emparejamiento. El secreto es material sensible y `uninstall.php` tiene que
   borrarlo.
