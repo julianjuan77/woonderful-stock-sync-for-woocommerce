@@ -35,7 +35,7 @@ aprueba en bloque.
 
 Estado: Propuesta
 Temas: rest-api, api-externa, db-schema, opciones
-Cubre: includes/Transport/*.php, includes/Rest/*.php
+Cubre: includes/Transport/_.php, includes/Rest/_.php
 
 **Decisión:** las dos tiendas se hablan por una **API REST propia bajo el namespace
 `wss/v1`**, autenticada con **HMAC-SHA256 y un secreto compartido por par de tiendas**. Lo
@@ -51,9 +51,10 @@ request tiene que ser la misma entidad que numera los movimientos.
 
 **Emparejamiento, una sola vez.** La maestra genera un **código de emparejamiento** de un
 solo uso y con vencimiento corto, que el dueño copia a la pantalla de ajustes de la
-secundaria. La secundaria lo canjea contra la maestra en un único request, y en esa respuesta
-las dos quedan con: la URL de la otra, su identificador de tienda, y un **secreto compartido
-de 256 bits** generado por la maestra. El código de emparejamiento se invalida al canjearse.
+secundaria. La secundaria lo canjea contra la maestra en un único request. Cuando ese request termina,
+cada tienda guardó tres cosas de la otra: su **URL de REST**, su **identificador de tienda** y
+un **secreto compartido de 256 bits** que genera la maestra. El código se invalida al
+canjearse.
 
 **Firma, en cada request.** Cada llamada lleva las cabeceras `X-WSS-Store` (identificador de
 la tienda emisora), `X-WSS-Timestamp`, `X-WSS-Nonce` y `X-WSS-Signature`, donde la firma es
@@ -78,14 +79,18 @@ coincide con la del diseño, y porque §5 ya exige HTTPS, así que no carga un r
 
 ### 2. Cola — el libro es la cola, Action Scheduler es el disparador
 
-§3 lo fija: **el libro es la garantía, la cola es el camino rápido**. Se toma al pie de la
-letra: no hay una segunda tabla de cola. Cada movimiento propio lleva en el libro su estado
-de entrega, su contador de intentos y su próximo reintento, y eso es lo único que dice qué
-falta entregar.
+**El libro** es la tabla donde cada tienda registra los movimientos que genera y los que
+recibe. §3 fija su papel: **el libro es la garantía, la cola es el camino rápido**.
 
-Action Scheduler —presente siempre, porque §5 exige WooCommerce 8.2+, y sin dependencia nueva
-que declarar— agenda una acción recurrente **"vaciar pendientes hacia la otra tienda"** que
-toma un lote de movimientos pendientes y los envía. No se agenda una acción por movimiento.
+Se toma al pie de la letra: **no hay una segunda tabla de cola**. Cada movimiento propio lleva
+en el libro su estado de entrega, su contador de intentos y su próximo reintento. Eso es lo
+único que dice qué falta entregar.
+
+**Action Scheduler sólo dispara.** Agenda una sola acción recurrente —"vaciar pendientes
+hacia la otra tienda"— que en cada pasada toma del libro un lote de movimientos pendientes y
+los envía. No se agenda una acción por movimiento.
+
+Es gratis en dependencias: §5 exige WooCommerce 8.2+, que ya lo trae.
 
 **Por qué no una acción por movimiento.** El estado de entrega quedaría en la tabla de Action
 Scheduler y el del movimiento en el libro: dos verdades sobre lo mismo, y la reconciliación
@@ -96,12 +101,16 @@ el lote resuelve en una.
 recurrencia y el no solapamiento de su propia acción, que es trabajo real y ya está instalado.
 No aporta más que eso.
 
-**Lo que Action Scheduler no resuelve, y es código propio: el claim de las filas.** Que no
-corran dos instancias de la misma acción no equivale a marcar atómicamente qué movimientos
-tomó un worker, y AS puede tener runners concurrentes en requests distintos. Sin claim, dos
-pasadas envían el mismo lote. El emisor no rompe nada por eso —el receptor deduplica por
-identificador (§3)— pero es trabajo duplicado y un ACK que llega dos veces sobre una fila que
-otro worker ya está moviendo.
+**Claim** es reservar filas antes de trabajarlas: marcarlas como tomadas por un worker, de
+forma que otra pasada ya no las vea disponibles.
+
+**Lo que Action Scheduler no resuelve, y es código propio: el claim de las filas.** AS
+garantiza que no corran dos instancias de la misma acción a la vez. Eso no es lo mismo que
+marcar qué filas tomó cada worker, y AS puede tener runners corriendo en requests distintos.
+
+Sin claim, dos pasadas leen las mismas filas pendientes y envían el mismo lote. No se rompe
+nada —el receptor deduplica por identificador (§3)— pero es trabajo duplicado, y el ACK llega
+dos veces sobre una fila que el otro worker ya está moviendo.
 
 El claim va en el libro y es un `UPDATE` condicional que pasa las filas de `pendiente` a
 `en-vuelo` marcando quién las tomó y cuándo; sólo las filas que ese `UPDATE` efectivamente
@@ -121,14 +130,14 @@ contrato.
 Un movimiento propio y uno recibido no responden la misma pregunta. Mezclarlos en un campo
 obliga a toda consulta a preguntar antes de quién es el movimiento. Se separan:
 
-| Eje | Valores | A qué filas aplica |
-| --- | --- | --- |
-| **Entrega** | `pendiente` · `en-vuelo` · `confirmado` · `abandonado` | Sólo a los movimientos **propios**. Un movimiento recibido no tiene entrega que hacer. |
-| **Aplicación** | `aplicado` · `retenido` | A todo movimiento que deba tocar el stock local. |
+| Eje            | Valores                                                | A qué filas aplica                                                                     |
+| -------------- | ------------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| **Entrega**    | `pendiente` · `en-vuelo` · `confirmado` · `abandonado` | Sólo a los movimientos **propios**. Un movimiento recibido no tiene entrega que hacer. |
+| **Aplicación** | `aplicado` · `retenido`                                | A todo movimiento que deba tocar el stock local.                                       |
 
-**Los dos ejes no conviven en la misma fila: conviven en la misma malla.** Un movimiento
-existe como dos filas, una en cada libro, y cada una usa el eje que le toca. La del emisor
-lleva estado de entrega y ninguno de aplicación; la del receptor, al revés.
+**Ninguna fila lleva los dos ejes.** Un movimiento existe como **dos filas**, una en el libro
+de cada tienda, y cada una usa el eje que le toca: la del emisor lleva estado de entrega y
+ninguno de aplicación; la del receptor, al revés.
 
 Con eso, el caso que §3 dejó abierto —el movimiento que llega para un par suspendido— deja de
 ser especial: queda **`confirmado` en el libro del emisor y `retenido` en el del receptor**.
@@ -143,24 +152,18 @@ Consultas que esto deja triviales, y que son las que el diseño realmente hace:
 - Qué suma el total esperado en la fase 2 de UC-06 → eje de aplicación, `aplicado`.
 - Qué queda fuera de la fase 2 → un par con algún `retenido`.
 
-**Por qué no un quinto valor `held` en un solo campo.** `held` y `pendiente` significarían
-cosas opuestas según de quién sea el movimiento, y eso se paga en cada consulta de la
-reconciliación.
-
-**Por qué no redefinir `rejected` como reintentable.** Se pierde la forma de expresar un
-rechazo definitivo, y el nombre pasa a mentir sobre lo que guarda.
 
 ### 4. Superficie REST — `wss/v1`
 
 Cuatro endpoints, todos firmados salvo el canje de emparejamiento, que se autentica con el
 código de un solo uso:
 
-| Endpoint | Quién lo llama | Para qué |
-| --- | --- | --- |
-| `POST /pair` | La secundaria, una vez | Canjea el código de emparejamiento. Ver abajo. |
-| `POST /movements` | Cualquiera de las dos | Entrega un **lote** de movimientos. |
-| `POST /reconcile/digest` | Quien lanza la pasada | Fase 1 de UC-06: intercambia los límites acordados y qué identificadores conoce cada una dentro de ellos. |
-| `GET /health` | Cualquiera | Verifica canal, firma y versión del plugin del otro lado. Es lo que consulta la pantalla de ajustes. |
+| Endpoint                 | Quién lo llama         | Para qué                                                                                                  |
+| ------------------------ | ---------------------- | --------------------------------------------------------------------------------------------------------- |
+| `POST /pair`             | La secundaria, una vez | Canjea el código de emparejamiento. Ver abajo.                                                            |
+| `POST /movements`        | Cualquiera de las dos  | Entrega un **lote** de movimientos.                                                                       |
+| `POST /reconcile/digest` | Quien lanza la pasada  | Fase 1 de UC-06: intercambia los límites acordados y qué identificadores conoce cada una dentro de ellos. |
+| `GET /health`            | Cualquiera             | Verifica canal, firma y versión del plugin del otro lado. Es lo que consulta la pantalla de ajustes.      |
 
 **El canje de emparejamiento, en detalle.** La secundaria llama a `POST /pair` de la maestra
 con el código, **su propia URL de REST y su identificador de tienda**. Antes de responder
@@ -205,12 +208,16 @@ anti-eco (ADR del detector).
 - La **identidad de tienda** tiene que quedar fijada en el emparejamiento: el identificador
   que firma es el mismo que numera los movimientos.
 - La **retención** del libro se apoya en el eje de entrega: una fila propia no se purga
-  mientras no esté `confirmada`, porque purgarla borra la única copia que la fase 1 de UC-06
-  podía reentregar (§3). Eso choca de frente con los 90 días de §5 cuando una tienda estuvo
-  caída más tiempo, y la precedencia hay que declararla en el ADR del esquema: **90 días es el
-  mínimo, no el máximo**, y lo no confirmado se conserva hasta que se confirme. Queda abierto
-  ahí qué se hace con un libro que crece sin techo porque la otra tienda no vuelve nunca: es
-  una condición que hay que avisar (UC-08), no purgar en silencio.
+  mientras no esté `confirmado`. Purgarla borraría la única copia que la fase 1 de UC-06
+  podía reentregar (§3).
+
+  Eso choca con los 90 días de §5 en cuanto una tienda estuvo caída más tiempo. La precedencia
+  la declara el ADR del esquema: **90 días es el mínimo, no el máximo**, y lo no confirmado se
+  conserva hasta que se confirme.
+
+  Ahí queda abierto el caso del libro que crece sin techo porque la otra tienda no vuelve
+  nunca. Es una condición que hay que avisar (UC-08), no purgar en silencio.
+
 - Las **opciones** guardan por cada tienda remota: URL, identificador, secreto compartido y
   fecha del emparejamiento. El secreto es material sensible y `uninstall.php` tiene que
   borrarlo.
