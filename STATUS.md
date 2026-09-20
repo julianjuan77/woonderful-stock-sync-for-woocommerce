@@ -15,7 +15,7 @@ depósito. Pool único, sin reparto: lo que se vende en una descuenta en las dos
 | Área                        | Estado |
 |-----------------------------|--------|
 | SPEC funcional              | ✅ 100% (8 casos de uso, §1-§6) |
-| ADRs                        | 🟡 20% (1 de ~6 aprobado; ADR-002 y ADR-003 en propuesta) |
+| ADRs                        | 🟡 50% (3 de ~6 aprobados) |
 | ARCHITECTURE.md             | ⬜ 0% |
 | Scaffold del plugin         | ⬜ 0% — no hay una sola línea de código todavía |
 | Tests                       | ⬜ 0% |
@@ -35,6 +35,12 @@ _(nada de código: el plugin está en fase de diseño)_
   API REST propia `wss/v1` firmada con HMAC-SHA256 y secreto por par; el libro de
   movimientos **es** la cola y Action Scheduler sólo dispara; dos ejes de estado
   independientes (entrega y aplicación); qué campos viajan en cada movimiento.
+- **ADR-002 Identidad de tienda y numeración · Aprobada 2026-09-20.** Identificador opaco de
+  128 bits generado al instalar + etiqueta editable; la secuencia es el `AUTO_INCREMENT` del
+  libro, con huecos, y nada puede deducir nada de un hueco; tienda y secuencia son dos campos
+  separados, nunca el string `A-77`.
+- **ADR-003 Desinstalación y borrado de datos · Aprobada 2026-09-20.** Casilla "borrar todos
+  los datos al desinstalar" desmarcada por defecto; el secreto compartido se borra siempre.
 
 ---
 
@@ -46,16 +52,8 @@ _(nada)_
 
 ## 📋 Backlog — en orden
 
-Los dos primeros se traban entre sí; los otros dos son independientes.
-
-- [ ] **ADR-002 — Identidad de tienda.** ✍️ Escrito, `Estado: Propuesta`, esperando la
-      lectura de Julián. Identificador opaco de 128 bits generado al instalar + etiqueta
-      editable; la secuencia es el `AUTO_INCREMENT` del libro (con huecos, y nada puede
-      deducir nada de un hueco); tienda y secuencia son dos campos separados, nunca el
-      string `A-77`.
-- [ ] **ADR-003 — Desinstalación y borrado de datos.** ✍️ Escrito, `Estado: Propuesta`.
-      Casilla "borrar todos los datos al desinstalar", desmarcada por defecto; el secreto
-      compartido se borra siempre.
+El esquema es el que habilita escribir código; el detector y la vinculación son
+independientes entre sí.
 
 - [ ] **ADR-004 — Esquema del libro.** Las tablas, con los dos ejes de estado, los campos de
       entrega (`creado_en`, `primer_intento`, `intentos`, `ultimo_error`, `proximo_intento`,
@@ -75,6 +73,12 @@ Los dos primeros se traban entre sí; los otros dos son independientes.
 Las decisiones vivas están en `docs/DECISIONS.md`, que es la fuente. Acá sólo el resumen
 de una línea por ADR aprobado.
 
+- **ADR-002 — Identidad de tienda** (aprobada 2026-09-20). El identificador es opaco porque
+  cambiar de identidad invalida el libro, y todo lo legible por una persona es algo que una
+  persona va a querer corregir.
+- **ADR-003 — Desinstalación** (aprobada 2026-09-20). Desmarcada por defecto porque el libro
+  es el historial de stock del negocio; el secreto es la excepción porque re-emparejar es
+  barato y una credencial viva en un plugin desinstalado no la vigila nadie.
 - **ADR-001 — Transporte entre tiendas** (aprobada 2026-09-20). Las dos tiendas se hablan
   por `wss/v1` firmado con HMAC y secreto compartido, porque la identidad que hay que
   autenticar es la tienda y no una persona. El libro de movimientos es la cola: no hay
