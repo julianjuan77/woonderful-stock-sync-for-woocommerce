@@ -32,7 +32,7 @@ aprueba en bloque.
 ---
 ## ADR-001 — Transporte entre tiendas
 
-Estado: Propuesta
+Estado: Aprobada · 2026-09-20 · aprobada por Julián
 Temas: rest-api, api-externa, db-schema, opciones
 Cubre: includes/Transport/_.php, includes/Rest/_.php
 
