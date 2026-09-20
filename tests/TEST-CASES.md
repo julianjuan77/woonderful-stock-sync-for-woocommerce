@@ -42,13 +42,17 @@ SCH-04    SCHema (el esquema)     → tests/test-installer.php
 ID-05     IDentidad               → tests/test-store.php
 ```
 
-Cada test abre su docblock con el ID, así que se encuentra buscándolo:
+Cada test lleva su ID en el docblock, así que se encuentra buscándolo:
 
 ```bash
 $ grep -rn "SCH-04" .
-tests/TEST-CASES.md:73:  | `SCH-04` | Dos movimientos propios con `origin_seq` en NULL |…
-tests/test-installer.php:97:  * SCH-04 — Dos movimientos propios conviven con la secuencia todavía en NULL.
+tests/TEST-CASES.md:81:      | `SCH-04` | Dos movimientos propios con `origin_seq` en NULL |…
+tests/test-installer.php:102:	 * SCH-04
 ```
+
+Los que no necesitan explicación llevan el ID y la frase en la misma línea
+(`SCH-01 — install() sobre una base limpia crea las tres tablas.`); los que sí, la
+explicación arriba y el ID al final del docblock.
 
 Un ID en este archivo que no aparezca en ningún test es un caso sin escribir.
 
