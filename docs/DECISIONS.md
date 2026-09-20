@@ -705,7 +705,7 @@ está en el SPEC: comparar A contra B daría falsos positivos por movimientos en
 
 ## ADR-002 — Identidad de tienda y numeración de movimientos
 
-Estado: Propuesta
+Estado: Aprobada · 2026-09-20 · aprobada por Julián
 Temas: db-schema, opciones, rest-api
 Cubre: includes/Identity/_.php
 
@@ -855,7 +855,7 @@ escriben los dos.
 
 ## ADR-003 — Desinstalación y borrado de datos
 
-Estado: Propuesta
+Estado: Aprobada · 2026-09-20 · aprobada por Julián
 Temas: uninstall, opciones
 Cubre: uninstall.php
 
