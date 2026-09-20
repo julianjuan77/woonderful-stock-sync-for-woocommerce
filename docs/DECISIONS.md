@@ -356,6 +356,55 @@ suspendido— deja de ser especial:
 Las dos filas dicen la verdad sobre lo que le consta a su tienda, que es todo lo que cada una
 puede saber.
 
+#### El recorrido completo, de los dos lados
+
+```
+VENTA DE 1 UNIDAD EN LA TIENDA A
+
+  Tienda A (emisor)                          Tienda B (receptor)
+  ─────────────────                          ───────────────────
+  Stock 10 → 9   (lo hace WooCommerce)
+  El detector lo ve y escribe A-77:
+      entrega:    pending
+      aplicación: —
+         │
+         │  pasada, paso 2: claim
+         ▼
+      entrega:    in_flight
+         │
+         │  POST /movements  ───────────▶   escribe A-77 en su libro:
+         │                                      entrega:    —
+         │                                      aplicación: applied
+         │                                  Stock 10 → 9
+         │                                  (con el guard anti-eco, para que
+         │                                   su detector no emita nada)
+         │      ◀───────────  ACK
+         ▼
+      entrega:    confirmed                 Las dos quedan en 9
+```
+
+**Qué escribe B según con qué se encuentra:**
+
+| Situación en B al llegar A-77           | Aplicación en B      | Stock de B  | Qué responde |
+| --------------------------------------- | -------------------- | ----------- | ------------ |
+| Todo normal                             | `applied`            | −1          | confirmado   |
+| Ya lo tenía (es un reenvío)             | queda como estaba    | sin cambios | confirmado   |
+| El par está suspendido (UC-03)          | `held`               | sin cambios | confirmado   |
+| Vino de una generación vieja            | `discarded`          | sin cambios | confirmado   |
+
+**Y los caminos que puede tomar la fila de A:**
+
+| Qué pasó con el envío                        | Entrega en A                      | Cuándo         |
+| -------------------------------------------- | --------------------------------- | -------------- |
+| Llegó el ACK                                 | `confirmed`                       | el mismo request |
+| Falló: timeout, 500, o error de esa fila     | vuelve a `pending` + backoff      | enseguida      |
+| El worker murió sin anotar nada              | sigue `in_flight` → `pending`     | a los 5 min    |
+| Pasaron 6 h desde el primer intento          | `abandoned`                       | —              |
+| La reconciliación lo reparó (UC-06)          | `pending`, con el reloj en cero   | esa madrugada  |
+
+Una venta en B hace exactamente lo mismo al revés: **la maestra no interviene en los
+movimientos** (§3 del SPEC), así que los dos lados son simétricos.
+
 #### `discarded`: lo que no se va a aplicar nunca
 
 §3 del SPEC fija que cada vínculo tiene una **generación**, y que el receptor sólo aplica los
