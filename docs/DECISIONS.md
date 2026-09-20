@@ -30,6 +30,70 @@ el canal. `ADR-000` queda reservado para el scaffold, que es convención del ent
 aprueba en bloque.
 
 ---
+---
+
+## ADR-000 — Scaffold
+
+Estado: Propuesta
+Temas: scaffold, dependencias
+Cubre: woonderful-stock-sync-for-woocommerce.php, composer.json, phpcs.xml, includes/Plugin.php
+
+Convención del entorno, se aprueba en bloque. Va numerado 000 aunque se haya escrito último:
+el orden de trabajo arrancó por el transporte porque era lo que condicionaba al resto.
+
+### La estructura
+
+```
+woonderful-stock-sync-for-woocommerce.php   cabecera, constantes, autoload, hooks de arranque
+uninstall.php                               ADR-003
+composer.json                               PSR-4 → Woonderful\StockSync\ = includes/
+phpcs.xml                                   WordPress-Core/Docs/Extra + PHPCompatibilityWP
+includes/                                   Schema · Identity · Ledger · Transport · Reconciliation
+admin/                                      sólo con is_admin()
+tests/
+```
+
+### Lo que el archivo principal hace, y nada más
+
+```
+define WSS_PLUGIN_FILE, WSS_PLUGIN_DIR
+require vendor/autoload.php   (si falta → aviso en el admin y no arranca)
+register_activation_hook → Plugin::activate()
+plugins_loaded            → Plugin::boot()
+before_woocommerce_init   → declarar compatibilidad con HPOS
+```
+
+**El autoload es el de Composer, sin plan B.** El zip de distribución trae `vendor/`; un
+checkout de git no, y en ese caso el plugin avisa en vez de morirse con un fatal. Escribir un
+autoloader propio de respaldo sería mantener dos mecanismos para lo mismo.
+
+**HPOS se declara en `before_woocommerce_init`** porque WooCommerce exige que la declaración
+llegue antes de su propio init: hacerlo en `plugins_loaded` a secas llega tarde según el orden
+de carga.
+
+**La activación genera la identidad antes de crear las tablas** (ADR-002): es lo primero que
+el plugin escribe.
+
+### Requisitos
+
+Los declara la cabecera y los verifica WordPress, no el plugin:
+
+```
+Requires at least: 6.5      Requires PHP: 8.1      Requires Plugins: woocommerce
+```
+
+`Requires Plugins` existe desde WordPress 6.5, que es justo el mínimo: WordPress impide
+activar el plugin sin WooCommerce y no hace falta escribir esa verificación. El `boot()` la
+repite igual, porque WooCommerce puede desactivarse después.
+
+### Consecuencias
+
+| ADR          | Qué le queda                                                                    |
+| ------------ | --------------------------------------------------------------------------------- |
+| **Todos**    | El `Cubre:` de cada ADR es un path dentro de `includes/`, con el namespace que le corresponde |
+
+---
+
 ## ADR-001 — Transporte entre tiendas
 
 Estado: Aprobada · 2026-09-20 · aprobada por Julián
