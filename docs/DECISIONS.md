@@ -937,7 +937,7 @@ purgar). Va al ADR del esquema.
 
 ## ADR-004 — Esquema de la base de datos
 
-Estado: Propuesta
+Estado: Aprobada · 2026-09-20 · aprobada por Julián
 Temas: db-schema
 Cubre: includes/Ledger/_.php, includes/Schema/_.php
 
@@ -1161,6 +1161,19 @@ activación y en `plugins_loaded` si la guardada es menor que la del código.
 `dbDelta` es quisquilloso y conviene tenerlo presente al escribir el SQL: dos espacios después
 de `PRIMARY KEY`, los nombres de índice entre paréntesis, todo en minúsculas salvo los tipos.
 El `{charset_collate}` sale de `$wpdb->get_charset_collate()`.
+
+**La activación verifica el motor.** `dbDelta` crea las tablas con `ENGINE=InnoDB`, pero **no
+convierte una tabla que ya existe con otro motor**. Si el motor de alguna de las tres no es
+InnoDB, el plugin **no sincroniza y avisa**, en vez de hacerlo sin transacciones:
+
+```
+Tabla en MyISAM  →  START TRANSACTION se ignora EN SILENCIO
+                    El código se ve idéntico y el bug aparece sólo cuando algo se corta
+```
+
+Es un caso raro —InnoDB es el default de MySQL desde la 5.5— y por eso mismo la verificación
+es de una línea y el aviso es suficiente: no hay que escribir una migración de motor para algo
+que casi nadie va a tener.
 
 ---
 

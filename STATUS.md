@@ -15,7 +15,7 @@ depósito. Pool único, sin reparto: lo que se vende en una descuenta en las dos
 | Área                        | Estado |
 |-----------------------------|--------|
 | SPEC funcional              | ✅ 100% (8 casos de uso, §1-§6) |
-| ADRs                        | 🟡 50% (3 de ~6 aprobados; ADR-004 en propuesta) |
+| ADRs                        | 🟡 67% (4 de ~6 aprobados) |
 | ARCHITECTURE.md             | 🟡 70% (contrato, módulos, seguridad y convenciones de código) |
 | Scaffold del plugin         | ⬜ 0% — no hay una sola línea de código todavía |
 | Tests                       | ⬜ 0% |
@@ -41,6 +41,8 @@ _(nada de código: el plugin está en fase de diseño)_
   separados, nunca el string `A-77`.
 - **ADR-003 Desinstalación y borrado de datos · Aprobada 2026-09-20.** Casilla "borrar todos
   los datos al desinstalar" desmarcada por defecto; el secreto compartido se borra siempre.
+- **ADR-004 Esquema de la base de datos · Aprobada 2026-09-20.** Tres tablas InnoDB, tres
+  índices en el libro, y la retención con sus tres reglas duras.
 
 ---
 
@@ -55,11 +57,6 @@ _(nada)_
 El esquema es el que habilita escribir código; el detector y la vinculación son
 independientes entre sí.
 
-- [ ] **ADR-004 — Esquema de la base de datos.** ✍️ Escrito, `Estado: Propuesta`. Tres
-      tablas InnoDB, tres índices en el libro, y la retención con sus tres reglas duras
-      (sólo se purga lo terminado, el stock base absorbe lo purgado, y cada tienda declara
-      hasta dónde purgó para que la reconciliación no re-entregue lo borrado).
-
 ---
 
 ## Decisiones de arquitectura
@@ -73,6 +70,9 @@ de una línea por ADR aprobado.
 - **ADR-003 — Desinstalación** (aprobada 2026-09-20). Desmarcada por defecto porque el libro
   es el historial de stock del negocio; el secreto es la excepción porque re-emparejar es
   barato y una credencial viva en un plugin desinstalado no la vigila nadie.
+- **ADR-004 — Esquema** (aprobada 2026-09-20). Los índices salen de las consultas que el
+  diseño hace, no de las columnas que existen: el cuarto candidato, el de la purga, se
+  rechaza porque costaría en cada venta para ahorrar un escaneo por noche.
 - **ADR-001 — Transporte entre tiendas** (aprobada 2026-09-20). Las dos tiendas se hablan
   por `wss/v1` firmado con HMAC y secreto compartido, porque la identidad que hay que
   autenticar es la tienda y no una persona. El libro de movimientos es la cola: no hay
