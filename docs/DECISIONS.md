@@ -693,3 +693,152 @@ está en el SPEC: comparar A contra B daría falsos positivos por movimientos en
 | **Identidad**      | El identificador que firma tiene que ser el mismo que numera los movimientos, y queda fijado en el emparejamiento |
 | **Retención**      | Una fila propia no se purga hasta que se confirme. Queda abierto el libro que crece sin techo porque la otra tienda no vuelve nunca: es una condición que hay que avisar por email (UC-08, el aviso de lo que no está sincronizando), no purgar en silencio |
 | **Opciones**       | El tamaño de lote (tope 200), la curva de backoff, las 6 horas del techo y los 5 minutos del claim. Por cada tienda remota: URL, identificador, secreto y fecha del emparejamiento. Del lado propio, **el hash de la URL del sitio al emparejar**, que es lo que detecta el clon: en claro lo reescribiría el `search-replace` de cualquier restore. El secreto es material sensible: `uninstall.php` tiene que borrarlo |
+
+
+---
+
+## ADR-002 — Identidad de tienda y numeración de movimientos
+
+Estado: Propuesta
+Temas: db-schema, opciones, rest-api
+Cubre: includes/Identity/_.php
+
+**La decisión, en tres líneas:**
+
+1. Cada tienda tiene un **identificador opaco de 128 bits**, generado al instalar, que no
+   cambia nunca. Para las pantallas y el log lleva además una **etiqueta editable**.
+2. La **secuencia** de un movimiento propio es el `AUTO_INCREMENT` de su fila en el libro.
+   Tiene huecos, y eso es normal.
+3. Tienda y secuencia viajan y se guardan **como dos campos separados**, nunca como un string
+   `A-77`: eso es sólo la forma de mostrarlo.
+
+ADR-001 ya fijó que **el identificador que firma un request es el mismo que numera los
+movimientos**. Este ADR dice qué es ese identificador.
+
+---
+
+### 1. El identificador de tienda
+
+```
+Se genera al activar el plugin, una sola vez:
+   wss_store_id  = bin2hex( random_bytes(16) )   → "8f4e2a91c7b3d05e6a1f9c48b2703d17"
+
+Y una etiqueta, que el dueño puede cambiar cuando quiera:
+   wss_store_label = "Minorista"
+```
+
+| | Identificador | Etiqueta |
+| --- | --- | --- |
+| Para qué sirve | Firmar, numerar, deduplicar | Que el log y las pantallas se lean |
+| ¿Cambia? | **Nunca** | Cuando el dueño quiera |
+| ¿Viaja? | Sí, en cada request | En el emparejamiento y en `GET /health` |
+
+**Por qué opaco y no algo con sentido.** Porque cambiar de identidad invalida el libro: los
+movimientos ya escritos quedan huérfanos y la marca de purga de la otra tienda deja de
+apuntar a nada. Todo lo que sea legible por una persona es algo que una persona va a querer
+corregir.
+
+| Alternativa                    | Qué falla                                                                                      |
+| ------------------------------ | ---------------------------------------------------------------------------------------------- |
+| **Derivarlo del dominio**      | ADR-001 fija que re-emparejar por cambio de dominio **no** cambia la identidad, justamente para que el libro siga valiendo. Derivado del dominio, mudarse de dominio invalida el libro entero |
+| **Que lo elija el dueño**      | Renombrar la tienda pasaría a ser cambiar su identidad. Y un identificador tipeado se puede tipear mal |
+
+**Dos tiendas no pueden terminar con el mismo identificador**, ni por casualidad (128 bits al
+azar) ni por el error que sí es probable: emparejar un clon con su original. El canje lo
+rechaza:
+
+```
+POST /pair llega declarando  origen = 8f4e2a91...
+La maestra ve que ese es SU PROPIO identificador
+   → rechaza: "esta tienda es una copia de la maestra, no una segunda tienda"
+```
+
+Sin ese control, el dueño emparejaría una copia consigo misma y los movimientos se
+deduplicarían contra su propio origen, que es un desastre silencioso.
+
+---
+
+### 2. La secuencia
+
+**Es el `AUTO_INCREMENT` de la fila en el libro.** No hay contador propio ni tabla de
+numeración: el número que MySQL le da a la fila al insertarla es la secuencia del movimiento.
+
+```
+Libro de la tienda A (una sola tabla: los propios y los recibidos)
+
+  id   de quién es        secuencia del movimiento
+   1   propia              A-1      ← venta
+   2   recibida de B       —        ← consume el número 2
+   3   propia              A-3      ← venta
+   4   —                   —        ← INSERT que falló y se revirtió
+   5   propia              A-5      ← venta
+```
+
+**La secuencia de A es 1, 3, 5: con huecos, y así está bien.** Los huecos tienen dos causas
+—las filas recibidas consumen números, y un `INSERT` revertido gasta el suyo— y ninguna es un
+síntoma de nada.
+
+**De acá sale una regla, y conviene tenerla presente al escribir la reconciliación: nada puede
+deducir de un hueco que falta un movimiento.** Lo único que dice qué falta es comparar listas
+de identificadores, que es la fase 1 de UC-06.
+
+Lo que sí se apoya en la secuencia sigue funcionando con huecos, porque son umbrales y no
+conteos:
+
+```
+Marca de purga (§3 del SPEC):  "B confirmó todo hasta la 412"  → no purgar seq > 412
+Límites de la fase 1:          "comparemos de la 300 a la 412"
+```
+
+| Alternativa                          | Qué falla                                                                                     |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| **Un contador propio, contiguo**     | Lo único que compraría es detectar un hueco sin esperar la reconciliación, y **la contigüidad no se puede garantizar igual**: un `INSERT` que falla después de tomar el número deja el hueco. Sería construir sobre algo falso, con código y locks propios para cuidar la concurrencia que `AUTO_INCREMENT` ya resuelve |
+
+---
+
+### 3. Cómo se escriben los dos
+
+**Dos campos separados, en el JSON y en la base.**
+
+```json
+{ "origen": "8f4e2a91c7b3d05e6a1f9c48b2703d17", "seq": 77 }
+```
+
+```sql
+origen_tienda CHAR(32),  origen_seq BIGINT UNSIGNED,
+UNIQUE (origen_tienda, origen_seq)     ← la deduplicación de §3 del SPEC
+```
+
+**`A-77` existe, pero sólo como forma de mostrarlo** en el log, en la pantalla y en los
+ejemplos de estos ADRs. Nunca se guarda ni se parsea.
+
+**Por qué no un solo string.** Porque la secuencia se compara como número:
+
+```
+Con dos campos:  WHERE origen_tienda = ? AND origen_seq <= 412     ← usa el índice
+Con un string:   hay que partir "8f4e...-77", castear a entero, y un índice
+                 de texto no sirve para un rango
+```
+
+---
+
+### Alcance
+
+**Cubre:** qué es el identificador de una tienda, cómo se numeran sus movimientos y cómo se
+escriben los dos.
+
+**No cubre:**
+
+| Qué                                                           | Dónde va             |
+| ------------------------------------------------------------- | -------------------- |
+| Las tablas donde viven esas columnas                          | ADR del esquema      |
+| La generación del vínculo y el mapeo entre productos          | ADR de vinculación   |
+| Cómo se firma con el identificador                            | ADR-001 (aprobado)   |
+
+### Consecuencias para otros ADRs
+
+| ADR             | Qué le queda                                                                                                   |
+| --------------- | ---------------------------------------------------------------------------------------------------------------- |
+| **Esquema**     | `origen_tienda CHAR(32)` + `origen_seq BIGINT UNSIGNED` con su `UNIQUE`; la secuencia propia **es** el `AUTO_INCREMENT` de la tabla, así que el libro no lleva contador aparte |
+| **Opciones**    | `wss_store_id` (inmutable) y `wss_store_label` (editable). El identificador no es material sensible, pero `uninstall.php` lo borra igual: dejarlo haría que una reinstalación reviviera una identidad que la otra tienda ya no reconoce |
+| **Scaffold**    | El identificador se genera en la activación, antes de que exista nada más. Es lo primero que el plugin escribe |

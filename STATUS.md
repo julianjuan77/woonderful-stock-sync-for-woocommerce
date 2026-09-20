@@ -15,7 +15,7 @@ depósito. Pool único, sin reparto: lo que se vende en una descuenta en las dos
 | Área                        | Estado |
 |-----------------------------|--------|
 | SPEC funcional              | ✅ 100% (8 casos de uso, §1-§6) |
-| ADRs                        | 🟡 20% (1 de ~5 aprobado) |
+| ADRs                        | 🟡 20% (1 de ~5 aprobado; ADR-002 en propuesta) |
 | ARCHITECTURE.md             | ⬜ 0% |
 | Scaffold del plugin         | ⬜ 0% — no hay una sola línea de código todavía |
 | Tests                       | ⬜ 0% |
@@ -48,9 +48,11 @@ _(nada)_
 
 Los dos primeros se traban entre sí; los otros dos son independientes.
 
-- [ ] **ADR-002 — Identidad de tienda.** Cómo se escribe el identificador de tienda y la
-      secuencia que forman el `id` global de un movimiento. Lo necesita el `UNIQUE` del
-      esquema. *Done:* ADR escrito con opciones y aprobado por Julián.
+- [ ] **ADR-002 — Identidad de tienda.** ✍️ Escrito, `Estado: Propuesta`, esperando la
+      lectura de Julián. Identificador opaco de 128 bits generado al instalar + etiqueta
+      editable; la secuencia es el `AUTO_INCREMENT` del libro (con huecos, y nada puede
+      deducir nada de un hueco); tienda y secuencia son dos campos separados, nunca el
+      string `A-77`.
 - [ ] **ADR-003 — Esquema del libro.** Las tablas, con los dos ejes de estado, los campos de
       entrega (`creado_en`, `primer_intento`, `intentos`, `ultimo_error`, `proximo_intento`,
       `confirmado_en`), `aplicado_en` del lado receptor, el almacén de nonces con su purga, y
