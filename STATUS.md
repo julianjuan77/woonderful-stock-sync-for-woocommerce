@@ -15,8 +15,8 @@ depósito. Pool único, sin reparto: lo que se vende en una descuenta en las dos
 | Área                        | Estado |
 |-----------------------------|--------|
 | SPEC funcional              | ✅ 100% (8 casos de uso, §1-§6) |
-| ADRs                        | 🟡 50% (3 de ~6 aprobados) |
-| ARCHITECTURE.md             | ⬜ 0% |
+| ADRs                        | 🟡 50% (3 de ~6 aprobados; ADR-004 en propuesta) |
+| ARCHITECTURE.md             | 🟡 70% (contrato, módulos, seguridad y convenciones de código) |
 | Scaffold del plugin         | ⬜ 0% — no hay una sola línea de código todavía |
 | Tests                       | ⬜ 0% |
 | Estándares (PHPCS / ESLint) | ⬜ 0% |
@@ -55,16 +55,10 @@ _(nada)_
 El esquema es el que habilita escribir código; el detector y la vinculación son
 independientes entre sí.
 
-- [ ] **ADR-004 — Esquema del libro.** Las tablas, con los dos ejes de estado, los campos de
-      entrega (`creado_en`, `primer_intento`, `intentos`, `ultimo_error`, `proximo_intento`,
-      `confirmado_en`), `aplicado_en` del lado receptor, el almacén de nonces con su purga, y
-      la retención (no purgar lo que la otra tienda no confirmó; consolidar el stock base al
-      purgar).
-- [ ] **ADR — Detector.** Cómo se detecta el cambio de stock y el guard anti-eco.
-- [ ] **ADR — Vinculación.** La generación del par y los campos extra del bootstrap.
-- [ ] **ADR-000 — Scaffold** (reservado, se aprueba en bloque).
-- [ ] `docs/ARCHITECTURE.md` — contrato inicial, una vez aprobados identidad y esquema.
-- [ ] Escribir código. No antes: cada ADR declara en `Cubre:` qué paths habilita.
+- [ ] **ADR-004 — Esquema de la base de datos.** ✍️ Escrito, `Estado: Propuesta`. Tres
+      tablas InnoDB, tres índices en el libro, y la retención con sus tres reglas duras
+      (sólo se purga lo terminado, el stock base absorbe lo purgado, y cada tienda declara
+      hasta dónde purgó para que la reconciliación no re-entregue lo borrado).
 
 ---
 

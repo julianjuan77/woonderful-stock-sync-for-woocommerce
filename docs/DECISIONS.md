@@ -931,3 +931,255 @@ purgar). Va al ADR del esquema.
 | **Opciones**    | La casilla es una opción más, y es la única que `uninstall.php` tiene que leer antes de borrar nada |
 | **Retención**   | Si una tienda borra su libro al desinstalar y la otra no, la marca de purga de la que quedó apunta a una secuencia que del otro lado ya no existe. No se rompe —la fase 1 compara listas y no encuentra nada— pero el ADR de retención tiene que nombrar el caso |
 | **Scaffold**    | `uninstall.php` existe desde el primer commit, aunque al principio no borre nada: agregarlo después es la clase de cosa que se olvida |
+
+
+---
+
+## ADR-004 — Esquema de la base de datos
+
+Estado: Propuesta
+Temas: db-schema
+Cubre: includes/Ledger/_.php, includes/Schema/_.php
+
+**La decisión, en cuatro líneas:**
+
+1. **Tres tablas propias**, todas **InnoDB**: `wss_movements`, `wss_links`, `wss_nonces`.
+2. El libro guarda **las dos formas de identificar el producto**: el vínculo y el dato crudo
+   que vino en el JSON.
+3. **Tres índices**, ni uno más: la deduplicación, la cola y el vínculo.
+4. Al purgar por retención, **el stock base absorbe lo purgado**, y cada tienda declara hasta
+   dónde purgó para que la reconciliación no le re-entregue lo que ya borró.
+
+---
+
+### 1. El libro — `wss_movements`
+
+```sql
+CREATE TABLE {prefix}wss_movements (
+  id               BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,  -- y la secuencia de las propias
+  origin_store     CHAR(32)        NOT NULL,                 -- quién lo emitió (ADR-002)
+  origin_seq       BIGINT UNSIGNED NULL,                     -- ver "el instante en NULL"
+  generation       INT UNSIGNED    NOT NULL,
+  delta            INT             NOT NULL,
+  reason           VARCHAR(20)     NOT NULL,                 -- sale, refund, adjustment, bootstrap
+  reference        VARCHAR(100)    NULL,                     -- "pedido #4512"
+  created_at       DATETIME        NOT NULL,
+
+  link_id          BIGINT UNSIGNED NULL,                     -- a qué par pertenece
+  origin_product   BIGINT UNSIGNED NOT NULL,                 -- id del producto EN LA TIENDA DE ORIGEN
+
+  -- eje de entrega: sólo en las filas propias
+  delivery         VARCHAR(12)     NULL,                     -- pending, in_flight, confirmed, abandoned
+  attempts         SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  first_attempt_at DATETIME        NULL,
+  next_attempt_at  DATETIME        NULL,
+  last_error       VARCHAR(255)    NULL,
+  claimed_by       CHAR(32)        NULL,
+  claimed_at       DATETIME        NULL,
+  confirmed_at     DATETIME        NULL,
+
+  -- eje de aplicación: sólo en las filas recibidas
+  application      VARCHAR(12)     NULL,                     -- applied, held, discarded
+  applied_at       DATETIME        NULL,
+
+  PRIMARY KEY (id),
+  UNIQUE KEY dedup (origin_store, origin_seq),
+  KEY delivery_queue (delivery, next_attempt_at),
+  KEY by_link (link_id, generation)
+) ENGINE=InnoDB {charset_collate};
+```
+
+#### Por qué guarda las dos formas de identificar el producto
+
+```
+link_id         → para las consultas: "todo lo de este par desde el bootstrap"
+origin_product  → el dato crudo del JSON, que no depende de que el vínculo exista
+```
+
+Con sólo `link_id`, desvincular dos productos deja los movimientos apuntando a la nada: el
+historial existe pero ya no se puede leer. Y hay un caso donde `link_id` no se puede llenar —un
+movimiento que llega para un par que ya no existe, que queda `discarded`— y la fila tiene que
+poder escribirse igual. Por eso `link_id` es `NULL`able y `origin_product` no.
+
+#### El instante en que `origin_seq` está en NULL
+
+La secuencia de un movimiento propio **es** el `AUTO_INCREMENT` de su fila (ADR-002), y ese
+número no existe hasta después del `INSERT`:
+
+```sql
+START TRANSACTION;
+  INSERT INTO wss_movements (origin_store, origin_seq, ...) VALUES ('8f4e…', NULL, ...);
+  UPDATE wss_movements SET origin_seq = id WHERE id = LAST_INSERT_ID();
+COMMIT;
+```
+
+**Va en NULL y no en 0, y eso no es cosmético:** en un índice `UNIQUE` de MySQL, `NULL` no
+choca con `NULL`, pero dos ceros sí. Con 0, dos ventas simultáneas se pisarían en el instante
+entre el `INSERT` y el `UPDATE`.
+
+La transacción es lo que garantiza que no quede una fila con la secuencia sin llenar. Es la
+primera de las dos razones por las que las tablas son **InnoDB explícito** y no lo que el
+host tenga de default.
+
+#### Los tres índices, y por qué no hay un cuarto
+
+| Consulta                                                           | Índice           |
+| ------------------------------------------------------------------ | ---------------- |
+| Deduplicar un movimiento recibido                                  | `dedup`          |
+| Reclamar el lote: `delivery='pending' AND next_attempt_at <= NOW()` | `delivery_queue` |
+| Liberar claims vencidos: `delivery='in_flight' AND claimed_at < …` | `delivery_queue` (prefijo `delivery`; las filas `in_flight` son 200 como mucho) |
+| Sumar la fase 2 de UC-06, por vínculo y generación                 | `by_link`        |
+| Leer el historial de un producto                                   | `by_link`        |
+| **Purgar por retención**                                           | **ninguno**      |
+
+La purga corre **una vez por noche** sobre unas 18.000 filas (§5 del SPEC: 90 días a ~200
+movimientos diarios). Un índice más para eso costaría en cada `INSERT` —o sea, en cada venta—
+para ahorrar un escaneo por día. No se pone.
+
+---
+
+### 2. Los pares — `wss_links`
+
+```sql
+CREATE TABLE {prefix}wss_links (
+  id             BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  local_product  BIGINT UNSIGNED NOT NULL,   -- id del producto en ESTA tienda
+  remote_store   CHAR(32)        NOT NULL,
+  remote_product BIGINT UNSIGNED NOT NULL,
+  generation     INT UNSIGNED    NOT NULL,   -- cada bootstrap abre una nueva
+  base_stock     INT             NOT NULL,   -- el valor del bootstrap vigente
+  base_set_at    DATETIME        NOT NULL,
+  status         VARCHAR(12)     NOT NULL,   -- linked, suspended
+  PRIMARY KEY (id),
+  UNIQUE KEY local (local_product, remote_store),
+  KEY remote (remote_store, remote_product)
+) ENGINE=InnoDB {charset_collate};
+```
+
+Son las columnas que el libro necesita para funcionar. **Qué significa cada estado, cómo se
+vincula y qué abre una generación lo decide el ADR de vinculación**, que puede sumar columnas
+pero no quitar estas.
+
+---
+
+### 3. Los nonces — `wss_nonces`
+
+```sql
+CREATE TABLE {prefix}wss_nonces (
+  nonce   CHAR(64) NOT NULL,
+  seen_at DATETIME NOT NULL,
+  PRIMARY KEY (nonce),
+  KEY seen_at (seen_at)
+) ENGINE=InnoDB {charset_collate};
+```
+
+**La `PRIMARY KEY` sobre el nonce es el control, no un adorno.** Verificar un nonce es una
+carrera: dos requests con el mismo pueden preguntar "¿ya existe?" antes de que ninguno lo
+escriba. Con la clave, el control es una sola sentencia:
+
+```
+INSERT → entra el primero, el segundo choca y se rechaza. Atómico, sin locks.
+```
+
+**Acá el índice por fecha sí se pone**, al revés que en el libro: esta purga corre **en cada
+pasada**, no una vez por noche.
+
+---
+
+### 4. Retención
+
+> §5 del SPEC fija 90 días. §3 pone dos restricciones duras sobre cómo purgar.
+
+#### Qué se puede purgar
+
+| Fila | ¿Se purga a los 90 días? |
+| ---- | ------------------------- |
+| Propia `confirmed` | Sí: la otra tienda acusó recibo, no hay nada que re-entregar |
+| Propia `abandoned` | **No**: todavía no llegó. La entrega la reconciliación |
+| Propia `pending` o `in_flight` | **No** |
+| Recibida `applied` o `discarded` | Sí |
+| Recibida `held` | **No**: está esperando que el par se restablezca |
+
+#### Al purgar, el stock base absorbe lo purgado
+
+El stock esperado es `base_stock + suma de los movimientos posteriores al bootstrap`. Borrar
+movimientos sin más rompe la fórmula y la fase 2 reportaría discrepancias falsas en todos los
+productos con historia:
+
+```
+Antes:    base_stock 10  +  movimientos [-1, -1, +3]  =  11
+Purgo sin consolidar:
+          base_stock 10  +  movimientos []            =  10   ❌ la fase 2 ve un desvío
+Purgo consolidando:
+          base_stock 11  +  movimientos []            =  11   ✅ igual que antes
+```
+
+La suma y el borrado van **en la misma transacción**. Es la segunda razón del `ENGINE=InnoDB`:
+si se cae en el medio, o se consolidó y no se borró —y los movimientos se cuentan dos veces— o
+se borró sin consolidar —y el stock esperado queda corto para siempre.
+
+#### Cada tienda declara hasta dónde purgó
+
+Purgar una fila recibida borra también **el registro que la deduplica**, y eso deja un agujero
+silencioso:
+
+```
+B purga A-77, aplicado hace 91 días
+Esa noche, fase 1 de UC-06:
+   A dice "tengo A-77"  ·  B no lo encuentra en su libro
+   → A se lo re-entrega  ·  B lo aplica de nuevo  →  descuenta dos veces
+   → las dos tiendas creen tener razón, y nadie reporta nada
+```
+
+Por eso cada tienda guarda, **por tienda remota**, hasta qué secuencia de ella purgó, y la
+fase 1 compara sólo por encima de esa marca. Es lo que ADR-001 llama *"los límites acordados"*
+del digest:
+
+```
+B purgó todo lo de A hasta la seq 4120
+   → en el digest declara: "de A, comparemos de la 4121 para arriba"
+   → A no le ofrece nada de abajo de esa marca
+```
+
+**La marca vive en `wss_peers`** (la opción que ADR-001 ya guarda por tienda remota: URL,
+identificador, secreto y fecha del emparejamiento), porque es un dato **por par de tiendas** y
+no por vínculo. Una tabla nueva de una sola fila no se justifica.
+
+#### El libro que no para de crecer
+
+Si la otra tienda no vuelve nunca, sus movimientos quedan `abandoned` y **no se purgan**, por
+diseño. El libro crece sin techo. Eso **se avisa** (UC-08) y no se resuelve purgando en
+silencio: borrar lo que la otra tienda nunca recibió es perder stock sin dejar rastro.
+
+---
+
+### 5. Migraciones
+
+La versión del esquema vive en la opción `wss_schema_version`. Se aplica con `dbDelta` en la
+activación y en `plugins_loaded` si la guardada es menor que la del código.
+
+`dbDelta` es quisquilloso y conviene tenerlo presente al escribir el SQL: dos espacios después
+de `PRIMARY KEY`, los nombres de índice entre paréntesis, todo en minúsculas salvo los tipos.
+El `{charset_collate}` sale de `$wpdb->get_charset_collate()`.
+
+---
+
+### Alcance
+
+**Cubre:** las tres tablas, sus índices y cómo se purga el libro.
+
+**No cubre:**
+
+| Qué                                                     | Dónde va               |
+| -------------------------------------------------------- | ---------------------- |
+| Qué significa cada estado de `wss_links` y qué abre una generación | ADR de vinculación |
+| Qué escribe una fila en el libro                        | ADR del detector       |
+| El formato de `origin_store` y `origin_seq`             | ADR-002 (aprobado)     |
+
+### Consecuencias para otros ADRs
+
+| ADR                | Qué le queda                                                                                      |
+| ------------------ | --------------------------------------------------------------------------------------------------- |
+| **Vinculación**    | Puede sumar columnas a `wss_links`, no quitar las de acá. Un bootstrap nuevo abre generación y reescribe `base_stock`, y eso pasa por la misma transacción que consolida |
+| **Reconciliación** | La fase 1 tiene que leer la marca de purga de las dos tiendas y comparar sólo por encima de la más alta |
+| **Detector**       | Un movimiento propio se escribe con el `INSERT` + `UPDATE` de la secuencia dentro de una transacción |

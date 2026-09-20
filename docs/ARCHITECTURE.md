@@ -13,7 +13,7 @@ _(pendiente de ADR-004)_ se completan cuando se apruebe el esquema.
 
 ## 1. Modelo de datos
 
-> ADR-001 (dos ejes de estado), ADR-002 (identidad y numeración), ADR-004 _(en curso)_.
+> ADR-001 (dos ejes de estado), ADR-002 (identidad y numeración), ADR-004 (esquema).
 
 Tres tablas propias, con el prefijo de WordPress más `wss_`:
 
@@ -38,13 +38,33 @@ huecos —las filas recibidas consumen números, y un `INSERT` revertido gasta e
 puede deducir de un hueco que falta un movimiento**: eso lo dice la reconciliación comparando
 listas.
 
-**La deduplicación se apoya en un índice, no en código:**
+**Tres índices en el libro, y ni uno más** (ADR-004). El cuarto candidato —la purga por
+fecha— se rechaza a propósito: corre una vez por noche y costaría en cada venta.
 
 ```sql
-UNIQUE KEY dedup (origin_store, origin_seq)
+UNIQUE KEY dedup          (origin_store, origin_seq)   -- la deduplicación
+KEY       delivery_queue  (delivery, next_attempt_at)  -- la pasada
+KEY       by_link         (link_id, generation)        -- la fase 2 y el historial
 ```
 
-Columnas e índices completos: _(pendiente de ADR-004)_.
+**Las tablas son `ENGINE=InnoDB` explícito**, no lo que el host tenga de default: hay dos
+escrituras que tienen que ser atómicas o los números quedan mal — numerar un movimiento propio
+(`INSERT` + `UPDATE` de la secuencia) y purgar consolidando el stock base.
+
+**Convención no obvia:** `origin_seq` va en `NULL` entre el `INSERT` y el `UPDATE`, nunca en 0.
+En un índice `UNIQUE` de MySQL, `NULL` no choca con `NULL`; dos ceros sí, y dos ventas
+simultáneas se pisarían.
+
+**Retención — 90 días, con tres reglas duras** (ADR-004):
+
+- Sólo se purga lo terminado: propias `confirmed`, recibidas `applied` o `discarded`. Una
+  `abandoned` o una `held` se queda.
+- Al purgar, `base_stock` absorbe la suma de lo purgado, en la misma transacción.
+- Cada tienda declara en `wss_peers` hasta qué secuencia de la otra purgó, y la fase 1
+  compara sólo por encima de esa marca. Sin eso, la reconciliación re-entrega lo purgado y el
+  movimiento se aplica dos veces.
+
+Columnas completas: ver ADR-004.
 
 **Migraciones:** versión de esquema en la opción `wss_schema_version`, aplicada con `dbDelta`
 en la activación y en `plugins_loaded` si la guardada es menor.
@@ -88,7 +108,7 @@ compatible; quitar uno o cambiarle el significado es `wss/v2`.
 | `wss_store_id` | Identificador opaco de 128 bits. Inmutable (ADR-002) |
 | `wss_store_label` | Etiqueta legible, editable |
 | `wss_site_fingerprint` | `sha256( home_url() )` al emparejar. Detecta el clon (ADR-001) |
-| `wss_peers` | Por tienda remota: URL, identificador, secreto y fecha del emparejamiento |
+| `wss_peers` | Por tienda remota: URL, identificador, secreto, fecha del emparejamiento y **hasta qué secuencia suya purgamos** (ADR-004) |
 | `wss_schema_version` | Versión del esquema, para las migraciones |
 | `wss_delete_data_on_uninstall` | La casilla de ADR-003. Desmarcada de fábrica |
 
@@ -233,3 +253,4 @@ Ver `DECISIONS.md`. Índice de las aprobadas:
 | ADR-001 | Transporte entre tiendas | rest-api, api-externa, db-schema, opciones |
 | ADR-002 | Identidad de tienda y numeración de movimientos | db-schema, opciones, rest-api |
 | ADR-003 | Desinstalación y borrado de datos | uninstall, opciones |
+| ADR-004 | Esquema de la base de datos | db-schema |
