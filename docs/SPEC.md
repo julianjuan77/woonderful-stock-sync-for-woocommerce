@@ -279,10 +279,10 @@ Consecuencias directas, que van a ADR antes de codearse:
 - **Un movimiento recibido puede no ser aplicable todavía.** Si llega para un producto cuyo
   mapeo apunta a algo que ya no existe, o que quedó suspendido (UC-03), no se aplica pero
   **tampoco se descarta**: tiene que quedar retenido y reintentable, porque descartarlo
-  pierde stock en silencio. Los cuatro estados del libro previstos en ADR-001 —`pending`,
-  `claimed`, `applied`, `rejected`— no cubren ese caso: `rejected` hoy significa "cerrado".
-  O se suma un estado o se redefine `rejected` como reintentable. Se decide en el ADR de
-  transporte, no acá.
+  pierde stock en silencio. **Resuelto en ADR-001**: el libro lleva dos ejes de estado
+  independientes —entrega (`pending`, `in_flight`, `confirmed`, `abandoned`) para los
+  movimientos propios y aplicación (`applied`, `held`, `discarded`) para los recibidos—, y
+  este caso es `held`.
 - **No se puede purgar lo que la otra tienda todavía no recibió.** Es una condición aparte de
   la de abajo y más dura: si A borra movimientos que B nunca llegó a aplicar, **ya no puede
   reentregarlos** y la fase 1 de UC-06 pierde para siempre la capacidad de reparar ese hueco.

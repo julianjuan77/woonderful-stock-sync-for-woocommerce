@@ -77,6 +77,29 @@ a un usuario.
 tolerancia de reloj— con sus tests. Se acepta porque es la única opción cuya identidad
 coincide con la del diseño, y porque §5 ya exige HTTPS, así que no carga un requisito nuevo.
 
+**Detección de clon — la tienda que cambió de sitio se apaga sola.** Al emparejar, cada
+tienda guarda también **su propia URL** (`home_url()`). En cada carga la compara con la
+actual: si no coinciden, **suspende la sincronización** —no emite movimientos ni acepta los
+que lleguen— y la pantalla de ajustes pide re-emparejar.
+
+El motivo es que restaurar una copia de la base en otro sitio se lleva el identificador de
+tienda y el secreto compartido adentro. Ese clon firma requests perfectamente válidos contra
+la tienda viva del cliente, y numera movimientos con la misma secuencia que el original: dos
+movimientos distintos con el mismo identificador global, que es justo lo que la deduplicación
+toma por repetido. La firma prueba que quien la hizo tiene el secreto, no dónde corre; la URL
+es lo único que el clon no puede llevarse.
+
+**Re-emparejar es también el mecanismo de rotación.** El mismo canje sirve para el secreto
+filtrado y para el cambio legítimo de dominio: la maestra emite un código nuevo y el canje
+reemplaza el secreto anterior. El identificador de tienda no cambia, así que el libro y las
+secuencias ya escritas siguen valiendo.
+
+**Lo que cuesta y lo que no cubre.** Un cambio de dominio querido suspende la malla igual que
+un clon, porque desde adentro son indistinguibles. Y queda un caso sin cubrir: el clon que
+corre **en la misma URL** —un dump servido en el dominio original, por ejemplo apuntándolo por
+`hosts`— pasa el control. No se cubre en v1; es un escenario deliberado, no un accidente de operación, que es
+lo que este control ataja.
+
 ### 2. Cola — el libro es la cola, Action Scheduler es el disparador
 
 **El libro** es la tabla donde cada tienda registra los movimientos que genera y los que
@@ -119,11 +142,30 @@ el estado **vence**: pasado un plazo vuelven a `pendiente` y otra pasada las tom
 lógica del candado de UC-06 y por el mismo motivo: sin vencimiento, el primer timeout de PHP
 apaga la entrega y nadie se entera.
 
-**Reintentos finitos, como exige UC-01.** El envío reintenta con backoff un número finito de
-veces; agotados, el movimiento pasa a **abandonado** y queda registrado en el log. No se
-pierde: sigue en el libro y lo entrega la fase 1 de la reconciliación cuando la otra tienda
-vuelve (UC-06). El número concreto de intentos y la curva de backoff son configuración, no
-contrato.
+**Lo vencido lo libera la misma pasada**, como primer paso antes de reclamar: un `UPDATE` que
+devuelve a `pendiente` todo lo que lleva demasiado en `en-vuelo`. No hay barrido aparte ni
+acción propia en Action Scheduler — una tarea más que agendar y vigilar para algo que la
+pasada ya tiene que hacer igual antes de mirar qué hay pendiente.
+
+**Que una fila vencida se reenvíe ya entregada es el caso normal, no una anomalía.** Si el
+worker murió después de que el receptor guardó el movimiento pero antes de anotar el ACK, la
+fila revive y el lote sale otra vez. El receptor deduplica por identificador y **vuelve a
+confirmar** (§3), así que la segunda vuelta cierra la fila. No hace falta ningún mecanismo
+para evitarlo: evitarlo cuesta más que pagarlo.
+
+**El techo del reintento es de tiempo, no de intentos.** El envío reintenta con backoff hasta
+que pasan **6 horas desde el primer intento**; ahí el movimiento pasa a **abandonado** y queda
+registrado en el log. No se pierde: sigue en el libro y lo entrega la fase 1 de la
+reconciliación cuando la otra tienda vuelve (UC-06). Los intentos siguen siendo finitos, como
+exige UC-01, porque el backoff crece.
+
+El techo se mide en tiempo porque es contra tiempo que hay que leerlo: §5 acepta que un
+desvío dure hasta 24 horas, que es lo que tarda la reconciliación nocturna en repararlo. Un
+movimiento abandonado por una caída de diez minutos gastaría ese plazo entero por nada. Con
+un techo en cantidad de intentos, el compromiso queda escondido dentro de la curva de backoff
+y un cambio de configuración lo rompe sin que nadie lo note; con un techo en horas se lee de
+un vistazo y se prueba con un test. La curva de backoff y las 6 horas son configuración; que
+el techo se exprese en tiempo, no.
 
 ### 3. Estados — dos ejes, no uno
 
@@ -133,7 +175,20 @@ obliga a toda consulta a preguntar antes de quién es el movimiento. Se separan:
 | Eje            | Valores                                                | A qué filas aplica                                                                     |
 | -------------- | ------------------------------------------------------ | -------------------------------------------------------------------------------------- |
 | **Entrega**    | `pendiente` · `en-vuelo` · `confirmado` · `abandonado` | Sólo a los movimientos **propios**. Un movimiento recibido no tiene entrega que hacer. |
-| **Aplicación** | `aplicado` · `retenido`                                | A todo movimiento que deba tocar el stock local.                                       |
+| **Aplicación** | `aplicado` · `retenido` · `descartado`                 | A todo movimiento que deba tocar el stock local.                                       |
+
+**En prosa se nombran en español; en el código y en la base, en inglés.** Es lo que espera
+cualquiera que audite la tabla y lo que pide la guía de WordPress.org:
+
+| Eje        | En prosa      | En la base   |
+| ---------- | ------------- | ------------ |
+| Entrega    | pendiente     | `pending`    |
+| Entrega    | en vuelo      | `in_flight`  |
+| Entrega    | confirmado    | `confirmed`  |
+| Entrega    | abandonado    | `abandoned`  |
+| Aplicación | aplicado      | `applied`    |
+| Aplicación | retenido      | `held`       |
+| Aplicación | descartado    | `discarded`  |
 
 **Ninguna fila lleva los dos ejes.** Un movimiento existe como **dos filas**, una en el libro
 de cada tienda, y cada una usa el eje que le toca: la del emisor lleva estado de entrega y
@@ -144,6 +199,23 @@ ser especial: queda **`confirmado` en el libro del emisor y `retenido` en el del
 El emisor recibió su ACK porque cumplió y deja de reintentar; el receptor lo guardó
 durablemente y lo aplicará cuando el par se restablezca (UC-03). Las dos filas dicen la
 verdad sobre lo que le consta a su tienda, que es todo lo que cada una puede saber.
+
+**`descartado` es el estado terminal del eje de aplicación: lo que no se va a aplicar
+nunca.** §3 fija que cada vínculo tiene una **generación** y que el receptor sólo aplica los
+movimientos de la generación vigente. Un delta que quedó en cola del vínculo anterior y llega
+después de un bootstrap nuevo no es `aplicado` ni es `retenido`: no espera nada, porque la
+época a la que pertenece ya no corre. Se confirma igual —el ACK dice "lo tengo", no "lo
+apliqué"— y el motivo queda en el log.
+
+Sin ese tercer valor esos movimientos se quedarían en `retenido` para siempre y
+envenenarían las dos consultas de abajo: la de qué aplicar al desbloquear un par los vería
+en cada pasada, y la de qué queda fuera de la fase 2 dejaría ese par afuera de la
+reconciliación para siempre.
+
+**La única causa de `descartado` hoy es la generación no vigente.** Sumar otra es una
+decisión de diseño y va a un ADR: el estado dice qué hacer con la fila, y la tentación de
+usarlo como cajón de lo que no se supo aplicar es justo lo que rompe la consulta de
+`retenido`.
 
 Consultas que esto deja triviales, y que son las que el diseño realmente hace:
 
@@ -190,14 +262,63 @@ confirmación se emite después de que la fila está escrita, no antes: con la d
 apoyada en el `UNIQUE` del identificador global, que el movimiento ya esté presente significa
 que ya está guardado.
 
+**Qué campos lleva cada movimiento del cuerpo de `POST /movements`.** Este ADR fija **qué
+información tiene que viajar**; cómo se escribe cada campo lo fija el ADR que manda sobre esa
+pieza:
+
+| Campo        | Qué es                                                           | Quién fija su formato  |
+| ------------ | ---------------------------------------------------------------- | ---------------------- |
+| `id`         | Identificador global: tienda de origen + secuencia               | ADR de identidad       |
+| `generacion` | Generación del vínculo vigente cuando se emitió el movimiento    | ADR de vinculación     |
+| `delta`      | Entero con signo. §5 no admite decimales                         | Este ADR               |
+| `producto`   | ID local del producto **en la tienda de origen**                 | ADR de identidad       |
+| `motivo`     | `venta`, `devolución`, `ajuste`, `bootstrap`                     | ADR del detector       |
+| `referencia` | El dato que permite auditarlo después: el número de pedido, etc. | ADR del detector       |
+
+**El que no puede faltar es `generacion`.** §3 fija que el receptor sólo aplica los
+movimientos de la generación vigente del par. Si el número no viaja, el receptor no tiene con
+qué decidir: aplica un delta de una época que ya no corre y el stock queda mal contra un libro
+que no lo cuenta. Es lo que deja sin uso al `descartado` de §3 de este ADR.
+
+El **bootstrap** viaja como un movimiento más, con campos adicionales que §3 exige para poder
+auditarlo —los dos IDs apareados y el stock previo de cada tienda—. Los define el ADR de
+vinculación.
+
+**El receptor declara un máximo de movimientos por lote: 200.** Un lote más grande se rechaza
+con un error explícito, no se intenta procesar. Sin tope, la ráfaga de importación de UC-04
+puede mandar miles de movimientos en un request y hacerle timeout al receptor; el emisor lee
+ese timeout como caída y reintenta el mismo lote imposible hasta agotar las 6 horas. El
+tamaño que usa el emisor es configuración, pero el techo del receptor es contrato.
+
+**Lo que la reconciliación repara vuelve por la cola de siempre.** La fase 1 de UC-06 no
+entrega por su cuenta: devuelve las filas a `pendiente` **con el reloj del techo en cero** y
+las manda la pasada normal. Un solo camino de salida en vez de dos, y sin reiniciar el reloj
+un movimiento reparado nacería abandonado, porque su primer intento fue hace días.
+
 **La fase 2 de UC-06 no necesita endpoint.** Cada tienda se compara contra su propio libro, no
 contra el stock de la otra. Es deliberado y está en el SPEC: comparar A contra B daría falsos
 positivos por movimientos en vuelo.
 
+**El contrato es el namespace, y dentro del namespace el receptor es tolerante.** Las dos
+tiendas se actualizan por separado —son dos sitios distintos y nadie los actualiza en el mismo
+segundo—, así que convivir con una versión de diferencia es lo normal, no la excepción:
+
+- **Dentro de `wss/v1`, el receptor ignora los campos que no conoce.** Una versión nueva puede
+  sumar campos al movimiento y el otro lado los descarta sin romperse. Quitar un campo o
+  cambiarle el significado, no: eso es `wss/v2`.
+- **Contra un namespace que no se sirve, se suspende y se avisa.** Si la otra tienda ya sólo
+  responde `wss/v2`, sus endpoints `wss/v1` devuelven 404: la sincronización se detiene y la
+  pantalla de ajustes dice que hay que actualizar, en vez de acumular movimientos abandonados
+  sin explicación.
+
+`GET /health` devuelve la versión del plugin del otro lado, y es lo que la pantalla de ajustes
+usa para mostrar el desfasaje antes de que moleste.
+
 ### Alcance
 
-Este ADR cubre **cómo viaja un movimiento y quién lo firma**. No cubre: la forma exacta de las
-tablas (ADR del esquema), cómo se genera el identificador de tienda y la secuencia (ADR de
+Este ADR cubre **cómo viaja un movimiento, qué campos lleva y quién lo firma**. No cubre: el
+formato de cada uno de esos campos (ver la tabla de §4), la forma exacta de las tablas (ADR
+del esquema), cómo se genera el identificador de tienda y la secuencia (ADR de
 identidad), ni cómo se detecta el cambio de stock que origina un movimiento, incluido el guard
 anti-eco (ADR del detector).
 
@@ -205,6 +326,13 @@ anti-eco (ADR del detector).
 
 - El **esquema** tiene que materializar los dos ejes de estado, más intentos y próximo
   reintento en el eje de entrega.
+
+- El **esquema** guarda en cada fila propia la **hora del primer intento**, que es contra lo
+  que se mide el techo de 6 horas; el contador de intentos sigue haciendo falta para la curva
+  de backoff, pero ya no decide el abandono.
+
+- El **esquema** carga además con el **almacén de nonces**: la tabla de nonces vistos y su
+  purga por fuera de la ventana de ±5 minutos, que sin purga crece sin techo.
 - La **identidad de tienda** tiene que quedar fijada en el emparejamiento: el identificador
   que firma es el mismo que numera los movimientos.
 - La **retención** del libro se apoya en el eje de entrega: una fila propia no se purga
@@ -219,5 +347,6 @@ anti-eco (ADR del detector).
   nunca. Es una condición que hay que avisar (UC-08), no purgar en silencio.
 
 - Las **opciones** guardan por cada tienda remota: URL, identificador, secreto compartido y
-  fecha del emparejamiento. El secreto es material sensible y `uninstall.php` tiene que
+  fecha del emparejamiento; y del lado propio, la **URL del sitio al momento de emparejar**,
+  que es lo que detecta el clon. El secreto es material sensible y `uninstall.php` tiene que
   borrarlo.
