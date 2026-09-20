@@ -317,6 +317,42 @@ Con un techo en cantidad de intentos el compromiso queda escondido dentro de la 
 backoff, y un cambio de configuración lo rompe sin que nadie lo note. La curva y las 6 horas
 son configuración; **que el techo se exprese en tiempo, no**.
 
+#### Qué se registra, y dónde
+
+**El estado vive en la fila; el log registra lo que cambia.** Un reintento fallido no escribe
+una línea de log: actualiza la fila.
+
+```
+Fila del libro (la parte de entrega):
+
+  creado_en:        lun 08:00:00     ← cuándo se emitió el movimiento
+  primer_intento:   lun 08:00:03     ← contra esto se mide el techo de 6 h
+  intentos:         7
+  ultimo_error:     "cURL 28: Operation timed out"
+  proximo_intento:  lun 14:31:00
+  confirmado_en:    mar 03:01:12     ← cuándo la otra tienda lo confirmó
+```
+
+Con eso, **cuánto tardó en sincronizar es una resta**: `confirmado_en − creado_en`, 19 horas y
+1 minuto en el ejemplo del rescate de §4. No hace falta ninguna línea de log para contestarlo,
+y se puede mostrar en la pantalla sin leer un archivo.
+
+**El log recibe una línea por pasada y por evento, nunca por movimiento reintentado:**
+
+```
+lun 08:00  ERROR  lote de 200 hacia tienda-b: cURL 28 timeout
+lun 14:00  ERROR  200 movimientos abandonados hacia tienda-b tras 6 h sin entregar
+mar 03:00  INFO   reconciliación: 200 movimientos reabiertos hacia tienda-b
+mar 03:01  INFO   200 movimientos entregados; no queda nada pendiente hacia tienda-b
+```
+
+**Por qué no una línea por reintento.** Una sola caída de 6 horas con 200 movimientos en cola
+daría unas 2.000 líneas, todas diciendo lo mismo, y habría que purgarlas aparte. Los 7
+intentos individuales no agregan nada que el contador no diga, y de los errores el único que
+sirve para diagnosticar es el último. Es el mismo criterio con el que UC-01 descarta escribir
+una entrada por cada venta de un producto sin vincular: un log que se llena de ruido tapa
+justo lo que hay que ver.
+
 #### Por qué no las alternativas
 
 | Alternativa                            | Qué falla                                                                                                                                  |
@@ -639,7 +675,7 @@ está en el SPEC: comparar A contra B daría falsos positivos por movimientos en
 
 | ADR                | Qué le queda pendiente por culpa de este                                                                        |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| **Esquema**        | Materializar los dos ejes de estado; guardar intentos, **hora del primer intento** (contra la que se mide el techo de 6 h) y próximo reintento; crear el **almacén de nonces** con su purga |
+| **Esquema**        | Materializar los dos ejes de estado; guardar en el eje de entrega `creado_en`, `primer_intento` (contra el que se mide el techo de 6 h), `intentos`, `ultimo_error`, `proximo_intento` y `confirmado_en`; crear el **almacén de nonces** con su purga |
 | **Identidad**      | El identificador que firma tiene que ser el mismo que numera los movimientos, y queda fijado en el emparejamiento |
 | **Retención**      | Una fila propia no se purga hasta que se confirme. Queda abierto el libro que crece sin techo porque la otra tienda no vuelve nunca: es una condición que hay que avisar por email (UC-08, el aviso de lo que no está sincronizando), no purgar en silencio |
 | **Opciones**       | El tamaño de lote (tope 200), la curva de backoff, las 6 horas del techo y los 5 minutos del claim. Por cada tienda remota: URL, identificador, secreto y fecha del emparejamiento. Del lado propio, **el hash de la URL del sitio al emparejar**, que es lo que detecta el clon: en claro lo reescribiría el `search-replace` de cualquier restore. El secreto es material sensible: `uninstall.php` tiene que borrarlo |
