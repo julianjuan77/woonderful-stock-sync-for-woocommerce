@@ -145,15 +145,31 @@ curso**; fuera de esa ventana, el código no autentica nada.
 
 #### Detección de clon: la tienda que cambió de sitio se apaga sola
 
-Cada tienda guarda **su propia URL** al emparejar, y la compara en cada carga:
+Cada tienda guarda **el hash de su propia URL** al emparejar, y lo compara en cada carga:
 
 ```
-Al emparejar:   home_url() = https://tienda-a.com   → guardado
+Al emparejar:   sha256( home_url() ) = 3f7a9c2e...   → guardado
 
-En cada carga:  home_url() = https://tienda-a.com   → todo normal
-                home_url() = http://localhost:8130  → SUSPENDE: no emite ni acepta nada,
-                                                      y la pantalla pide re-emparejar
+En cada carga:  sha256( home_url() ) = 3f7a9c2e...   → todo normal
+                sha256( home_url() ) = b41d08e5...   → SUSPENDE: no emite ni acepta nada,
+                                                       y la pantalla pide re-emparejar
 ```
+
+**Se guarda el hash y no la URL porque restaurar una base reescribe las URLs.** Es lo que hace
+cualquier herramienta de copia a un entorno de prueba, `wp search-replace --all-tables` entre
+ellas: cambia la opción `home` de WordPress **y de paso la nuestra**, las deja coincidiendo, y
+el clon se da por sano. Sobre un hash no hay cadena que reemplazar:
+
+```
+                    En producción           Después de restaurar en otro sitio
+opción 'home'       https://tienda-a.com  → http://localhost:8130
+guardando la URL    https://tienda-a.com  → http://localhost:8130   coinciden → NO suspende
+guardando el hash   3f7a9c2e...           → 3f7a9c2e...             ≠ del actual → suspende
+```
+
+El costo es que la pantalla de ajustes no puede mostrar desde qué URL se emparejó esta tienda:
+un hash no se lee al revés. La URL de la **otra** tienda se sigue guardando en claro, porque
+hace falta para llamarla.
 
 **Por qué.** Restaurar una copia de la base en otro sitio se lleva adentro el identificador de
 tienda y el secreto. Ese clon firma requests perfectamente válidos contra la tienda viva del
@@ -166,7 +182,7 @@ Clon:     movimiento A-78 = lo que sea que hiciste probando
 ```
 
 La firma prueba que quien la hizo **tiene el secreto**, no **dónde corre**. La URL es lo único
-que el clon no puede llevarse.
+que el clon no puede llevarse — siempre que se guarde como hash.
 
 **Re-emparejar es también la rotación.** El mismo canje del paso 1-5 sirve para el secreto
 filtrado y para el cambio legítimo de dominio. El identificador de tienda no cambia, así que
@@ -538,4 +554,4 @@ está en el SPEC: comparar A contra B daría falsos positivos por movimientos en
 | **Esquema**        | Materializar los dos ejes de estado; guardar intentos, **hora del primer intento** (contra la que se mide el techo de 6 h) y próximo reintento; crear el **almacén de nonces** con su purga |
 | **Identidad**      | El identificador que firma tiene que ser el mismo que numera los movimientos, y queda fijado en el emparejamiento |
 | **Retención**      | Una fila propia no se purga hasta que se confirme. Queda abierto el libro que crece sin techo porque la otra tienda no vuelve nunca: es una condición que hay que avisar (UC-08), no purgar en silencio |
-| **Opciones**       | El tamaño de lote (tope 200), la curva de backoff, las 6 horas del techo y los 5 minutos del claim. Por cada tienda remota: URL, identificador, secreto y fecha del emparejamiento. Del lado propio, **la URL del sitio al emparejar**, que es lo que detecta el clon. El secreto es material sensible: `uninstall.php` tiene que borrarlo |
+| **Opciones**       | El tamaño de lote (tope 200), la curva de backoff, las 6 horas del techo y los 5 minutos del claim. Por cada tienda remota: URL, identificador, secreto y fecha del emparejamiento. Del lado propio, **el hash de la URL del sitio al emparejar**, que es lo que detecta el clon: en claro lo reescribiría el `search-replace` de cualquier restore. El secreto es material sensible: `uninstall.php` tiene que borrarlo |
