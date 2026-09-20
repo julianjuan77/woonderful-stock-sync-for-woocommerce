@@ -33,6 +33,8 @@ aprueba en bloque.
 ## ADR-001 — Transporte entre tiendas
 
 Estado: Aprobada · 2026-09-20 · aprobada por Julián
+Revisado: 2026-09-20 — los nombres del contrato (campos del JSON y valores de `reason`)
+pasaron a inglés, para no mezclar idiomas con los estados de §3. Sin cambios de diseño.
 Temas: rest-api, api-externa, db-schema, opciones
 Cubre: includes/Transport/_.php, includes/Rest/_.php
 
@@ -74,7 +76,7 @@ X-WSS-Timestamp: 1758300000
 X-WSS-Nonce:     7f3c1b9e4a2d...
 X-WSS-Signature: 9a4e6c...
 
-{"movimientos":[ ... ]}
+{"movements":[ ... ]}
 ```
 
 La firma se calcula así:
@@ -249,12 +251,12 @@ dependencias: §5 exige WooCommerce 8.2+, que ya lo trae.
 
 ```sql
 -- 1. Libera lo que quedó colgado de una pasada anterior
-UPDATE libro SET entrega = 'pending'
- WHERE entrega = 'in_flight' AND tomado_en < NOW() - INTERVAL 5 MINUTE;
+UPDATE wss_movements SET delivery = 'pending'
+ WHERE delivery = 'in_flight' AND claimed_at < NOW() - INTERVAL 5 MINUTE;
 
 -- 2. Reclama un lote para este worker  ← esto es el "claim"
-UPDATE libro SET entrega = 'in_flight', tomado_por = <worker>, tomado_en = NOW()
- WHERE entrega = 'pending' AND proximo_intento <= NOW()
+UPDATE wss_movements SET delivery = 'in_flight', claimed_by = <worker>, claimed_at = NOW()
+ WHERE delivery = 'pending' AND next_attempt_at <= NOW()
  LIMIT <tamaño de lote>;
 
 -- 3. Envía SÓLO las filas que el paso 2 cambió, y anota el ACK de cada una
@@ -331,15 +333,15 @@ una línea de log: actualiza la fila.
 ```
 Fila del libro (la parte de entrega):
 
-  creado_en:        lun 08:00:00     ← cuándo se emitió el movimiento
-  primer_intento:   lun 08:00:03     ← contra esto se mide el techo de 6 h
-  intentos:         7
-  ultimo_error:     "cURL 28: Operation timed out"
-  proximo_intento:  lun 14:31:00
-  confirmado_en:    mar 03:01:12     ← cuándo la otra tienda lo confirmó
+  created_at:        lun 08:00:00    ← cuándo se emitió el movimiento
+  first_attempt_at:  lun 08:00:03    ← contra esto se mide el techo de 6 h
+  attempts:          7
+  last_error:        "cURL 28: Operation timed out"
+  next_attempt_at:   lun 14:31:00
+  confirmed_at:      mar 03:01:12    ← cuándo la otra tienda lo confirmó
 ```
 
-Con eso, **cuánto tardó en sincronizar es una resta**: `confirmado_en − creado_en`, 19 horas y
+Con eso, **cuánto tardó en sincronizar es una resta**: `confirmed_at − created_at`, 19 horas y
 1 minuto en el ejemplo del rescate de §4. No hace falta ninguna línea de log para contestarlo,
 y se puede mostrar en la pantalla sin leer un archivo.
 
@@ -452,7 +454,7 @@ VENTA DE 1 UNIDAD EN LA TIENDA A
 | El par está suspendido: le borraron el producto del otro lado (UC-03) | `held` | sin cambios | confirmado |
 | Vino de una generación vieja            | `discarded`          | sin cambios | confirmado   |
 
-**La fila de B guarda cuándo lo aplicó** (`aplicado_en`), que no es lo mismo que cuándo lo
+**La fila de B guarda cuándo lo aplicó** (`applied_at`), que no es lo mismo que cuándo lo
 confirmó: un movimiento `held` se confirma enseguida y puede aplicarse días después, cuando el
 par vuelve. Es un dato de auditoría y vive sólo en B:
 
@@ -543,14 +545,14 @@ Este ADR fija **qué información tiene que viajar**. Cómo se escribe cada camp
 que manda sobre esa pieza:
 
 ```json
-{ "movimientos": [
+{ "movements": [
     {
-      "id":          "A-77",
-      "generacion":  4,
-      "delta":       -1,
-      "producto":    123,
-      "motivo":      "venta",
-      "referencia":  "pedido #4512"
+      "id":         "A-77",
+      "generation": 4,
+      "delta":      -1,
+      "product":    123,
+      "reason":     "sale",
+      "reference":  "pedido #4512"
     }
 ] }
 ```
@@ -558,16 +560,21 @@ que manda sobre esa pieza:
 | Campo        | Qué es                                                        | Quién fija su formato |
 | ------------ | ------------------------------------------------------------- | --------------------- |
 | `id`         | Identificador global: tienda de origen + secuencia            | ADR de identidad      |
-| `generacion` | La generación del vínculo vigente cuando se emitió            | ADR de vinculación    |
+| `generation` | La generación del vínculo vigente cuando se emitió            | ADR de vinculación    |
 | `delta`      | Entero con signo. §5 no admite decimales                      | Este ADR              |
-| `producto`   | ID local del producto **en la tienda de origen**              | ADR de identidad      |
-| `motivo`     | `venta`, `devolución`, `ajuste`, `bootstrap`                  | ADR del detector      |
-| `referencia` | Con qué se audita después: el número de pedido, etc.          | ADR del detector      |
+| `product`    | ID local del producto **en la tienda de origen**              | ADR de identidad      |
+| `reason`     | `sale`, `refund`, `adjustment`, `bootstrap`                   | ADR del detector      |
+| `reference`  | Con qué se audita después: el número de pedido, etc.          | ADR del detector      |
 
-**El que no puede faltar es `generacion`:**
+**Los nombres del contrato van en inglés**, igual que los estados de §3 y por el mismo motivo:
+es lo que va a leer cualquiera que audite el tráfico entre las dos tiendas, y un JSON con
+tildes adentro (`"devolución"`) es una fuente de problemas de codificación que no hace falta
+tener.
+
+**El que no puede faltar es `generation`:**
 
 ```
-Sin generacion: {"id":"A-77","delta":-1,"producto":123}
+Sin generation: {"id":"A-77","delta":-1,"product":123}
    → el receptor no tiene con qué saber si es de la época que corre
    → lo aplica, y el stock queda mal contra un libro que no lo cuenta
    → el 'discarded' de §3 queda sin uso, porque nunca hay con qué decidir descartar
@@ -580,10 +587,10 @@ vinculación.
 #### El ACK es por movimiento, no por lote
 
 ```json
-{ "resultados": [
-    {"id": "A-77", "estado": "recibido"},
-    {"id": "A-78", "estado": "recibido"},
-    {"id": "A-79", "estado": "error", "motivo": "..."}
+{ "results": [
+    {"id": "A-77", "status": "received"},
+    {"id": "A-78", "status": "received"},
+    {"id": "A-79", "status": "error", "reason": "..."}
 ] }
 ```
 
@@ -695,7 +702,7 @@ está en el SPEC: comparar A contra B daría falsos positivos por movimientos en
 
 | ADR                | Qué le queda pendiente por culpa de este                                                                        |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| **Esquema**        | Materializar los dos ejes de estado; guardar en el eje de entrega `creado_en`, `primer_intento` (contra el que se mide el techo de 6 h), `intentos`, `ultimo_error`, `proximo_intento` y `confirmado_en`; en el eje de aplicación, `aplicado_en`, que en un movimiento `held` es días posterior a la confirmación; crear el **almacén de nonces** con su purga |
+| **Esquema**        | Materializar los dos ejes de estado; guardar en el eje de entrega `created_at`, `first_attempt_at` (contra el que se mide el techo de 6 h), `attempts`, `last_error`, `next_attempt_at` y `confirmed_at`; en el eje de aplicación, `applied_at`, que en un movimiento `held` es días posterior a la confirmación; crear el **almacén de nonces** con su purga |
 | **Identidad**      | El identificador que firma tiene que ser el mismo que numera los movimientos, y queda fijado en el emparejamiento |
 | **Retención**      | Una fila propia no se purga hasta que se confirme. Queda abierto el libro que crece sin techo porque la otra tienda no vuelve nunca: es una condición que hay que avisar por email (UC-08, el aviso de lo que no está sincronizando), no purgar en silencio |
 | **Opciones**       | El tamaño de lote (tope 200), la curva de backoff, las 6 horas del techo y los 5 minutos del claim. Por cada tienda remota: URL, identificador, secreto y fecha del emparejamiento. Del lado propio, **el hash de la URL del sitio al emparejar**, que es lo que detecta el clon: en claro lo reescribiría el `search-replace` de cualquier restore. El secreto es material sensible: `uninstall.php` tiene que borrarlo |
@@ -808,12 +815,12 @@ Límites de la fase 1:          "comparemos de la 300 a la 412"
 **Dos campos separados, en el JSON y en la base.**
 
 ```json
-{ "origen": "8f4e2a91c7b3d05e6a1f9c48b2703d17", "seq": 77 }
+{ "origin": "8f4e2a91c7b3d05e6a1f9c48b2703d17", "seq": 77 }
 ```
 
 ```sql
-origen_tienda CHAR(32),  origen_seq BIGINT UNSIGNED,
-UNIQUE (origen_tienda, origen_seq)     ← la deduplicación de §3 del SPEC
+origin_store CHAR(32),  origin_seq BIGINT UNSIGNED,
+UNIQUE (origin_store, origin_seq)     ← la deduplicación de §3 del SPEC
 ```
 
 **`A-77` existe, pero sólo como forma de mostrarlo** en el log, en la pantalla y en los
@@ -822,7 +829,7 @@ ejemplos de estos ADRs. Nunca se guarda ni se parsea.
 **Por qué no un solo string.** Porque la secuencia se compara como número:
 
 ```
-Con dos campos:  WHERE origen_tienda = ? AND origen_seq <= 412     ← usa el índice
+Con dos campos:  WHERE origin_store = ? AND origin_seq <= 412      ← usa el índice
 Con un string:   hay que partir "8f4e...-77", castear a entero, y un índice
                  de texto no sirve para un rango
 ```
@@ -846,7 +853,7 @@ escriben los dos.
 
 | ADR             | Qué le queda                                                                                                   |
 | --------------- | ---------------------------------------------------------------------------------------------------------------- |
-| **Esquema**     | `origen_tienda CHAR(32)` + `origen_seq BIGINT UNSIGNED` con su `UNIQUE`; la secuencia propia **es** el `AUTO_INCREMENT` de la tabla, así que el libro no lleva contador aparte |
+| **Esquema**     | `origin_store CHAR(32)` + `origin_seq BIGINT UNSIGNED` con su `UNIQUE`; la secuencia propia **es** el `AUTO_INCREMENT` de la tabla, así que el libro no lleva contador aparte |
 | **Opciones**    | `wss_store_id` (inmutable) y `wss_store_label` (editable). Qué pasa con las dos al desinstalar lo decide ADR-003, junto con el resto de los datos |
 | **Scaffold**    | El identificador se genera en la activación, antes de que exista nada más. Es lo primero que el plugin escribe |
 
