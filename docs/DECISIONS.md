@@ -155,6 +155,12 @@ curso**; fuera de esa ventana, el código no autentica nada.
 
 #### Detección de clon: la tienda que cambió de sitio se apaga sola
 
+**Un clon es una tienda levantada a partir de una copia de la base de otra**: un entorno de
+prueba armado con el backup de producción, un staging, una migración a medio hacer. Nadie lo
+crea con mala intención —es la forma normal de probar algo sin tocar la tienda viva— y por eso
+mismo es el caso que hay que atajar: la copia se lleva adentro todo lo que hace falta para
+hablar como si fuera la original.
+
 Cada tienda guarda **el hash de su propia URL** al emparejar, y lo compara en cada carga:
 
 ```
@@ -744,8 +750,9 @@ corregir.
 | **Que lo elija el dueño**      | Renombrar la tienda pasaría a ser cambiar su identidad. Y un identificador tipeado se puede tipear mal |
 
 **Dos tiendas no pueden terminar con el mismo identificador**, ni por casualidad (128 bits al
-azar) ni por el error que sí es probable: emparejar un clon con su original. El canje lo
-rechaza:
+azar) ni por el error que sí es probable: emparejar un **clon** —una tienda levantada con una
+copia de la base de la otra, un staging o un entorno de prueba (ADR-001 §1)— con su original.
+El canje lo rechaza:
 
 ```
 POST /pair llega declarando  origen = 8f4e2a91...
