@@ -34,6 +34,22 @@
 				<element value="Woonderful\StockSync"/>
 			</property>
 		</properties>
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+
+	<!--
+		Los tests son andamiaje, no contrato: no llevan doc comment por método, definen
+		las constantes de WordPress que la suite espera y usan $table_prefix. Las reglas
+		de seguridad siguen aplicando también ahí.
+	-->
+	<rule ref="Squiz.Commenting.FunctionComment.Missing">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+	<rule ref="Universal.Operators.DisallowShortTernary">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.WP.GlobalVariablesOverride">
+		<exclude-pattern>tests/*</exclude-pattern>
 	</rule>
 
 	<rule ref="WordPress.WP.I18n">

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+	bootstrap="tests/bootstrap.php"
+	colors="true"
+	testdox="true"
+	backupGlobals="false"
+	stopOnFailure="false">
+	<testsuites>
+		<testsuite name="Woonderful Stock Sync">
+			<directory suffix=".php">tests/</directory>
+			<exclude>tests/bootstrap.php</exclude>
+			<exclude>tests/wp-tests-config.php</exclude>
+		</testsuite>
+	</testsuites>
+	<coverage>
+		<include>
+			<directory suffix=".php">includes/</directory>
+		</include>
+	</coverage>
+</phpunit>
