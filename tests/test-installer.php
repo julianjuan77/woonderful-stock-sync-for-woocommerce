@@ -59,18 +59,27 @@ class Test_Installer extends WP_UnitTestCase {
 		return (array) $wpdb->get_col( "SHOW TABLES LIKE '{$wpdb->prefix}wss\_%'" ); // phpcs:ignore WordPress.DB
 	}
 
+	/**
+	 * SCH-01 — install() sobre una base limpia crea las tres tablas.
+	 */
 	public function test_install_crea_las_tres_tablas(): void {
 		Installer::install();
 
 		$this->assertCount( 3, $this->existing_tables() );
 	}
 
+	/**
+	 * SCH-02 — Las tres tablas se crean en InnoDB.
+	 */
 	public function test_las_tres_tablas_son_innodb(): void {
 		Installer::install();
 
 		$this->assertSame( array(), Installer::tables_without_transactions() );
 	}
 
+	/**
+	 * SCH-03 — El libro tiene exactamente los tres índices de la decisión, más la primaria.
+	 */
 	public function test_el_libro_tiene_los_tres_indices_de_la_decision(): void {
 		global $wpdb;
 
@@ -89,6 +98,8 @@ class Test_Installer extends WP_UnitTestCase {
 	/**
 	 * La secuencia propia es el AUTO_INCREMENT, que no existe hasta después del INSERT.
 	 * Que dos filas puedan estar en NULL a la vez es lo que hace viable ese diseño.
+	 *
+	 * SCH-04
 	 */
 	public function test_dos_movimientos_propios_conviven_con_la_secuencia_en_null(): void {
 		global $wpdb;
@@ -105,6 +116,8 @@ class Test_Installer extends WP_UnitTestCase {
 
 	/**
 	 * La deduplicación de §3 del SPEC vive en el índice, no en código PHP.
+	 *
+	 * SCH-05
 	 */
 	public function test_un_movimiento_recibido_repetido_choca_contra_el_unique(): void {
 		Installer::install();
@@ -113,6 +126,9 @@ class Test_Installer extends WP_UnitTestCase {
 		$this->assertFalse( $this->insert_movement( 'tienda-b', 77 ) );
 	}
 
+	/**
+	 * SCH-06 — La misma secuencia de dos tiendas distintas no choca.
+	 */
 	public function test_el_mismo_numero_de_dos_tiendas_distintas_no_choca(): void {
 		Installer::install();
 
@@ -120,6 +136,9 @@ class Test_Installer extends WP_UnitTestCase {
 		$this->assertNotFalse( $this->insert_movement( 'tienda-c', 77 ) );
 	}
 
+	/**
+	 * SCH-07 — maybe_upgrade() no ejecuta nada si la versión ya está al día.
+	 */
 	public function test_maybe_upgrade_no_toca_nada_si_la_version_esta_al_dia(): void {
 		Installer::install();
 
@@ -133,6 +152,9 @@ class Test_Installer extends WP_UnitTestCase {
 		$this->assertSame( $queries_antes, $wpdb->num_queries );
 	}
 
+	/**
+	 * SCH-08 — maybe_upgrade() reinstala si la versión quedó atrás.
+	 */
 	public function test_maybe_upgrade_reinstala_si_la_version_quedo_atras(): void {
 		update_option( Installer::OPTION_VERSION, 0, false );
 
@@ -142,6 +164,9 @@ class Test_Installer extends WP_UnitTestCase {
 		$this->assertSame( Installer::SCHEMA_VERSION, (int) get_option( Installer::OPTION_VERSION ) );
 	}
 
+	/**
+	 * SCH-09 — Una tabla en MyISAM se reporta como tabla sin transacciones.
+	 */
 	public function test_detecta_una_tabla_sin_transacciones(): void {
 		global $wpdb;
 

@@ -33,6 +33,27 @@ arranque y no toca las del sitio.
 
 ---
 
+## Cómo se lee un ID
+
+Prefijo por dominio, número correlativo, y **no se renumeran** aunque un caso se elimine.
+
+```
+SCH-04    SCHema (el esquema)     → tests/test-installer.php
+ID-05     IDentidad               → tests/test-store.php
+```
+
+Cada test abre su docblock con el ID, así que se encuentra buscándolo:
+
+```bash
+$ grep -rn "SCH-04" .
+tests/TEST-CASES.md:73:  | `SCH-04` | Dos movimientos propios con `origin_seq` en NULL |…
+tests/test-installer.php:97:  * SCH-04 — Dos movimientos propios conviven con la secuencia todavía en NULL.
+```
+
+Un ID en este archivo que no aparezca en ningún test es un caso sin escribir.
+
+---
+
 ## Matriz decisión ↔ test
 
 | Decisión | Dónde está | Tests |
