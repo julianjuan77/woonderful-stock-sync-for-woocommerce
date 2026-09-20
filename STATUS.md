@@ -15,11 +15,11 @@ depósito. Pool único, sin reparto: lo que se vende en una descuenta en las dos
 | Área                        | Estado |
 |-----------------------------|--------|
 | SPEC funcional              | ✅ 100% (8 casos de uso, §1-§6) |
-| ADRs                        | 🟡 67% (4 de ~6 aprobados) |
+| ADRs                        | 🟡 71% (5 de ~7 escritos; faltan detector y vinculación) |
 | ARCHITECTURE.md             | 🟡 70% (contrato, módulos, seguridad y convenciones de código) |
-| Scaffold del plugin         | ⬜ 0% — no hay una sola línea de código todavía |
+| Scaffold del plugin         | ✅ 100% — activa y crea las tablas, verificado en sandbox |
 | Tests                       | ⬜ 0% |
-| Estándares (PHPCS / ESLint) | ⬜ 0% |
+| Estándares (PHPCS / ESLint) | ✅ PHPCS y PHPStan en verde |
 | i18n / traducciones         | ⬜ 0% |
 | readme.txt                  | ⬜ 0% |
 
@@ -43,6 +43,11 @@ _(nada de código: el plugin está en fase de diseño)_
   los datos al desinstalar" desmarcada por defecto; el secreto compartido se borra siempre.
 - **ADR-004 Esquema de la base de datos · Aprobada 2026-09-20.** Tres tablas InnoDB, tres
   índices en el libro, y la retención con sus tres reglas duras.
+- **Scaffold + esquema, en código.** Archivo principal con HPOS declarado, `composer.json`
+  con PSR-4, `phpcs.xml`, `phpstan.neon.dist`, `uninstall.php` (ADR-003), `Plugin`,
+  `Identity\Store` y `Schema\Installer`. **Verificado en sandbox el 2026-09-20:** activa,
+  crea `wp_wss_movements` (20 columnas, 7 entradas de índice), `wp_wss_links` y
+  `wp_wss_nonces`, las tres InnoDB, y genera el identificador de tienda.
 
 ---
 
@@ -54,8 +59,18 @@ _(nada)_
 
 ## 📋 Backlog — en orden
 
-El esquema es el que habilita escribir código; el detector y la vinculación son
-independientes entre sí.
+- [ ] **Tests del esquema.** `tests/` está vacío y falta el bootstrap de PHPUnit. Es lo
+      primero que falta para cumplir el done criteria del entorno.
+- [ ] **ADR — Vinculación.** La generación del par, el bootstrap y sus campos extra, y los
+      estados de `wss_links`. Va antes que el detector: lo que el detector emite lleva
+      generación encima.
+- [ ] **ADR — Detector.** Cómo se detecta el cambio de stock y el guard anti-eco.
+- [ ] **ADR-000 — Scaffold.** ✍️ Escrito, `Estado: Propuesta`, esperando lectura.
+- [ ] **Código del libro** (`Ledger/`): el `INSERT` + `UPDATE` de la secuencia en
+      transacción, el claim y la purga. Habilitado por ADR-004.
+- [ ] **Código del transporte** (`Transport/`, `Rest/`): firma HMAC, emparejamiento,
+      `POST /movements`. Habilitado por ADR-001.
+- [ ] `readme.txt` y `.pot`, antes de pensar en publicar.
 
 ---
 
