@@ -29,14 +29,14 @@ if ( is_array( $wss_peers ) ) {
 	update_option( 'wss_peers', $wss_peers, false );
 }
 
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange -- no hay API de WordPress para borrar una tabla.
+// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- no hay API de WordPress para borrar una tabla, y el nombre sale de $wpdb->prefix, no de una entrada.
 $wpdb->query( "DROP TABLE IF EXISTS {$wss_prefix}nonces" );
 
 if ( ! get_option( 'wss_delete_data_on_uninstall', false ) ) {
 	return;
 }
 
-// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange -- ídem.
+// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- ídem.
 $wpdb->query( "DROP TABLE IF EXISTS {$wss_prefix}movements" );
 $wpdb->query( "DROP TABLE IF EXISTS {$wss_prefix}links" );
 // phpcs:enable

@@ -1,0 +1,18 @@
+parameters:
+    level: 6
+    reportUnmatchedIgnoredErrors: false
+    paths:
+        - includes
+        - woonderful-stock-sync-for-woocommerce.php
+        - uninstall.php
+    excludePaths:
+        - vendor/*
+    bootstrapFiles:
+        - vendor/php-stubs/wordpress-stubs/wordpress-stubs.php
+    scanFiles:
+        - vendor/php-stubs/wordpress-stubs/wordpress-stubs.php
+    ignoreErrors:
+        # Constantes definidas en el archivo principal — no visibles para PHPStan.
+        - '#Constant WSS_(PLUGIN_FILE|PLUGIN_DIR) not found#'
+        # WooCommerce no está en los stubs de WordPress.
+        - '#unknown class Automattic\\WooCommerce\\Utilities\\FeaturesUtil#'

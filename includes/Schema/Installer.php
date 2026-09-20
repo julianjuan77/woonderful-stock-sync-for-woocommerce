@@ -64,7 +64,7 @@ final class Installer {
 	/**
 	 * Las tablas que no son InnoDB, si hay alguna.
 	 *
-	 * dbDelta las crea con ENGINE=InnoDB pero no convierte una que ya exista con otro
+	 * Las crea `dbDelta` con ENGINE=InnoDB, pero no convierte una que ya exista con otro
 	 * motor, y en MyISAM las transacciones se ignoran en silencio: la numeración de un
 	 * movimiento y la purga que consolida el stock base dejarían los números mal.
 	 *
@@ -75,14 +75,20 @@ final class Installer {
 
 		$names = array_map( array( self::class, 'table' ), self::TABLES );
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- information_schema no tiene API de WordPress.
+		$placeholders = implode( ', ', array_fill( 0, count( $names ), '%s' ) );
+
+		// information_schema no tiene API de WordPress, y lo único interpolado en la
+		// consulta son los propios %s, que salen de contar las tablas: no hay dato de
+		// entrada en juego.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				'SELECT TABLE_NAME AS name, ENGINE AS engine FROM information_schema.TABLES
-				 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ( %s, %s, %s )',
-				...$names
+				 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ( ' . $placeholders . ' )',
+				$names
 			)
 		);
+		// phpcs:enable
 
 		$problems = array();
 
