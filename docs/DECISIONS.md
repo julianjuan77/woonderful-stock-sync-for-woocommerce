@@ -567,14 +567,34 @@ usa para mostrar el desfasaje antes de que moleste.
 #### Lo que repara la reconciliación vuelve por la cola de siempre
 
 ```
-La fase 1 de UC-06 encuentra que a B le falta A-77 (está 'abandoned' en A)
-   → NO lo entrega por su cuenta
-   → devuelve la fila a 'pending' con la hora del primer intento en cero
-   → la pasada normal lo manda
+Lunes  08:00  Venta en A → A-77 sale a entregarse. B está apagada.
+Lunes  08:00  reintentos con backoff: 08:01, 08:03, 08:07... todos fallan
+   a   14:00
+Lunes  14:00  Pasaron las 6 h → 'abandoned'. A-77 queda en el libro de A, sin entregar.
+              A tiene stock 9, B sigue en 10: hay desvío.
+Lunes  22:00  Vuelve B.
+Martes 03:00  Reconciliación (UC-06): comparan qué movimientos conoce cada una
+              → "B no tiene A-77"
+              → A devuelve la fila a 'pending' y le borra la hora del primer intento
+Martes 03:01  La pasada de siempre la toma y la entrega. B aplica el −1 y queda en 9.
 ```
 
-Un solo camino de salida en vez de dos. Y sin reiniciar el reloj, un movimiento reparado
-nacería abandonado de nuevo: su primer intento fue hace días.
+**La fase 1 no entrega ella misma**: sólo reabre la fila. Un movimiento sale de una sola
+manera, por la cola, y no hay dos caminos que mantener.
+
+**Y el reloj tiene que quedar en cero**, no sólo el estado. Si la fila vuelve a `pending`
+conservando la hora de su primer intento:
+
+```
+Martes 03:00  entrega: pending, primer_intento = lunes 08:00
+Martes 03:01  la pasada la toma y chequea el techo antes de mandar:
+              ahora − primer_intento = 19 horas > 6 horas
+              → 'abandoned' de nuevo, sin haberlo intentado ni una vez
+              → y la noche siguiente lo mismo, para siempre
+```
+
+Volver a `pending` con el reloj viejo no rescata el movimiento: lo deja en un loop en el que
+la reconciliación lo reabre cada noche y la pasada lo vuelve a abandonar sin intentarlo.
 
 #### La fase 2 de UC-06 no necesita endpoint
 
