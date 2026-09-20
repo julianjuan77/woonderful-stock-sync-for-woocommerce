@@ -65,7 +65,19 @@ class Test_Installer extends WP_UnitTestCase {
 	public function test_install_crea_las_tres_tablas(): void {
 		Installer::install();
 
-		$this->assertCount( 3, $this->existing_tables() );
+		$tablas = $this->existing_tables();
+		sort( $tablas );
+
+		// Por nombre y no por cantidad: una tabla creada con el nombre equivocado sigue
+		// siendo una tabla, y contar tres no lo detecta.
+		$this->assertSame(
+			array(
+				Installer::table( 'links' ),
+				Installer::table( 'movements' ),
+				Installer::table( 'nonces' ),
+			),
+			$tablas
+		);
 	}
 
 	/**
