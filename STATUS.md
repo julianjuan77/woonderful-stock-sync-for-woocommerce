@@ -15,7 +15,7 @@ depósito. Pool único, sin reparto: lo que se vende en una descuenta en las dos
 | Área                        | Estado |
 |-----------------------------|--------|
 | SPEC funcional              | ✅ 100% (8 casos de uso, §1-§6) |
-| ADRs                        | 🟡 20% (1 de ~5 aprobado; ADR-002 en propuesta) |
+| ADRs                        | 🟡 20% (1 de ~6 aprobado; ADR-002 y ADR-003 en propuesta) |
 | ARCHITECTURE.md             | ⬜ 0% |
 | Scaffold del plugin         | ⬜ 0% — no hay una sola línea de código todavía |
 | Tests                       | ⬜ 0% |
@@ -53,7 +53,11 @@ Los dos primeros se traban entre sí; los otros dos son independientes.
       editable; la secuencia es el `AUTO_INCREMENT` del libro (con huecos, y nada puede
       deducir nada de un hueco); tienda y secuencia son dos campos separados, nunca el
       string `A-77`.
-- [ ] **ADR-003 — Esquema del libro.** Las tablas, con los dos ejes de estado, los campos de
+- [ ] **ADR-003 — Desinstalación y borrado de datos.** ✍️ Escrito, `Estado: Propuesta`.
+      Casilla "borrar todos los datos al desinstalar", desmarcada por defecto; el secreto
+      compartido se borra siempre.
+
+- [ ] **ADR-004 — Esquema del libro.** Las tablas, con los dos ejes de estado, los campos de
       entrega (`creado_en`, `primer_intento`, `intentos`, `ultimo_error`, `proximo_intento`,
       `confirmado_en`), `aplicado_en` del lado receptor, el almacén de nonces con su purga, y
       la retención (no purgar lo que la otra tienda no confirmó; consolidar el stock base al

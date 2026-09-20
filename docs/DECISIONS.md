@@ -847,5 +847,80 @@ escriben los dos.
 | ADR             | Qué le queda                                                                                                   |
 | --------------- | ---------------------------------------------------------------------------------------------------------------- |
 | **Esquema**     | `origen_tienda CHAR(32)` + `origen_seq BIGINT UNSIGNED` con su `UNIQUE`; la secuencia propia **es** el `AUTO_INCREMENT` de la tabla, así que el libro no lleva contador aparte |
-| **Opciones**    | `wss_store_id` (inmutable) y `wss_store_label` (editable). El identificador no es material sensible, pero `uninstall.php` lo borra igual: dejarlo haría que una reinstalación reviviera una identidad que la otra tienda ya no reconoce |
+| **Opciones**    | `wss_store_id` (inmutable) y `wss_store_label` (editable). Qué pasa con las dos al desinstalar lo decide ADR-003, junto con el resto de los datos |
 | **Scaffold**    | El identificador se genera en la activación, antes de que exista nada más. Es lo primero que el plugin escribe |
+
+
+---
+
+## ADR-003 — Desinstalación y borrado de datos
+
+Estado: Propuesta
+Temas: uninstall, opciones
+Cubre: uninstall.php
+
+**Decisión:** una casilla en los ajustes, **desmarcada por defecto**, decide si al desinstalar
+se borra todo. **El secreto compartido se borra siempre**, esté como esté la casilla.
+
+```
+Ajustes → [ ] Borrar todos los datos al desinstalar     ← desmarcada de fábrica
+```
+
+### Qué borra cada caso
+
+| Dato                                      | Casilla desmarcada | Casilla marcada |
+| ----------------------------------------- | ------------------ | --------------- |
+| Libro de movimientos                      | queda              | se borra        |
+| Identidad de la tienda (ADR-002)          | queda              | se borra        |
+| Vínculos entre productos y su stock base  | queda              | se borra        |
+| Ajustes del plugin                        | queda              | se borra        |
+| Almacén de nonces                         | se borra           | se borra        |
+| **Secreto compartido con la otra tienda** | **se borra**       | **se borra**    |
+
+### Por qué desmarcada por defecto
+
+El libro es el historial de stock del negocio, y el stock base de cada vínculo es lo único que
+permite reconstruir el total. Perder eso por desinstalar el plugin un rato para probar algo es
+irreversible y nadie lo espera:
+
+```
+Desinstalo para probar otra cosa, reinstalo a la media hora
+   con la casilla desmarcada → el libro sigue ahí, re-emparejo y sigue todo
+   con borrado automático    → el historial no vuelve más
+```
+
+### Por qué el secreto es la excepción
+
+```
+Desinstalás conservando datos:
+   libro, identidad, vínculos  → quedan (siguen valiendo: la identidad no cambió)
+   secreto                     → se borra
+   → al reinstalar, re-emparejás. ADR-001: re-emparejar no cambia la identidad,
+     así que el libro y las secuencias siguen sirviendo.
+```
+
+Conservar el libro te ahorra perder datos. Conservar el secreto no te ahorra casi nada —el
+canje son dos clics— y deja una credencial compartida viva en la base de un plugin que ya no
+está instalado: nadie la rota, nadie la mira, y sigue sirviendo para firmar movimientos
+válidos contra la otra tienda.
+
+### Desactivar no es desinstalar
+
+Desactivar el plugin no borra nada, ni siquiera el secreto. Es la operación reversible: el
+dueño la usa para frenar la sincronización un rato, y espera encontrar todo como estaba.
+
+### Alcance
+
+**Cubre:** qué se borra al desinstalar y quién lo decide.
+
+**No cubre:** la purga periódica del libro por retención, que es otra cosa y tiene sus propias
+reglas duras (no purgar lo que la otra tienda no confirmó, consolidar el stock base al
+purgar). Va al ADR del esquema.
+
+### Consecuencias para otros ADRs
+
+| ADR             | Qué le queda                                                                                      |
+| --------------- | --------------------------------------------------------------------------------------------------- |
+| **Opciones**    | La casilla es una opción más, y es la única que `uninstall.php` tiene que leer antes de borrar nada |
+| **Retención**   | Si una tienda borra su libro al desinstalar y la otra no, la marca de purga de la que quedó apunta a una secuencia que del otro lado ya no existe. No se rompe —la fase 1 compara listas y no encuentra nada— pero el ADR de retención tiene que nombrar el caso |
+| **Scaffold**    | `uninstall.php` existe desde el primer commit, aunque al principio no borre nada: agregarlo después es la clase de cosa que se olvida |
