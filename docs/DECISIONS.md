@@ -45,6 +45,16 @@ Cubre: includes/Transport/_.php, includes/Rest/_.php
    Action Scheduler sólo agenda la tarea que lo vacía.
 4. Cada movimiento lleva **dos estados independientes**: uno de entrega y uno de aplicación.
 
+**Los casos de uso del SPEC que se citan acá**, para no tener que abrirlo:
+
+| UC        | De qué se trata                                                                     |
+| --------- | ------------------------------------------------------------------------------------ |
+| **UC-01** | Una venta descuenta stock en las dos tiendas. Es de donde sale que no haya reintento eterno |
+| **UC-03** | Vinculación de productos. Un par cuyo producto del otro lado desaparece queda **suspendido**: sus movimientos se retienen hasta que vuelva |
+| **UC-04** | Un cambio manual de stock se propaga como ajuste. Incluye la carga de un CSV, que es una ráfaga de miles |
+| **UC-06** | **Reconciliación.** Fase 1: los libros se comparan y cada una entrega lo que a la otra le falta. Fase 2: cada tienda compara su stock real contra lo que dice su libro |
+| **UC-08** | Aviso por email de lo que no está sincronizando                                     |
+
 > Los valores de los ejemplos (`tienda-a`, `A-77`, nombres de columna) son **ilustrativos**.
 > El formato de cada campo lo fijan los ADR de identidad y de esquema; acá se fija qué tiene
 > que existir, no cómo se escribe.
@@ -262,7 +272,9 @@ Sin claim:  pasada 1 lee las 50 filas pendientes → envía
 
 **Por qué el paso 1, y por qué lo hace la misma pasada.** Un worker que muere a mitad deja
 filas en `in_flight` para siempre. Sin vencimiento, el primer timeout de PHP apaga la entrega
-y nadie se entera — es la misma lógica del candado de UC-06. Va como primer paso de la pasada
+y nadie se entera — es la misma lógica del candado de la reconciliación (UC-06), que también
+vence solo para que una pasada muerta a mitad no la apague para siempre. Va como primer paso
+de la pasada
 y no como acción aparte: una tarea más que agendar y vigilar para algo que la pasada tiene que
 hacer igual antes de mirar qué hay pendiente.
 
@@ -285,10 +297,12 @@ No hace falta ningún mecanismo para evitarlo. Evitarlo cuesta más que pagarlo.
 08:00  primer intento  → falla (la otra tienda está caída)
        reintentos con backoff: 08:01, 08:03, 08:07, 08:15, 08:31, 09:03, ...
 14:00  pasaron 6 horas desde el primer intento → 'abandoned' + log
-       (no se pierde: sigue en el libro y lo entrega la reconciliación nocturna, UC-06)
+       (no se pierde: sigue en el libro y lo entrega la reconciliación nocturna —UC-06,
+        la pasada que compara los dos libros y reparte lo que a cada uno le falta)
 ```
 
-Los intentos siguen siendo finitos, como exige UC-01, porque el backoff crece.
+Los intentos siguen siendo finitos —lo exige UC-01, el caso de la venta que descuenta en las
+dos tiendas: sin reintento eterno— porque el backoff crece.
 
 **Por qué en tiempo y no en cantidad de intentos.** Porque es contra tiempo que hay que leerlo:
 §5 acepta que un desvío dure hasta 24 horas, que es lo que tarda la reconciliación nocturna en
@@ -307,7 +321,7 @@ son configuración; **que el techo se exprese en tiempo, no**.
 
 | Alternativa                            | Qué falla                                                                                                                                  |
 | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Una acción de AS por movimiento**    | El estado de entrega quedaría en la tabla de AS y el del movimiento en el libro: dos verdades, y la reconciliación lee el libro. Además una ráfaga de importación (UC-04) crearía miles de acciones para algo que el lote resuelve en una |
+| **Una acción de AS por movimiento**    | El estado de entrega quedaría en la tabla de AS y el del movimiento en el libro: dos verdades, y la reconciliación lee el libro. Además una ráfaga de importación —UC-04, el cambio manual de stock que se propaga como ajuste; una carga de CSV son miles de golpe— crearía miles de acciones para algo que el lote resuelve en una |
 | **Un cron propio**                     | AS ya aporta el disparo por loopback, la recurrencia y el no solapamiento de su propia acción, y ya está instalado. Escribirlo de nuevo no agrega nada |
 
 ---
@@ -353,6 +367,10 @@ suspendido— deja de ser especial:
      de reintentar                    cuando el par se restablezca (UC-03)
 ```
 
+Un par queda **suspendido** cuando se rompe —borraron el producto del otro lado, o se vació la
+papelera—: el vínculo y el stock base se conservan, y sus movimientos quedan retenidos hasta
+que vuelva. Es UC-03, la vinculación de productos.
+
 Las dos filas dicen la verdad sobre lo que le consta a su tienda, que es todo lo que cada una
 puede saber.
 
@@ -389,7 +407,7 @@ VENTA DE 1 UNIDAD EN LA TIENDA A
 | --------------------------------------- | -------------------- | ----------- | ------------ |
 | Todo normal                             | `applied`            | −1          | confirmado   |
 | Ya lo tenía (es un reenvío)             | queda como estaba    | sin cambios | confirmado   |
-| El par está suspendido (UC-03)          | `held`               | sin cambios | confirmado   |
+| El par está suspendido: le borraron el producto del otro lado (UC-03) | `held` | sin cambios | confirmado |
 | Vino de una generación vieja            | `discarded`          | sin cambios | confirmado   |
 
 **Y los caminos que puede tomar la fila de A:**
@@ -400,7 +418,7 @@ VENTA DE 1 UNIDAD EN LA TIENDA A
 | Falló: timeout, 500, o error de esa fila     | vuelve a `pending` + backoff      | enseguida      |
 | El worker murió sin anotar nada              | sigue `in_flight` → `pending`     | a los 5 min    |
 | Pasaron 6 h desde el primer intento          | `abandoned`                       | —              |
-| La reconciliación lo reparó (UC-06)          | `pending`, con el reloj en cero   | esa madrugada  |
+| La reconciliación nocturna lo reparó (UC-06) | `pending`, con el reloj en cero   | esa madrugada  |
 
 Una venta en B hace exactamente lo mismo al revés: **la maestra no interviene en los
 movimientos** (§3 del SPEC), así que los dos lados son simétricos.
@@ -434,7 +452,7 @@ justo lo que rompe la consulta de `held`.
 | ------------------------------------------ | --------------------------------------------- |
 | Qué falta entregar                         | eje de entrega, sobre movimientos propios     |
 | Qué aplicar cuando un par se desbloquea    | eje de aplicación = `held`                    |
-| Qué suma el total esperado en la fase 2 de UC-06 | los **propios** de la generación vigente + los **recibidos** con `applied` |
+| Qué suma el total esperado en la fase 2 de UC-06 —la que compara el stock real contra el que dice el libro— | los **propios** de la generación vigente + los **recibidos** con `applied` |
 | Qué par queda fuera de la fase 2           | el que tenga algún `held`                     |
 
 **Ojo con la tercera.** La fila propia no tiene eje de aplicación, así que sumar sólo
@@ -460,7 +478,7 @@ generación vigente del par.
 | ------------------------ | ---------------------- | --------------------------------------------------------------------------- |
 | `POST /pair`             | La secundaria, una vez | Canjea el código de emparejamiento (§1). Se firma **con el código**, igual que el `GET /health` del callback; todo lo demás va firmado con el secreto |
 | `POST /movements`        | Cualquiera de las dos  | Entrega un **lote** de movimientos                                          |
-| `POST /reconcile/digest` | Quien lanza la pasada  | Fase 1 de UC-06: qué identificadores conoce cada una dentro de los límites acordados |
+| `POST /reconcile/digest` | Quien lanza la pasada  | Fase 1 de UC-06 (la reconciliación): qué identificadores conoce cada una dentro de los límites acordados, para detectar cuál le falta a quién |
 | `GET /health`            | Cualquiera             | Canal, firma y versión del plugin del otro lado. Es lo que consulta la pantalla de ajustes |
 
 #### Qué campos lleva cada movimiento
@@ -539,7 +557,8 @@ Lote de 200   → se procesa
 Lote de 5000  → se rechaza con un error explícito
 ```
 
-Sin tope, la ráfaga de importación de UC-04 puede hacerle timeout al receptor; el emisor lee
+Sin tope, la ráfaga de importación de UC-04 —una carga de CSV que cambia el stock de miles de
+productos de golpe— puede hacerle timeout al receptor; el emisor lee
 ese timeout como caída y reintenta el mismo lote imposible hasta agotar las 6 horas. El tamaño
 que usa el emisor es configuración; **el techo del receptor es contrato**.
 
@@ -573,7 +592,7 @@ Lunes  08:00  reintentos con backoff: 08:01, 08:03, 08:07... todos fallan
 Lunes  14:00  Pasaron las 6 h → 'abandoned'. A-77 queda en el libro de A, sin entregar.
               A tiene stock 9, B sigue en 10: hay desvío.
 Lunes  22:00  Vuelve B.
-Martes 03:00  Reconciliación (UC-06): comparan qué movimientos conoce cada una
+Martes 03:00  Reconciliación (UC-06, la pasada nocturna): comparan qué movimientos tiene cada una
               → "B no tiene A-77"
               → A devuelve la fila a 'pending' y le borra la hora del primer intento
 Martes 03:01  La pasada de siempre la toma y la entrega. B aplica el −1 y queda en 9.
@@ -596,7 +615,7 @@ Martes 03:01  la pasada la toma y chequea el techo antes de mandar:
 Volver a `pending` con el reloj viejo no rescata el movimiento: lo deja en un loop en el que
 la reconciliación lo reabre cada noche y la pasada lo vuelve a abandonar sin intentarlo.
 
-#### La fase 2 de UC-06 no necesita endpoint
+#### La fase 2 de UC-06 —comparar stock contra libro— no necesita endpoint
 
 Cada tienda se compara contra su propio libro, no contra el stock de la otra. Es deliberado y
 está en el SPEC: comparar A contra B daría falsos positivos por movimientos en vuelo.
@@ -622,5 +641,5 @@ está en el SPEC: comparar A contra B daría falsos positivos por movimientos en
 | ------------------ | ---------------------------------------------------------------------------------------------------------------- |
 | **Esquema**        | Materializar los dos ejes de estado; guardar intentos, **hora del primer intento** (contra la que se mide el techo de 6 h) y próximo reintento; crear el **almacén de nonces** con su purga |
 | **Identidad**      | El identificador que firma tiene que ser el mismo que numera los movimientos, y queda fijado en el emparejamiento |
-| **Retención**      | Una fila propia no se purga hasta que se confirme. Queda abierto el libro que crece sin techo porque la otra tienda no vuelve nunca: es una condición que hay que avisar (UC-08), no purgar en silencio |
+| **Retención**      | Una fila propia no se purga hasta que se confirme. Queda abierto el libro que crece sin techo porque la otra tienda no vuelve nunca: es una condición que hay que avisar por email (UC-08, el aviso de lo que no está sincronizando), no purgar en silencio |
 | **Opciones**       | El tamaño de lote (tope 200), la curva de backoff, las 6 horas del techo y los 5 minutos del claim. Por cada tienda remota: URL, identificador, secreto y fecha del emparejamiento. Del lado propio, **el hash de la URL del sitio al emparejar**, que es lo que detecta el clon: en claro lo reescribiría el `search-replace` de cualquier restore. El secreto es material sensible: `uninstall.php` tiene que borrarlo |
