@@ -37,10 +37,10 @@ arranque y no toca las del sitio.
 
 Prefijo por dominio, número correlativo, y **no se renumeran** aunque un caso se elimine.
 
-```
-SCH-04    SCHema (el esquema)     → tests/test-installer.php
-ID-05     IDentidad               → tests/test-store.php
-```
+| Prefijo | Dominio | Archivo |
+|---|---|---|
+| `SCH-NN` | El esquema | [`tests/test-installer.php`](test-installer.php) |
+| `ID-NN` | La identidad de la tienda | [`tests/test-store.php`](test-store.php) |
 
 Cada test lleva su ID en el docblock, así que se encuentra buscándolo:
 
@@ -54,28 +54,31 @@ Los que no necesitan explicación llevan el ID y la frase en la misma línea
 (`SCH-01 — install() sobre una base limpia crea las tres tablas.`); los que sí, la
 explicación arriba y el ID al final del docblock.
 
+Los enlaces de este archivo apuntan al archivo y no a la línea: un `#L102` queda viejo con
+el primer test que se agregue arriba, y el ID se busca igual con un grep.
+
 Un ID en este archivo que no aparezca en ningún test es un caso sin escribir.
 
 ---
 
 ## Matriz decisión ↔ test
 
-| Decisión | Dónde está | Tests |
-|---|---|---|
-| Tres tablas, InnoDB | ADR-004 §1-§3 | `SCH-01`, `SCH-02` |
-| Tres índices en el libro, ni uno más | ADR-004 §1 | `SCH-03` |
-| La secuencia propia es el `AUTO_INCREMENT`, en `NULL` hasta el `UPDATE` | ADR-004 §1 | `SCH-04` |
-| La deduplicación vive en el `UNIQUE`, no en PHP | SPEC §3, ADR-001 | `SCH-05`, `SCH-06` |
-| Versión de esquema y migración | ADR-004 §5 | `SCH-07`, `SCH-08` |
-| Sin transacciones no se sincroniza | ADR-004 §5 | `SCH-09` |
-| Identificador opaco de 128 bits, inmutable | ADR-002 §1 | `ID-01`, `ID-02`, `ID-03` |
-| Etiqueta legible, editable | ADR-002 §1 | `ID-04` |
-| La huella del sitio se guarda hasheada | ADR-001 §1 | `ID-05` |
-| El clon se apaga solo | ADR-001 §1 | `ID-06`, `ID-07`, `ID-08` |
+| Decisión | Dónde está | Tests | Archivo |
+|---|---|---|---|
+| Tres tablas, InnoDB | ADR-004 §1-§3 | `SCH-01`, `SCH-02` | [test-installer.php](test-installer.php) |
+| Tres índices en el libro, ni uno más | ADR-004 §1 | `SCH-03` | [test-installer.php](test-installer.php) |
+| La secuencia propia es el `AUTO_INCREMENT`, en `NULL` hasta el `UPDATE` | ADR-004 §1 | `SCH-04` | [test-installer.php](test-installer.php) |
+| La deduplicación vive en el `UNIQUE`, no en PHP | SPEC §3, ADR-001 | `SCH-05`, `SCH-06` | [test-installer.php](test-installer.php) |
+| Versión de esquema y migración | ADR-004 §5 | `SCH-07`, `SCH-08` | [test-installer.php](test-installer.php) |
+| Sin transacciones no se sincroniza | ADR-004 §5 | `SCH-09` | [test-installer.php](test-installer.php) |
+| Identificador opaco de 128 bits, inmutable | ADR-002 §1 | `ID-01`, `ID-02`, `ID-03` | [test-store.php](test-store.php) |
+| Etiqueta legible, editable | ADR-002 §1 | `ID-04` | [test-store.php](test-store.php) |
+| La huella del sitio se guarda hasheada | ADR-001 §1 | `ID-05` | [test-store.php](test-store.php) |
+| El clon se apaga solo | ADR-001 §1 | `ID-06`, `ID-07`, `ID-08` | [test-store.php](test-store.php) |
 
 ---
 
-## `tests/test-installer.php` — el esquema
+## [`tests/test-installer.php`](test-installer.php) — el esquema
 
 | ID | Caso | Resultado esperado |
 |---|---|---|
@@ -89,7 +92,7 @@ Un ID en este archivo que no aparezca en ningún test es un caso sin escribir.
 | `SCH-08` | `maybe_upgrade()` con la versión atrasada | Reinstala y deja la versión al día |
 | `SCH-09` | Una de las tablas pasada a MyISAM | `tables_without_transactions()` la nombra |
 
-## `tests/test-store.php` — la identidad
+## [`tests/test-store.php`](test-store.php) — la identidad
 
 | ID | Caso | Resultado esperado |
 |---|---|---|
