@@ -446,6 +446,20 @@ VENTA DE 1 UNIDAD EN LA TIENDA A
 | El par está suspendido: le borraron el producto del otro lado (UC-03) | `held` | sin cambios | confirmado |
 | Vino de una generación vieja            | `discarded`          | sin cambios | confirmado   |
 
+**La fila de B guarda cuándo lo aplicó** (`aplicado_en`), que no es lo mismo que cuándo lo
+confirmó: un movimiento `held` se confirma enseguida y puede aplicarse días después, cuando el
+par vuelve. Es un dato de auditoría y vive sólo en B:
+
+```
+En la pantalla de B   → gratis: B sabe cuándo aplicó, escribe su propia fila
+En la pantalla de A   → costaría un mensaje más. El ACK ya salió hace días,
+                        así que B tendría que avisar después o A preguntar
+```
+
+No se hace: el ACK confirma recepción y no efecto (§3), y la pregunta que el dueño realmente
+se hace —"¿por qué este producto no sincroniza?"— ya la contesta otro camino, el email de
+UC-08 sobre el par que quedó afuera de la fase 2.
+
 **Y los caminos que puede tomar la fila de A:**
 
 | Qué pasó con el envío                        | Entrega en A                      | Cuándo         |
@@ -675,7 +689,7 @@ está en el SPEC: comparar A contra B daría falsos positivos por movimientos en
 
 | ADR                | Qué le queda pendiente por culpa de este                                                                        |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| **Esquema**        | Materializar los dos ejes de estado; guardar en el eje de entrega `creado_en`, `primer_intento` (contra el que se mide el techo de 6 h), `intentos`, `ultimo_error`, `proximo_intento` y `confirmado_en`; crear el **almacén de nonces** con su purga |
+| **Esquema**        | Materializar los dos ejes de estado; guardar en el eje de entrega `creado_en`, `primer_intento` (contra el que se mide el techo de 6 h), `intentos`, `ultimo_error`, `proximo_intento` y `confirmado_en`; en el eje de aplicación, `aplicado_en`, que en un movimiento `held` es días posterior a la confirmación; crear el **almacén de nonces** con su purga |
 | **Identidad**      | El identificador que firma tiene que ser el mismo que numera los movimientos, y queda fijado en el emparejamiento |
 | **Retención**      | Una fila propia no se purga hasta que se confirme. Queda abierto el libro que crece sin techo porque la otra tienda no vuelve nunca: es una condición que hay que avisar por email (UC-08, el aviso de lo que no está sincronizando), no purgar en silencio |
 | **Opciones**       | El tamaño de lote (tope 200), la curva de backoff, las 6 horas del techo y los 5 minutos del claim. Por cada tienda remota: URL, identificador, secreto y fecha del emparejamiento. Del lado propio, **el hash de la URL del sitio al emparejar**, que es lo que detecta el clon: en claro lo reescribiría el `search-replace` de cualquier restore. El secreto es material sensible: `uninstall.php` tiene que borrarlo |
