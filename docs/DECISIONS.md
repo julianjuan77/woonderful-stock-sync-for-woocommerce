@@ -74,7 +74,9 @@ HMAC-SHA256( secreto,
              método + "\n" + ruta + "\n" + timestamp + "\n" + nonce + "\n" + sha256(cuerpo) )
 ```
 
-**El secreto nunca viaja.** Vive en la base de las dos tiendas y sólo se usa para firmar.
+**El secreto no viaja en ninguna llamada.** Vive en la base de las dos tiendas y sólo se usa
+para calcular la firma. La única vez que cruza la red es en la respuesta del canje (paso 5 de
+abajo), que es por lo que §5 exige HTTPS.
 
 #### El receptor rechaza el request si
 
@@ -85,20 +87,38 @@ HMAC-SHA256( secreto,
 | El nonce ya se vio dentro de esa ventana     | Es el mismo request mandado dos veces            |
 | `X-WSS-Store` no es una tienda emparejada    | No hay secreto con qué verificar nada            |
 
-El almacén de nonces es una tabla propia, y se purga sola: fuera de la ventana de 5 minutos
-un nonce ya no sirve para nada.
+La única excepción es el `GET /health` del paso 4 del emparejamiento: va firmado con el
+código, contra una tienda que todavía no está emparejada, y sólo se acepta mientras hay un
+canje en curso.
+
+El almacén de nonces es una tabla propia. **La purga la hace la misma pasada recurrente que
+vacía pendientes** (§2), que corre en las dos tiendas: borra todo nonce con más de 5 minutos,
+porque fuera de la ventana ya no sirve para nada.
 
 #### El emparejamiento, paso a paso (ocurre una sola vez)
 
 ```
-1. Maestra    → genera un código de un solo uso, con vencimiento corto
+1. Maestra    → genera un código de un solo uso, con vencimiento corto, que lleva
+                adentro su propia URL de REST y su identificador
 2. El dueño   → lo copia a la pantalla de ajustes de la secundaria
-3. Secundaria → POST /pair a la maestra { código, su URL de REST, su identificador }
+3. Secundaria → lo decodifica: ya sabe a dónde llamar y con quién se está emparejando
+                → POST /pair a la maestra { código, su URL de REST, su identificador }
 4. Maestra    → GET /health a esa URL, firmando con el código
                 (¿responde? ¿declara el mismo identificador que dijo en el paso 3?)
-5. Maestra    → genera el secreto de 256 bits, guarda, invalida el código,
-                y lo devuelve en la respuesta al paso 3
+5. Maestra    → genera el secreto de 256 bits, guarda, invalida el código, y responde
+                al paso 3 con { secreto, su identificador }
 ```
+
+**El código es autocontenido y el dueño copia una sola cosa:**
+
+```
+wss_eyJ1cmwiOiJodHRwczovL21hZXN0cmEuY29tL3dwLWpzb24vd3NzL3YxIiwiaWQiOiJ0aWVuZGEtYSIsImMiOiIuLi4ifQ
+       └─ URL de REST de la maestra + su identificador + el código propiamente dicho
+```
+
+Sin eso, el dueño tendría que tipear la URL de la maestra en la secundaria: el paso 4 cubre
+el error de tipeo en una dirección, pero nada cubriría el de la otra. De paso el código queda
+largo y opaco, así que adivinarlo a fuerza de intentos deja de ser una preocupación.
 
 Al terminar, cada tienda tiene guardado de la otra:
 
@@ -198,7 +218,7 @@ dependencias: §5 exige WooCommerce 8.2+, que ya lo trae.
 ```sql
 -- 1. Libera lo que quedó colgado de una pasada anterior
 UPDATE libro SET entrega = 'pending'
- WHERE entrega = 'in_flight' AND tomado_en < NOW() - <plazo>;
+ WHERE entrega = 'in_flight' AND tomado_en < NOW() - INTERVAL 5 MINUTE;
 
 -- 2. Reclama un lote para este worker  ← esto es el "claim"
 UPDATE libro SET entrega = 'in_flight', tomado_por = <worker>, tomado_en = NOW()
@@ -209,7 +229,9 @@ UPDATE libro SET entrega = 'in_flight', tomado_por = <worker>, tomado_en = NOW()
 ```
 
 **Claim** es eso: reservar filas antes de trabajarlas, para que otra pasada ya no las vea
-disponibles.
+disponibles. **El claim vence a los 5 minutos**: alcanza para un lote que va lento y es corto
+frente a las 6 horas del techo de reintento, así que una fila colgada no cuesta casi nada. Es
+configuración, como el tamaño del lote.
 
 **Por qué el paso 2 es código propio y Action Scheduler no lo resuelve.** AS garantiza que no
 corran dos instancias de la misma acción a la vez. Eso no es lo mismo que marcar qué filas
@@ -234,8 +256,8 @@ hacer igual antes de mirar qué hay pendiente.
 08:00:00  worker  → envía el lote
 08:00:01  receptor → lo guarda y responde ACK
 08:00:02  worker  → MUERE antes de anotar el ACK
-08:05:00  pasada siguiente → la fila venció, vuelve a 'pending', se reenvía
-08:05:01  receptor → "ya lo tengo": lo descarta y CONFIRMA igual (§3)
+08:06:00  pasada siguiente → el claim venció (5 min), vuelve a 'pending', se reenvía
+08:06:01  receptor → "ya lo tengo": lo descarta y CONFIRMA igual (§3)
           → la fila cierra en la segunda vuelta
 ```
 
@@ -347,8 +369,21 @@ justo lo que rompe la consulta de `held`.
 | ------------------------------------------ | --------------------------------------------- |
 | Qué falta entregar                         | eje de entrega, sobre movimientos propios     |
 | Qué aplicar cuando un par se desbloquea    | eje de aplicación = `held`                    |
-| Qué suma el total esperado en la fase 2 de UC-06 | eje de aplicación = `applied`           |
+| Qué suma el total esperado en la fase 2 de UC-06 | los **propios** de la generación vigente + los **recibidos** con `applied` |
 | Qué par queda fuera de la fase 2           | el que tenga algún `held`                     |
+
+**Ojo con la tercera.** La fila propia no tiene eje de aplicación, así que sumar sólo
+`applied` deja afuera lo que la tienda hizo ella misma:
+
+```
+Tienda A, producto con stock base 10:
+   A-77  venta local en A, -1   → aplicación: —          sólo 'applied' → NO lo cuenta
+   B-42  venta en B, -1         → aplicación: applied                   → lo cuenta
+   → daría 9, y el stock real es 8
+```
+
+Por eso la suma es **propios + recibidos `applied`**, y en las dos mitades sólo los de la
+generación vigente del par.
 
 ---
 
@@ -358,7 +393,7 @@ justo lo que rompe la consulta de `held`.
 
 | Endpoint                 | Quién lo llama         | Para qué                                                                    |
 | ------------------------ | ---------------------- | --------------------------------------------------------------------------- |
-| `POST /pair`             | La secundaria, una vez | Canjea el código de emparejamiento (§1). **Único no firmado con el secreto** |
+| `POST /pair`             | La secundaria, una vez | Canjea el código de emparejamiento (§1). Se firma **con el código**, igual que el `GET /health` del callback; todo lo demás va firmado con el secreto |
 | `POST /movements`        | Cualquiera de las dos  | Entrega un **lote** de movimientos                                          |
 | `POST /reconcile/digest` | Quien lanza la pasada  | Fase 1 de UC-06: qué identificadores conoce cada una dentro de los límites acordados |
 | `GET /health`            | Cualquiera             | Canal, firma y versión del plugin del otro lado. Es lo que consulta la pantalla de ajustes |
@@ -443,6 +478,10 @@ Sin tope, la ráfaga de importación de UC-04 puede hacerle timeout al receptor;
 ese timeout como caída y reintenta el mismo lote imposible hasta agotar las 6 horas. El tamaño
 que usa el emisor es configuración; **el techo del receptor es contrato**.
 
+Y por eso el tamaño configurable del emisor **no puede pasar de 200**: sin ese límite, poner
+500 en los ajustes haría que el receptor rechazara todos los lotes y no saliera nunca ningún
+movimiento.
+
 #### Compatibilidad entre versiones
 
 Las dos tiendas se actualizan por separado, así que convivir con una versión de diferencia es
@@ -499,4 +538,4 @@ está en el SPEC: comparar A contra B daría falsos positivos por movimientos en
 | **Esquema**        | Materializar los dos ejes de estado; guardar intentos, **hora del primer intento** (contra la que se mide el techo de 6 h) y próximo reintento; crear el **almacén de nonces** con su purga |
 | **Identidad**      | El identificador que firma tiene que ser el mismo que numera los movimientos, y queda fijado en el emparejamiento |
 | **Retención**      | Una fila propia no se purga hasta que se confirme. Queda abierto el libro que crece sin techo porque la otra tienda no vuelve nunca: es una condición que hay que avisar (UC-08), no purgar en silencio |
-| **Opciones**       | Por cada tienda remota: URL, identificador, secreto y fecha del emparejamiento. Del lado propio, **la URL del sitio al emparejar**, que es lo que detecta el clon. El secreto es material sensible: `uninstall.php` tiene que borrarlo |
+| **Opciones**       | El tamaño de lote (tope 200), la curva de backoff, las 6 horas del techo y los 5 minutos del claim. Por cada tienda remota: URL, identificador, secreto y fecha del emparejamiento. Del lado propio, **la URL del sitio al emparejar**, que es lo que detecta el clon. El secreto es material sensible: `uninstall.php` tiene que borrarlo |
