@@ -98,7 +98,7 @@ final class Plugin {
 	 * Aviso cuando la sincronización está suspendida.
 	 */
 	public static function notice_suspended(): void {
-		$mensajes = array(
+		$messages = array(
 			self::SUSPENDED_CLONE           => __(
 				'Woonderful Stock Sync: este sitio no es aquel donde se emparejó, así que parece una copia. La sincronización está suspendida hasta que vuelvas a emparejarlo.',
 				'woonderful-stock-sync-for-woocommerce'
@@ -109,12 +109,12 @@ final class Plugin {
 			),
 		);
 
-		$motivo = self::suspension_reason();
+		$reason = self::suspension_reason();
 
-		if ( null === $motivo || ! isset( $mensajes[ $motivo ] ) ) {
+		if ( null === $reason || ! isset( $messages[ $reason ] ) ) {
 			return;
 		}
 
-		printf( '<div class="notice notice-error"><p>%s</p></div>', esc_html( $mensajes[ $motivo ] ) );
+		printf( '<div class="notice notice-error"><p>%s</p></div>', esc_html( $messages[ $reason ] ) );
 	}
 }

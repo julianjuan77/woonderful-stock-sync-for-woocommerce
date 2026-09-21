@@ -21,7 +21,7 @@ class Test_Plugin extends WP_UnitTestCase {
 	 *
 	 * @var string
 	 */
-	private string $home_original = '';
+	private string $original_home = '';
 
 	public function set_up(): void {
 		parent::set_up();
@@ -31,7 +31,7 @@ class Test_Plugin extends WP_UnitTestCase {
 		remove_filter( 'query', array( $this, '_create_temporary_tables' ) );
 		remove_filter( 'query', array( $this, '_drop_temporary_tables' ) );
 
-		$this->home_original = (string) get_option( 'home' );
+		$this->original_home = (string) get_option( 'home' );
 
 		Installer::install();
 	}
@@ -39,7 +39,7 @@ class Test_Plugin extends WP_UnitTestCase {
 	public function tear_down(): void {
 		global $wpdb;
 
-		update_option( 'home', $this->home_original );
+		update_option( 'home', $this->original_home );
 		delete_option( Store::OPTION_FINGERPRINT );
 
 		foreach ( array( 'movements', 'links', 'nonces' ) as $name ) {
@@ -112,10 +112,10 @@ class Test_Plugin extends WP_UnitTestCase {
 
 		ob_start();
 		Plugin::notice_suspended();
-		$salida = (string) ob_get_clean();
+		$output = (string) ob_get_clean();
 
-		$this->assertStringContainsString( 'notice-error', $salida );
-		$this->assertStringContainsString( 'copia', $salida );
+		$this->assertStringContainsString( 'notice-error', $output );
+		$this->assertStringContainsString( 'copia', $output );
 	}
 
 	/**

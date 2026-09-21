@@ -62,11 +62,11 @@ class Test_Installer extends WP_UnitTestCase {
 	/**
 	 * SCH-01 — install() sobre una base limpia crea las tres tablas.
 	 */
-	public function test_install_crea_las_tres_tablas(): void {
+	public function test_install_creates_the_three_tables(): void {
 		Installer::install();
 
-		$tablas = $this->existing_tables();
-		sort( $tablas );
+		$tables = $this->existing_tables();
+		sort( $tables );
 
 		// Por nombre y no por cantidad: una tabla creada con el nombre equivocado sigue
 		// siendo una tabla, y contar tres no lo detecta.
@@ -76,7 +76,7 @@ class Test_Installer extends WP_UnitTestCase {
 				Installer::table( 'movements' ),
 				Installer::table( 'nonces' ),
 			),
-			$tablas
+			$tables
 		);
 	}
 
@@ -110,7 +110,7 @@ class Test_Installer extends WP_UnitTestCase {
 	 *
 	 * SCH-02
 	 */
-	public function test_las_tres_tablas_son_innodb(): void {
+	public function test_the_three_tables_are_innodb(): void {
 		Installer::install();
 
 		$this->assertSame(
@@ -130,17 +130,17 @@ class Test_Installer extends WP_UnitTestCase {
 	 *
 	 * SCH-10
 	 */
-	public function test_las_definiciones_declaran_el_motor(): void {
+	public function test_the_definitions_declare_the_engine(): void {
 		// Por reflexión y no contando texto en el archivo: un comentario que nombre el
 		// motor también cuenta, y de hecho hizo fallar la primera versión de este test.
 		$definitions = new ReflectionMethod( Installer::class, 'definitions' );
 		$definitions->setAccessible( true );
 
-		$sentencias = (array) $definitions->invoke( null, '' );
+		$statements = (array) $definitions->invoke( null, '' );
 
-		$this->assertCount( 3, $sentencias );
+		$this->assertCount( 3, $statements );
 
-		foreach ( $sentencias as $sql ) {
+		foreach ( $statements as $sql ) {
 			$this->assertStringContainsString( 'ENGINE=InnoDB', (string) $sql );
 		}
 	}
@@ -148,7 +148,7 @@ class Test_Installer extends WP_UnitTestCase {
 	/**
 	 * SCH-03 — El libro tiene exactamente los tres índices de la decisión, más la primaria.
 	 */
-	public function test_el_libro_tiene_los_tres_indices_de_la_decision(): void {
+	public function test_the_ledger_has_the_decided_indexes(): void {
 		global $wpdb;
 
 		Installer::install();
@@ -156,19 +156,19 @@ class Test_Installer extends WP_UnitTestCase {
 		$table = Installer::table( 'movements' );
 		$rows  = (array) $wpdb->get_results( "SHOW INDEX FROM {$table}" ); // phpcs:ignore WordPress.DB
 
-		$indices = array();
+		$indexes = array();
 
 		foreach ( $rows as $row ) {
-			$indices[ (string) $row->Key_name ]['columnas'][ (int) $row->Seq_in_index ] = (string) $row->Column_name; // phpcs:ignore WordPress.NamingConventions.ValidVariableName
-			$indices[ (string) $row->Key_name ]['unico']                                = ( '0' === (string) $row->Non_unique ); // phpcs:ignore WordPress.NamingConventions.ValidVariableName
+			$indexes[ (string) $row->Key_name ]['columnas'][ (int) $row->Seq_in_index ] = (string) $row->Column_name; // phpcs:ignore WordPress.NamingConventions.ValidVariableName
+			$indexes[ (string) $row->Key_name ]['unico']                                = ( '0' === (string) $row->Non_unique ); // phpcs:ignore WordPress.NamingConventions.ValidVariableName
 		}
 
-		foreach ( $indices as $nombre => $datos ) {
-			ksort( $indices[ $nombre ]['columnas'] );
-			$indices[ $nombre ]['columnas'] = array_values( $indices[ $nombre ]['columnas'] );
+		foreach ( $indexes as $index_name => $data ) {
+			ksort( $indexes[ $index_name ]['columnas'] );
+			$indexes[ $index_name ]['columnas'] = array_values( $indexes[ $index_name ]['columnas'] );
 		}
 
-		ksort( $indices );
+		ksort( $indexes );
 
 		// Por columnas y no por nombre: agregarle `generation` al índice `dedup` rompe la
 		// deduplicación de §3 del SPEC y deja el nombre igual.
@@ -191,7 +191,7 @@ class Test_Installer extends WP_UnitTestCase {
 					'unico'    => false,
 				),
 			),
-			$indices
+			$indexes
 		);
 	}
 
@@ -201,7 +201,7 @@ class Test_Installer extends WP_UnitTestCase {
 	 *
 	 * SCH-04
 	 */
-	public function test_dos_movimientos_propios_conviven_con_la_secuencia_en_null(): void {
+	public function test_two_own_movements_coexist_with_a_null_sequence(): void {
 		global $wpdb;
 
 		Installer::install();
@@ -219,7 +219,7 @@ class Test_Installer extends WP_UnitTestCase {
 	 *
 	 * SCH-05
 	 */
-	public function test_un_movimiento_recibido_repetido_choca_contra_el_unique(): void {
+	public function test_a_repeated_received_movement_hits_the_unique(): void {
 		Installer::install();
 
 		$this->assertNotFalse( $this->insert_movement( 'tienda-b', 77 ) );
@@ -229,7 +229,7 @@ class Test_Installer extends WP_UnitTestCase {
 	/**
 	 * SCH-06 — La misma secuencia de dos tiendas distintas no choca.
 	 */
-	public function test_el_mismo_numero_de_dos_tiendas_distintas_no_choca(): void {
+	public function test_the_same_sequence_from_two_stores_does_not_collide(): void {
 		Installer::install();
 
 		$this->assertNotFalse( $this->insert_movement( 'tienda-b', 77 ) );
@@ -239,29 +239,29 @@ class Test_Installer extends WP_UnitTestCase {
 	/**
 	 * SCH-07 — maybe_upgrade() no ejecuta nada si la versión ya está al día.
 	 */
-	public function test_maybe_upgrade_no_toca_nada_si_la_version_esta_al_dia(): void {
+	public function test_maybe_upgrade_does_nothing_when_the_version_is_current(): void {
 		Installer::install();
 
 		update_option( Installer::OPTION_VERSION, Installer::SCHEMA_VERSION, false );
 
 		global $wpdb;
-		$queries_antes = $wpdb->num_queries;
+		$queries_before = $wpdb->num_queries;
 
 		Installer::maybe_upgrade();
 
-		$this->assertSame( $queries_antes, $wpdb->num_queries );
+		$this->assertSame( $queries_before, $wpdb->num_queries );
 	}
 
 	/**
 	 * SCH-08 — maybe_upgrade() reinstala si la versión quedó atrás.
 	 */
-	public function test_maybe_upgrade_reinstala_si_la_version_quedo_atras(): void {
+	public function test_maybe_upgrade_reinstalls_when_the_version_is_behind(): void {
 		update_option( Installer::OPTION_VERSION, 0, false );
 
 		Installer::maybe_upgrade();
 
-		$tablas = $this->existing_tables();
-		sort( $tablas );
+		$tables = $this->existing_tables();
+		sort( $tables );
 
 		$this->assertSame(
 			array(
@@ -269,7 +269,7 @@ class Test_Installer extends WP_UnitTestCase {
 				Installer::table( 'movements' ),
 				Installer::table( 'nonces' ),
 			),
-			$tablas
+			$tables
 		);
 		$this->assertSame( Installer::SCHEMA_VERSION, (int) get_option( Installer::OPTION_VERSION ) );
 	}
@@ -277,7 +277,7 @@ class Test_Installer extends WP_UnitTestCase {
 	/**
 	 * SCH-09 — Una tabla en MyISAM se reporta como tabla sin transacciones.
 	 */
-	public function test_detecta_una_tabla_sin_transacciones(): void {
+	public function test_it_detects_a_table_without_transactions(): void {
 		global $wpdb;
 
 		Installer::install();

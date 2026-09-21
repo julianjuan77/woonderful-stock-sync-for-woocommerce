@@ -76,10 +76,10 @@ class Test_Uninstall extends WP_UnitTestCase {
 	private function surviving_tables(): array {
 		global $wpdb;
 
-		$tablas = (array) $wpdb->get_col( "SHOW TABLES LIKE '{$wpdb->prefix}wss\_%'" ); // phpcs:ignore WordPress.DB
-		sort( $tablas );
+		$tables = (array) $wpdb->get_col( "SHOW TABLES LIKE '{$wpdb->prefix}wss\_%'" ); // phpcs:ignore WordPress.DB
+		sort( $tables );
 
-		return $tablas;
+		return $tables;
 	}
 
 	/**
@@ -121,13 +121,13 @@ class Test_Uninstall extends WP_UnitTestCase {
 	 * UNI-03 — Con la casilla en falso, la identidad y los ajustes quedan.
 	 */
 	public function test_identity_and_options_survive_when_data_is_kept(): void {
-		$identidad = Store::id();
+		$identity = Store::id();
 
 		update_option( self::OPTION_DELETE_ALL, false );
 
 		$this->run_uninstall();
 
-		$this->assertSame( $identidad, Store::id() );
+		$this->assertSame( $identity, Store::id() );
 		$this->assertSame( Installer::SCHEMA_VERSION, (int) get_option( Installer::OPTION_VERSION ) );
 	}
 
