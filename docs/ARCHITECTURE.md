@@ -217,6 +217,38 @@ las opciones, las tablas, los hooks y las constantes globales, que no tienen nam
 **El idioma:** el código, la base de datos y el contrato REST, en **inglés**. Los comentarios,
 los ADRs y los textos de la interfaz (traducibles), en castellano.
 
+### Tests
+
+| Elemento | Convención | Ejemplo |
+|---|---|---|
+| Archivo | `tests/test-{componente}.php`, minúsculas con guiones | `tests/test-installer.php` |
+| Clase | `Test_{Componente}` | `class Test_Installer` |
+| Método | `test_{sujeto}_{comportamiento}[_{condición}]`, **en inglés** | `test_maybe_upgrade_does_nothing_when_version_is_current()` |
+| Docblock | Primera línea `{ID} — {qué verifica}`, **en castellano** | `SCH-01 — install() sobre una base limpia crea las tres tablas.` |
+| ID del caso | Prefijo por dominio + número, en `tests/TEST-CASES.md` | `SCH-04`, `ID-05` |
+
+**El nombre del método está en inglés porque es código**, igual que todo lo demás; el
+docblock en castellano porque es un comentario. No es una distinción caprichosa: PHPUnit
+imprime el nombre del método convertido en frase, así que es lo que se lee cuando algo falla.
+
+```
+test_two_own_movements_coexist_with_null_sequence()
+   ↓ lo que imprime PHPUnit
+ ✔ Two own movements coexist with null sequence
+```
+
+**Un método de test hace una sola afirmación conceptual.** Si el nombre necesita un "y", son
+dos tests.
+
+**Un test nuevo no está listo hasta haberlo visto fallar.** Escribirlo antes del código, o
+romper el código a propósito, comprobar que el mensaje de error nombra el problema, revertir
+con `git checkout` —nunca a mano— y correr la suite entera. Aplica a los tests que verifican
+una decisión de un ADR y a los de un bugfix; no hace falta para wiring ni getters.
+
+El motivo está medido, no es teoría: de los primeros diecisiete tests de este plugin, el
+único que se rompió a propósito resultó estar mal escrito —contaba tres tablas en vez de
+mirar cuáles eran— y daba verde con el esquema roto.
+
 ### `phpcs.xml`
 
 ```xml
