@@ -18,7 +18,7 @@ depósito. Pool único, sin reparto: lo que se vende en una descuenta en las dos
 | ADRs                        | 🟡 71% (5 de ~7 escritos; faltan detector y vinculación) |
 | ARCHITECTURE.md             | 🟡 70% (contrato, módulos, seguridad y convenciones de código) |
 | Scaffold del plugin         | ✅ 100% — activa y crea las tablas, verificado en sandbox |
-| Tests                       | 🟡 17 tests en verde (esquema e identidad); falta todo lo demás |
+| Tests                       | 🟡 30 en verde (esquema, identidad, guarda, desinstalación); falta transporte y libro |
 | Estándares (PHPCS / ESLint) | ✅ PHPCS y PHPStan en verde |
 | i18n / traducciones         | ⬜ 0% |
 | readme.txt                  | ⬜ 0% |
@@ -48,10 +48,17 @@ _(nada de código: el plugin está en fase de diseño)_
   `Identity\Store` y `Schema\Installer`. **Verificado en sandbox el 2026-09-20:** activa,
   crea `wp_wss_movements` (20 columnas, 7 entradas de índice), `wp_wss_links` y
   `wp_wss_nonces`, las tres InnoDB, y genera el identificador de tienda.
-- **Tests: 17 en verde.** Suite de WordPress (`wp-phpunit` por Composer) contra la base del
-  sitio con prefijo `wptests_`. Cubren las tres tablas, el motor, los tres índices, el
-  `NULL` bajo el `UNIQUE`, la deduplicación, la migración, la detección de MyISAM y toda la
-  identidad. `tests/TEST-CASES.md` tiene la matriz decisión ↔ test.
+- **La guarda que suspende la sincronización.** `Plugin::suspension_reason()` responde por
+  clon (ADR-001 §1) o por tablas sin transacciones (ADR-004 §5), y `boot()` corta antes de
+  registrar nada. Estaban escritas las dos funciones y no las llamaba nadie.
+- **Tests: 30 en verde.** Suite de WordPress (`wp-phpunit` por Composer) contra la base del
+  sitio con prefijo `wptests_`. Cubren el esquema, la identidad, la guarda y la
+  desinstalación. `tests/TEST-CASES.md` tiene la matriz decisión ↔ test y los hallazgos de
+  auditoría ya corregidos.
+- **Auditoría de tests (2026-09-21).** Un sub-agente con el encargo de nombrar, por cada
+  hallazgo, la mutación que dejaría el test en verde. Nueve hallazgos, ocho ciertos. De ahí
+  salieron la guarda, los tests de `uninstall.php` y el refuerzo de `SCH-02`, `SCH-03` y
+  `SCH-08`.
 
 ---
 
@@ -73,6 +80,11 @@ _(nada)_
 - [ ] **Código del transporte** (`Transport/`, `Rest/`): firma HMAC, emparejamiento,
       `POST /movements`. Habilitado por ADR-001.
 - [ ] `readme.txt` y `.pot`, antes de pensar en publicar.
+- [ ] Dejar el auditor de tests como agente fijo en `.claude/agents/` del entorno, si se
+      decide que rinde en más de un plugin.
+- [ ] Infection (mutation testing) **cuando exista `Transport/`**: ahí viven los límites
+      (±5 min, 6 h, backoff, claim) que las mutaciones de frontera atacan. Requiere PCOV en
+      la imagen de wp-restore, que hoy no tiene driver de cobertura.
 
 ---
 
