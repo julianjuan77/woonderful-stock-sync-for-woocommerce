@@ -20,7 +20,7 @@ Tres tablas propias, con el prefijo de WordPress más `wss_`:
 | Tabla | Qué guarda |
 |---|---|
 | `{prefix}wss_movements` | El libro: los movimientos propios y los recibidos, en la misma tabla |
-| `{prefix}wss_links` | El par de productos, su generación y su stock base |
+| `{prefix}wss_links` | El par de productos, su generación y su stock base. **Sin columna de estado**: vinculado, suspendido y sin vincular se derivan (UC-03, ADR-004 §2) |
 | `{prefix}wss_nonces` | Los nonces vistos, para rechazar un request reenviado |
 
 **El libro es también la cola** (ADR-001): no hay tabla de pendientes. Cada movimiento propio

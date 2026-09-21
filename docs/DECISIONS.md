@@ -1002,6 +1002,8 @@ purgar). Va al ADR del esquema.
 ## ADR-004 — Esquema de la base de datos
 
 Estado: Aprobada · 2026-09-20 · aprobada por Julián
+Revisado: 2026-09-21 — se quita la columna `status` de `wss_links`. Contradecía UC-03, que
+fija que el estado de sincronización es una vista y no se persiste. Ver §2.
 Temas: db-schema
 Cubre: includes/Ledger/_.php, includes/Schema/_.php
 
@@ -1113,16 +1115,28 @@ CREATE TABLE {prefix}wss_links (
   generation     INT UNSIGNED    NOT NULL,   -- cada bootstrap abre una nueva
   base_stock     INT             NOT NULL,   -- el valor del bootstrap vigente
   base_set_at    DATETIME        NOT NULL,
-  status         VARCHAR(12)     NOT NULL,   -- linked, suspended
   PRIMARY KEY (id),
   UNIQUE KEY local (local_product, remote_store),
   KEY remote (remote_store, remote_product)
 ) ENGINE=InnoDB {charset_collate};
 ```
 
-Son las columnas que el libro necesita para funcionar. **Qué significa cada estado, cómo se
-vincula y qué abre una generación lo decide el ADR de vinculación**, que puede sumar columnas
-pero no quitar estas.
+Son las columnas que el libro necesita para funcionar. **Cómo se vincula y qué abre una
+generación lo decide el ADR de vinculación**, que puede sumar columnas pero no quitar estas.
+
+**No hay columna de estado, y es a propósito.** UC-03 fija que *vinculado*, *suspendido* y
+*sin vincular* son una **vista**: se calculan al mostrarlos y no se persisten.
+
+```
+¿Existe la fila?                    no →  sin vincular
+¿Existe el producto del otro lado?  no →  suspendido
+sí a las dos                            →  vinculado
+```
+
+Guardar el estado obliga a mantenerlo al día, y nada en el plugin observa la papelera de
+WooCommerce: si el dueño restaura el producto del otro lado, la fila quedaría `suspended`
+para siempre con el par intacto. Derivado, la pregunta se responde sola la próxima vez que
+alguien mire.
 
 ---
 

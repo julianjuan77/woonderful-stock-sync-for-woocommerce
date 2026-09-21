@@ -152,7 +152,6 @@ final class Installer {
 				generation int(10) unsigned NOT NULL DEFAULT 1,
 				base_stock int(11) NOT NULL,
 				base_set_at datetime NOT NULL,
-				status varchar(12) NOT NULL,
 				PRIMARY KEY  (id),
 				UNIQUE KEY local (local_product,remote_store),
 				KEY remote (remote_store,remote_product)
