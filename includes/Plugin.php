@@ -15,12 +15,25 @@ use Woonderful\StockSync\Schema\Installer;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Punto de entrada: activación y arranque en cada request.
+ * Punto de entrada: activación, arranque y la guarda que suspende la sincronización.
  */
 final class Plugin {
 
 	/**
+	 * El sitio no es aquel donde se emparejó: es una copia (ADR-001 §1).
+	 */
+	public const SUSPENDED_CLONE = 'cloned_site';
+
+	/**
+	 * Alguna tabla no admite transacciones (ADR-004 §5).
+	 */
+	public const SUSPENDED_NO_TRANSACTIONS = 'no_transactions';
+
+	/**
 	 * Corre una sola vez, al activar.
+	 *
+	 * La identidad va primero: es lo que numera los movimientos, así que tiene que
+	 * existir antes que la tabla que los guarda (ADR-002).
 	 */
 	public static function activate(): void {
 		Store::ensure_identity();
@@ -38,6 +51,34 @@ final class Plugin {
 		}
 
 		Installer::maybe_upgrade();
+
+		if ( null !== self::suspension_reason() ) {
+			add_action( 'admin_notices', array( self::class, 'notice_suspended' ) );
+
+			return;
+		}
+
+		// Acá se registran el detector, el transporte y la reconciliación. Van después
+		// de la guarda a propósito: un plugin suspendido no emite ni acepta movimientos.
+	}
+
+	/**
+	 * Por qué está suspendida la sincronización, o null si no lo está.
+	 *
+	 * Las dos causas apagan lo mismo y se avisan igual, así que se responden juntas. El
+	 * orden importa: un clon puede además tener las tablas mal, pero lo que hay que
+	 * decirle al dueño es que está mirando una copia.
+	 */
+	public static function suspension_reason(): ?string {
+		if ( Store::is_cloned_site() ) {
+			return self::SUSPENDED_CLONE;
+		}
+
+		if ( array() !== Installer::tables_without_transactions() ) {
+			return self::SUSPENDED_NO_TRANSACTIONS;
+		}
+
+		return null;
 	}
 
 	/**
@@ -51,5 +92,29 @@ final class Plugin {
 				'woonderful-stock-sync-for-woocommerce'
 			)
 		);
+	}
+
+	/**
+	 * Aviso cuando la sincronización está suspendida.
+	 */
+	public static function notice_suspended(): void {
+		$mensajes = array(
+			self::SUSPENDED_CLONE           => __(
+				'Woonderful Stock Sync: este sitio no es aquel donde se emparejó, así que parece una copia. La sincronización está suspendida hasta que vuelvas a emparejarlo.',
+				'woonderful-stock-sync-for-woocommerce'
+			),
+			self::SUSPENDED_NO_TRANSACTIONS => __(
+				'Woonderful Stock Sync: alguna de sus tablas no usa InnoDB y no admite transacciones. La sincronización está suspendida para no dejar el stock mal contado.',
+				'woonderful-stock-sync-for-woocommerce'
+			),
+		);
+
+		$motivo = self::suspension_reason();
+
+		if ( null === $motivo || ! isset( $mensajes[ $motivo ] ) ) {
+			return;
+		}
+
+		printf( '<div class="notice notice-error"><p>%s</p></div>', esc_html( $mensajes[ $motivo ] ) );
 	}
 }

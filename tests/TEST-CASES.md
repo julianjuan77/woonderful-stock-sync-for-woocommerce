@@ -41,6 +41,7 @@ Prefijo por dominio, número correlativo, y **no se renumeran** aunque un caso s
 |---|---|---|
 | `SCH-NN` | El esquema | [`tests/test-installer.php`](test-installer.php) |
 | `ID-NN` | La identidad de la tienda | [`tests/test-store.php`](test-store.php) |
+| `PLG-NN` | El arranque y la guarda que suspende | [`tests/test-plugin.php`](test-plugin.php) |
 
 Cada test lleva su ID en el docblock, así que se encuentra buscándolo:
 
@@ -74,7 +75,9 @@ Un ID en este archivo que no aparezca en ningún test es un caso sin escribir.
 | Identificador opaco de 128 bits, inmutable | ADR-002 §1 | `ID-01`, `ID-02`, `ID-03` | [test-store.php](test-store.php) |
 | Etiqueta legible, editable | ADR-002 §1 | `ID-04` | [test-store.php](test-store.php) |
 | La huella del sitio se guarda hasheada | ADR-001 §1 | `ID-05` | [test-store.php](test-store.php) |
-| El clon se apaga solo | ADR-001 §1 | `ID-06`, `ID-07`, `ID-08` | [test-store.php](test-store.php) |
+| El clon se apaga solo | ADR-001 §1 | `ID-06`, `ID-07`, `ID-08`, `PLG-02`, `PLG-05` | [test-store.php](test-store.php), [test-plugin.php](test-plugin.php) |
+| Sin transacciones no se sincroniza | ADR-004 §5 | `PLG-03` | [test-plugin.php](test-plugin.php) |
+| La identidad se genera antes que el esquema | ADR-002, consecuencias | `PLG-07` | [test-plugin.php](test-plugin.php) |
 
 ---
 
@@ -100,10 +103,22 @@ Un ID en este archivo que no aparezca en ningún test es un caso sin escribir.
 | `ID-02` | `ensure_identity()` dos veces | El identificador no cambia |
 | `ID-03` | Dos instalaciones | Identificadores distintos |
 | `ID-04` | Etiqueta vacía | `label()` cae en el identificador |
-| `ID-05` | `fingerprint()` | Es un sha256 y **no contiene el dominio**: un search-replace de restore no lo puede reescribir |
+| `ID-05` | Cambia la URL del sitio | La huella cambia con ella y es `sha256` de la URL nueva |
 | `ID-06` | Sin huella guardada | No es un clon: todavía no se emparejó |
-| `ID-07` | Huella igual a la del sitio actual | No es un clon |
-| `ID-08` | Huella de otra URL | **Es un clon**: se suspende la sincronización |
+| `ID-07` | El sitio donde se emparejó | No es un clon |
+| `ID-08` | Se emparejó en una URL y la base se restauró en otra | **Es un clon** |
+
+## [`tests/test-plugin.php`](test-plugin.php) — el arranque y la guarda
+
+| ID | Caso | Resultado esperado |
+|---|---|---|
+| `PLG-01` | Tablas sanas y sitio en su lugar | Nada suspende la sincronización |
+| `PLG-02` | La base restaurada en otra URL | Suspendida por clon |
+| `PLG-03` | Una tabla pasada a MyISAM | Suspendida por falta de transacciones |
+| `PLG-04` | Las dos causas a la vez | Gana el clon: arreglar el motor de una copia no sirve de nada |
+| `PLG-05` | Sitio suspendido | Avisa en el admin |
+| `PLG-06` | Sitio sano | No avisa nada |
+| `PLG-07` | `activate()` sobre una instalación vacía | Quedan la identidad y el esquema |
 
 ---
 
@@ -112,3 +127,17 @@ Un ID en este archivo que no aparezca en ningún test es un caso sin escribir.
 - Todo `Transport/` y `Reconciliation/`: no hay código todavía.
 - El `INSERT` + `UPDATE` de la secuencia dentro de una transacción (`Ledger/`).
 - La purga que consolida el stock base.
+- **`uninstall.php` entero**, que es el archivo que borra datos: las cuatro decisiones de
+  ADR-003 (el secreto siempre se borra, los nonces siempre se borran, con la casilla en
+  falso queda todo lo demás, con la casilla marcada no queda nada).
+- Que `boot()` **no registre** la sincronización cuando está suspendida. Hoy no hay nada
+  registrado que verificar; el test va cuando exista el detector.
+
+---
+
+## Hallazgos de auditoría ya corregidos
+
+| Fecha | Qué estaba verde por la razón equivocada |
+|---|---|
+| 2026-09-20 | `SCH-01` contaba tres tablas en vez de mirar cuáles eran |
+| 2026-09-21 | `ID-05`, `ID-07` e `ID-08` nunca cambiaban la URL del sitio: `fingerprint()` podía ignorar `home_url()` por completo y los tres pasaban. `ID-05` además afirmaba que un hash hexadecimal no contiene un dominio, que es imposible de violar |

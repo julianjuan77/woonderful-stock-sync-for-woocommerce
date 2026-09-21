@@ -14,7 +14,21 @@ use Woonderful\StockSync\Identity\Store;
  */
 class Test_Store extends WP_UnitTestCase {
 
+	/**
+	 * La URL del sitio, que varios tests cambian para simular un restore.
+	 *
+	 * @var string
+	 */
+	private string $home_original = '';
+
+	public function set_up(): void {
+		parent::set_up();
+
+		$this->home_original = (string) get_option( 'home' );
+	}
+
 	public function tear_down(): void {
+		update_option( 'home', $this->home_original );
 		delete_option( Store::OPTION_ID );
 		delete_option( Store::OPTION_LABEL );
 		delete_option( Store::OPTION_FINGERPRINT );
@@ -74,16 +88,19 @@ class Test_Store extends WP_UnitTestCase {
 	}
 
 	/**
-	 * Se guarda el hash y no la URL porque un search-replace de restore reescribiría la
-	 * URL en claro y el clon se daría por sano.
+	 * La huella tiene que seguir a la URL del sitio: es lo único que un restore no puede
+	 * reescribir, y de eso depende toda la detección de clon.
 	 *
 	 * ID-05
 	 */
-	public function test_la_huella_es_un_sha256_y_no_contiene_la_url(): void {
-		$huella = Store::fingerprint();
+	public function test_la_huella_sigue_a_la_url_del_sitio(): void {
+		$antes = Store::fingerprint();
 
-		$this->assertMatchesRegularExpression( '/^[0-9a-f]{64}$/', $huella );
-		$this->assertStringNotContainsString( wp_parse_url( home_url(), PHP_URL_HOST ), $huella );
+		update_option( 'home', 'https://tienda-restaurada.test' );
+
+		$this->assertMatchesRegularExpression( '/^[0-9a-f]{64}$/', Store::fingerprint() );
+		$this->assertNotSame( $antes, Store::fingerprint() );
+		$this->assertSame( hash( 'sha256', 'https://tienda-restaurada.test' ), Store::fingerprint() );
 	}
 
 	/**
@@ -96,19 +113,24 @@ class Test_Store extends WP_UnitTestCase {
 	}
 
 	/**
-	 * ID-07 — La misma URL no es un clon.
+	 * ID-07 — El sitio donde se emparejó no es un clon.
 	 */
-	public function test_la_misma_url_no_es_un_clon(): void {
+	public function test_el_sitio_donde_se_emparejo_no_es_un_clon(): void {
 		update_option( Store::OPTION_FINGERPRINT, Store::fingerprint() );
 
 		$this->assertFalse( Store::is_cloned_site() );
 	}
 
 	/**
-	 * ID-08 — Otra URL es un clon y suspende la sincronización.
+	 * El caso real: se emparejó en una URL y la base se restauró en otra. La huella
+	 * guardada sigue siendo la vieja y la actual ya no coincide.
+	 *
+	 * ID-08
 	 */
-	public function test_otra_url_es_un_clon(): void {
-		update_option( Store::OPTION_FINGERPRINT, hash( 'sha256', 'https://otra-tienda.com' ) );
+	public function test_el_sitio_restaurado_en_otra_url_es_un_clon(): void {
+		update_option( Store::OPTION_FINGERPRINT, Store::fingerprint() );
+
+		update_option( 'home', 'https://tienda-restaurada.test' );
 
 		$this->assertTrue( Store::is_cloned_site() );
 	}
