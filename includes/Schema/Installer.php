@@ -138,6 +138,7 @@ final class Installer {
 				confirmed_at datetime DEFAULT NULL,
 				application varchar(12) DEFAULT NULL,
 				applied_at datetime DEFAULT NULL,
+				details text DEFAULT NULL,
 				PRIMARY KEY  (id),
 				UNIQUE KEY dedup (origin_store,origin_seq),
 				KEY delivery_queue (delivery,next_attempt_at),

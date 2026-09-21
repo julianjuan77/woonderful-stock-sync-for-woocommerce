@@ -21,6 +21,9 @@ Tres tablas propias, con el prefijo de WordPress más `wss_`:
 |---|---|
 | `{prefix}wss_movements` | El libro: los movimientos propios y los recibidos, en la misma tabla |
 | `{prefix}wss_links` | El par de productos, su generación y su stock base. **Sin columna de estado**: vinculado, suspendido y sin vincular se derivan (UC-03, ADR-004 §2) |
+
+**La generación de un par es la secuencia del bootstrap que lo abrió** (ADR-005 §4): nunca se
+repite, así que un movimiento de una época anterior no puede colarse como vigente.
 | `{prefix}wss_nonces` | Los nonces vistos, para rechazar un request reenviado |
 
 **El libro es también la cola** (ADR-001): no hay tabla de pendientes. Cada movimiento propio
@@ -85,6 +88,7 @@ en la activación y en `plugins_loaded` si la guardada es menor.
 | `/movements` | POST | HMAC con el secreto compartido | Entrega un lote (máximo **200**) |
 | `/reconcile/digest` | POST | HMAC con el secreto compartido | Fase 1 de la reconciliación |
 | `/health` | GET | HMAC; durante el canje, con el código | Canal, firma y versión del otro lado |
+| `/products` | GET | HMAC con el secreto compartido | Sólo lectura del catálogo, paginado, para la pantalla de vinculación (ADR-005) |
 
 **Cabeceras de firma:** `X-WSS-Store`, `X-WSS-Timestamp`, `X-WSS-Nonce`, `X-WSS-Signature`.
 Ventana de reloj: ±5 minutos.
@@ -96,7 +100,11 @@ Ventana de reloj: ±5 minutos.
   "product": 123, "reason": "sale", "reference": "pedido #4512" }
 ```
 
-`reason`: `sale` · `refund` · `adjustment` · `bootstrap`.
+`reason`: `sale` · `refund` · `adjustment` · `bootstrap` · `unlink`.
+
+**El bootstrap y el `unlink` viajan como movimientos**, con `delta: 0` y los campos extra en
+`details` (ADR-005). Van por la cola y no por un endpoint aparte para que no adelanten a una
+venta que quedó en vuelo.
 
 **Dentro de `wss/v1` el receptor ignora los campos que no conoce.** Sumar campos es
 compatible; quitar uno o cambiarle el significado es `wss/v2`.
@@ -286,3 +294,4 @@ Ver `DECISIONS.md`. Índice de las aprobadas:
 | ADR-002 | Identidad de tienda y numeración de movimientos | db-schema, opciones, rest-api |
 | ADR-003 | Desinstalación y borrado de datos | uninstall, opciones |
 | ADR-004 | Esquema de la base de datos | db-schema |
+| ADR-005 | Vinculación de productos | db-schema, rest-api |

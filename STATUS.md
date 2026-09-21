@@ -43,6 +43,11 @@ _(nada de código: el plugin está en fase de diseño)_
   los datos al desinstalar" desmarcada por defecto; el secreto compartido se borra siempre.
 - **ADR-004 Esquema de la base de datos · Aprobada 2026-09-20.** Tres tablas InnoDB, tres
   índices en el libro, y la retención con sus tres reglas duras.
+- **ADR-005 Vinculación de productos · Aprobada 2026-09-21.** El estado del vínculo se
+  deriva; el alta viaja como bootstrap y la baja como movimiento `unlink`, por la cola para
+  no adelantar a una venta en vuelo; la generación es la secuencia del bootstrap, que nunca
+  se repite; quinto endpoint `GET /products` para que la pantalla llegue al catálogo del
+  otro lado.
 - **Scaffold + esquema, en código.** Archivo principal con HPOS declarado, `composer.json`
   con PSR-4, `phpcs.xml`, `phpstan.neon.dist`, `uninstall.php` (ADR-003), `Plugin`,
   `Identity\Store` y `Schema\Installer`. **Verificado en sandbox el 2026-09-20:** activa,
@@ -70,10 +75,6 @@ _(nada)_
 
 ## 📋 Backlog — en orden
 
-- [ ] **ADR-005 — Vinculación.** ✍️ Escrito, `Estado: Propuesta`. El estado del vínculo es
-      derivado; el alta viaja como bootstrap y la baja como movimiento `unlink`; la
-      generación es la secuencia del bootstrap; quinto endpoint `GET /products`. **Revisar
-      la §6**, que la elegí yo y no salió de una conversación.
 - [ ] **ADR — Detector.** Cómo se detecta el cambio de stock y el guard anti-eco.
 - [ ] **ADR-000 — Scaffold.** ✍️ Escrito, `Estado: Propuesta`, esperando lectura.
 - [ ] **Código del libro** (`Ledger/`): el `INSERT` + `UPDATE` de la secuencia en
@@ -100,6 +101,9 @@ de una línea por ADR aprobado.
 - **ADR-003 — Desinstalación** (aprobada 2026-09-20). Desmarcada por defecto porque el libro
   es el historial de stock del negocio; el secreto es la excepción porque re-emparejar es
   barato y una credencial viva en un plugin desinstalado no la vigila nadie.
+- **ADR-005 — Vinculación** (aprobada 2026-09-21). Todo lo que tiene que viajar ordenado con
+  respecto a las ventas viaja por la cola, aunque no sea un movimiento de stock: un canal
+  aparte llega antes y deja las ventas en vuelo sin dónde aplicarse.
 - **ADR-004 — Esquema** (aprobada 2026-09-20). Los índices salen de las consultas que el
   diseño hace, no de las columnas que existen: el cuarto candidato, el de la purga, se
   rechaza porque costaría en cada venta para ahorrar un escaneo por noche.

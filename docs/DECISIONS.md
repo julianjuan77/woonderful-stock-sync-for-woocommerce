@@ -99,6 +99,8 @@ repite igual, porque WooCommerce puede desactivarse después.
 Estado: Aprobada · 2026-09-20 · aprobada por Julián
 Revisado: 2026-09-20 — los nombres del contrato (campos del JSON y valores de `reason`)
 pasaron a inglés, para no mezclar idiomas con los estados de §3. Sin cambios de diseño.
+Revisado: 2026-09-21 — ADR-005 suma un quinto endpoint, `GET /products`, y dos valores de
+`reason`: `bootstrap` y `unlink` viajan como movimientos. Ver §4.
 Temas: rest-api, api-externa, db-schema, opciones
 Cubre: includes/Transport/_.php, includes/Rest/_.php
 
@@ -602,6 +604,7 @@ generación vigente del par.
 | `POST /movements`        | Cualquiera de las dos  | Entrega un **lote** de movimientos                                          |
 | `POST /reconcile/digest` | Quien lanza la pasada  | Fase 1 de UC-06 (la reconciliación): qué identificadores conoce cada una dentro de los límites acordados, para detectar cuál le falta a quién |
 | `GET /health`            | Cualquiera             | Canal, firma y versión del plugin del otro lado. Es lo que consulta la pantalla de ajustes |
+| `GET /products`          | La maestra             | Sólo lectura del catálogo del otro lado, paginado: la pantalla de vinculación lo necesita para sugerir pares y para mostrar los dos stocks antes de un bootstrap (ADR-005 §5) |
 
 #### Qué campos lleva cada movimiento
 
@@ -627,7 +630,7 @@ que manda sobre esa pieza:
 | `generation` | La generación del vínculo vigente cuando se emitió            | ADR de vinculación    |
 | `delta`      | Entero con signo. §5 no admite decimales                      | Este ADR              |
 | `product`    | ID local del producto **en la tienda de origen**              | ADR de identidad      |
-| `reason`     | `sale`, `refund`, `adjustment`, `bootstrap`                   | ADR del detector      |
+| `reason`     | `sale`, `refund`, `adjustment`, `bootstrap`, `unlink`         | ADR del detector      |
 | `reference`  | Con qué se audita después: el número de pedido, etc.          | ADR del detector      |
 
 **Los nombres del contrato van en inglés**, igual que los estados de §3 y por el mismo motivo:
@@ -1004,6 +1007,8 @@ purgar). Va al ADR del esquema.
 Estado: Aprobada · 2026-09-20 · aprobada por Julián
 Revisado: 2026-09-21 — se quita la columna `status` de `wss_links`. Contradecía UC-03, que
 fija que el estado de sincronización es una vista y no se persiste. Ver §2.
+Revisado: 2026-09-21 — entra `details TEXT NULL` en `wss_movements`, donde el bootstrap deja
+lo que §3 del SPEC exige para poder auditarlo (ADR-005 §6).
 Temas: db-schema
 Cubre: includes/Ledger/_.php, includes/Schema/_.php
 
@@ -1048,12 +1053,27 @@ CREATE TABLE {prefix}wss_movements (
   application      VARCHAR(12)     NULL,                     -- applied, held, discarded
   applied_at       DATETIME        NULL,
 
+  details          TEXT            NULL,                     -- sólo en bootstrap y unlink
+
   PRIMARY KEY (id),
   UNIQUE KEY dedup (origin_store, origin_seq),
   KEY delivery_queue (delivery, next_attempt_at),
   KEY by_link (link_id, generation)
 ) ENGINE=InnoDB {charset_collate};
 ```
+
+#### `details` guarda lo que sólo existe en algunos movimientos
+
+Una venta no lo usa. Un bootstrap deja ahí los dos IDs apareados y el stock previo de cada
+tienda, que es lo que §3 del SPEC exige para poder auditarlo (ADR-005 §6):
+
+```json
+{ "target_product": 456, "base_stock": 12,
+  "origin_previous_stock": 12, "target_previous_stock": 9 }
+```
+
+Columnas propias para eso serían cuatro `NULL` en el 99,9% de las filas, y cada tipo nuevo de
+movimiento sumaría más.
 
 #### Por qué guarda las dos formas de identificar el producto
 
@@ -1280,7 +1300,7 @@ que casi nadie va a tener.
 
 ## ADR-005 — Vinculación de productos
 
-Estado: Propuesta
+Estado: Aprobada · 2026-09-21 · aprobada por Julián
 Temas: db-schema, rest-api
 Cubre: includes/Linking/_.php
 
