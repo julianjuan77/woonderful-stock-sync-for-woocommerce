@@ -86,14 +86,15 @@ Un ID en este archivo que no aparezca en ningún test es un caso sin escribir.
 | ID | Caso | Resultado esperado |
 |---|---|---|
 | `SCH-01` | `install()` sobre una base limpia | Existen las tres tablas |
-| `SCH-02` | Idem | Las tres son InnoDB |
-| `SCH-03` | Idem | El libro tiene exactamente `PRIMARY`, `dedup`, `delivery_queue`, `by_link` |
+| `SCH-02` | Idem | Las tres figuran en `information_schema` como InnoDB, por nombre |
+| `SCH-03` | Idem | Los cuatro índices del libro, con sus **columnas en orden** y cuáles son únicos |
 | `SCH-04` | Dos movimientos propios con `origin_seq` en `NULL` | Los dos entran: en un `UNIQUE`, `NULL` no choca con `NULL` |
 | `SCH-05` | Dos veces el mismo `(origin_store, origin_seq)` | El segundo lo rechaza la base |
 | `SCH-06` | La misma secuencia de dos tiendas distintas | Los dos entran |
 | `SCH-07` | `maybe_upgrade()` con la versión al día | No ejecuta ninguna consulta |
-| `SCH-08` | `maybe_upgrade()` con la versión atrasada | Reinstala y deja la versión al día |
+| `SCH-08` | `maybe_upgrade()` con la versión atrasada | Reinstala las tres tablas **por nombre** y deja la versión al día |
 | `SCH-09` | Una de las tablas pasada a MyISAM | `tables_without_transactions()` la nombra |
+| `SCH-10` | Las tres definiciones SQL | Declaran `ENGINE=InnoDB` explícito, no el default del host |
 
 ## [`tests/test-store.php`](test-store.php) — la identidad
 
@@ -141,3 +142,6 @@ Un ID en este archivo que no aparezca en ningún test es un caso sin escribir.
 |---|---|
 | 2026-09-20 | `SCH-01` contaba tres tablas en vez de mirar cuáles eran |
 | 2026-09-21 | `ID-05`, `ID-07` e `ID-08` nunca cambiaban la URL del sitio: `fingerprint()` podía ignorar `home_url()` por completo y los tres pasaban. `ID-05` además afirmaba que un hash hexadecimal no contiene un dominio, que es imposible de violar |
+| 2026-09-21 | `SCH-02` afirmaba que la lista de problemas estaba vacía: una función rota que siempre devuelve `array()` lo cumplía, y de hecho pasó verde mientras lo estaba |
+| 2026-09-21 | `SCH-03` comparaba sólo nombres de índice: agregarle `generation` a `dedup` rompía la deduplicación y el test no se enteraba. `SCH-04`, `SCH-05` y `SCH-06` tampoco, porque todos insertan con `generation = 1` |
+| 2026-09-21 | `SCH-08` contaba tres tablas, la misma debilidad que ya se había corregido en `SCH-01` |

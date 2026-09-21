@@ -81,12 +81,68 @@ class Test_Installer extends WP_UnitTestCase {
 	}
 
 	/**
-	 * SCH-02 — Las tres tablas se crean en InnoDB.
+	 * Consulta el motor de cada tabla sin pasar por el código bajo test.
+	 *
+	 * @return array<string,string> Nombre de tabla => motor.
+	 */
+	private function engines(): array {
+		global $wpdb;
+
+		$rows = (array) $wpdb->get_results( // phpcs:ignore WordPress.DB
+			"SELECT TABLE_NAME AS name, ENGINE AS engine FROM information_schema.TABLES
+			 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME LIKE '{$wpdb->prefix}wss\_%'"
+		);
+
+		$engines = array();
+
+		foreach ( $rows as $row ) {
+			$engines[ (string) $row->name ] = (string) $row->engine;
+		}
+
+		ksort( $engines );
+
+		return $engines;
+	}
+
+	/**
+	 * Por motor de cada tabla y no por "la lista de problemas está vacía": una función
+	 * rota que siempre devuelve array() cumple eso último sin mirar nada.
+	 *
+	 * SCH-02
 	 */
 	public function test_las_tres_tablas_son_innodb(): void {
 		Installer::install();
 
-		$this->assertSame( array(), Installer::tables_without_transactions() );
+		$this->assertSame(
+			array(
+				Installer::table( 'links' )     => 'InnoDB',
+				Installer::table( 'movements' ) => 'InnoDB',
+				Installer::table( 'nonces' )    => 'InnoDB',
+			),
+			$this->engines()
+		);
+	}
+
+	/**
+	 * ADR-004 §5 exige InnoDB **explícito**, no el default del host. En un host cuyo
+	 * default ya es InnoDB las dos cosas se ven idénticas en la base, así que lo único
+	 * que distingue "declarado" de "heredado" es el SQL.
+	 *
+	 * SCH-10
+	 */
+	public function test_las_definiciones_declaran_el_motor(): void {
+		// Por reflexión y no contando texto en el archivo: un comentario que nombre el
+		// motor también cuenta, y de hecho hizo fallar la primera versión de este test.
+		$definitions = new ReflectionMethod( Installer::class, 'definitions' );
+		$definitions->setAccessible( true );
+
+		$sentencias = (array) $definitions->invoke( null, '' );
+
+		$this->assertCount( 3, $sentencias );
+
+		foreach ( $sentencias as $sql ) {
+			$this->assertStringContainsString( 'ENGINE=InnoDB', (string) $sql );
+		}
 	}
 
 	/**
@@ -97,14 +153,46 @@ class Test_Installer extends WP_UnitTestCase {
 
 		Installer::install();
 
-		$table   = Installer::table( 'movements' );
-		$indexes = array_unique(
-			wp_list_pluck( (array) $wpdb->get_results( "SHOW INDEX FROM {$table}" ), 'Key_name' ) // phpcs:ignore WordPress.DB
+		$table = Installer::table( 'movements' );
+		$rows  = (array) $wpdb->get_results( "SHOW INDEX FROM {$table}" ); // phpcs:ignore WordPress.DB
+
+		$indices = array();
+
+		foreach ( $rows as $row ) {
+			$indices[ (string) $row->Key_name ]['columnas'][ (int) $row->Seq_in_index ] = (string) $row->Column_name; // phpcs:ignore WordPress.NamingConventions.ValidVariableName
+			$indices[ (string) $row->Key_name ]['unico']                                = ( '0' === (string) $row->Non_unique ); // phpcs:ignore WordPress.NamingConventions.ValidVariableName
+		}
+
+		foreach ( $indices as $nombre => $datos ) {
+			ksort( $indices[ $nombre ]['columnas'] );
+			$indices[ $nombre ]['columnas'] = array_values( $indices[ $nombre ]['columnas'] );
+		}
+
+		ksort( $indices );
+
+		// Por columnas y no por nombre: agregarle `generation` al índice `dedup` rompe la
+		// deduplicación de §3 del SPEC y deja el nombre igual.
+		$this->assertSame(
+			array(
+				'PRIMARY'        => array(
+					'columnas' => array( 'id' ),
+					'unico'    => true,
+				),
+				'by_link'        => array(
+					'columnas' => array( 'link_id', 'generation' ),
+					'unico'    => false,
+				),
+				'dedup'          => array(
+					'columnas' => array( 'origin_store', 'origin_seq' ),
+					'unico'    => true,
+				),
+				'delivery_queue' => array(
+					'columnas' => array( 'delivery', 'next_attempt_at' ),
+					'unico'    => false,
+				),
+			),
+			$indices
 		);
-
-		sort( $indexes );
-
-		$this->assertSame( array( 'PRIMARY', 'by_link', 'dedup', 'delivery_queue' ), $indexes );
 	}
 
 	/**
@@ -172,7 +260,17 @@ class Test_Installer extends WP_UnitTestCase {
 
 		Installer::maybe_upgrade();
 
-		$this->assertCount( 3, $this->existing_tables() );
+		$tablas = $this->existing_tables();
+		sort( $tablas );
+
+		$this->assertSame(
+			array(
+				Installer::table( 'links' ),
+				Installer::table( 'movements' ),
+				Installer::table( 'nonces' ),
+			),
+			$tablas
+		);
 		$this->assertSame( Installer::SCHEMA_VERSION, (int) get_option( Installer::OPTION_VERSION ) );
 	}
 
