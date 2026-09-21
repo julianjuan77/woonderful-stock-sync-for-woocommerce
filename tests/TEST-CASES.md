@@ -42,6 +42,7 @@ Prefijo por dominio, número correlativo, y **no se renumeran** aunque un caso s
 | `SCH-NN` | El esquema | [`tests/test-installer.php`](test-installer.php) |
 | `ID-NN` | La identidad de la tienda | [`tests/test-store.php`](test-store.php) |
 | `PLG-NN` | El arranque y la guarda que suspende | [`tests/test-plugin.php`](test-plugin.php) |
+| `UNI-NN` | La desinstalación | [`tests/test-uninstall.php`](test-uninstall.php) |
 
 Cada test lleva su ID en el docblock, así que se encuentra buscándolo:
 
@@ -78,6 +79,10 @@ Un ID en este archivo que no aparezca en ningún test es un caso sin escribir.
 | El clon se apaga solo | ADR-001 §1 | `ID-06`, `ID-07`, `ID-08`, `PLG-02`, `PLG-05` | [test-store.php](test-store.php), [test-plugin.php](test-plugin.php) |
 | Sin transacciones no se sincroniza | ADR-004 §5 | `PLG-03` | [test-plugin.php](test-plugin.php) |
 | La identidad se genera antes que el esquema | ADR-002, consecuencias | `PLG-07` | [test-plugin.php](test-plugin.php) |
+| El secreto se borra siempre al desinstalar | ADR-003 | `UNI-01` | [test-uninstall.php](test-uninstall.php) |
+| Los nonces se borran siempre | ADR-003 | `UNI-02` | [test-uninstall.php](test-uninstall.php) |
+| Con la casilla en falso no se pierde nada más | ADR-003 | `UNI-02`, `UNI-03` | [test-uninstall.php](test-uninstall.php) |
+| Con la casilla marcada no queda nada | ADR-003 | `UNI-04`, `UNI-05` | [test-uninstall.php](test-uninstall.php) |
 
 ---
 
@@ -121,6 +126,20 @@ Un ID en este archivo que no aparezca en ningún test es un caso sin escribir.
 | `PLG-06` | Sitio sano | No avisa nada |
 | `PLG-07` | `activate()` sobre una instalación vacía | Quedan la identidad y el esquema |
 
+## [`tests/test-uninstall.php`](test-uninstall.php) — la desinstalación
+
+El test define `WP_UNINSTALL_PLUGIN` e **incluye** `uninstall.php`, que es exactamente como
+lo corre WordPress: el archivo no tiene funciones ni clases, así que se puede incluir en
+varios tests sin chocar.
+
+| ID | Caso | Resultado esperado |
+|---|---|---|
+| `UNI-01` | Casilla en falso | El secreto de `wss_peers` se va; la URL y el identificador quedan |
+| `UNI-02` | Casilla en falso | Sólo se borra la tabla de nonces |
+| `UNI-03` | Casilla en falso | La identidad y la versión de esquema quedan |
+| `UNI-04` | Casilla marcada | No queda ninguna tabla |
+| `UNI-05` | Casilla marcada | No queda ninguna de las seis opciones |
+
 ---
 
 ## Lo que todavía no tiene tests
@@ -128,9 +147,6 @@ Un ID en este archivo que no aparezca en ningún test es un caso sin escribir.
 - Todo `Transport/` y `Reconciliation/`: no hay código todavía.
 - El `INSERT` + `UPDATE` de la secuencia dentro de una transacción (`Ledger/`).
 - La purga que consolida el stock base.
-- **`uninstall.php` entero**, que es el archivo que borra datos: las cuatro decisiones de
-  ADR-003 (el secreto siempre se borra, los nonces siempre se borran, con la casilla en
-  falso queda todo lo demás, con la casilla marcada no queda nada).
 - Que `boot()` **no registre** la sincronización cuando está suspendida. Hoy no hay nada
   registrado que verificar; el test va cuando exista el detector.
 
