@@ -1274,3 +1274,206 @@ que casi nadie va a tener.
 | **Vinculación**    | Puede sumar columnas a `wss_links`, no quitar las de acá. Un bootstrap nuevo abre generación y reescribe `base_stock`, y eso pasa por la misma transacción que consolida |
 | **Reconciliación** | La fase 1 tiene que leer la marca de purga de las dos tiendas y comparar sólo por encima de la más alta |
 | **Detector**       | Un movimiento propio se escribe con el `INSERT` + `UPDATE` de la secuencia dentro de una transacción |
+
+
+---
+
+## ADR-005 — Vinculación de productos
+
+Estado: Propuesta
+Temas: db-schema, rest-api
+Cubre: includes/Linking/_.php
+
+**La decisión, en cinco líneas:**
+
+1. **El vínculo es un dato; el estado, una vista.** `wss_links` guarda el par, su generación y
+   su stock base. *Vinculado*, *suspendido* y *sin vincular* se calculan al mostrarlos.
+2. **El alta viaja como el movimiento de bootstrap** y la **baja como un movimiento
+   `unlink`**: un solo canal y un solo orden.
+3. **La generación de un par es la secuencia del bootstrap que lo abrió.** Nunca se repite.
+4. **Un quinto endpoint, `GET /products`**, para que la pantalla llegue al catálogo de la
+   otra tienda (UC-05).
+5. **Desvincular borra la fila.** No hay baja lógica.
+
+---
+
+### 1. Qué se guarda y qué se deriva
+
+```
+Se guarda (wss_links):   el par, la generación, el stock base y cuándo se fijó
+Se deriva al mostrar:    vinculado · suspendido · sin vincular
+```
+
+```
+¿Existe la fila?                    no  →  sin vincular
+¿Existe el producto del otro lado?  no  →  suspendido
+sí a las dos                            →  vinculado
+```
+
+**Por qué derivado y no guardado.** Nada en el plugin observa la papelera de WooCommerce. Con
+una columna de estado, mandar el producto del otro lado a la papelera obliga a escribir
+`suspended`, y restaurarlo obliga a escribir `linked` — y no hay quién lo haga:
+
+```
+El dueño restaura el producto de la papelera
+  guardado:  la fila sigue diciendo 'suspended' para siempre, con el par intacto
+  derivado:  la próxima vez que alguien mire, dice 'vinculado'
+```
+
+Es lo que UC-03 ya había decidido (*"el estado de sincronización es una vista […] no se
+persisten"*), y la razón que da es la misma: persistir la suspensión obliga a tener un botón
+de reanudar. Este ADR **quita la columna `status`** que ADR-004 había previsto.
+
+---
+
+### 2. El alta — el bootstrap
+
+Lo hace el dueño desde la maestra, y es **la única escritura de valor absoluto del plugin**
+(§3 del SPEC). Viaja como un movimiento más:
+
+```json
+{
+  "id": "A-77", "generation": 77, "delta": 0,
+  "product": 123, "reason": "bootstrap", "reference": "vinculado por julian",
+  "target_product":        456,
+  "base_stock":            12,
+  "origin_previous_stock": 12,
+  "target_previous_stock": 9
+}
+```
+
+| Campo | Qué es |
+| --- | --- |
+| `target_product` | El producto del receptor: es lo que le dice a la secundaria cuál de los suyos es |
+| `base_stock` | Con cuánto arranca el pool. Es el stock de la maestra (UC-07) |
+| `origin_previous_stock` · `target_previous_stock` | Lo que tenía cada tienda antes. Sólo para auditar |
+
+**`delta` es 0** porque el bootstrap no suma ni resta: fija. El stock esperado se calcula como
+`base_stock + los movimientos posteriores al bootstrap vigente`, así que si el bootstrap
+aportara delta se contaría dos veces.
+
+**La secundaria crea su fila al recibirlo**, con el par al revés: su `local_product` es el
+`target_product` que vino, y su `remote_product` es el `product` del emisor.
+
+---
+
+### 3. La baja — `unlink` también es un movimiento
+
+```json
+{ "id": "A-412", "generation": 77, "delta": 0, "product": 123, "reason": "unlink" }
+```
+
+La maestra borra su fila y emite el movimiento; la secundaria borra la suya al recibirlo.
+
+**Por qué por la cola y no por un endpoint aparte: el orden.**
+
+```
+10:00  Venta en la maestra  →  movimiento M-500, queda en cola (la otra tienda está lenta)
+10:01  El dueño desvincula
+
+Por la cola:      llega M-500 y se aplica; llega el unlink y se borra el par   ✅
+Por un endpoint:  el unlink no espera a la cola, llega primero, se borra el par,
+                  y M-500 llega a un par que ya no existe → descartado          ❌ venta perdida
+```
+
+El costo es que el libro guarda filas con `delta: 0`, que no son movimientos de stock. Se
+acepta porque el bootstrap ya está en la misma situación, y porque la alternativa pierde
+ventas.
+
+---
+
+### 4. La generación es la secuencia del bootstrap
+
+```
+Bootstrap de Zapatilla X   →  movimiento A-77   →  la generación del par es 77
+Se desvincula y se revincula →  movimiento A-412 →  la generación pasa a 412
+```
+
+**El número no puede reusarse nunca**, y con un contador por vínculo que arranca en 1 sí se
+reusa:
+
+```
+10:00  Vincular      →  generación 1
+10:05  Venta         →  movimiento con generación 1, queda en cola
+10:10  Desvincular   →  se borra la fila
+10:11  Revincular    →  generación 1 otra vez
+10:12  Llega el movimiento de las 10:05, con generación 1
+       → 1 == 1 → se aplica → descuenta stock de una época que ya no corre   ❌
+```
+
+Con la secuencia del bootstrap eso no puede pasar: `origin_seq` es el `AUTO_INCREMENT` del
+libro (ADR-002) y **no se repite jamás**. De yapa, la generación dice qué fila del libro la
+abrió: auditar un bootstrap es buscar ese número.
+
+**El receptor sólo aplica lo de la generación vigente**, y lo que llega de una vieja queda
+`discarded` (ADR-001 §3).
+
+---
+
+### 5. `GET /products` — el quinto endpoint
+
+UC-05 pide que **la pantalla llegue al catálogo de la otra tienda**: para sugerir pares por
+SKU y para mostrar los dos números de stock antes de confirmar un bootstrap. Los cuatro
+endpoints de ADR-001 no lo cubren.
+
+```
+GET /wss/v1/products?page=1&per_page=100
+→ { "products": [ { "id": 456, "sku": "ZAP-001", "name": "Zapatilla X",
+                    "stock": 9, "status": "publish", "linked": false } ],
+    "total": 4870 }
+```
+
+Firmado con HMAC como todo el resto, y **de sólo lectura**: no modifica nada del otro lado.
+
+**Por qué en vivo y no un espejo local.** Un espejo resolvería la sugerencia masiva en una
+consulta, pero el número de stock que muestra sería el de la última sincronización:
+
+```
+El dueño confirma el bootstrap mirando un stock de anoche
+  → el pool arranca con un número que ya no es cierto
+  → y el bootstrap es lo único que no se puede deshacer (UC-07)
+```
+
+**Costo aceptado:** si la secundaria no responde, la pantalla de vinculación no funciona y hay
+que decirlo. Es lo mismo que ya pasa con la reconciliación, que también necesita a las dos.
+
+---
+
+### 6. Dónde se auditan los campos del bootstrap
+
+> **Esta la elegí yo al escribir el ADR, no salió de una conversación: miralo con cuidado.**
+
+§3 del SPEC exige que el libro pueda auditar un bootstrap entero —los dos IDs, el stock previo
+de cada tienda y la generación—, y `wss_movements` no tiene dónde ponerlos.
+
+**Una columna `details` en `wss_movements`**, `TEXT NULL`, con el JSON de los campos que sólo
+existen en algunos movimientos. Vacía en una venta, llena en un bootstrap.
+
+| Alternativa | Qué falla |
+| --- | --- |
+| Columnas propias (`target_product`, `base_stock`, …) | Cuatro columnas `NULL` en el 99,9% de las filas, y cada tipo nuevo de movimiento suma más |
+| Una tabla `wss_bootstraps` | Una cuarta tabla para un evento raro, y un `JOIN` en la auditoría |
+| Meterlo en `reference` | Son 100 caracteres y ya significa otra cosa: el número de pedido |
+
+---
+
+### Alcance
+
+**Cubre:** cómo nace, viaja y muere un vínculo, y de dónde sale su generación.
+
+**No cubre:**
+
+| Qué | Dónde va |
+| --- | --- |
+| La pantalla de vinculación en sí (UC-05) | ADR de la interfaz |
+| El registro de acciones de vinculación y de descartes (UC-03, UC-08) | ADR del log de acciones |
+| Cómo se detecta el cambio de stock que dispara un movimiento | ADR del detector |
+
+### Consecuencias para otros ADRs
+
+| ADR | Qué le queda |
+| --- | --- |
+| **ADR-001** (aprobado) | Se le suma un quinto endpoint, `GET /products`. Y `reason` suma dos valores: `unlink`, además de `bootstrap` |
+| **ADR-004** (aprobado) | Sale `status` de `wss_links`; entra `details TEXT NULL` en `wss_movements` |
+| **Detector** | Un movimiento `bootstrap` o `unlink` **no lo emite el detector**: lo emite la pantalla. El guard anti-eco tiene que cubrir la escritura de stock del bootstrap |
+| **Interfaz** | La pantalla consume `GET /products` y tiene que tolerar que la otra tienda no responda |

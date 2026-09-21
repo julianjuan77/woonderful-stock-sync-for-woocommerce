@@ -70,9 +70,10 @@ _(nada)_
 
 ## 📋 Backlog — en orden
 
-- [ ] **ADR — Vinculación.** La generación del par, el bootstrap y sus campos extra, y los
-      estados de `wss_links`. Va antes que el detector: lo que el detector emite lleva
-      generación encima.
+- [ ] **ADR-005 — Vinculación.** ✍️ Escrito, `Estado: Propuesta`. El estado del vínculo es
+      derivado; el alta viaja como bootstrap y la baja como movimiento `unlink`; la
+      generación es la secuencia del bootstrap; quinto endpoint `GET /products`. **Revisar
+      la §6**, que la elegí yo y no salió de una conversación.
 - [ ] **ADR — Detector.** Cómo se detecta el cambio de stock y el guard anti-eco.
 - [ ] **ADR-000 — Scaffold.** ✍️ Escrito, `Estado: Propuesta`, esperando lectura.
 - [ ] **Código del libro** (`Ledger/`): el `INSERT` + `UPDATE` de la secuencia en
