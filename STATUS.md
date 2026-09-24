@@ -75,7 +75,10 @@ _(nada)_
 
 ## 📋 Backlog — en orden
 
-- [ ] **ADR — Detector.** Cómo se detecta el cambio de stock y el guard anti-eco.
+- [ ] **ADR-006 — Detector.** ✍️ Escrito, `Estado: Propuesta`. Los cuatro hooks de stock de
+      WooCommerce; el motivo se estampa después en vez de declararse; el guard anti-eco es
+      específico por producto y valor; y el movimiento espera unos segundos antes de salir.
+      **Revisar el valor de esa espera** (10 s), que lo elegí yo.
 - [ ] **Código del libro** (`Ledger/`): el `INSERT` + `UPDATE` de la secuencia en
       transacción, el claim y la purga. Habilitado por ADR-004.
 - [ ] **Código del transporte** (`Transport/`, `Rest/`): firma HMAC, emparejamiento,

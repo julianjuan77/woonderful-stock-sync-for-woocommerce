@@ -1497,3 +1497,199 @@ existen en algunos movimientos. Vacía en una venta, llena en un bootstrap.
 | **ADR-004** (aprobado) | Sale `status` de `wss_links`; entra `details TEXT NULL` en `wss_movements` |
 | **Detector** | Un movimiento `bootstrap` o `unlink` **no lo emite el detector**: lo emite la pantalla. El guard anti-eco tiene que cubrir la escritura de stock del bootstrap |
 | **Interfaz** | La pantalla consume `GET /products` y tiene que tolerar que la otra tienda no responda |
+
+
+---
+
+## ADR-006 — El detector de cambios de stock
+
+Estado: Propuesta
+Temas: hooks-publicos, db-schema
+Cubre: includes/Detector/_.php
+
+**La decisión, en cuatro líneas:**
+
+1. El detector escucha los **cuatro hooks de stock de WooCommerce**, en pares `before`/`set`:
+   el par da el delta.
+2. **El motivo no se declara: se estampa después.** El movimiento nace `adjustment` y el
+   documento que lo causó lo completa un instante más tarde.
+3. El **guard anti-eco es específico**: producto y valor esperado, de un solo uso.
+4. Un movimiento **no se entrega hasta unos segundos después de creado**, lo que cierra la
+   carrera del estampado y agrupa las ráfagas sin modo especial.
+
+---
+
+### 1. Dónde engancha
+
+```php
+woocommerce_product_before_set_stock    ·  woocommerce_product_set_stock
+woocommerce_variation_before_set_stock  ·  woocommerce_variation_set_stock
+```
+
+El par da el delta sin tener que consultar nada:
+
+```php
+// wc_update_product_stock(), en includes/wc-stock-functions.php
+do_action( 'woocommerce_product_before_set_stock', $product );  // el objeto tiene el valor VIEJO
+$new_stock = $data_store->update_product_stock( … );            // cambia la base
+$data_store->read_stock_quantity( $product_with_stock, … );     // refresca el objeto
+do_action( 'woocommerce_product_set_stock', $product );         // ahora tiene el NUEVO
+```
+
+Se disparan en las **dos** rutas por las que WooCommerce cambia stock: `wc_update_product_stock()`
+—ventas, devoluciones, cambios programáticos— y el data store cuando se guarda un producto.
+
+**Por qué no el meta `_stock`.** Parece el punto más bajo y universal, y es el error: la
+propia función de WooCommerce avisa que **no pasa por `update_post_meta`**.
+
+> *Uses queries rather than `update_post_meta` so we can do this in one query (to avoid stock issues).*
+
+Un detector colgado del meta no vería las ventas, que es el caso principal. Verificado contra
+WooCommerce 11.0.1.
+
+**Qué no genera movimiento:**
+
+| Caso | Por qué |
+| --- | --- |
+| El producto no gestiona stock (`managing_stock()` falso) | No hay número que sincronizar |
+| El producto no está vinculado | Nada entra a la malla hasta que el dueño lo vincula (UC-03) |
+| El cambio lo provocó la aplicación de un movimiento remoto | El guard de §3 |
+| El cambio lo provocó un bootstrap | Lo emite la pantalla, no el detector (ADR-005) |
+
+**Variaciones:** el hook entrega el objeto que **realmente** lleva el stock, que puede ser el
+padre (`get_stock_managed_by_id()`). El detector usa el ID de ese objeto y no el del producto
+que se pidió cambiar.
+
+---
+
+### 2. El motivo se estampa, no se declara
+
+WooCommerce avisa quién causó el cambio **un instante después** del cambio, en el mismo
+request y con todo lo necesario:
+
+```php
+$new_stock = wc_update_product_stock( $product, $qty, 'decrease' );          // ① el detector escribe
+…
+do_action( 'woocommerce_reduce_order_item_stock', $item, $change, $order );  // ② llega el documento
+```
+
+Así que el movimiento nace con lo único que se sabe y se completa después:
+
+```
+①  producto 123 · delta −2 · reason: adjustment
+②  producto 123 · delta −2 · reason: sale · reference: "pedido #4512"
+```
+
+Si nadie estampa nada, la fila se queda en `adjustment`, **que es la verdad**: el stock cambió
+y no hay ningún documento detrás. Es lo que pasa cuando el dueño edita el stock a mano, cuando
+entra un CSV o cuando lo toca otro plugin.
+
+| Hook que estampa | Motivo | Referencia |
+| --- | --- | --- |
+| `woocommerce_reduce_order_item_stock` | `sale` | El número de pedido |
+| `woocommerce_restore_order_item_stock` | `refund` | El número de pedido |
+| `woocommerce_restock_refunded_item` | `refund` | El número de pedido |
+
+**Por qué así y no declarando el motivo por adelantado.** Es lo que hace el rubro: en Odoo
+cada `stock.move` lleva un campo `origin` que apunta al documento que lo causó, y en Shopify
+cada ajuste de inventario lleva `reason` y un `referenceDocumentUri` *"que representa por qué
+ocurrió el cambio"*. En los dos, **el movimiento existe por su cuenta y la atribución viaja
+encima**; ninguno pide declarar la intención antes de tocar el stock.
+
+La alternativa —abrir un ámbito "lo que viene es una venta", mantenerlo mientras WooCommerce
+toca varios productos y cerrarlo después— obliga a saber de antemano algo que el sistema va a
+decir solo un milisegundo más tarde, y deja una pila que hay que cerrar aunque algo falle.
+
+**El delta se registra siempre, al instante; el motivo es un dato del historial.** Si llega,
+mejora la fila; si no llega, la fila ya era correcta. Un motivo mal puesto no rompe el stock
+—el delta es el mismo— pero sí el historial, que es lo único que después explica de dónde
+salió cada número (UC-04).
+
+---
+
+### 3. El guard anti-eco
+
+Cuando B aplica un movimiento que vino de A, el stock local de B cambia, y su propio detector
+lo ve como cualquier otro cambio. Sin guard: B emite un movimiento nuevo hacia A, A lo aplica,
+su detector se dispara, y vuelve — **amplificando el descuento en cada vuelta** (§3 del SPEC).
+
+**El guard es específico: producto, valor esperado, y de un solo uso.**
+
+```
+Antes de aplicar:   "voy a llevar el producto 123 de 10 a 9"
+El detector ve:      producto 123, de 10 a 9   → es el mío: lo consumo y no emito
+El detector ve:      producto 123, de 9 a 8    → no coincide: es una venta, la emito ✅
+Al terminar el request, lo que quedó sin consumir se descarta.
+```
+
+**Por qué no una bandera "estoy aplicando" con `try/finally`:**
+
+```
+Aplicando el movimiento de A…
+   ← en el mismo request entra una venta del producto 456
+   → el detector está apagado: la venta NO se registra   ❌ stock perdido, en silencio
+```
+
+El SPEC lo pide explícitamente: el guard *"no debe tapar una venta local genuina que caiga en
+el mismo request"*. Y tiene que liberarse aunque la aplicación falle a mitad: por eso el
+descarte al final del request, y no un `finally` del que dependa la corrección.
+
+**El guard cubre también el bootstrap**, que escribe stock de la misma manera (ADR-005).
+
+---
+
+### 4. El movimiento espera unos segundos antes de salir
+
+```
+created_at:       14:00:00
+next_attempt_at:  14:00:10     ← la cola no lo toca antes
+```
+
+> **El valor lo elegí yo: 10 segundos, configurable. Es la perilla entre velocidad de
+> propagación y agrupamiento; miralo.**
+
+Resuelve dos cosas de una:
+
+**La carrera del estampado.** Entre que el detector escribe la fila y el hook del pedido la
+completa pasan milisegundos, pero la pasada de la cola corre en otro request: sin la espera,
+podría llevarse la fila con `reason: adjustment` antes de que le estampen `sale`.
+
+**Las ráfagas, sin modo importación.** §6 del SPEC dejó abierto cómo agrupar una importación
+masiva, y anotó por qué el camino obvio no sirve: *"detectar la ráfaga por umbral llega tarde,
+porque para cuando se superó el umbral los primeros cambios ya salieron de a uno"*.
+
+```
+Con umbral:   los primeros 50 salen de a uno, y recién ahí se nota que era una ráfaga
+Con espera:   ninguno sale en los primeros 10 segundos
+              → cuando la pasada corre, ya están todos y se van en un lote   ✅
+```
+
+No hace falta detectar nada ni encender un modo: la ráfaga se agrupa sola porque nadie sale
+apurado. El tope de 200 por lote de ADR-001 sigue mandando.
+
+**Costo:** una venta tarda esos segundos de más en llegar a la otra tienda. §5 del SPEC no
+promete un plazo máximo de propagación, justamente porque depende del volumen y del servidor,
+pero es tiempo en el que la otra tienda puede sobrevender.
+
+---
+
+### Alcance
+
+**Cubre:** cómo se detecta un cambio de stock, de dónde sale su motivo y cómo se evita el eco.
+
+**No cubre:**
+
+| Qué | Dónde va |
+| --- | --- |
+| Qué hace la cola con el movimiento una vez escrito | ADR-001 (aprobado) |
+| Quién emite el bootstrap y el `unlink` | ADR-005 (aprobado) |
+| El aviso de un producto que no sincroniza | ADR del log de acciones y avisos (UC-08) |
+
+### Consecuencias para otros ADRs
+
+| ADR | Qué le queda |
+| --- | --- |
+| **ADR-001** (aprobado) | `next_attempt_at` nace con unos segundos de futuro, no en el momento. La cola no cambia: ya filtra por `next_attempt_at <= NOW()` |
+| **Esquema** | Nada nuevo: `reason` y `reference` ya están, y el estampado es un `UPDATE` sobre la fila recién escrita |
+| **Log de acciones** | El detector tiene que avisar cuando ve un cambio de un producto **sin vincular**: es la señal de UC-08 de que hay algo fuera de la malla |
+| **Interfaz** | §5 del SPEC exige detectar que `wc_stock_amount` esté filtrado a decimales y avisar en vez de truncar en silencio. Lo ve el detector; lo muestra la pantalla |
