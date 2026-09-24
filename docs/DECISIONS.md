@@ -34,7 +34,7 @@ aprueba en bloque.
 
 ## ADR-000 — Scaffold
 
-Estado: Propuesta
+Estado: Aprobada · 2026-09-24 · aprobada por Julián
 Temas: scaffold, dependencias
 Cubre: woonderful-stock-sync-for-woocommerce.php, composer.json, phpcs.xml, includes/Plugin.php
 

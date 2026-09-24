@@ -76,7 +76,6 @@ _(nada)_
 ## 📋 Backlog — en orden
 
 - [ ] **ADR — Detector.** Cómo se detecta el cambio de stock y el guard anti-eco.
-- [ ] **ADR-000 — Scaffold.** ✍️ Escrito, `Estado: Propuesta`, esperando lectura.
 - [ ] **Código del libro** (`Ledger/`): el `INSERT` + `UPDATE` de la secuencia en
       transacción, el claim y la purga. Habilitado por ADR-004.
 - [ ] **Código del transporte** (`Transport/`, `Rest/`): firma HMAC, emparejamiento,
