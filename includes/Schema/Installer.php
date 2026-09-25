@@ -119,7 +119,7 @@ final class Installer {
 			// UNIQUE, NULL no choca con NULL; dos ceros sí (ADR-004 §1).
 			"CREATE TABLE {$movements} (
 				id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-				origin_store char(32) NOT NULL,
+				origin_store char(36) NOT NULL,
 				origin_seq bigint(20) unsigned DEFAULT NULL,
 				generation int(10) unsigned NOT NULL DEFAULT 0,
 				delta int(11) NOT NULL,
@@ -133,7 +133,7 @@ final class Installer {
 				first_attempt_at datetime DEFAULT NULL,
 				next_attempt_at datetime DEFAULT NULL,
 				last_error varchar(255) DEFAULT NULL,
-				claimed_by char(32) DEFAULT NULL,
+				claimed_by char(36) DEFAULT NULL,
 				claimed_at datetime DEFAULT NULL,
 				confirmed_at datetime DEFAULT NULL,
 				application varchar(12) DEFAULT NULL,
@@ -148,7 +148,7 @@ final class Installer {
 			"CREATE TABLE {$links} (
 				id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
 				local_product bigint(20) unsigned NOT NULL,
-				remote_store char(32) NOT NULL,
+				remote_store char(36) NOT NULL,
 				remote_product bigint(20) unsigned NOT NULL,
 				generation int(10) unsigned NOT NULL DEFAULT 1,
 				base_stock int(11) NOT NULL,

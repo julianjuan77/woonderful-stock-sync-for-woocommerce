@@ -289,6 +289,13 @@ control ataja.
 | **Application Passwords** de WP  | Autentican un **usuario**, no una tienda. Que le borren el usuario, le cambien el rol o le revoquen la contraseña deja la malla caída sin señal de por qué. Además hay hostings que filtran la cabecera `Authorization` y sitios que desactivan la función entera |
 | **Claves REST de WooCommerce**   | Pertenecen al controlador `wc/v3`. En endpoints propios hay que validarlas a mano contra la tabla interna de WooCommerce, que no es contrato público: es tanto código como el HMAC, apoyado en algo más frágil, y sigue atado a un usuario |
 
+**Por qué no un esquema de firma ya escrito.** Hay dos candidatos y ninguno encaja:
+
+| Candidato | Qué falla |
+| --- | --- |
+| [RFC 9421](https://datatracker.ietf.org/doc/html/rfc9421/), *HTTP Message Signatures* | Es el estándar de verdad y lo usan Cloudflare y OpenAI, pero la adopción todavía es incipiente y no hay implementación en el ecosistema WordPress: habría que sumar una dependencia para firmar cuatro endpoints propios |
+| El de los webhooks de WooCommerce | Firma **sólo el cuerpo** (`base64( hash_hmac( 'sha256', $payload, $secret ) )` en `X-WC-Webhook-Signature`), así que un request capturado se puede reenviar tal cual. Nosotros firmamos además método, ruta, timestamp y nonce |
+
 **Costo aceptado:** el HMAC es código propio —firma, verificación, almacén de nonces y
 tolerancia de reloj— con sus tests. Se acepta porque es la única opción cuya identidad
 coincide con la del diseño, y porque §5 ya exige HTTPS: no agrega un requisito nuevo.
@@ -752,6 +759,22 @@ está en el SPEC: comparar A contra B daría falsos positivos por movimientos en
 
 ---
 
+### Prior art
+
+Nada de acá es nuevo. Cada pieza tiene nombre y está probada fuera de WordPress; lo propio es
+la combinación:
+
+| Decisión de este ADR | Cómo se llama | Dónde se usa |
+| --- | --- | --- |
+| El libro es la cola | **Outbox pattern** | Práctica estándar en microservicios |
+| El claim con vencimiento | **Lease** | Sistemas distribuidos; Action Scheduler lo usa para sus propias acciones |
+| Firmar método + ruta + timestamp + nonce + hash del cuerpo | **Canonical request signing** | AWS SigV4 |
+| Ventana de reloj más nonce de un solo uso | **Replay protection** | Cualquier API firmada |
+| Techo de reintento por tiempo | — | Stripe reintenta sus webhooks hasta 3 días |
+| Una respuesta por ítem del lote | **Partial success** | APIs de lote |
+| El callback del emparejamiento | **Desafío de posesión** | ACME, el protocolo de Let's Encrypt |
+| Apagarse si cambió la URL del sitio | **Detección de staging** | Los gestores de licencias de WordPress |
+
 ### Alcance
 
 **Cubre:** cómo viaja un movimiento, qué campos lleva y quién lo firma.
@@ -780,6 +803,9 @@ está en el SPEC: comparar A contra B daría falsos positivos por movimientos en
 ## ADR-002 — Identidad de tienda y numeración de movimientos
 
 Estado: Aprobada · 2026-09-20 · aprobada por Julián
+Revisado: 2026-09-24 — el identificador pasa a ser un UUID v4 de `wp_generate_uuid4()` en vez
+de un hexa de 32 propio: mismo efecto, formato reconocible y una función menos que escribir.
+Las columnas pasan a `CHAR(36)`.
 Temas: db-schema, opciones, rest-api
 Cubre: includes/Identity/_.php
 
@@ -801,11 +827,15 @@ movimientos**. Este ADR dice qué es ese identificador.
 
 ```
 Se genera al activar el plugin, una sola vez:
-   wss_store_id  = bin2hex( random_bytes(16) )   → "8f4e2a91c7b3d05e6a1f9c48b2703d17"
+   wss_store_id  = wp_generate_uuid4()   → "8f4e2a91-c7b3-4d05-8a1f-9c48b2703d17"
 
 Y una etiqueta, que el dueño puede cambiar cuando quiera:
    wss_store_label = "Minorista"
 ```
+
+**Es un UUID v4, el que genera WordPress**, no un formato propio: `wp_generate_uuid4()` está
+en el core desde la 4.7 y cualquiera que abra la base reconoce la forma. Inventar un hexa de
+32 caracteres no habría agregado nada.
 
 | | Identificador | Etiqueta |
 | --- | --- | --- |
@@ -829,7 +859,7 @@ copia de la base de la otra, un staging o un entorno de prueba (ADR-001 §1)— 
 El canje lo rechaza:
 
 ```
-POST /pair llega declarando  origen = 8f4e2a91...
+POST /pair llega declarando  origin = 8f4e2a91-c7b3-...
 La maestra ve que ese es SU PROPIO identificador
    → rechaza: "esta tienda es una copia de la maestra, no una segunda tienda"
 ```
@@ -882,11 +912,11 @@ Límites de la fase 1:          "comparemos de la 300 a la 412"
 **Dos campos separados, en el JSON y en la base.**
 
 ```json
-{ "origin": "8f4e2a91c7b3d05e6a1f9c48b2703d17", "seq": 77 }
+{ "origin": "8f4e2a91-c7b3-4d05-8a1f-9c48b2703d17", "seq": 77 }
 ```
 
 ```sql
-origin_store CHAR(32),  origin_seq BIGINT UNSIGNED,
+origin_store CHAR(36),  origin_seq BIGINT UNSIGNED,
 UNIQUE (origin_store, origin_seq)     ← la deduplicación de §3 del SPEC
 ```
 
@@ -902,6 +932,14 @@ Con un string:   hay que partir "8f4e...-77", castear a entero, y un índice
 ```
 
 ---
+
+### Prior art
+
+| Decisión de este ADR | Cómo se llama |
+| --- | --- |
+| Identificador opaco y aleatorio | **UUID v4**, el de `wp_generate_uuid4()` |
+| Cada origen numera lo suyo | **Per-source sequence numbers**, como en cualquier replicación |
+| (origen, secuencia) como clave de deduplicación | La clave del **idempotent consumer** |
 
 ### Alcance
 
@@ -920,7 +958,7 @@ escriben los dos.
 
 | ADR             | Qué le queda                                                                                                   |
 | --------------- | ---------------------------------------------------------------------------------------------------------------- |
-| **Esquema**     | `origin_store CHAR(32)` + `origin_seq BIGINT UNSIGNED` con su `UNIQUE`; la secuencia propia **es** el `AUTO_INCREMENT` de la tabla, así que el libro no lleva contador aparte |
+| **Esquema**     | `origin_store CHAR(36)` + `origin_seq BIGINT UNSIGNED` con su `UNIQUE`; la secuencia propia **es** el `AUTO_INCREMENT` de la tabla, así que el libro no lleva contador aparte |
 | **Opciones**    | `wss_store_id` (inmutable) y `wss_store_label` (editable). Qué pasa con las dos al desinstalar lo decide ADR-003, junto con el resto de los datos |
 | **Scaffold**    | El identificador se genera en la activación, antes de que exista nada más. Es lo primero que el plugin escribe |
 
@@ -1028,7 +1066,7 @@ Cubre: includes/Ledger/_.php, includes/Schema/_.php
 ```sql
 CREATE TABLE {prefix}wss_movements (
   id               BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,  -- y la secuencia de las propias
-  origin_store     CHAR(32)        NOT NULL,                 -- quién lo emitió (ADR-002)
+  origin_store     CHAR(36)        NOT NULL,                 -- quién lo emitió (ADR-002)
   origin_seq       BIGINT UNSIGNED NULL,                     -- ver "el instante en NULL"
   generation       INT UNSIGNED    NOT NULL,
   delta            INT             NOT NULL,
@@ -1045,7 +1083,7 @@ CREATE TABLE {prefix}wss_movements (
   first_attempt_at DATETIME        NULL,
   next_attempt_at  DATETIME        NULL,
   last_error       VARCHAR(255)    NULL,
-  claimed_by       CHAR(32)        NULL,
+  claimed_by       CHAR(36)        NULL,
   claimed_at       DATETIME        NULL,
   confirmed_at     DATETIME        NULL,
 
@@ -1130,7 +1168,7 @@ para ahorrar un escaneo por día. No se pone.
 CREATE TABLE {prefix}wss_links (
   id             BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   local_product  BIGINT UNSIGNED NOT NULL,   -- id del producto en ESTA tienda
-  remote_store   CHAR(32)        NOT NULL,
+  remote_store   CHAR(36)        NOT NULL,
   remote_product BIGINT UNSIGNED NOT NULL,
   generation     INT UNSIGNED    NOT NULL,   -- cada bootstrap abre una nueva
   base_stock     INT             NOT NULL,   -- el valor del bootstrap vigente
@@ -1274,6 +1312,14 @@ es de una línea y el aviso es suficiente: no hay que escribir una migración de
 que casi nadie va a tener.
 
 ---
+
+### Prior art
+
+| Decisión de este ADR | Cómo se llama |
+| --- | --- |
+| No purgar por debajo de lo que la otra tienda conoce | Lo mismo que el `gc_grace_seconds` de Cassandra: borrar un tombstone antes de que todos lo hayan visto lo **resucita** |
+| El stock base absorbe lo purgado | **Compactación** / snapshot en event sourcing |
+| La `PRIMARY KEY` del nonce como control de concurrencia | **Insert-as-lock** |
 
 ### Alcance
 
@@ -1477,6 +1523,14 @@ existen en algunos movimientos. Vacía en una venta, llena en un bootstrap.
 
 ---
 
+### Prior art
+
+| Decisión de este ADR | Cómo se llama |
+| --- | --- |
+| El `unlink` viaja como un movimiento con `delta: 0` | Un **tombstone** en un log de eventos: así borran Kafka y los CRDT |
+| La generación del par | Un **fencing token** (o *epoch*): el número que distingue una época de la anterior y hace que lo viejo se descarte solo |
+| Que la baja viaje por el mismo canal que los datos | **Orden total dentro de la partición**, la razón por la que Kafka no tiene un canal de control aparte |
+
 ### Alcance
 
 **Cubre:** cómo nace, viaja y muere un vínculo, y de dónde sale su generación.
@@ -1636,6 +1690,13 @@ descarte al final del request, y no un `finally` del que dependa la corrección.
 
 **El guard cubre también el bootstrap**, que escribe stock de la misma manera (ADR-005).
 
+**Por qué no la solución estándar.** En replicación, el eco se corta **marcando el origen** del
+evento: MySQL le pone un `server_id` a cada escritura y cada réplica descarta lo que lleva el
+suyo. Acá no se puede, y el motivo está en §3 del SPEC: nuestro detector **observa valores, no
+eventos**. Un cambio de stock no viene con etiqueta de quién lo hizo — llega como "este número
+pasó de 10 a 9" y nada más. El guard es lo que reemplaza a esa etiqueta, y es el precio
+declarado de haber puesto un único punto de detección por diferencia de valor.
+
 ---
 
 ### 4. El movimiento espera unos segundos antes de salir
@@ -1672,6 +1733,14 @@ promete un plazo máximo de propagación, justamente porque depende del volumen 
 pero es tiempo en el que la otra tienda puede sobrevender.
 
 ---
+
+### Prior art
+
+| Decisión de este ADR | Cómo se llama | Dónde se usa |
+| --- | --- | --- |
+| El movimiento existe primero y la atribución se le estampa encima | **Source document reference** | El campo `origin` de `stock.move` en Odoo; el `referenceDocumentUri` de cada ajuste en Shopify |
+| Esperar antes de enviar para que la ráfaga se agrupe sola | **Debounce** | Cualquier cosa que agrupe eventos en lote |
+| Cortar el eco de una réplica | **Loop prevention** | Lo estándar es marcar el origen (`server_id` en MySQL); acá no aplica, ver §3 |
 
 ### Alcance
 

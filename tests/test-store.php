@@ -44,7 +44,7 @@ class Test_Store extends WP_UnitTestCase {
 
 		Store::ensure_identity();
 
-		$this->assertMatchesRegularExpression( '/^[0-9a-f]{32}$/', Store::id() );
+		$this->assertMatchesRegularExpression( '/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/', Store::id() );
 	}
 
 	/**

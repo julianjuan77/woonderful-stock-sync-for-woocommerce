@@ -28,7 +28,7 @@ final class Store {
 			return;
 		}
 
-		add_option( self::OPTION_ID, bin2hex( random_bytes( 16 ) ), '', false );
+		add_option( self::OPTION_ID, wp_generate_uuid4(), '', false );
 		add_option( self::OPTION_LABEL, get_bloginfo( 'name' ), '', false );
 	}
 

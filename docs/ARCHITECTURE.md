@@ -113,7 +113,7 @@ compatible; quitar uno o cambiarle el significado es `wss/v2`.
 
 | Opción | Descripción |
 |---|---|
-| `wss_store_id` | Identificador opaco de 128 bits. Inmutable (ADR-002) |
+| `wss_store_id` | UUID v4 de `wp_generate_uuid4()`. Inmutable (ADR-002) |
 | `wss_store_label` | Etiqueta legible, editable |
 | `wss_site_fingerprint` | `sha256( home_url() )` al emparejar. Detecta el clon (ADR-001) |
 | `wss_peers` | Por tienda remota: URL, identificador, secreto, fecha del emparejamiento y **hasta qué secuencia suya purgamos** (ADR-004) |
