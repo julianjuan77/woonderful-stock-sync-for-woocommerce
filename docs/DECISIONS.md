@@ -1557,7 +1557,7 @@ existen en algunos movimientos. Vacía en una venta, llena en un bootstrap.
 
 ## ADR-006 — El detector de cambios de stock
 
-Estado: Propuesta
+Estado: Aprobada · 2026-09-24 · aprobada por Julián
 Temas: hooks-publicos, db-schema
 Cubre: includes/Detector/_.php
 

@@ -75,10 +75,11 @@ _(nada)_
 
 ## 📋 Backlog — en orden
 
-- [ ] **ADR-006 — Detector.** ✍️ Escrito, `Estado: Propuesta`. Los cuatro hooks de stock de
-      WooCommerce; el motivo se estampa después en vez de declararse; el guard anti-eco es
-      específico por producto y valor; y el movimiento espera unos segundos antes de salir.
-      **Revisar el valor de esa espera** (10 s), que lo elegí yo.
+- [ ] **ADR — Reconciliación** (UC-06). Las dos fases, el candado, la pasada nocturna y la
+      reconciliación de cierre de una importación, que §6 del SPEC dejó abierta.
+- [ ] **ADR — Log de acciones y avisos** (UC-03, UC-08). Lo piden como pendiente ADR-005 y
+      ADR-006 en sus consecuencias.
+- [ ] **ADR — Interfaz** (UC-05). La pantalla de vinculación y la de ajustes.
 - [ ] **Código del libro** (`Ledger/`): el `INSERT` + `UPDATE` de la secuencia en
       transacción, el claim y la purga. Habilitado por ADR-004.
 - [ ] **Código del transporte** (`Transport/`, `Rest/`): firma HMAC, emparejamiento,

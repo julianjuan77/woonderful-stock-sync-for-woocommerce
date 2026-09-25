@@ -1792,19 +1792,18 @@ Ninguna impide cerrar el SPEC, pero cada una bloquea una parte concreta.
 - [ ] **¿Qué volumen tiene el catálogo real y cuántos movimientos por día?** Bloquea: el
       tamaño de los lotes de propagación, los índices del libro y la validación de que 90
       días de retención sea razonable.
-- [ ] **¿Cómo se agrupa una importación masiva?** Bloquea: el modo importación de UC-04.
-      Hace falta un criterio concreto de ráfaga (N cambios en M segundos) y decidir si es
-      configurable, pero el problema es anterior: **detectar la ráfaga por umbral llega
-      tarde**, porque para cuando se superó el umbral los primeros cambios ya salieron de a
-      uno. La alternativa a evaluar es invertirlo — **debounce de salida**: registrar siempre
-      en el libro, esperar una ventana corta de silencio y enviar el lote; si en esa ventana
-      se supera el umbral, marcar la sesión de importación y disparar el cierre al vencerla.
-      Así el agrupamiento no depende de adivinar a tiempo.
+- [x] **¿Cómo se agrupa una importación masiva?** **Resuelto en ADR-006 §4**, por el camino
+      que esta pregunta anticipaba: el debounce de salida. Un movimiento no se entrega hasta
+      unos segundos después de creado, así que **no hay ráfaga que detectar ni modo que
+      encender** — ninguno sale apurado, y cuando corre la pasada ya están todos y se van en
+      un lote. El criterio de umbral queda descartado por lo que esta misma pregunta decía:
+      llega tarde.
 
-      De ahí cuelga lo que hoy no está definido y hace falta antes de codear: **identidad del
-      lote, ACK por movimiento, y que el cierre sea un job diferido e idempotente** y no
-      dependa del request que hizo la importación. Si el importador muere a mitad, o el evento
-      de "fin" nunca llega, hoy no pasa nada y nadie se entera.
+      **Sigue abierto lo que cuelga de ahí:** el **ACK por movimiento** ya lo resolvió
+      ADR-001, pero la **reconciliación de cierre** no tiene ADR todavía — cuándo se considera
+      terminada una importación, y que ese cierre sea un job diferido e idempotente que no
+      dependa del request que la hizo. Si el importador muere a mitad, hoy no pasa nada y
+      nadie se entera. Va al ADR de la reconciliación (UC-06), que está sin escribir.
 
 - [ ] **¿Qué pasa cuando las dos tiendas están configuradas distinto para el mismo producto
       vinculado?**
