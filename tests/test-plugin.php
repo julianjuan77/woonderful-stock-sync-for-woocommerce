@@ -48,6 +48,7 @@ class Test_Plugin extends WP_UnitTestCase {
 		}
 
 		delete_option( Installer::OPTION_VERSION );
+		delete_option( Installer::OPTION_ENGINES_OK );
 
 		parent::tear_down();
 	}
@@ -82,6 +83,7 @@ class Test_Plugin extends WP_UnitTestCase {
 
 		$table = Installer::table( 'movements' );
 		$wpdb->query( "ALTER TABLE {$table} ENGINE=MyISAM" ); // phpcs:ignore WordPress.DB
+		Installer::refresh_engine_status();
 
 		$this->assertSame( Plugin::SUSPENDED_NO_TRANSACTIONS, Plugin::suspension_reason() );
 	}
@@ -100,8 +102,28 @@ class Test_Plugin extends WP_UnitTestCase {
 
 		$table = Installer::table( 'movements' );
 		$wpdb->query( "ALTER TABLE {$table} ENGINE=MyISAM" ); // phpcs:ignore WordPress.DB
+		Installer::refresh_engine_status();
 
 		$this->assertSame( Plugin::SUSPENDED_CLONE, Plugin::suspension_reason() );
+	}
+
+	/**
+	 * El control del motor es caro —consulta information_schema— y el motor de una tabla
+	 * no cambia solo, así que la guarda lee el resultado guardado y no la base (ADR-004 §5).
+	 *
+	 * PLG-09
+	 */
+	public function test_the_guard_does_not_query_the_database(): void {
+		global $wpdb;
+
+		update_option( Store::OPTION_FINGERPRINT, Store::fingerprint() );
+		Installer::refresh_engine_status();
+
+		$queries_before = $wpdb->num_queries;
+
+		Plugin::suspension_reason();
+
+		$this->assertSame( $queries_before, $wpdb->num_queries );
 	}
 
 	/**
