@@ -1,132 +1,152 @@
 # Woonderful Stock Sync for WooCommerce — Estado del proyecto
 
-> Creado: 2026-09-20
 > Plugin: `woonderful-stock-sync-for-woocommerce` | WP 6.5+ | PHP 8.1+ | WooCommerce 8.2+
-> Repo propio: [woonderful-stock-sync-for-woocommerce](https://github.com/julianjuan77/woonderful-stock-sync-for-woocommerce)
-> Última sesión: 2026-09-20 — revisión y aprobación de ADR-001 (transporte entre tiendas)
+> Repo: [woonderful-stock-sync-for-woocommerce](https://github.com/julianjuan77/woonderful-stock-sync-for-woocommerce)
+> Creado: 2026-09-20 · Última sesión: 2026-09-26
 
-Sincroniza el stock entre dos tiendas WooCommerce propias que despachan del mismo
-depósito. Pool único, sin reparto: lo que se vende en una descuenta en las dos.
+Sincroniza el stock entre dos tiendas WooCommerce propias que despachan del mismo depósito.
+Pool único, sin reparto: lo que se vende en una descuenta en las dos.
 
----
-
-## Estado general
-
-| Área                        | Estado |
-|-----------------------------|--------|
-| SPEC funcional              | ✅ 100% (8 casos de uso, §1-§6) |
-| ADRs                        | 🟡 71% (5 de ~7 escritos; faltan detector y vinculación) |
-| ARCHITECTURE.md             | 🟡 70% (contrato, módulos, seguridad y convenciones de código) |
-| Scaffold del plugin         | ✅ 100% — activa y crea las tablas, verificado en sandbox |
-| Tests                       | 🟡 30 en verde (esquema, identidad, guarda, desinstalación); falta transporte y libro |
-| Estándares (PHPCS / ESLint) | ✅ PHPCS y PHPStan en verde |
-| i18n / traducciones         | ⬜ 0% |
-| readme.txt                  | ⬜ 0% |
+| | |
+|---|---|
+| **Sitio de trabajo** | `sandbox` — `make up SITE=sandbox` |
+| **Tests** | `make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce` |
+| **Lint** | `make lint-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce` |
 
 ---
 
-## ✅ Implementado
+## 🔄 En progreso
 
-_(nada de código: el plugin está en fase de diseño)_
+**3.1 — `Ledger::record()`: escribir un movimiento propio en el libro.**
 
-- **`docs/SPEC.md`** — especificación funcional completa. Problema, alcance, fuente de
-  verdad (§3), ocho casos de uso, supuestos y preguntas abiertas.
-- **`docs/DECISIONS.md` — ADR-001 Transporte entre tiendas · Aprobada 2026-09-20.**
-  API REST propia `wss/v1` firmada con HMAC-SHA256 y secreto por par; el libro de
-  movimientos **es** la cola y Action Scheduler sólo dispara; dos ejes de estado
-  independientes (entrega y aplicación); qué campos viajan en cada movimiento.
-- **ADR-002 Identidad de tienda y numeración · Aprobada 2026-09-20.** Identificador opaco de
-  128 bits generado al instalar + etiqueta editable; la secuencia es el `AUTO_INCREMENT` del
-  libro, con huecos, y nada puede deducir nada de un hueco; tienda y secuencia son dos campos
-  separados, nunca el string `A-77`.
-- **ADR-003 Desinstalación y borrado de datos · Aprobada 2026-09-20.** Casilla "borrar todos
-  los datos al desinstalar" desmarcada por defecto; el secreto compartido se borra siempre.
-- **ADR-004 Esquema de la base de datos · Aprobada 2026-09-20.** Tres tablas InnoDB, tres
-  índices en el libro, y la retención con sus tres reglas duras.
-- **ADR-005 Vinculación de productos · Aprobada 2026-09-21.** El estado del vínculo se
-  deriva; el alta viaja como bootstrap y la baja como movimiento `unlink`, por la cola para
-  no adelantar a una venta en vuelo; la generación es la secuencia del bootstrap, que nunca
-  se repite; quinto endpoint `GET /products` para que la pantalla llegue al catálogo del
-  otro lado.
-- **Scaffold + esquema, en código.** Archivo principal con HPOS declarado, `composer.json`
-  con PSR-4, `phpcs.xml`, `phpstan.neon.dist`, `uninstall.php` (ADR-003), `Plugin`,
-  `Identity\Store` y `Schema\Installer`. **Verificado en sandbox el 2026-09-20:** activa,
-  crea `wp_wss_movements` (20 columnas, 7 entradas de índice), `wp_wss_links` y
-  `wp_wss_nonces`, las tres InnoDB, y genera el identificador de tienda.
-- **La guarda que suspende la sincronización.** `Plugin::suspension_reason()` responde por
-  clon (ADR-001 §1) o por tablas sin transacciones (ADR-004 §5), y `boot()` corta antes de
-  registrar nada. Estaban escritas las dos funciones y no las llamaba nadie.
-- **Tests: 30 en verde.** Suite de WordPress (`wp-phpunit` por Composer) contra la base del
-  sitio con prefijo `wptests_`. Cubren el esquema, la identidad, la guarda y la
-  desinstalación. `tests/TEST-CASES.md` tiene la matriz decisión ↔ test y los hallazgos de
-  auditoría ya corregidos.
-- **Auditoría de tests (2026-09-21).** Un sub-agente con el encargo de nombrar, por cada
-  hallazgo, la mutación que dejaría el test en verde. Nueve hallazgos, ocho ciertos. De ahí
-  salieron la guarda, los tests de `uninstall.php` y el refuerzo de `SCH-02`, `SCH-03` y
-  `SCH-08`.
+Done cuando: la función escribe la fila con el `INSERT` + `UPDATE` de la secuencia dentro de
+una transacción, tiene sus tests `LED-NN`, lint y tests en verde, y está commiteada.
 
 ---
 
-## 🔄 En progreso — sesión actual
+## Plan
 
-_(nada)_
+Leyenda: ✅ hecho · 🔄 en curso · ⬜ pendiente · 🔒 bloqueado
+
+### 1. Diseño — las decisiones antes del código
+
+| | Tarea | Estado |
+|---|---|---|
+| 1.1 | ADR-000 — Scaffold | ✅ |
+| 1.2 | ADR-001 — Transporte entre tiendas | ✅ |
+| 1.3 | ADR-002 — Identidad de tienda y numeración | ✅ |
+| 1.4 | ADR-003 — Desinstalación y borrado de datos | ✅ |
+| 1.5 | ADR-004 — Esquema de la base de datos | ✅ |
+| 1.6 | ADR-005 — Vinculación de productos | ✅ |
+| 1.7 | ADR-006 — El detector de cambios de stock | ✅ |
+| 1.8 | ADR — Reconciliación (UC-06): las dos fases, el candado, el cierre de una importación | ⬜ |
+| 1.9 | ADR — Log de acciones y avisos (UC-03, UC-08) | ⬜ |
+| 1.10 | ADR — Interfaz (UC-05): pantalla de vinculación y de ajustes | ⬜ |
+
+### 2. Cimientos
+
+| | Tarea | Estado |
+|---|---|---|
+| 2.1 | Scaffold: archivo principal, Composer con PSR-4, `phpcs.xml`, `phpstan.neon.dist` | ✅ |
+| 2.2 | `Identity\Store`: el UUID de la tienda y la huella del sitio | ✅ |
+| 2.3 | `Schema\Installer`: las tres tablas, la versión de esquema, el control del motor | ✅ |
+| 2.4 | `Plugin`: la guarda que suspende por clon o por falta de transacciones | ✅ |
+| 2.5 | `uninstall.php` | ✅ |
+| 2.6 | Suite de tests con `wp-phpunit` | ✅ |
+
+### 3. El libro — `includes/Ledger/`
+
+| | Tarea | Estado |
+|---|---|---|
+| 3.1 | `record()`: escribir un movimiento propio, con la secuencia en una transacción | 🔄 |
+| 3.2 | `apply()`: aplicar un movimiento recibido y decidir `applied` / `held` / `discarded` | ⬜ |
+| 3.3 | `claim()`: liberar lo vencido y reclamar un lote | ⬜ |
+| 3.4 | `ack()`: anotar el resultado de cada fila entregada | ⬜ |
+| 3.5 | `purge()`: la retención, consolidando el stock base | ⬜ |
+
+### 4. El detector — `includes/Detector/`
+
+| | Tarea | Estado |
+|---|---|---|
+| 4.1 | Los cuatro hooks de stock y el cálculo del delta | ⬜ |
+| 4.2 | El guard anti-eco | ⬜ |
+| 4.3 | El estampado del motivo desde los hooks de pedido | ⬜ |
+| 4.4 | Qué se ignora: sin stock gestionado, sin vincular, bootstrap | ⬜ |
+
+### 5. El transporte — `includes/Transport/` y `includes/Rest/`
+
+| | Tarea | Estado |
+|---|---|---|
+| 5.1 | La firma HMAC: firmar y verificar | ⬜ |
+| 5.2 | El almacén de nonces y su purga | ⬜ |
+| 5.3 | `POST /movements` del lado receptor, con el ACK por movimiento | ⬜ |
+| 5.4 | El envío por lotes del lado emisor | ⬜ |
+| 5.5 | La pasada recurrente de Action Scheduler | ⬜ |
+| 5.6 | `GET /health` | ⬜ |
+| 5.7 | El emparejamiento: `POST /pair` y el canje con su callback | ⬜ |
+| 5.8 | `GET /products` | ⬜ |
+
+### 6. La vinculación — `includes/Linking/`
+
+| | Tarea | Estado |
+|---|---|---|
+| 6.1 | Crear el vínculo y emitir el bootstrap | ⬜ |
+| 6.2 | Recibir un bootstrap y crear la fila del otro lado | ⬜ |
+| 6.3 | Desvincular y emitir el `unlink` | ⬜ |
+| 6.4 | El estado derivado: vinculado, suspendido, sin vincular | ⬜ |
+
+### 7. La reconciliación — `includes/Reconciliation/`
+
+| | Tarea | Estado |
+|---|---|---|
+| 7.1 | Fase 1: el digest y la reentrega de lo que falta | 🔒 1.8 |
+| 7.2 | Fase 2: comparar el stock real contra el libro | 🔒 1.8 |
+| 7.3 | El candado con vencimiento y la pasada nocturna | 🔒 1.8 |
+
+### 8. La interfaz — `admin/`
+
+| | Tarea | Estado |
+|---|---|---|
+| 8.1 | Pantalla de ajustes: emparejamiento, estado del canal, la casilla de borrado | 🔒 1.10 |
+| 8.2 | Pantalla de vinculación: sugerencias por SKU, vinculación masiva, estado por producto | 🔒 1.10 |
+
+### 9. Publicación
+
+| | Tarea | Estado |
+|---|---|---|
+| 9.1 | `readme.txt` | ⬜ |
+| 9.2 | `.pot` con `wp i18n make-pot` | ⬜ |
+| 9.3 | `make check-release` | ⬜ |
 
 ---
 
-## 📋 Backlog — en orden
+## Decisiones
 
-- [ ] **ADR — Reconciliación** (UC-06). Las dos fases, el candado, la pasada nocturna y la
-      reconciliación de cierre de una importación, que §6 del SPEC dejó abierta.
-- [ ] **ADR — Log de acciones y avisos** (UC-03, UC-08). Lo piden como pendiente ADR-005 y
-      ADR-006 en sus consecuencias.
-- [ ] **ADR — Interfaz** (UC-05). La pantalla de vinculación y la de ajustes.
-- [ ] **Código del libro** (`Ledger/`): el `INSERT` + `UPDATE` de la secuencia en
-      transacción, el claim y la purga. Habilitado por ADR-004.
-- [ ] **Código del transporte** (`Transport/`, `Rest/`): firma HMAC, emparejamiento,
-      `POST /movements`. Habilitado por ADR-001.
-- [ ] `readme.txt` y `.pot`, antes de pensar en publicar.
-- [ ] Dejar el auditor de tests como agente fijo en `.claude/agents/` del entorno, si se
-      decide que rinde en más de un plugin.
-- [ ] Infection (mutation testing) **cuando exista `Transport/`**: ahí viven los límites
-      (±5 min, 6 h, backoff, claim) que las mutaciones de frontera atacan. Requiere PCOV en
-      la imagen de wp-restore, que hoy no tiene driver de cobertura.
+La fuente es `docs/DECISIONS.md`. Acá sólo el índice de las aprobadas.
 
----
+| ADR | Decide | Aprobada |
+|---|---|---|
+| [ADR-000](docs/DECISIONS.md) | El scaffold y el arranque | 2026-09-24 |
+| ADR-001 | `wss/v1` firmado con HMAC; el libro es la cola; dos ejes de estado | 2026-09-20 |
+| ADR-002 | UUID de tienda; la secuencia es el `AUTO_INCREMENT` | 2026-09-20 |
+| ADR-003 | Qué se borra al desinstalar; el secreto siempre | 2026-09-20 |
+| ADR-004 | Tres tablas InnoDB, tres índices, la retención | 2026-09-20 |
+| ADR-005 | El vínculo, su generación, el bootstrap y el `unlink` | 2026-09-21 |
+| ADR-006 | Los hooks del detector, el estampado y el guard anti-eco | 2026-09-24 |
 
-## Decisiones de arquitectura
-
-Las decisiones vivas están en `docs/DECISIONS.md`, que es la fuente. Acá sólo el resumen
-de una línea por ADR aprobado.
-
-- **ADR-002 — Identidad de tienda** (aprobada 2026-09-20). El identificador es opaco porque
-  cambiar de identidad invalida el libro, y todo lo legible por una persona es algo que una
-  persona va a querer corregir.
-- **ADR-003 — Desinstalación** (aprobada 2026-09-20). Desmarcada por defecto porque el libro
-  es el historial de stock del negocio; el secreto es la excepción porque re-emparejar es
-  barato y una credencial viva en un plugin desinstalado no la vigila nadie.
-- **ADR-005 — Vinculación** (aprobada 2026-09-21). Todo lo que tiene que viajar ordenado con
-  respecto a las ventas viaja por la cola, aunque no sea un movimiento de stock: un canal
-  aparte llega antes y deja las ventas en vuelo sin dónde aplicarse.
-- **ADR-004 — Esquema** (aprobada 2026-09-20). Los índices salen de las consultas que el
-  diseño hace, no de las columnas que existen: el cuarto candidato, el de la purga, se
-  rechaza porque costaría en cada venta para ahorrar un escaneo por noche.
-- **ADR-001 — Transporte entre tiendas** (aprobada 2026-09-20). Las dos tiendas se hablan
-  por `wss/v1` firmado con HMAC y secreto compartido, porque la identidad que hay que
-  autenticar es la tienda y no una persona. El libro de movimientos es la cola: no hay
-  segunda tabla, y Action Scheduler sólo agenda la pasada que lo vacía. Cada movimiento
-  lleva dos estados independientes, de entrega y de aplicación, porque un movimiento propio
-  y uno recibido no responden la misma pregunta.
+`docs/ARCHITECTURE.md` documenta el resultado: modelo de datos, contrato público, módulos,
+seguridad y convenciones de código.
 
 ---
 
 ## Deuda y cabos sueltos conocidos
 
-- **El SPEC referencia ADR-004 y ADR-005** (vinculación manual, cambio de SKU) que no
-  existen: quedaron de un arranque anterior. Hay que escribirlos o sacar las referencias.
-- **UC-01 dice "reintenta un número finito de veces"**, pero ADR-001 fijó el techo en
-  tiempo (6 h desde el primer intento). Sigue siendo cierto, pero el criterio de aceptación
-  conviene reescribirlo contra horas para que el test se escriba así.
-- **Preguntas abiertas del SPEC (§6)** sin cerrar: multisite, volumen real del catálogo y
-  cómo se agrupa una importación masiva.
-- **No cubierto a propósito en ADR-001:** el clon de una tienda servido en la **misma URL**
-  pasa la detección. Declarado, no resuelto.
+| Qué | Dónde |
+|---|---|
+| El SPEC referencia ADR-004 y ADR-005 con otro significado, heredado de un arranque anterior | `docs/SPEC.md` |
+| UC-01 dice "reintenta un número **finito** de veces"; ADR-001 fijó el techo en tiempo | `docs/SPEC.md` |
+| Preguntas abiertas de §6 sin cerrar: multisite y volumen real del catálogo | `docs/SPEC.md` |
+| El clon servido en la **misma URL** pasa la detección. Declarado, no resuelto | ADR-001 §1 |
+| La reconciliación de cierre de una importación no tiene ADR | §6 del SPEC → tarea 1.8 |
+| El auditor de tests, si rinde en otros plugins, va a `.claude/agents/` del entorno | — |
+| Infection cuando exista `Transport/`: necesita PCOV en la imagen de wp-restore | — |
