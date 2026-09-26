@@ -62,6 +62,27 @@ el primer test que se agregue arriba, y el ID se busca igual con un grep.
 
 Un ID en este archivo que no aparezca en ningún test es un caso sin escribir.
 
+## Cómo se elige qué probar
+
+**Antes de escribir los tests, enumerar los estados posibles de lo que la función mira.**
+Una tabla, una opción, una fila, un parámetro: cada cosa que el código consulta tiene un
+conjunto de estados, y cada estado es un test.
+
+```
+La función revisa tres tablas. Una tabla puede estar:
+  1. presente, con el motor correcto     → SCH-02
+  2. presente, con otro motor            → SCH-09
+  3. ausente                             → SCH-11
+```
+
+Parece obvio escrito así, y sin embargo el caso 3 faltó: al escribir esa función el motor era
+lo único que estaba en la cabeza, así que los tests salieron del mismo lugar. **Un test que
+no existe no falla nunca**, y ninguna herramienta lo encuentra — ni PHPCS, ni PHPStan, ni el
+auditor de tests, que revisa los tests que hay. Lo encontró otra persona leyendo el código.
+
+De ahí la costumbre: la lista de tests sale de los estados, no de lo que uno tenía en mente
+mientras escribía la función.
+
 ---
 
 ## Matriz decisión ↔ test
