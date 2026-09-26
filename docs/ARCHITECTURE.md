@@ -259,6 +259,26 @@ El motivo está medido, no es teoría: de los primeros diecisiete tests de este 
 único que se rompió a propósito resultó estar mal escrito —contaba tres tablas en vez de
 mirar cuáles eran— y daba verde con el esquema roto.
 
+### Análisis estático
+
+**PHPStan corre en nivel 8**, que marca el uso de algo que puede ser `null` o `false` sin
+haberlo comprobado. En WordPress eso aparece todo el tiempo:
+
+```php
+$product = wc_get_product( $id );     // WC_Product o false
+if ( ! $product instanceof \WC_Product ) {
+    return;
+}
+$product->get_stock_quantity();
+```
+
+**Las filas de `$wpdb` se declaran `?\stdClass`, no `?object`.** Un `object` genérico no tiene
+propiedades declaradas y el nivel 8 rechaza leerle cualquiera; `stdClass` sí las admite.
+
+La regla vale también para los tipos de retorno: una función que puede no encontrar lo que
+busca devuelve `?Tipo` y el que llama decide qué hacer, en vez de devolver un objeto vacío
+que después nadie distingue de uno real.
+
 ### `phpcs.xml`
 
 ```xml
