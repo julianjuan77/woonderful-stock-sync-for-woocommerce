@@ -117,7 +117,7 @@ compatible; quitar uno o cambiarle el significado es `wss/v2`.
 | `wss_store_label` | Etiqueta legible, editable |
 | `wss_site_fingerprint` | `sha256( get_option( 'home' ) )` al emparejar, con esquema. Detecta el clon (ADR-001, ADR-007) |
 | `wss_peers` | Por tienda remota: URL, identificador, secreto, fecha del emparejamiento y **hasta qué secuencia suya purgamos** (ADR-004) |
-| `wss_schema_version` | Versión del esquema, para las migraciones |
+| `wss_schema_version` | Versión del esquema, para las migraciones. **Autocargada**: `maybe_upgrade()` la lee en cada request |
 | `wss_schema_healthy` | Si las tres tablas existen y admiten transacciones. **Autocargada**: la guarda de arranque la lee en cada request |
 | `wss_delete_data_on_uninstall` | La casilla de ADR-003. Desmarcada de fábrica |
 
@@ -145,6 +145,10 @@ woonderful-stock-sync-for-woocommerce/
 ├── docs/
 └── tests/
 ```
+
+**Una opción que se lee en cada request va autocargada, y se prueba mirando la columna
+`autoload`**, no contando consultas: un test que escribe la opción y después la lee mide su
+propia caché, no el autoload. `SCH-12` e `ID-13` lo verifican directo.
 
 **Lo que corre en cada request tiene que ser barato.** `Plugin::boot()` se ejecuta en cada
 carga de la tienda, así que ahí no va ninguna consulta que se pueda evitar: lo que no cambia

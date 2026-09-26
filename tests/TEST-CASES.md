@@ -128,6 +128,7 @@ mientras escribía la función.
 | `SCH-09` | Una de las tablas pasada a MyISAM | `tables_without_transactions()` la nombra |
 | `SCH-10` | Las tres definiciones SQL | Declaran `ENGINE=InnoDB` explícito, no el default del host |
 | `SCH-11` | Una de las tablas borrada | `unhealthy_tables()` la nombra: se busca por ausencia, no entre lo que devuelve `information_schema` |
+| `SCH-12` | Las opciones que se leen en cada request | Están autocargadas, leído de la columna `autoload` |
 
 ## [`tests/test-store.php`](test-store.php) — la identidad
 
@@ -141,6 +142,7 @@ mientras escribía la función.
 | `ID-06` | Sin huella guardada | No es un clon: todavía no se emparejó |
 | `ID-07` | El sitio donde se emparejó | No es un clon |
 | `ID-08` | Se emparejó en una URL y la base se restauró en otra | **Es un clon** |
+| `ID-13` | Tras la activación | El identificador se autocarga; la etiqueta no |
 | `ID-09` | Un plugin filtra `home_url` | La huella no cambia: sale de la opción `home` |
 | `ID-10` | `home` en `http` y el request llega por HTTPS | La huella no cambia |
 | `ID-11` | Se emparejó en `https` y la copia se sirve con el mismo dominio por `http` | **Es un clon**: el esquema es parte de la huella |
@@ -207,3 +209,4 @@ varios tests sin chocar.
 | 2026-09-21 | `SCH-02` afirmaba que la lista de problemas estaba vacía: una función rota que siempre devuelve `array()` lo cumplía, y de hecho pasó verde mientras lo estaba |
 | 2026-09-21 | `SCH-03` comparaba sólo nombres de índice: agregarle `generation` a `dedup` rompía la deduplicación y el test no se enteraba. `SCH-04`, `SCH-05` y `SCH-06` tampoco, porque todos insertan con `generation = 1` |
 | 2026-09-21 | `SCH-08` contaba tres tablas, la misma debilidad que ya se había corregido en `SCH-01` |
+| 2026-09-26 | `SCH-07` y `PLG-09` contaban consultas sobre una caché que cebaba el propio test: pasaban con `autoload = false`, que es justo lo que decían verificar. Y la versión del esquema efectivamente no se autocargaba: una consulta por página |
