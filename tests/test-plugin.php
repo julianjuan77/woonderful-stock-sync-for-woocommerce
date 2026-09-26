@@ -48,7 +48,7 @@ class Test_Plugin extends WP_UnitTestCase {
 		}
 
 		delete_option( Installer::OPTION_VERSION );
-		delete_option( Installer::OPTION_ENGINES_OK );
+		delete_option( Installer::OPTION_SCHEMA_HEALTHY );
 
 		parent::tear_down();
 	}
@@ -83,9 +83,9 @@ class Test_Plugin extends WP_UnitTestCase {
 
 		$table = Installer::table( 'movements' );
 		$wpdb->query( "ALTER TABLE {$table} ENGINE=MyISAM" ); // phpcs:ignore WordPress.DB
-		Installer::refresh_engine_status();
+		Installer::refresh_schema_status();
 
-		$this->assertSame( Plugin::SUSPENDED_NO_TRANSACTIONS, Plugin::suspension_reason() );
+		$this->assertSame( Plugin::SUSPENDED_SCHEMA, Plugin::suspension_reason() );
 	}
 
 	/**
@@ -102,7 +102,7 @@ class Test_Plugin extends WP_UnitTestCase {
 
 		$table = Installer::table( 'movements' );
 		$wpdb->query( "ALTER TABLE {$table} ENGINE=MyISAM" ); // phpcs:ignore WordPress.DB
-		Installer::refresh_engine_status();
+		Installer::refresh_schema_status();
 
 		$this->assertSame( Plugin::SUSPENDED_CLONE, Plugin::suspension_reason() );
 	}
@@ -117,7 +117,7 @@ class Test_Plugin extends WP_UnitTestCase {
 		global $wpdb;
 
 		update_option( Store::OPTION_FINGERPRINT, Store::fingerprint() );
-		Installer::refresh_engine_status();
+		Installer::refresh_schema_status();
 
 		$queries_before = $wpdb->num_queries;
 

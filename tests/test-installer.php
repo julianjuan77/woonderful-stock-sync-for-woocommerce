@@ -275,6 +275,24 @@ class Test_Installer extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Una tabla que no existe no aparece en information_schema, así que hay que buscarla
+	 * por ausencia: recorrer sólo las filas que la consulta devuelve la deja pasar, y el
+	 * plugin sincronizaría sin esa tabla.
+	 *
+	 * SCH-11
+	 */
+	public function test_a_missing_table_is_reported(): void {
+		global $wpdb;
+
+		Installer::install();
+
+		$table = Installer::table( 'nonces' );
+		$wpdb->query( "DROP TABLE {$table}" ); // phpcs:ignore WordPress.DB
+
+		$this->assertSame( array( $table ), Installer::unhealthy_tables() );
+	}
+
+	/**
 	 * SCH-09 — Una tabla en MyISAM se reporta como tabla sin transacciones.
 	 */
 	public function test_it_detects_a_table_without_transactions(): void {
@@ -285,7 +303,7 @@ class Test_Installer extends WP_UnitTestCase {
 		$table = Installer::table( 'nonces' );
 		$wpdb->query( "ALTER TABLE {$table} ENGINE=MyISAM" ); // phpcs:ignore WordPress.DB
 
-		$this->assertSame( array( $table ), Installer::tables_without_transactions() );
+		$this->assertSame( array( $table ), Installer::unhealthy_tables() );
 	}
 
 	/**
