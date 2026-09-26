@@ -45,6 +45,12 @@ final class Ledger {
 
 		$link = Links::for_product( $product_id );
 
+		// Un producto sin vincular no está en la malla: no hay a quién contarle el cambio
+		// ni contra qué generación contarlo (UC-03).
+		if ( null === $link ) {
+			return null;
+		}
+
 		global $wpdb;
 
 		$table = Installer::table( 'movements' );
