@@ -150,6 +150,39 @@ class Test_Plugin extends WP_UnitTestCase {
 	}
 
 	/**
+	 * PLG-10 — Sin WooCommerce, el plugin avisa en el admin.
+	 */
+	public function test_it_warns_when_woocommerce_is_missing(): void {
+		ob_start();
+		Plugin::notice_woocommerce_missing();
+		$output = (string) ob_get_clean();
+
+		$this->assertStringContainsString( 'notice-error', $output );
+		$this->assertStringContainsString( 'WooCommerce', $output );
+	}
+
+	/**
+	 * Con WooCommerce presente, boot() pasa de largo el aviso y llega a migrar el
+	 * esquema. Sin el stub del bootstrap, esta mitad de boot() no la alcanza nadie.
+	 *
+	 * PLG-11
+	 */
+	public function test_boot_migrates_the_schema(): void {
+		global $wpdb;
+
+		foreach ( array( 'movements', 'links', 'nonces' ) as $name ) {
+			$table = Installer::table( $name );
+			$wpdb->query( "DROP TABLE IF EXISTS {$table}" ); // phpcs:ignore WordPress.DB
+		}
+
+		update_option( Installer::OPTION_VERSION, 0, false );
+
+		Plugin::boot();
+
+		$this->assertSame( Installer::SCHEMA_VERSION, (int) get_option( Installer::OPTION_VERSION ) );
+	}
+
+	/**
 	 * PLG-06 — Un sitio sano no avisa nada.
 	 */
 	public function test_a_healthy_site_shows_no_notice(): void {
