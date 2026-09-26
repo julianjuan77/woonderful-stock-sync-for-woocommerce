@@ -29,7 +29,10 @@ final class Store {
 			return;
 		}
 
-		add_option( self::OPTION_ID, wp_generate_uuid4(), '', false );
+		// El identificador se autocarga: boot() lo lee en cada request, así que sin
+		// autoload sería una consulta aparte en cada página de la tienda. La etiqueta no:
+		// sólo se lee en las pantallas y en el log.
+		add_option( self::OPTION_ID, wp_generate_uuid4(), '', true );
 		add_option( self::OPTION_LABEL, get_bloginfo( 'name' ), '', false );
 	}
 
