@@ -157,12 +157,15 @@ class Test_Ledger extends WP_UnitTestCase {
 	public function test_it_is_not_deliverable_right_away(): void {
 		$movement = $this->movement( (int) Ledger::record( 123, -1 ) );
 
-		// Por el valor y no sólo "posterior": con un segundo de retardo el test pasaría
-		// igual y se perdería lo que el retardo compra (ADR-006 §4).
+		// Dos aserciones y no una: la primera dice que el código usa la constante, la
+		// segunda que la constante es la que decidimos. Comparar la fila contra la
+		// constante sola no detecta que alguien la baje a 1 segundo, porque cambian los
+		// dos lados de la comparación (ADR-006 §4).
 		$this->assertSame(
 			Ledger::DELIVERY_DELAY,
 			strtotime( $movement->next_attempt_at ) - strtotime( $movement->created_at )
 		);
+		$this->assertSame( 10, Ledger::DELIVERY_DELAY );
 	}
 
 	/**
