@@ -66,7 +66,7 @@ Leyenda: ✅ hecho · 🔄 en curso · ⬜ pendiente · 🔒 bloqueado
 | | Tarea | Estado | Commit | Tests |
 |---|---|---|---|---|
 | 2.1 | Scaffold: archivo principal, Composer con PSR-4, `phpcs.xml`, `phpstan.neon.dist` | ✅ | `377ce09` | — |
-| 2.2 | `Identity\Store`: el UUID de la tienda y la huella del sitio | ✅ | `377ce09` | `ID-01`…`ID-08` |
+| 2.2 | `Identity\Store`: el UUID de la tienda y la huella del sitio | ✅ | `377ce09`, `3b22cf5` | `ID-01`…`ID-11` |
 | 2.3 | `Schema\Installer`: las tres tablas, la versión de esquema, el control del motor | ✅ | `377ce09` | `SCH-01`…`SCH-10` |
 | 2.4 | `Plugin`: la guarda que suspende por clon o por falta de transacciones | ✅ | `3598386` | `PLG-01`…`PLG-07` |
 | 2.5 | `uninstall.php` | ✅ | `377ce09` | `UNI-01`…`UNI-05` |
@@ -171,6 +171,7 @@ La fuente es `docs/DECISIONS.md`. Acá sólo el índice de las aprobadas.
 | ADR-004 | Tres tablas InnoDB, tres índices, la retención | 2026-09-20 |
 | ADR-005 | El vínculo, su generación, el bootstrap y el `unlink` | 2026-09-21 |
 | ADR-006 | Los hooks del detector, el estampado y el guard anti-eco | 2026-09-24 |
+| ADR-007 | La huella hashea la opción `home` cruda, con esquema | 2026-09-26 |
 
 `docs/ARCHITECTURE.md` documenta el resultado: modelo de datos, contrato público, módulos,
 seguridad y convenciones de código.
@@ -184,7 +185,8 @@ seguridad y convenciones de código.
 | El SPEC referencia ADR-004 y ADR-005 con otro significado, heredado de un arranque anterior | `docs/SPEC.md` |
 | UC-01 dice "reintenta un número **finito** de veces"; ADR-001 fijó el techo en tiempo | `docs/SPEC.md` |
 | Preguntas abiertas de §6 sin cerrar: multisite y volumen real del catálogo | `docs/SPEC.md` |
-| El clon servido en la **misma URL** pasa la detección. Declarado, no resuelto | ADR-001 §1 |
+| El clon servido en la **misma URL por HTTPS** pasa la detección. Declarado, no resuelto | ADR-001 §1, ADR-007 |
+| El emparejamiento tiene que rechazar una tienda cuya opción `home` no sea `https` | ADR-007 → Transporte |
 | La reconciliación de cierre de una importación no tiene ADR | §6 del SPEC → tarea 1.8 |
 | El auditor de tests, si rinde en otros plugins, va a `.claude/agents/` del entorno | — |
 | Infection cuando exista `Transport/`: necesita PCOV en la imagen de wp-restore | — |
