@@ -129,6 +129,7 @@ mientras escribía la función.
 | `SCH-10` | Las tres definiciones SQL | Declaran `ENGINE=InnoDB` explícito, no el default del host |
 | `SCH-11` | Una de las tablas borrada | `unhealthy_tables()` la nombra: se busca por ausencia, no entre lo que devuelve `information_schema` |
 | `SCH-12` | Las opciones que se leen en cada request | Están autocargadas, leído de la columna `autoload` |
+| `SCH-13` | Sin resultado guardado —un sitio que actualiza desde antes del control— | Mira las tablas una vez, en vez de dar por buena la ausencia del dato |
 
 ## [`tests/test-store.php`](test-store.php) — la identidad
 
@@ -174,7 +175,8 @@ varios tests sin chocar.
 | `UNI-02` | Casilla en falso | Sólo se borra la tabla de nonces |
 | `UNI-03` | Casilla en falso | La identidad y la versión de esquema quedan |
 | `UNI-04` | Casilla marcada | No queda ninguna tabla |
-| `UNI-05` | Casilla marcada | No queda ninguna de las seis opciones |
+| `UNI-05` | Casilla marcada | No queda ninguna de las siete opciones |
+| `UNI-06` | **Casilla nunca tocada** — el estado de fábrica | No se borra nada: es el caso del dueño que nunca abrió los ajustes |
 
 ## [`tests/test-ledger.php`](test-ledger.php) — el libro
 
@@ -184,7 +186,7 @@ varios tests sin chocar.
 | `LED-02` | Idem | `origin_seq` termina igual al `id` de la fila |
 | `LED-03` | Idem | Toma la generación del vínculo |
 | `LED-04` | Idem | Nace `pending`, con 0 intentos y sin confirmar |
-| `LED-05` | Idem | `next_attempt_at` es posterior a `created_at` |
+| `LED-05` | Idem | La diferencia entre `next_attempt_at` y `created_at` es el retardo decidido, y el retardo son 10 segundos |
 | `LED-06` | Sin motivo declarado | `adjustment`, y sin referencia |
 | `LED-07` | Producto sin vincular | Devuelve `null` y no escribe nada |
 | `LED-08` | Delta 0 | Devuelve `null` y no escribe nada |
@@ -210,3 +212,5 @@ varios tests sin chocar.
 | 2026-09-21 | `SCH-03` comparaba sólo nombres de índice: agregarle `generation` a `dedup` rompía la deduplicación y el test no se enteraba. `SCH-04`, `SCH-05` y `SCH-06` tampoco, porque todos insertan con `generation = 1` |
 | 2026-09-21 | `SCH-08` contaba tres tablas, la misma debilidad que ya se había corregido en `SCH-01` |
 | 2026-09-26 | `SCH-07` y `PLG-09` contaban consultas sobre una caché que cebaba el propio test: pasaban con `autoload = false`, que es justo lo que decían verificar. Y la versión del esquema efectivamente no se autocargaba: una consulta por página |
+| 2026-09-26 | `UNI-05` revisaba seis opciones de las siete que borra `uninstall.php`; faltaba justo la autocargada |
+| 2026-09-26 | `LED-05` comparaba la fila contra `Ledger::DELIVERY_DELAY`, así que bajar la constante a 1 segundo cambiaba los dos lados y el test pasaba igual |
