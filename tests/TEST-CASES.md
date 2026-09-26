@@ -80,7 +80,7 @@ Un ID en este archivo que no aparezca en ningún test es un caso sin escribir.
 | La huella no depende del request | ADR-007 | `ID-09`, `ID-10` | [test-store.php](test-store.php) |
 | El clon se apaga solo | ADR-001 §1, ADR-007 | `ID-06`, `ID-07`, `ID-08`, `ID-11`, `PLG-02`, `PLG-05` | [test-store.php](test-store.php), [test-plugin.php](test-plugin.php) |
 | Sin transacciones no se sincroniza | ADR-004 §5 | `PLG-03` | [test-plugin.php](test-plugin.php) |
-| La identidad se genera antes que el esquema | ADR-002, consecuencias | `PLG-07` | [test-plugin.php](test-plugin.php) |
+| La identidad se genera antes que el esquema | ADR-002, consecuencias | `PLG-07`, `PLG-08` | [test-plugin.php](test-plugin.php) |
 | La secuencia propia es el `AUTO_INCREMENT`, completado en la misma transacción | ADR-004 §1 | `LED-02` | [test-ledger.php](test-ledger.php) |
 | El movimiento lleva la generación vigente del par | ADR-005 §4 | `LED-03` | [test-ledger.php](test-ledger.php) |
 | Un movimiento no se entrega enseguida | ADR-006 §4 | `LED-05` | [test-ledger.php](test-ledger.php) |
@@ -135,6 +135,7 @@ Un ID en este archivo que no aparezca en ningún test es un caso sin escribir.
 | `PLG-05` | Sitio suspendido | Avisa en el admin |
 | `PLG-06` | Sitio sano | No avisa nada |
 | `PLG-07` | `activate()` sobre una instalación vacía | Quedan la identidad y el esquema |
+| `PLG-08` | `boot()` sin identidad: el plugin no pasó por la activación | Genera la identidad |
 
 ## [`tests/test-uninstall.php`](test-uninstall.php) — la desinstalación
 

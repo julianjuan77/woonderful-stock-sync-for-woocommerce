@@ -151,4 +151,18 @@ class Test_Plugin extends WP_UnitTestCase {
 		$this->assertMatchesRegularExpression( '/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/', Store::id() );
 		$this->assertSame( Installer::SCHEMA_VERSION, (int) get_option( Installer::OPTION_VERSION ) );
 	}
+
+	/**
+	 * El plugin puede llegar sin pasar por activate(): copiado por FTP, o con la opción
+	 * borrada a mano. Sin identidad, el libro numeraría movimientos de nadie.
+	 *
+	 * PLG-08
+	 */
+	public function test_boot_generates_a_missing_identity(): void {
+		delete_option( Store::OPTION_ID );
+
+		Plugin::boot();
+
+		$this->assertNotSame( '', Store::id() );
+	}
 }

@@ -44,6 +44,9 @@ final class Plugin {
 	 * Corre en cada request, en plugins_loaded.
 	 */
 	public static function boot(): void {
+		// activate() no corre si el plugin llega copiado o actualizado a mano.
+		Store::ensure_identity();
+
 		if ( ! class_exists( 'WooCommerce' ) ) {
 			add_action( 'admin_notices', array( self::class, 'notice_woocommerce_missing' ) );
 
