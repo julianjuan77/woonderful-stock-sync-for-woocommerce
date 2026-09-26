@@ -47,7 +47,7 @@ foreach ( array(
 	'wss_site_fingerprint',
 	'wss_peers',
 	'wss_schema_version',
-	'wss_engines_ok',
+	'wss_schema_healthy',
 	'wss_delete_data_on_uninstall',
 ) as $wss_option ) {
 	delete_option( $wss_option );

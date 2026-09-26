@@ -21,10 +21,10 @@ final class Installer {
 	public const OPTION_VERSION = 'wss_schema_version';
 
 	/**
-	 * Si las tres tablas admiten transacciones. Se autocarga: la guarda de arranque la
-	 * lee en cada request.
+	 * Si las tres tablas están sanas. Se autocarga: la guarda de arranque la lee en cada
+	 * request.
 	 */
-	public const OPTION_ENGINES_OK = 'wss_engines_ok';
+	public const OPTION_SCHEMA_HEALTHY = 'wss_schema_healthy';
 
 	private const TABLES = array( 'movements', 'links', 'nonces' );
 
@@ -54,32 +54,32 @@ final class Installer {
 
 		update_option( self::OPTION_VERSION, self::SCHEMA_VERSION, false );
 
-		self::refresh_engine_status();
+		self::refresh_schema_status();
 	}
 
 	/**
-	 * Vuelve a mirar el motor de las tres tablas y guarda el resultado.
+	 * Vuelve a revisar las tres tablas y guarda el resultado.
 	 *
-	 * La consulta a `information_schema` es cara y el motor de una tabla no cambia solo,
-	 * así que se hace al instalar y al migrar, no en cada carga de página (ADR-004 §5).
+	 * La consulta a `information_schema` es cara y esto no cambia solo, así que se hace
+	 * al instalar y al migrar, no en cada carga de página (ADR-004 §5).
 	 */
-	public static function refresh_engine_status(): bool {
-		$ok = array() === self::tables_without_transactions();
+	public static function refresh_schema_status(): bool {
+		$healthy = array() === self::unhealthy_tables();
 
-		update_option( self::OPTION_ENGINES_OK, $ok, true );
+		update_option( self::OPTION_SCHEMA_HEALTHY, $healthy, true );
 
-		return $ok;
+		return $healthy;
 	}
 
 	/**
-	 * Si las tablas admiten transacciones, según el último control.
+	 * Si las tablas están sanas, según el último control.
 	 */
-	public static function engines_are_ok(): bool {
-		$stored = get_option( self::OPTION_ENGINES_OK, null );
+	public static function schema_is_healthy(): bool {
+		$stored = get_option( self::OPTION_SCHEMA_HEALTHY, null );
 
 		// Sin dato guardado —una instalación anterior a este control— se mira una vez.
 		if ( null === $stored ) {
-			return self::refresh_engine_status();
+			return self::refresh_schema_status();
 		}
 
 		return (bool) $stored;
@@ -98,15 +98,22 @@ final class Installer {
 	}
 
 	/**
-	 * Las tablas que no son InnoDB, si hay alguna.
+	 * Las tablas con las que no se puede trabajar, si hay alguna.
 	 *
-	 * Las crea `dbDelta` con ENGINE=InnoDB, pero no convierte una que ya exista con otro
-	 * motor, y en MyISAM las transacciones se ignoran en silencio: la numeración de un
-	 * movimiento y la purga que consolida el stock base dejarían los números mal.
+	 * Son dos problemas distintos con la misma consecuencia —el plugin no puede
+	 * sincronizar— y por eso se responden juntos:
+	 *
+	 * - **Falta la tabla.** `dbDelta` puede no haberla creado: sin permiso `CREATE`, por
+	 *   ejemplo. Una tabla que no existe no aparece en `information_schema`, así que hay
+	 *   que buscarla por ausencia y no entre las filas que la consulta devuelve.
+	 * - **No es InnoDB.** `dbDelta` las crea con `ENGINE=InnoDB` pero no convierte una que
+	 *   ya exista con otro motor, y en MyISAM las transacciones se ignoran en silencio: la
+	 *   numeración de un movimiento y la purga que consolida el stock base dejarían los
+	 *   números mal.
 	 *
 	 * @return string[] Nombres completos de tabla.
 	 */
-	public static function tables_without_transactions(): array {
+	public static function unhealthy_tables(): array {
 		global $wpdb;
 
 		$names = array_map( array( self::class, 'table' ), self::TABLES );
@@ -126,11 +133,18 @@ final class Installer {
 		);
 		// phpcs:enable
 
-		$problems = array();
+		$engines = array();
 
 		foreach ( (array) $rows as $row ) {
-			if ( 0 !== strcasecmp( (string) $row->engine, 'InnoDB' ) ) {
-				$problems[] = (string) $row->name;
+			$engines[ (string) $row->name ] = (string) $row->engine;
+		}
+
+		$problems = array();
+
+		foreach ( $names as $name ) {
+			// Sin fila en information_schema, la tabla no existe.
+			if ( ! isset( $engines[ $name ] ) || 0 !== strcasecmp( $engines[ $name ], 'InnoDB' ) ) {
+				$problems[] = $name;
 			}
 		}
 

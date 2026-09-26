@@ -25,9 +25,9 @@ final class Plugin {
 	public const SUSPENDED_CLONE = 'cloned_site';
 
 	/**
-	 * Alguna tabla no admite transacciones (ADR-004 §5).
+	 * Alguna tabla falta o no admite transacciones (ADR-004 §5).
 	 */
-	public const SUSPENDED_NO_TRANSACTIONS = 'no_transactions';
+	public const SUSPENDED_SCHEMA = 'unhealthy_schema';
 
 	/**
 	 * Corre una sola vez, al activar.
@@ -77,8 +77,8 @@ final class Plugin {
 			return self::SUSPENDED_CLONE;
 		}
 
-		if ( ! Installer::engines_are_ok() ) {
-			return self::SUSPENDED_NO_TRANSACTIONS;
+		if ( ! Installer::schema_is_healthy() ) {
+			return self::SUSPENDED_SCHEMA;
 		}
 
 		return null;
@@ -106,8 +106,8 @@ final class Plugin {
 				'Woonderful Stock Sync: este sitio no es aquel donde se emparejó, así que parece una copia. La sincronización está suspendida hasta que vuelvas a emparejarlo.',
 				'woonderful-stock-sync-for-woocommerce'
 			),
-			self::SUSPENDED_NO_TRANSACTIONS => __(
-				'Woonderful Stock Sync: alguna de sus tablas no usa InnoDB y no admite transacciones. La sincronización está suspendida para no dejar el stock mal contado.',
+			self::SUSPENDED_SCHEMA          => __(
+				'Woonderful Stock Sync: alguna de sus tablas falta o no admite transacciones. La sincronización está suspendida para no dejar el stock mal contado.',
 				'woonderful-stock-sync-for-woocommerce'
 			),
 		);
