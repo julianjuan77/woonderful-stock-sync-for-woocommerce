@@ -113,11 +113,12 @@ compatible; quitar uno o cambiarle el significado es `wss/v2`.
 
 | Opción | Descripción |
 |---|---|
-| `wss_store_id` | UUID v4 de `wp_generate_uuid4()`. Inmutable (ADR-002) |
+| `wss_store_id` | UUID v4 de `wp_generate_uuid4()`. Inmutable (ADR-002). **Autocargada** |
 | `wss_store_label` | Etiqueta legible, editable |
 | `wss_site_fingerprint` | `sha256( get_option( 'home' ) )` al emparejar, con esquema. Detecta el clon (ADR-001, ADR-007) |
 | `wss_peers` | Por tienda remota: URL, identificador, secreto, fecha del emparejamiento y **hasta qué secuencia suya purgamos** (ADR-004) |
 | `wss_schema_version` | Versión del esquema, para las migraciones |
+| `wss_engines_ok` | Si las tres tablas admiten transacciones. **Autocargada**: la guarda de arranque la lee en cada request |
 | `wss_delete_data_on_uninstall` | La casilla de ADR-003. Desmarcada de fábrica |
 
 ### Hooks para terceros
@@ -144,6 +145,11 @@ woonderful-stock-sync-for-woocommerce/
 ├── docs/
 └── tests/
 ```
+
+**Lo que corre en cada request tiene que ser barato.** `Plugin::boot()` se ejecuta en cada
+carga de la tienda, así que ahí no va ninguna consulta que se pueda evitar: lo que no cambia
+solo —el motor de las tablas, la versión del esquema— se calcula al instalar o al migrar y se
+guarda en una opción **autocargada**. `PLG-09` lo verifica contando consultas.
 
 **Regla de dependencias:** `includes/` no conoce `admin/`; `admin/` consume `includes/`.
 Nada de `includes/` imprime HTML.

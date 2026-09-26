@@ -135,6 +135,7 @@ Un ID en este archivo que no aparezca en ningún test es un caso sin escribir.
 | `PLG-05` | Sitio suspendido | Avisa en el admin |
 | `PLG-06` | Sitio sano | No avisa nada |
 | `PLG-07` | `activate()` sobre una instalación vacía | Quedan la identidad y el esquema |
+| `PLG-09` | `suspension_reason()` con todo en orden | No ejecuta ninguna consulta: lee la opción autocargada |
 | `PLG-08` | `boot()` sin identidad: el plugin no pasó por la activación | Genera la identidad |
 
 ## [`tests/test-uninstall.php`](test-uninstall.php) — la desinstalación
