@@ -23,9 +23,9 @@ final class Links {
 	 *
 	 * @param int $product_id ID del producto en esta tienda.
 	 *
-	 * @return object|null Fila de wss_links.
+	 * @return \stdClass|null Fila de wss_links.
 	 */
-	public static function for_product( int $product_id ): ?object {
+	public static function for_product( int $product_id ): ?\stdClass {
 		global $wpdb;
 
 		$table = Installer::table( 'links' );
