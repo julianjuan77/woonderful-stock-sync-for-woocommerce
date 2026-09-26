@@ -118,7 +118,7 @@ compatible; quitar uno o cambiarle el significado es `wss/v2`.
 | `wss_site_fingerprint` | `sha256( get_option( 'home' ) )` al emparejar, con esquema. Detecta el clon (ADR-001, ADR-007) |
 | `wss_peers` | Por tienda remota: URL, identificador, secreto, fecha del emparejamiento y **hasta qué secuencia suya purgamos** (ADR-004) |
 | `wss_schema_version` | Versión del esquema, para las migraciones |
-| `wss_engines_ok` | Si las tres tablas admiten transacciones. **Autocargada**: la guarda de arranque la lee en cada request |
+| `wss_schema_healthy` | Si las tres tablas existen y admiten transacciones. **Autocargada**: la guarda de arranque la lee en cada request |
 | `wss_delete_data_on_uninstall` | La casilla de ADR-003. Desmarcada de fábrica |
 
 ### Hooks para terceros
@@ -256,9 +256,12 @@ dos tests.
 
 **Un test nuevo no está listo hasta haberlo visto fallar.** Escribirlo antes del código, o
 romper el código a propósito, comprobar que el mensaje de error nombra el problema, revertir
-con `git checkout` —nunca a mano— y correr la suite entera. **Si el archivo todavía no está
-commiteado, `git checkout` no tiene a dónde volver**: commitearlo primero, o la mutación
-queda puesta sin que se note. Aplica a los tests que verifican
+con `git checkout` —nunca a mano— y correr la suite entera.
+
+**Commitear antes de romper, siempre.** `git checkout` devuelve el archivo a su última
+versión commiteada, así que se lleva puesto **todo** lo que no esté commiteado, no sólo la
+mutación. Si el archivo es nuevo, directamente no tiene a dónde volver. Las dos veces que
+pasó en este plugin el síntoma fue el mismo: tests en rojo después de "revertir". Aplica a los tests que verifican
 una decisión de un ADR y a los de un bugfix; no hace falta para wiring ni getters.
 
 El motivo está medido, no es teoría: de los primeros diecisiete tests de este plugin, el

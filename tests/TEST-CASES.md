@@ -79,7 +79,7 @@ Un ID en este archivo que no aparezca en ningún test es un caso sin escribir.
 | La huella del sitio se guarda hasheada | ADR-001 §1 | `ID-05` |
 | La huella no depende del request | ADR-007 | `ID-09`, `ID-10` | [test-store.php](test-store.php) |
 | El clon se apaga solo | ADR-001 §1, ADR-007 | `ID-06`, `ID-07`, `ID-08`, `ID-11`, `PLG-02`, `PLG-05` | [test-store.php](test-store.php), [test-plugin.php](test-plugin.php) |
-| Sin transacciones no se sincroniza | ADR-004 §5 | `PLG-03` | [test-plugin.php](test-plugin.php) |
+| Una tabla que falta o no admite transacciones suspende | ADR-004 §5 | `SCH-09`, `SCH-11`, `PLG-03` | [test-installer.php](test-installer.php), [test-plugin.php](test-plugin.php) |
 | La identidad se genera antes que el esquema | ADR-002, consecuencias | `PLG-07`, `PLG-08` | [test-plugin.php](test-plugin.php) |
 | La secuencia propia es el `AUTO_INCREMENT`, completado en la misma transacción | ADR-004 §1 | `LED-02` | [test-ledger.php](test-ledger.php) |
 | El movimiento lleva la generación vigente del par | ADR-005 §4 | `LED-03` | [test-ledger.php](test-ledger.php) |
@@ -106,6 +106,7 @@ Un ID en este archivo que no aparezca en ningún test es un caso sin escribir.
 | `SCH-08` | `maybe_upgrade()` con la versión atrasada | Reinstala las tres tablas **por nombre** y deja la versión al día |
 | `SCH-09` | Una de las tablas pasada a MyISAM | `tables_without_transactions()` la nombra |
 | `SCH-10` | Las tres definiciones SQL | Declaran `ENGINE=InnoDB` explícito, no el default del host |
+| `SCH-11` | Una de las tablas borrada | `unhealthy_tables()` la nombra: se busca por ausencia, no entre lo que devuelve `information_schema` |
 
 ## [`tests/test-store.php`](test-store.php) — la identidad
 
