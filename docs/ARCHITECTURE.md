@@ -250,7 +250,9 @@ dos tests.
 
 **Un test nuevo no está listo hasta haberlo visto fallar.** Escribirlo antes del código, o
 romper el código a propósito, comprobar que el mensaje de error nombra el problema, revertir
-con `git checkout` —nunca a mano— y correr la suite entera. Aplica a los tests que verifican
+con `git checkout` —nunca a mano— y correr la suite entera. **Si el archivo todavía no está
+commiteado, `git checkout` no tiene a dónde volver**: commitearlo primero, o la mutación
+queda puesta sin que se note. Aplica a los tests que verifican
 una decisión de un ADR y a los de un bugfix; no hace falta para wiring ni getters.
 
 El motivo está medido, no es teoría: de los primeros diecisiete tests de este plugin, el

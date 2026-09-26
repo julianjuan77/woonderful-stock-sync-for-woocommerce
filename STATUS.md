@@ -17,10 +17,11 @@ Pool único, sin reparto: lo que se vende en una descuenta en las dos.
 
 ## 🔄 En progreso
 
-**3.1 — `Ledger::record()`: escribir un movimiento propio en el libro.**
+**3.2 — `Ledger::apply()`: aplicar un movimiento recibido.**
 
-Done cuando: la función escribe la fila con el `INSERT` + `UPDATE` de la secuencia dentro de
-una transacción, tiene sus tests `LED-NN`, lint y tests en verde, y está commiteada.
+Done cuando: decide entre `applied`, `held` y `discarded` según el vínculo y la generación,
+escribe la fila del receptor, tiene sus tests `LED-NN`, lint y tests en verde, y está
+commiteada.
 
 ---
 
@@ -58,8 +59,8 @@ Leyenda: ✅ hecho · 🔄 en curso · ⬜ pendiente · 🔒 bloqueado
 
 | | Tarea | Estado |
 |---|---|---|
-| 3.1 | `record()`: escribir un movimiento propio, con la secuencia en una transacción | 🔄 |
-| 3.2 | `apply()`: aplicar un movimiento recibido y decidir `applied` / `held` / `discarded` | ⬜ |
+| 3.1 | `record()`: escribir un movimiento propio, con la secuencia en una transacción | ✅ |
+| 3.2 | `apply()`: aplicar un movimiento recibido y decidir `applied` / `held` / `discarded` | 🔄 |
 | 3.3 | `claim()`: liberar lo vencido y reclamar un lote | ⬜ |
 | 3.4 | `ack()`: anotar el resultado de cada fila entregada | ⬜ |
 | 3.5 | `purge()`: la retención, consolidando el stock base | ⬜ |
@@ -94,6 +95,7 @@ Leyenda: ✅ hecho · 🔄 en curso · ⬜ pendiente · 🔒 bloqueado
 | 6.2 | Recibir un bootstrap y crear la fila del otro lado | ⬜ |
 | 6.3 | Desvincular y emitir el `unlink` | ⬜ |
 | 6.4 | El estado derivado: vinculado, suspendido, sin vincular | ⬜ |
+| 6.5 | `Links::for_product()` — escrito en 3.1, le falta el resto de la clase | 🔄 |
 
 ### 7. La reconciliación — `includes/Reconciliation/`
 

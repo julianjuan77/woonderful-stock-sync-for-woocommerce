@@ -43,6 +43,7 @@ Prefijo por dominio, número correlativo, y **no se renumeran** aunque un caso s
 | `ID-NN` | La identidad de la tienda | [`tests/test-store.php`](test-store.php) |
 | `PLG-NN` | El arranque y la guarda que suspende | [`tests/test-plugin.php`](test-plugin.php) |
 | `UNI-NN` | La desinstalación | [`tests/test-uninstall.php`](test-uninstall.php) |
+| `LED-NN` | El libro de movimientos | [`tests/test-ledger.php`](test-ledger.php) |
 
 Cada test lleva su ID en el docblock, así que se encuentra buscándolo:
 
@@ -79,6 +80,10 @@ Un ID en este archivo que no aparezca en ningún test es un caso sin escribir.
 | El clon se apaga solo | ADR-001 §1 | `ID-06`, `ID-07`, `ID-08`, `PLG-02`, `PLG-05` | [test-store.php](test-store.php), [test-plugin.php](test-plugin.php) |
 | Sin transacciones no se sincroniza | ADR-004 §5 | `PLG-03` | [test-plugin.php](test-plugin.php) |
 | La identidad se genera antes que el esquema | ADR-002, consecuencias | `PLG-07` | [test-plugin.php](test-plugin.php) |
+| La secuencia propia es el `AUTO_INCREMENT`, completado en la misma transacción | ADR-004 §1 | `LED-02` | [test-ledger.php](test-ledger.php) |
+| El movimiento lleva la generación vigente del par | ADR-005 §4 | `LED-03` | [test-ledger.php](test-ledger.php) |
+| Un movimiento no se entrega enseguida | ADR-006 §4 | `LED-05` | [test-ledger.php](test-ledger.php) |
+| Nada entra a la malla hasta que el dueño vincula | UC-03, ADR-006 §1 | `LED-07` | [test-ledger.php](test-ledger.php) |
 | El secreto se borra siempre al desinstalar | ADR-003 | `UNI-01` | [test-uninstall.php](test-uninstall.php) |
 | Los nonces se borran siempre | ADR-003 | `UNI-02` | [test-uninstall.php](test-uninstall.php) |
 | Con la casilla en falso no se pierde nada más | ADR-003 | `UNI-02`, `UNI-03` | [test-uninstall.php](test-uninstall.php) |
@@ -140,12 +145,24 @@ varios tests sin chocar.
 | `UNI-04` | Casilla marcada | No queda ninguna tabla |
 | `UNI-05` | Casilla marcada | No queda ninguna de las seis opciones |
 
+## [`tests/test-ledger.php`](test-ledger.php) — el libro
+
+| ID | Caso | Resultado esperado |
+|---|---|---|
+| `LED-01` | Cambio de un producto vinculado | Escribe la fila con origen, delta, producto, vínculo, motivo y referencia |
+| `LED-02` | Idem | `origin_seq` termina igual al `id` de la fila |
+| `LED-03` | Idem | Toma la generación del vínculo |
+| `LED-04` | Idem | Nace `pending`, con 0 intentos y sin confirmar |
+| `LED-05` | Idem | `next_attempt_at` es posterior a `created_at` |
+| `LED-06` | Sin motivo declarado | `adjustment`, y sin referencia |
+| `LED-07` | Producto sin vincular | Devuelve `null` y no escribe nada |
+| `LED-08` | Delta 0 | Devuelve `null` y no escribe nada |
+
 ---
 
 ## Lo que todavía no tiene tests
 
 - Todo `Transport/` y `Reconciliation/`: no hay código todavía.
-- El `INSERT` + `UPDATE` de la secuencia dentro de una transacción (`Ledger/`).
 - La purga que consolida el stock base.
 - Que `boot()` **no registre** la sincronización cuando está suspendida. Hoy no hay nada
   registrado que verificar; el test va cuando exista el detector.
