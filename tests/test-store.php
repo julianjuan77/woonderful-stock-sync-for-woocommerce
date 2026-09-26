@@ -176,4 +176,17 @@ class Test_Store extends WP_UnitTestCase {
 
 		$this->assertTrue( Store::is_cloned_site() );
 	}
+
+	/**
+	 * ID-12 — La instalación deja como etiqueta el nombre del sitio.
+	 */
+	public function test_install_labels_the_store_with_the_site_name(): void {
+		delete_option( Store::OPTION_ID );
+		delete_option( Store::OPTION_LABEL );
+		update_option( 'blogname', 'Minorista' );
+
+		Store::ensure_identity();
+
+		$this->assertSame( 'Minorista', Store::label() );
+	}
 }

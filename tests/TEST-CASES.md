@@ -75,7 +75,7 @@ Un ID en este archivo que no aparezca en ningún test es un caso sin escribir.
 | Versión de esquema y migración | ADR-004 §5 | `SCH-07`, `SCH-08` | [test-installer.php](test-installer.php) |
 | Sin transacciones no se sincroniza | ADR-004 §5 | `SCH-09` | [test-installer.php](test-installer.php) |
 | Identificador opaco de 128 bits, inmutable | ADR-002 §1 | `ID-01`, `ID-02`, `ID-03` | [test-store.php](test-store.php) |
-| Etiqueta legible, editable | ADR-002 §1 | `ID-04` | [test-store.php](test-store.php) |
+| Etiqueta legible, editable | ADR-002 §1 | `ID-04`, `ID-12` | [test-store.php](test-store.php) |
 | La huella del sitio se guarda hasheada | ADR-001 §1 | `ID-05` |
 | La huella no depende del request | ADR-007 | `ID-09`, `ID-10` | [test-store.php](test-store.php) |
 | El clon se apaga solo | ADR-001 §1, ADR-007 | `ID-06`, `ID-07`, `ID-08`, `ID-11`, `PLG-02`, `PLG-05` | [test-store.php](test-store.php), [test-plugin.php](test-plugin.php) |
@@ -122,6 +122,7 @@ Un ID en este archivo que no aparezca en ningún test es un caso sin escribir.
 | `ID-09` | Un plugin filtra `home_url` | La huella no cambia: sale de la opción `home` |
 | `ID-10` | `home` en `http` y el request llega por HTTPS | La huella no cambia |
 | `ID-11` | Se emparejó en `https` y la copia se sirve con el mismo dominio por `http` | **Es un clon**: el esquema es parte de la huella |
+| `ID-12` | Instalación limpia | La etiqueta es el nombre del sitio |
 
 ## [`tests/test-plugin.php`](test-plugin.php) — el arranque y la guarda
 
