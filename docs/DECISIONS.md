@@ -1771,13 +1771,11 @@ Estado: Propuesta · 2026-09-26
 Temas: opciones
 Cubre: includes/Identity/Store.php
 
-**La decisión, en dos líneas:**
+**La decisión, en una línea:** la huella es `sha256( get_option( 'home' ) )`, la opción tal
+como está guardada, con esquema incluido, y no `sha256( home_url() )`.
 
-1. La huella sale de la **opción `home` cruda**, no de `home_url()`.
-2. Se hashea **host, puerto y ruta**, sin el esquema: pasar de `http` a `https` no es mudarse.
-
-Corrige ADR-001 §1, que fija `sha256( home_url() )`. Todavía no hay huellas guardadas —el
-emparejamiento no está escrito—, así que no hace falta migrar nada.
+Corrige ADR-001 §1. Todavía no hay huellas guardadas —el emparejamiento no está escrito—, así
+que no hace falta migrar nada.
 
 ---
 
@@ -1801,8 +1799,11 @@ Dos cosas cambian el resultado sin que el sitio cambie:
 
 | Qué | Ejemplo | Resultado |
 | --- | --- | --- |
-| **`is_ssl()`** | `home = http://tienda-a.com`, detrás de un proxy que termina TLS y a veces pasa `HTTPS=on` | Los requests por HTTPS dan una huella y el cron o WP-CLI dan otra |
 | **El filtro `home_url`** | Jetpack le cambia el esquema durante sus requests de API (`class.json-api.php`, `ensure_http_scheme_of_home_url`) | Esos requests ven otra huella |
+| **`is_ssl()`** | `home = http://tienda-a.com`, detrás de un proxy que termina TLS | Los requests por HTTPS dan una huella y el cron o WP-CLI dan otra |
+
+El segundo sólo muerde con `home` en `http`, que con HTTPS obligatorio (§5 del SPEC) no
+debería existir en una tienda emparejada. El primero muerde siempre.
 
 En los dos casos **la tienda original se toma por clon y suspende**. Es el peor error posible
 para este control: apaga la sincronización de la tienda viva, sin causa que el dueño pueda
@@ -1814,35 +1815,37 @@ ver.
 
 **Opción A — `sha256( get_option( 'home' ) )`.** La opción tal como está guardada.
 
-**Opción B — `sha256( host:puerto/ruta )` de la opción `home`.** La misma opción, sin el
-esquema y con el host en minúsculas.
-
-```
-home = https://Tienda-A.com          →  sha256( "tienda-a.com" )
-home = http://localhost:8130          →  sha256( "localhost:8130" )
-home = https://ejemplo.com/tienda     →  sha256( "ejemplo.com/tienda" )
-```
+**Opción B — `sha256( host:puerto/ruta )` de la opción `home`.** La misma opción sin el
+esquema, para que pasar de `http` a `https` no cuente como mudarse.
 
 **Opción C — `home_url( '', 'https' )`.** Seguir con `home_url()` pero fijarle el esquema.
 
-**Decisión:** Opción B.
+**Decisión:** Opción A.
 
-**Por qué:** `get_option( 'home' )` no depende del request: WordPress ya le saca la barra final
+**Por qué:** `get_option( 'home' )` no depende del request. WordPress ya le saca la barra final
 al leerla, y si hay `WP_HOME` definido lo devuelve en su lugar. Eso último es justo lo que
 tiene que pasar: un entorno de Docker que levanta la copia con `WP_HOME=http://localhost:8130`
-**tiene** que ver otra huella. Y sacando el esquema, la migración a HTTPS —que es la más común
-y se hace una sola vez, casi siempre con Let's Encrypt— no suspende la sincronización.
+**tiene** que ver otra huella.
 
-**Por qué no A:** es una línea y resuelve el bug, pero suspende al pasar a HTTPS. El dueño
-activa el certificado, la sincronización se corta y tiene que re-emparejar las dos tiendas
-por algo que no es un cambio de sitio.
+Y el esquema, dentro del hash, detecta el clon más probable de los que ADR-001 §1 deja fuera:
+la copia local que se sirve con el dominio de producción por `/etc/hosts`.
+
+```
+                  opción 'home'            huella
+Original          https://tienda-a.com     sha256("https://tienda-a.com")
+Clon por hosts    http://tienda-a.com      sha256("http://tienda-a.com")    → distintas: suspende
+```
+
+Una copia local casi nunca tiene certificado, así que se sirve por `http`. El clon por hosts
+sólo pasa el control si además se le monta HTTPS.
+
+**Por qué no B:** su única ventaja era no suspender al pasar a HTTPS. Con HTTPS obligatorio
+para emparejar, la huella se toma cuando la tienda ya está en `https` y esa migración no
+existe. A cambio, B deja pasar el clon por hosts servido por `http`: las dos huellas son
+`sha256("tienda-a.com")`.
 
 **Por qué no C:** fijar el esquema resuelve `is_ssl()`, pero el valor sigue pasando por el
-filtro `home_url`, que es la otra mitad del problema.
-
-**Lo que B no pierde.** Un clon que difiere del original sólo en el esquema tendría que servir
-el mismo host desde otra máquina. Eso ya es el caso "clon servido en la misma URL" que ADR-001
-§1 deja fuera de v1.
+filtro `home_url`, que es el problema que muerde siempre.
 
 ---
 
@@ -1850,10 +1853,11 @@ el mismo host desde otra máquina. Eso ya es el caso "clon servido en la misma U
 
 | Qué | Cómo queda |
 | --- | --- |
-| **ADR-001 §1** | Pasa a decir "el hash de host, puerto y ruta de la opción `home`" donde dice `sha256( home_url() )`. En la tabla de lo que cuesta, el cambio de dominio sigue suspendiendo y el cambio a HTTPS deja de hacerlo |
+| **ADR-001 §1** | Donde dice `sha256( home_url() )` pasa a decir `sha256( get_option( 'home' ) )`. En la tabla de lo que no cubre, el clon por hosts queda acotado al que se sirve por HTTPS |
 | **`ARCHITECTURE.md`** | La fila de `wss_site_fingerprint` cambia la fórmula |
-| **`Store::fingerprint()`** | Lee `get_option( 'home' )`, lo parte con `wp_parse_url()` y hashea `strtolower( host )`, más `:puerto` si hay y la ruta |
-| **Tests** | ID-05 compara contra el hash de la forma normalizada. Casos nuevos: el esquema no cambia la huella, `is_ssl()` no la cambia, un filtro sobre `home_url` no la cambia, el puerto sí la cambia |
+| **`Store::fingerprint()`** | Una línea: lee la opción en vez de llamar a `home_url()` |
+| **Emparejamiento** | Tiene que rechazar una tienda cuya opción `home` no sea `https`. Si no, la huella se guarda en `http` y pasar a HTTPS después la suspende |
+| **Tests** | ID-05 sigue igual. Casos nuevos: un filtro sobre `home_url` no cambia la huella, `is_ssl()` no la cambia, y el mismo host por `http` y por `https` da huellas distintas |
 
 **Si el supuesto falla** —si aparece un plugin que filtre `option_home` por request, como hace
 el core con `WP_HOME`—, la huella vuelve a variar. La salida sería leer la fila de
