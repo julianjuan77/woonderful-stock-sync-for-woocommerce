@@ -66,9 +66,9 @@ Leyenda: ✅ hecho · 🔄 en curso · ⬜ pendiente · 🔒 bloqueado
 | | Tarea | Estado | Commit | Tests |
 |---|---|---|---|---|
 | 2.1 | Scaffold: archivo principal, Composer con PSR-4, `phpcs.xml`, `phpstan.neon.dist` | ✅ | `377ce09` | — |
-| 2.2 | `Identity\Store`: el UUID de la tienda y la huella del sitio | ✅ | `377ce09`, `3b22cf5` | `ID-01`…`ID-11` |
+| 2.2 | `Identity\Store`: el UUID de la tienda y la huella del sitio | ✅ | `377ce09`, `3b22cf5`, `a8d4f69` | `ID-01`…`ID-12` |
 | 2.3 | `Schema\Installer`: las tres tablas, la versión de esquema, el control del motor | ✅ | `377ce09` | `SCH-01`…`SCH-10` |
-| 2.4 | `Plugin`: la guarda que suspende por clon o por falta de transacciones | ✅ | `3598386` | `PLG-01`…`PLG-07` |
+| 2.4 | `Plugin`: la guarda que suspende por clon o por falta de transacciones | ✅ | `3598386`, `b5a528e` | `PLG-01`…`PLG-08` |
 | 2.5 | `uninstall.php` | ✅ | `377ce09` | `UNI-01`…`UNI-05` |
 | 2.6 | Suite de tests con `wp-phpunit` | ✅ | `9a323bf` | — |
 
