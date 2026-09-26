@@ -15,6 +15,23 @@ Pool único, sin reparto: lo que se vende en una descuenta en las dos.
 
 ---
 
+## Cómo mirar qué se hizo en una tarea
+
+Cada tarea terminada lleva su commit. Con ese hash:
+
+```bash
+git show 2668a7a --stat      # qué archivos tocó y cuántas líneas
+git show 2668a7a             # el diff completo
+```
+
+Y para correr sólo los tests de una pieza, en vez de los 38:
+
+```bash
+make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS="--filter Test_Ledger"
+```
+
+---
+
 ## 🔄 En progreso
 
 **3.2 — `Ledger::apply()`: aplicar un movimiento recibido.**
@@ -46,24 +63,43 @@ Leyenda: ✅ hecho · 🔄 en curso · ⬜ pendiente · 🔒 bloqueado
 
 ### 2. Cimientos
 
-| | Tarea | Estado |
-|---|---|---|
-| 2.1 | Scaffold: archivo principal, Composer con PSR-4, `phpcs.xml`, `phpstan.neon.dist` | ✅ |
-| 2.2 | `Identity\Store`: el UUID de la tienda y la huella del sitio | ✅ |
-| 2.3 | `Schema\Installer`: las tres tablas, la versión de esquema, el control del motor | ✅ |
-| 2.4 | `Plugin`: la guarda que suspende por clon o por falta de transacciones | ✅ |
-| 2.5 | `uninstall.php` | ✅ |
-| 2.6 | Suite de tests con `wp-phpunit` | ✅ |
+| | Tarea | Estado | Commit | Tests |
+|---|---|---|---|---|
+| 2.1 | Scaffold: archivo principal, Composer con PSR-4, `phpcs.xml`, `phpstan.neon.dist` | ✅ | `377ce09` | — |
+| 2.2 | `Identity\Store`: el UUID de la tienda y la huella del sitio | ✅ | `377ce09` | `ID-01`…`ID-08` |
+| 2.3 | `Schema\Installer`: las tres tablas, la versión de esquema, el control del motor | ✅ | `377ce09` | `SCH-01`…`SCH-10` |
+| 2.4 | `Plugin`: la guarda que suspende por clon o por falta de transacciones | ✅ | `3598386` | `PLG-01`…`PLG-07` |
+| 2.5 | `uninstall.php` | ✅ | `377ce09` | `UNI-01`…`UNI-05` |
+| 2.6 | Suite de tests con `wp-phpunit` | ✅ | `9a323bf` | — |
 
 ### 3. El libro — `includes/Ledger/`
 
-| | Tarea | Estado |
-|---|---|---|
-| 3.1 | `record()`: escribir un movimiento propio, con la secuencia en una transacción | ✅ |
-| 3.2 | `apply()`: aplicar un movimiento recibido y decidir `applied` / `held` / `discarded` | 🔄 |
-| 3.3 | `claim()`: liberar lo vencido y reclamar un lote | ⬜ |
-| 3.4 | `ack()`: anotar el resultado de cada fila entregada | ⬜ |
-| 3.5 | `purge()`: la retención, consolidando el stock base | ⬜ |
+| | Tarea | Estado | Commit | Tests |
+|---|---|---|---|---|
+| 3.1 | `record()`: escribir un movimiento propio, con la secuencia en una transacción | ✅ | `2668a7a` | `LED-01`…`LED-08` |
+| 3.2 | `apply()`: aplicar un movimiento recibido y decidir `applied` / `held` / `discarded` | 🔄 | | |
+| 3.3 | `claim()`: liberar lo vencido y reclamar un lote | ⬜ | | |
+| 3.4 | `ack()`: anotar el resultado de cada fila entregada | ⬜ | | |
+| 3.5 | `purge()`: la retención, consolidando el stock base | ⬜ | | |
+
+**3.1 en detalle** — `2668a7a`
+
+```
+Código                                        Documentación
+  + includes/Ledger/Ledger.php    93 líneas     ~ STATUS.md
+  + includes/Linking/Links.php    43 líneas     ~ tests/TEST-CASES.md
+                                                ~ docs/ARCHITECTURE.md
+Tests
+  + tests/test-ledger.php   8 tests, LED-01 a LED-08
+```
+
+`record()` descarta lo que no es asunto de la malla —delta 0, producto sin vincular— y
+escribe la fila con dos escrituras en una transacción: el `INSERT` deja `origin_seq` en
+`NULL` y el `UPDATE` lo completa con el `AUTO_INCREMENT`, que es la secuencia del movimiento
+(ADR-004 §1). Nace `pending` y con `next_attempt_at` diez segundos en el futuro (ADR-006 §4).
+
+Verificado rompiéndolo: sin el `UPDATE` cae `LED-02`; registrando productos sin vincular cae
+`LED-07`.
 
 ### 4. El detector — `includes/Detector/`
 
