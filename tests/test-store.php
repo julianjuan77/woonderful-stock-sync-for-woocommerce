@@ -49,8 +49,9 @@ class Test_Store extends WP_UnitTestCase {
 	}
 
 	/**
-	 * boot() lo lee en cada request, así que tiene que viajar en el paquete de
-	 * autocargadas (ARCHITECTURE §3). La etiqueta no: sólo se usa en las pantallas.
+	 * El identificador lo lee `boot()` en cada request, así que tiene que viajar en el
+	 * paquete de autocargadas (ARCHITECTURE §3). La etiqueta no: sólo se usa en las
+	 * pantallas.
 	 *
 	 * ID-13
 	 */
