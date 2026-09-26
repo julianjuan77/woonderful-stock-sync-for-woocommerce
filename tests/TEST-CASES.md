@@ -44,6 +44,7 @@ Prefijo por dominio, número correlativo, y **no se renumeran** aunque un caso s
 | `PLG-NN` | El arranque y la guarda que suspende | [`tests/test-plugin.php`](test-plugin.php) |
 | `UNI-NN` | La desinstalación | [`tests/test-uninstall.php`](test-uninstall.php) |
 | `LED-NN` | El libro de movimientos | [`tests/test-ledger.php`](test-ledger.php) |
+| `GRD-NN` | El guard anti-eco | [`tests/test-guard.php`](test-guard.php) |
 
 Cada test lleva su ID en el docblock, así que se encuentra buscándolo:
 
@@ -106,6 +107,8 @@ mientras escribía la función.
 | El movimiento lleva la generación vigente del par | ADR-005 §4 | `LED-03` | [test-ledger.php](test-ledger.php) |
 | Un movimiento no se entrega enseguida | ADR-006 §4 | `LED-05` | [test-ledger.php](test-ledger.php) |
 | Nada entra a la malla hasta que el dueño vincula | UC-03, ADR-006 §1 | `LED-07` | [test-ledger.php](test-ledger.php) |
+| El guard no tapa una venta local del mismo request | ADR-006 §3, SPEC §3 | `GRD-05` | [test-guard.php](test-guard.php) |
+| El guard es de un solo uso | ADR-006 §3 | `GRD-03` | [test-guard.php](test-guard.php) |
 | El secreto se borra siempre al desinstalar | ADR-003 | `UNI-01` | [test-uninstall.php](test-uninstall.php) |
 | Los nonces se borran siempre | ADR-003 | `UNI-02` | [test-uninstall.php](test-uninstall.php) |
 | Con la casilla en falso no se pierde nada más | ADR-003 | `UNI-02`, `UNI-03` | [test-uninstall.php](test-uninstall.php) |
@@ -192,6 +195,18 @@ varios tests sin chocar.
 | `LED-06` | Sin motivo declarado | `adjustment`, y sin referencia |
 | `LED-07` | Producto sin vincular | Devuelve `null` y no escribe nada |
 | `LED-08` | Delta 0 | Devuelve `null` y no escribe nada |
+
+## [`tests/test-guard.php`](test-guard.php) — el guard anti-eco
+
+| ID | Caso | Resultado esperado |
+|---|---|---|
+| `GRD-01` | Un cambio que nadie anotó | No es nuestro |
+| `GRD-02` | El cambio anotado | Es nuestro |
+| `GRD-03` | El mismo cambio dos veces | Sólo la primera es nuestra |
+| `GRD-04` | Otro producto | No lo tapa |
+| `GRD-05` | **Una venta local del mismo producto en el mismo request** | No se tapa: los valores no coinciden |
+| `GRD-06` | Varias expectativas a la vez | Cada una se consume por su cuenta |
+| `GRD-07` | Una expectativa que nadie consumió | Se puede descartar |
 
 ---
 

@@ -36,9 +36,12 @@ make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS=
 
 **3.2 — `Ledger::apply()`: aplicar un movimiento recibido.**
 
+El guard (4.2) ya está, así que `apply()` puede escribirse entera: el caso `applied` necesita
+tocar el stock de WooCommerce, y sin guard eso emitiría un movimiento de vuelta.
+
 Done cuando: decide entre `applied`, `held` y `discarded` según el vínculo y la generación,
-escribe la fila del receptor, tiene sus tests `LED-NN`, lint y tests en verde, y está
-commiteada.
+aplica el delta con el guard puesto, escribe la fila del receptor, tiene sus tests `LED-NN`,
+lint y tests en verde, y está commiteada.
 
 ---
 
@@ -103,12 +106,12 @@ Verificado rompiéndolo: sin el `UPDATE` cae `LED-02`; registrando productos sin
 
 ### 4. El detector — `includes/Detector/`
 
-| | Tarea | Estado |
-|---|---|---|
-| 4.1 | Los cuatro hooks de stock y el cálculo del delta | ⬜ |
-| 4.2 | El guard anti-eco | ⬜ |
-| 4.3 | El estampado del motivo desde los hooks de pedido | ⬜ |
-| 4.4 | Qué se ignora: sin stock gestionado, sin vincular, bootstrap | ⬜ |
+| | Tarea | Estado | Commit | Tests |
+|---|---|---|---|---|
+| 4.1 | Los cuatro hooks de stock y el cálculo del delta | ⬜ | | |
+| 4.2 | El guard anti-eco | ✅ | `1feb126` | `GRD-01`…`GRD-07` |
+| 4.3 | El estampado del motivo desde los hooks de pedido | ⬜ | | |
+| 4.4 | Qué se ignora: sin stock gestionado, sin vincular, bootstrap | ⬜ | | |
 
 ### 5. El transporte — `includes/Transport/` y `includes/Rest/`
 
