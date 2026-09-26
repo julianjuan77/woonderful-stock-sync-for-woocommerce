@@ -77,7 +77,7 @@ final class Plugin {
 			return self::SUSPENDED_CLONE;
 		}
 
-		if ( array() !== Installer::tables_without_transactions() ) {
+		if ( ! Installer::engines_are_ok() ) {
 			return self::SUSPENDED_NO_TRANSACTIONS;
 		}
 

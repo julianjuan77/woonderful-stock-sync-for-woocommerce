@@ -20,6 +20,12 @@ final class Installer {
 
 	public const OPTION_VERSION = 'wss_schema_version';
 
+	/**
+	 * Si las tres tablas admiten transacciones. Se autocarga: la guarda de arranque la
+	 * lee en cada request.
+	 */
+	public const OPTION_ENGINES_OK = 'wss_engines_ok';
+
 	private const TABLES = array( 'movements', 'links', 'nonces' );
 
 	/**
@@ -47,6 +53,36 @@ final class Installer {
 		}
 
 		update_option( self::OPTION_VERSION, self::SCHEMA_VERSION, false );
+
+		self::refresh_engine_status();
+	}
+
+	/**
+	 * Vuelve a mirar el motor de las tres tablas y guarda el resultado.
+	 *
+	 * La consulta a `information_schema` es cara y el motor de una tabla no cambia solo,
+	 * así que se hace al instalar y al migrar, no en cada carga de página (ADR-004 §5).
+	 */
+	public static function refresh_engine_status(): bool {
+		$ok = array() === self::tables_without_transactions();
+
+		update_option( self::OPTION_ENGINES_OK, $ok, true );
+
+		return $ok;
+	}
+
+	/**
+	 * Si las tablas admiten transacciones, según el último control.
+	 */
+	public static function engines_are_ok(): bool {
+		$stored = get_option( self::OPTION_ENGINES_OK, null );
+
+		// Sin dato guardado —una instalación anterior a este control— se mira una vez.
+		if ( null === $stored ) {
+			return self::refresh_engine_status();
+		}
+
+		return (bool) $stored;
 	}
 
 	/**
