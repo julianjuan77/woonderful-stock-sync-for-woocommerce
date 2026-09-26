@@ -132,6 +132,27 @@ class Test_Uninstall extends WP_UnitTestCase {
 	}
 
 	/**
+	 * El estado de fábrica: nadie abrió los ajustes, así que la opción no existe. Es el
+	 * caso normal, y el que decide un borrado irreversible (ADR-003).
+	 *
+	 * UNI-06
+	 */
+	public function test_nothing_is_deleted_when_the_box_was_never_touched(): void {
+		delete_option( self::OPTION_DELETE_ALL );
+
+		$this->run_uninstall();
+
+		$this->assertSame(
+			array(
+				Installer::table( 'links' ),
+				Installer::table( 'movements' ),
+			),
+			$this->surviving_tables()
+		);
+		$this->assertNotFalse( get_option( Store::OPTION_ID, false ) );
+	}
+
+	/**
 	 * UNI-04 — Con la casilla marcada no queda ninguna tabla.
 	 */
 	public function test_every_table_goes_when_the_box_is_checked(): void {
@@ -150,7 +171,7 @@ class Test_Uninstall extends WP_UnitTestCase {
 
 		$this->run_uninstall();
 
-		foreach ( array( Store::OPTION_ID, Store::OPTION_LABEL, Store::OPTION_FINGERPRINT, 'wss_peers', Installer::OPTION_VERSION, self::OPTION_DELETE_ALL ) as $option ) {
+		foreach ( array( Store::OPTION_ID, Store::OPTION_LABEL, Store::OPTION_FINGERPRINT, 'wss_peers', Installer::OPTION_VERSION, Installer::OPTION_SCHEMA_HEALTHY, self::OPTION_DELETE_ALL ) as $option ) {
 			$this->assertFalse( get_option( $option, false ), $option . ' tendría que estar borrada' );
 		}
 	}

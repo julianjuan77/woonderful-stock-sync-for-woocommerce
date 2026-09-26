@@ -157,9 +157,11 @@ class Test_Ledger extends WP_UnitTestCase {
 	public function test_it_is_not_deliverable_right_away(): void {
 		$movement = $this->movement( (int) Ledger::record( 123, -1 ) );
 
-		$this->assertGreaterThan(
-			strtotime( $movement->created_at ),
-			strtotime( $movement->next_attempt_at )
+		// Por el valor y no sólo "posterior": con un segundo de retardo el test pasaría
+		// igual y se perdería lo que el retardo compra (ADR-006 §4).
+		$this->assertSame(
+			Ledger::DELIVERY_DELAY,
+			strtotime( $movement->next_attempt_at ) - strtotime( $movement->created_at )
 		);
 	}
 

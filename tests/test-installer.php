@@ -285,6 +285,27 @@ class Test_Installer extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Un sitio que actualiza desde una versión anterior a este control no tiene la opción
+	 * escrita, y ahí hay que mirar las tablas una vez en vez de dar por buena su ausencia.
+	 *
+	 * SCH-13
+	 */
+	public function test_without_a_stored_result_it_looks_at_the_tables(): void {
+		global $wpdb;
+
+		Installer::install();
+		delete_option( Installer::OPTION_SCHEMA_HEALTHY );
+
+		$this->assertTrue( Installer::schema_is_healthy() );
+
+		$table = Installer::table( 'nonces' );
+		$wpdb->query( "DROP TABLE {$table}" ); // phpcs:ignore WordPress.DB
+		delete_option( Installer::OPTION_SCHEMA_HEALTHY );
+
+		$this->assertFalse( Installer::schema_is_healthy() );
+	}
+
+	/**
 	 * Las opciones que se leen en cada request tienen que viajar en el paquete que
 	 * WordPress trae al arrancar, o son una consulta por página (ARCHITECTURE §3).
 	 *
