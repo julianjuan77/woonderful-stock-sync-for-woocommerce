@@ -28,6 +28,7 @@ class Test_Store extends WP_UnitTestCase {
 	}
 
 	public function tear_down(): void {
+		unset( $_SERVER['HTTPS'] );
 		update_option( 'home', $this->original_home );
 		delete_option( Store::OPTION_ID );
 		delete_option( Store::OPTION_LABEL );
@@ -131,6 +132,47 @@ class Test_Store extends WP_UnitTestCase {
 		update_option( Store::OPTION_FINGERPRINT, Store::fingerprint() );
 
 		update_option( 'home', 'https://tienda-restaurada.test' );
+
+		$this->assertTrue( Store::is_cloned_site() );
+	}
+
+	/**
+	 * ID-09 — Un plugin que filtra home_url no mueve la huella (ADR-007).
+	 */
+	public function test_a_home_url_filter_does_not_change_the_fingerprint(): void {
+		update_option( 'home', 'https://tienda-a.test' );
+
+		add_filter(
+			'home_url',
+			static function (): string {
+				return 'http://tienda-a.test';
+			}
+		);
+
+		$this->assertSame( hash( 'sha256', 'https://tienda-a.test' ), Store::fingerprint() );
+	}
+
+	/**
+	 * ID-10 — Un request por HTTPS no mueve la huella (ADR-007).
+	 */
+	public function test_an_https_request_does_not_change_the_fingerprint(): void {
+		update_option( 'home', 'http://tienda-a.test' );
+		$_SERVER['HTTPS'] = 'on';
+
+		$this->assertSame( hash( 'sha256', 'http://tienda-a.test' ), Store::fingerprint() );
+	}
+
+	/**
+	 * El clon por /etc/hosts: mismo dominio, servido por http porque la copia local no
+	 * tiene certificado (ADR-007).
+	 *
+	 * ID-11
+	 */
+	public function test_the_same_host_over_http_is_a_clone(): void {
+		update_option( 'home', 'https://tienda-a.test' );
+		update_option( Store::OPTION_FINGERPRINT, Store::fingerprint() );
+
+		update_option( 'home', 'http://tienda-a.test' );
 
 		$this->assertTrue( Store::is_cloned_site() );
 	}

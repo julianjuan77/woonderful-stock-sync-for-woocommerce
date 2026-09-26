@@ -51,9 +51,12 @@ final class Store {
 	/**
 	 * La huella del sitio. Se guarda hasheada porque un search-replace de restore
 	 * reescribiría la URL en claro y el clon se daría por sano (ADR-001 §1).
+	 *
+	 * La opción y no home_url(): esa cambia con is_ssl() y con quien la filtre, y la
+	 * tienda viva se tomaría por clon (ADR-007).
 	 */
 	public static function fingerprint(): string {
-		return hash( 'sha256', home_url() );
+		return hash( 'sha256', (string) get_option( 'home' ) );
 	}
 
 	/**
