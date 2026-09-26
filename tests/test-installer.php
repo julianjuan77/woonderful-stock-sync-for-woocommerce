@@ -48,6 +48,37 @@ class Test_Installer extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Deja la caché de opciones como en un request normal: el paquete de autocargadas
+	 * traído de la base, y nada suelto en memoria.
+	 *
+	 * Sin esto, un test que escribe una opción y después la lee nunca consulta —el valor
+	 * quedó en memoria— y medir consultas no dice nada sobre el autoload.
+	 */
+	private function cold_option_cache(): void {
+		wp_cache_delete( Installer::OPTION_VERSION, 'options' );
+		wp_cache_delete( Installer::OPTION_SCHEMA_HEALTHY, 'options' );
+		wp_cache_delete( 'alloptions', 'options' );
+
+		wp_load_alloptions();
+	}
+
+	/**
+	 * Si una opción viaja en el paquete de autocargadas.
+	 *
+	 * @param string $option Nombre de la opción.
+	 */
+	private function is_autoloaded( string $option ): bool {
+		global $wpdb;
+
+		$autoload = (string) $wpdb->get_var( // phpcs:ignore WordPress.DB
+			$wpdb->prepare( "SELECT autoload FROM {$wpdb->options} WHERE option_name = %s", $option )
+		);
+
+		// WordPress 6.6 cambió 'yes'/'no' por 'on'/'off'/'auto'; los viejos siguen valiendo.
+		return in_array( $autoload, array( 'yes', 'on', 'auto' ), true );
+	}
+
+	/**
 	 * Nombres de tabla existentes en la base.
 	 *
 	 * @return string[]
@@ -240,16 +271,30 @@ class Test_Installer extends WP_UnitTestCase {
 	 * SCH-07 — maybe_upgrade() no ejecuta nada si la versión ya está al día.
 	 */
 	public function test_maybe_upgrade_does_nothing_when_the_version_is_current(): void {
+		global $wpdb;
+
 		Installer::install();
 
-		update_option( Installer::OPTION_VERSION, Installer::SCHEMA_VERSION, false );
+		$this->cold_option_cache();
 
-		global $wpdb;
 		$queries_before = $wpdb->num_queries;
 
 		Installer::maybe_upgrade();
 
 		$this->assertSame( $queries_before, $wpdb->num_queries );
+	}
+
+	/**
+	 * Las opciones que se leen en cada request tienen que viajar en el paquete que
+	 * WordPress trae al arrancar, o son una consulta por página (ARCHITECTURE §3).
+	 *
+	 * SCH-12
+	 */
+	public function test_the_options_read_on_every_request_are_autoloaded(): void {
+		Installer::install();
+
+		$this->assertTrue( $this->is_autoloaded( Installer::OPTION_VERSION ) );
+		$this->assertTrue( $this->is_autoloaded( Installer::OPTION_SCHEMA_HEALTHY ) );
 	}
 
 	/**
