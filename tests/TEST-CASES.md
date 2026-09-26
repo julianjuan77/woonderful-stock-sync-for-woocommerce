@@ -161,6 +161,8 @@ mientras escribía la función.
 | `PLG-06` | Sitio sano | No avisa nada |
 | `PLG-07` | `activate()` sobre una instalación vacía | Quedan la identidad y el esquema |
 | `PLG-09` | `suspension_reason()` con todo en orden | No ejecuta ninguna consulta: lee la opción autocargada |
+| `PLG-10` | Sin WooCommerce | El plugin avisa en el admin |
+| `PLG-11` | `boot()` con el esquema atrasado | Migra: es la mitad de `boot()` que antes no alcanzaba ningún test |
 | `PLG-08` | `boot()` sin identidad: el plugin no pasó por la activación | Genera la identidad |
 
 ## [`tests/test-uninstall.php`](test-uninstall.php) — la desinstalación
@@ -199,6 +201,14 @@ varios tests sin chocar.
 - La purga que consolida el stock base.
 - Que `boot()` **no registre** la sincronización cuando está suspendida. Hoy no hay nada
   registrado que verificar; el test va cuando exista el detector.
+- **La rama `if ( ! class_exists( 'WooCommerce' ) )` de `boot()`.** El bootstrap declara una
+  clase `WooCommerce` vacía para que la otra mitad de `boot()` sea alcanzable, y una clase no
+  se puede desdefinir: esa rama queda fuera de alcance para toda la corrida. `PLG-10` cubre
+  lo que el dueño ve —el aviso—, pero no que `boot()` efectivamente corte ahí.
+
+  El costo es acotado: la cabecera declara `Requires Plugins: woocommerce`, así que desde
+  WordPress 6.5 el plugin **no se puede activar** sin WooCommerce. Esa rama sólo se alcanza
+  si alguien desactiva WooCommerce con el plugin ya andando.
 
 ---
 
