@@ -101,6 +101,8 @@ Revisado: 2026-09-20 — los nombres del contrato (campos del JSON y valores de 
 pasaron a inglés, para no mezclar idiomas con los estados de §3. Sin cambios de diseño.
 Revisado: 2026-09-21 — ADR-005 suma un quinto endpoint, `GET /products`, y dos valores de
 `reason`: `bootstrap` y `unlink` viajan como movimientos. Ver §4.
+Revisado: 2026-09-26 — ADR-007 cambia la huella a `sha256( get_option( 'home' ) )`:
+`home_url()` varía con el request y con quien la filtre. Ver §1, detección de clon.
 Temas: rest-api, api-externa, db-schema, opciones
 Cubre: includes/Transport/_.php, includes/Rest/_.php
 
@@ -232,10 +234,10 @@ hablar como si fuera la original.
 Cada tienda guarda **el hash de su propia URL** al emparejar, y lo compara en cada carga:
 
 ```
-Al emparejar:   sha256( home_url() ) = 3f7a9c2e...   → guardado
+Al emparejar:   sha256( get_option( 'home' ) ) = 3f7a9c2e...   → guardado
 
-En cada carga:  sha256( home_url() ) = 3f7a9c2e...   → todo normal
-                sha256( home_url() ) = b41d08e5...   → SUSPENDE: no emite ni acepta nada,
+En cada carga:  sha256( get_option( 'home' ) ) = 3f7a9c2e...   → todo normal
+                sha256( get_option( 'home' ) ) = b41d08e5...   → SUSPENDE: no emite ni acepta nada,
                                                        y la pantalla pide re-emparejar
 ```
 
@@ -277,7 +279,7 @@ el libro y las secuencias ya escritas siguen valiendo.
 | Caso                                              | Qué pasa                                  |
 | ------------------------------------------------- | ----------------------------------------- |
 | Cambio de dominio querido                         | Suspende igual. Se resuelve re-emparejando |
-| Clon servido **en la misma URL** (por `hosts`)    | **Pasa el control.** No se cubre en v1     |
+| Clon servido **en la misma URL** (por `hosts`)    | Por `http`, suspende: el esquema es parte de la huella (ADR-007). Por `https`, **pasa el control**. No se cubre en v1 |
 
 El segundo es un escenario deliberado, no un accidente de operación, que es lo que este
 control ataja.
@@ -1767,7 +1769,7 @@ pero es tiempo en el que la otra tienda puede sobrevender.
 
 ## ADR-007 — Qué se hashea en la huella del sitio
 
-Estado: Propuesta · 2026-09-26
+Estado: Aprobada · 2026-09-26 · aprobada por Julián
 Temas: opciones
 Cubre: includes/Identity/Store.php
 

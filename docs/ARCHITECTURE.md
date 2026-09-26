@@ -115,7 +115,7 @@ compatible; quitar uno o cambiarle el significado es `wss/v2`.
 |---|---|
 | `wss_store_id` | UUID v4 de `wp_generate_uuid4()`. Inmutable (ADR-002) |
 | `wss_store_label` | Etiqueta legible, editable |
-| `wss_site_fingerprint` | `sha256( home_url() )` al emparejar. Detecta el clon (ADR-001) |
+| `wss_site_fingerprint` | `sha256( get_option( 'home' ) )` al emparejar, con esquema. Detecta el clon (ADR-001, ADR-007) |
 | `wss_peers` | Por tienda remota: URL, identificador, secreto, fecha del emparejamiento y **hasta qué secuencia suya purgamos** (ADR-004) |
 | `wss_schema_version` | Versión del esquema, para las migraciones |
 | `wss_delete_data_on_uninstall` | La casilla de ADR-003. Desmarcada de fábrica |
@@ -297,3 +297,5 @@ Ver `DECISIONS.md`. Índice de las aprobadas:
 | ADR-003 | Desinstalación y borrado de datos | uninstall, opciones |
 | ADR-004 | Esquema de la base de datos | db-schema |
 | ADR-005 | Vinculación de productos | db-schema, rest-api |
+| ADR-006 | El detector de cambios de stock | hooks-publicos, db-schema |
+| ADR-007 | Qué se hashea en la huella del sitio | opciones |
