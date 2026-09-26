@@ -49,6 +49,30 @@ class Test_Store extends WP_UnitTestCase {
 	}
 
 	/**
+	 * boot() lo lee en cada request, así que tiene que viajar en el paquete de
+	 * autocargadas (ARCHITECTURE §3). La etiqueta no: sólo se usa en las pantallas.
+	 *
+	 * ID-13
+	 */
+	public function test_the_identifier_is_autoloaded_and_the_label_is_not(): void {
+		global $wpdb;
+
+		delete_option( Store::OPTION_ID );
+		delete_option( Store::OPTION_LABEL );
+
+		Store::ensure_identity();
+
+		$autoload = static function ( string $option ) use ( $wpdb ): string {
+			return (string) $wpdb->get_var( // phpcs:ignore WordPress.DB
+				$wpdb->prepare( "SELECT autoload FROM {$wpdb->options} WHERE option_name = %s", $option )
+			);
+		};
+
+		$this->assertContains( $autoload( Store::OPTION_ID ), array( 'yes', 'on', 'auto' ) );
+		$this->assertContains( $autoload( Store::OPTION_LABEL ), array( 'no', 'off' ) );
+	}
+
+	/**
 	 * ID-02 — El identificador no se regenera si ya existe.
 	 */
 	public function test_it_does_not_regenerate_an_existing_identifier(): void {

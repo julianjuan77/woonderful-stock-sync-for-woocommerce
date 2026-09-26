@@ -116,8 +116,17 @@ class Test_Plugin extends WP_UnitTestCase {
 	public function test_the_guard_does_not_query_the_database(): void {
 		global $wpdb;
 
-		update_option( Store::OPTION_FINGERPRINT, Store::fingerprint() );
+		// La huella se autocarga porque la guarda la lee en cada request; el
+		// emparejamiento tiene que escribirla así (ADR-001 §1).
+		update_option( Store::OPTION_FINGERPRINT, Store::fingerprint(), true );
 		Installer::refresh_schema_status();
+
+		// Sin esto el test mide su propia memoria: las dos opciones quedaron cacheadas
+		// al escribirlas, y la lectura posterior no consultaría aunque no se autocargaran.
+		wp_cache_delete( Store::OPTION_FINGERPRINT, 'options' );
+		wp_cache_delete( Installer::OPTION_SCHEMA_HEALTHY, 'options' );
+		wp_cache_delete( 'alloptions', 'options' );
+		wp_load_alloptions();
 
 		$queries_before = $wpdb->num_queries;
 
