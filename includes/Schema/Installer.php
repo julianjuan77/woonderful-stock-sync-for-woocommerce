@@ -52,7 +52,9 @@ final class Installer {
 			dbDelta( $sql );
 		}
 
-		update_option( self::OPTION_VERSION, self::SCHEMA_VERSION, false );
+		// Autocargada: maybe_upgrade() la lee en cada request, así que sin autoload sería
+		// una consulta por página para un número que cambia cada varios meses.
+		update_option( self::OPTION_VERSION, self::SCHEMA_VERSION, true );
 
 		self::refresh_schema_status();
 	}
