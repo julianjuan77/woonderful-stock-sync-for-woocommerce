@@ -1560,6 +1560,10 @@ existen en algunos movimientos. Vacía en una venta, llena en un bootstrap.
 ## ADR-006 — El detector de cambios de stock
 
 Estado: Aprobada · 2026-09-24 · aprobada por Julián
+Revisado: 2026-09-27 — el guard anota **sólo el producto**, no el valor esperado. Leyendo el
+código de WooCommerce se vio que el valor que llega a los hooks es calculado y no releído, así
+que bajo concurrencia no coincide con lo anotado y el cambio propio se emitiría como una
+venta. Ver §3.
 Temas: hooks-publicos, db-schema
 Cubre: includes/Detector/_.php
 
@@ -1669,35 +1673,86 @@ Cuando B aplica un movimiento que vino de A, el stock local de B cambia, y su pr
 lo ve como cualquier otro cambio. Sin guard: B emite un movimiento nuevo hacia A, A lo aplica,
 su detector se dispara, y vuelve — **amplificando el descuento en cada vuelta** (§3 del SPEC).
 
-**El guard es específico: producto, valor esperado, y de un solo uso.**
+**El guard anota el producto, y nada más. De un solo uso.**
 
 ```
-Antes de aplicar:   "voy a llevar el producto 123 de 10 a 9"
-El detector ve:      producto 123, de 10 a 9   → es el mío: lo consumo y no emito
-El detector ve:      producto 123, de 9 a 8    → no coincide: es una venta, la emito ✅
+Antes de aplicar:   "el próximo cambio del producto 123 lo provoco yo"
+El detector ve:      un cambio del 123  → había anotación: la consume y no emite
+El detector ve:      un cambio del 456  → no hay anotación: lo emite ✅
 Al terminar el request, lo que quedó sin consumir se descarta.
 ```
 
-**Por qué no una bandera "estoy aplicando" con `try/finally`:**
+#### De dónde sale el límite: el hook no tiene autor
+
+WooCommerce avisa el cambio con un solo argumento:
+
+```php
+do_action( 'woocommerce_product_before_set_stock', $product_with_stock );
+do_action( 'woocommerce_product_set_stock',        $product_with_stock );
+```
+
+**El producto. Nada más.** No viene quién lo cambió ni por qué. Y los hooks son globales: no
+existe "escuchá sólo los cambios que provoque esta línea mía", así que todos los cambios del
+request pasan por el mismo callback sin distintivo.
+
+Como el evento no trae autor, la única forma de reconocer el propio es **dejar la marca
+antes**. Y ahí está el límite:
+
+| Lo que podemos anotar | ¿Es confiable? |
+| --- | --- |
+| **Qué producto vamos a tocar** | Sí: lo elegimos nosotros |
+| Qué valor tiene ahora | No: lo leímos, y otro request pudo cambiarlo |
+| A qué valor va a quedar | No: lo calcula WooCommerce con su propia lectura |
+
+**Lo que elegimos es certero; lo que medimos, no.** Por eso el guard no anota números.
+
+#### Por qué no anotar también los valores
+
+Parecía más preciso, y es peor. `wc_update_product_stock()` escribe con una operación
+relativa —`SET meta_value = meta_value - 1`, que es atómica y siempre deja bien la base— pero
+a los hooks les entrega **un número calculado antes de escribir**, no releído:
+
+```php
+$new_stock = $data_store->update_product_stock( … );        // lee, calcula, escribe
+$data_store->read_stock_quantity( $product, $new_stock );   // le mete el número calculado
+```
+
+Si otro request movió el stock en el medio, ese par de valores no es el real, no coincide con
+lo anotado, y el cambio propio **se emite como si fuera una venta**: el eco que el guard tenía
+que evitar, que es el peor de los finales porque amplifica el descuento en las dos tiendas.
+
+**Ciego de más pierde una venta; no reconocerse a sí mismo duplica el descuento.** Entre esos
+dos errores, el guard elige el primero.
+
+#### Por qué no una bandera, ni desenganchar el detector
 
 ```
 Aplicando el movimiento de A…
-   ← en el mismo request entra una venta del producto 456
-   → el detector está apagado: la venta NO se registra   ❌ stock perdido, en silencio
+   ← adentro de esa llamada, otro plugin ajusta el stock del producto 456
+   → el detector está apagado: ese cambio NO se registra   ❌ stock perdido, en silencio
 ```
 
-El SPEC lo pide explícitamente: el guard *"no debe tapar una venta local genuina que caiga en
-el mismo request"*. Y tiene que liberarse aunque la aplicación falle a mitad: por eso el
-descarte al final del request, y no un `finally` del que dependa la corrección.
+Una bandera "estoy aplicando" y un `remove_action` alrededor de la llamada tienen el mismo
+efecto: ciegan al detector para **todos** los productos. El guard por producto ciega uno solo,
+al mismo costo de implementación. El SPEC lo pide explícitamente: el guard *"no debe tapar una
+venta local genuina que caiga en el mismo request"*.
+
+Y tiene que liberarse aunque la aplicación falle a mitad: por eso el descarte al final del
+request, y no un `finally` del que dependa la corrección.
 
 **El guard cubre también el bootstrap**, que escribe stock de la misma manera (ADR-005).
 
-**Por qué no la solución estándar.** En replicación, el eco se corta **marcando el origen** del
-evento: MySQL le pone un `server_id` a cada escritura y cada réplica descarta lo que lleva el
-suyo. Acá no se puede, y el motivo está en §3 del SPEC: nuestro detector **observa valores, no
-eventos**. Un cambio de stock no viene con etiqueta de quién lo hizo — llega como "este número
-pasó de 10 a 9" y nada más. El guard es lo que reemplaza a esa etiqueta, y es el precio
-declarado de haber puesto un único punto de detección por diferencia de valor.
+**Por qué no marcar el origen, como hace la replicación.** MySQL le pone un `server_id` a cada
+escritura y cada réplica descarta lo que lleva el suyo. Acá la etiqueta no puede viajar con el
+evento, porque el hook no tiene dónde ponerla. La forma posible es la bandera alrededor de
+nuestra propia llamada, y es la que se descarta arriba por ciega. El guard por producto es esa
+misma idea, acotada a un producto.
+
+**El agujero que queda, declarado:** una venta del mismo producto que entre en el mismo request
+entre el `expect()` y la escritura se consumiría la anotación. Entre esas dos líneas no corre
+nada, y una venta de otro request corre en otro proceso de PHP y no pasa por nuestro callback,
+así que para que ocurra haría falta un hook anidado dentro de nuestra propia llamada que toque
+el mismo producto.
 
 ---
 
@@ -1742,7 +1797,7 @@ pero es tiempo en el que la otra tienda puede sobrevender.
 | --- | --- | --- |
 | El movimiento existe primero y la atribución se le estampa encima | **Source document reference** | El campo `origin` de `stock.move` en Odoo; el `referenceDocumentUri` de cada ajuste en Shopify |
 | Esperar antes de enviar para que la ráfaga se agrupe sola | **Debounce** | Cualquier cosa que agrupe eventos en lote |
-| Cortar el eco de una réplica | **Loop prevention** | Lo estándar es marcar el origen (`server_id` en MySQL); acá no aplica, ver §3 |
+| Cortar el eco de una réplica | **Loop prevention** | Lo estándar es marcar el origen (`server_id` en MySQL); acá la etiqueta no puede viajar con el evento, ver §3 |
 
 ### Alcance
 
