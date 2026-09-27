@@ -640,6 +640,51 @@ class Test_Ledger extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Se abandona lo que está esperando, nunca lo que está en camino: una fila al borde
+	 * del techo que otra pasada está enviando no se puede cancelar, o su ACK llega a una
+	 * fila abandonada y la reconciliación la reenvía sin necesidad.
+	 *
+	 * LED-39
+	 */
+	public function test_it_does_not_abandon_what_is_being_delivered(): void {
+		$movement = $this->pending_movement(
+			array(
+				'delivery'         => 'in_flight',
+				'claimed_by'       => 'worker-vivo',
+				'claimed_at'       => gmdate( 'Y-m-d H:i:s', time() - 30 ),
+				'attempts'         => 12,
+				'first_attempt_at' => gmdate( 'Y-m-d H:i:s', time() - 7 * HOUR_IN_SECONDS ),
+			)
+		);
+
+		Ledger::claim();
+
+		$this->assertSame( 'in_flight', $this->column_of( $movement, 'delivery' ) );
+	}
+
+	/**
+	 * Y el worker muerto sí llega a abandonarse, en la misma pasada: el paso que libera
+	 * corre antes que el que abandona.
+	 *
+	 * LED-40
+	 */
+	public function test_a_dead_workers_row_is_abandoned_in_the_same_pass(): void {
+		$movement = $this->pending_movement(
+			array(
+				'delivery'         => 'in_flight',
+				'claimed_by'       => 'worker-muerto',
+				'claimed_at'       => gmdate( 'Y-m-d H:i:s', time() - 600 ),
+				'attempts'         => 12,
+				'first_attempt_at' => gmdate( 'Y-m-d H:i:s', time() - 7 * HOUR_IN_SECONDS ),
+			)
+		);
+
+		Ledger::claim();
+
+		$this->assertSame( 'abandoned', $this->column_of( $movement, 'delivery' ) );
+	}
+
+	/**
 	 * LED-35 — Lo que todavía está dentro del techo se sigue reclamando.
 	 */
 	public function test_it_still_claims_what_is_inside_the_ceiling(): void {
