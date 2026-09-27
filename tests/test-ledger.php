@@ -129,6 +129,52 @@ class Test_Ledger extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Las dos escrituras van dentro de una transacción (ADR-004 §1).
+	 *
+	 * No se puede verificar por el efecto: la suite de WordPress ya envuelve cada test en
+	 * su propia transacción con `autocommit = 0`, así que una conexión aparte tampoco
+	 * vería la fila a medio escribir, haya o no transacción nuestra. Lo que sí se puede
+	 * observar es el orden de las consultas.
+	 *
+	 * LED-10
+	 */
+	public function test_both_writes_happen_inside_a_transaction(): void {
+		$queries = array();
+
+		$watch = static function ( string $query ) use ( &$queries ): string {
+			$queries[] = $query;
+
+			return $query;
+		};
+
+		add_filter( 'query', $watch );
+		Ledger::record( 123, -1 );
+		remove_filter( 'query', $watch );
+
+		$position = static function ( callable $matches ) use ( $queries ): int {
+			foreach ( $queries as $index => $query ) {
+				if ( $matches( $query ) ) {
+					return $index;
+				}
+			}
+
+			return -1;
+		};
+
+		$table = Installer::table( 'movements' );
+
+		$start  = $position( static fn( string $q ): bool => str_contains( $q, 'START TRANSACTION' ) );
+		$insert = $position( static fn( string $q ): bool => str_contains( $q, 'INSERT' ) && str_contains( $q, $table ) );
+		$update = $position( static fn( string $q ): bool => str_contains( $q, 'origin_seq' ) && str_contains( $q, 'UPDATE' ) );
+		$commit = $position( static fn( string $q ): bool => str_contains( $q, 'COMMIT' ) );
+
+		$this->assertGreaterThan( -1, $start, 'falta el START TRANSACTION' );
+		$this->assertGreaterThan( -1, $commit, 'falta el COMMIT' );
+		$this->assertLessThan( $insert, $start, 'el INSERT queda fuera de la transacción' );
+		$this->assertGreaterThan( $update, $commit, 'el UPDATE queda fuera de la transacción' );
+	}
+
+	/**
 	 * LED-03 — El movimiento toma la generación vigente del vínculo.
 	 */
 	public function test_it_takes_the_generation_from_the_link(): void {
