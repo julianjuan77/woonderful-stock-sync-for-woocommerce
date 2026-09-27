@@ -19,9 +19,13 @@ defined( 'ABSPATH' ) || exit;
  * allá, la otra tienda lo aplicaría, y el descuento se amplificaría en cada vuelta (§3 del
  * SPEC).
  *
- * La expectativa es **específica y de un solo uso** —producto, valor de origen y valor de
- * destino— y no una bandera de "estoy aplicando": una bandera taparía una venta local que
- * caiga en el mismo request, que es lo que ADR-006 §3 pide explícitamente evitar.
+ * Se anota **el producto y nada más**, de un solo uso. No los valores: el hook de WooCommerce
+ * entrega un número calculado antes de escribir y no releído, así que bajo concurrencia no
+ * coincide con lo anotado y el cambio propio se emitiría como una venta — el eco. Lo que
+ * elegimos es certero; lo que medimos, no (ADR-006 §3).
+ *
+ * Y no una bandera de "estoy aplicando": una bandera ciega al detector para todos los
+ * productos, y el SPEC pide que no tape una venta local que caiga en el mismo request.
  */
 final class Guard {
 
@@ -32,45 +36,37 @@ final class Guard {
 	 * expectativa que nadie consumió —porque la aplicación falló a mitad— no sobrevive
 	 * para tapar el cambio de la página siguiente.
 	 *
-	 * @var array<int, array{product: int, from: int, to: int}>
+	 * @var int[]
 	 */
 	private static array $expected = array();
 
 	/**
-	 * Anota un cambio de stock que está por hacer el propio plugin.
+	 * Anota que el próximo cambio de este producto lo provoca el propio plugin.
+	 *
+	 * Una anotación por cambio: un lote con dos movimientos del mismo producto anota dos
+	 * veces.
 	 *
 	 * @param int $product_id Producto que gestiona el stock.
-	 * @param int $from       Valor actual.
-	 * @param int $to         Valor al que se lo lleva.
 	 */
-	public static function expect( int $product_id, int $from, int $to ): void {
-		self::$expected[] = array(
-			'product' => $product_id,
-			'from'    => $from,
-			'to'      => $to,
-		);
+	public static function expect( int $product_id ): void {
+		self::$expected[] = $product_id;
 	}
 
 	/**
-	 * Si este cambio lo provocó el plugin, lo consume y responde que sí.
+	 * Si este cambio lo provocó el plugin, consume la anotación y responde que sí.
 	 *
 	 * @param int $product_id Producto que cambió.
-	 * @param int $from       Valor anterior.
-	 * @param int $to         Valor nuevo.
 	 */
-	public static function consume( int $product_id, int $from, int $to ): bool {
-		foreach ( self::$expected as $index => $expectation ) {
-			if ( $expectation['product'] === $product_id
-				&& $expectation['from'] === $from
-				&& $expectation['to'] === $to
-			) {
-				unset( self::$expected[ $index ] );
+	public static function consume( int $product_id ): bool {
+		$index = array_search( $product_id, self::$expected, true );
 
-				return true;
-			}
+		if ( false === $index ) {
+			return false;
 		}
 
-		return false;
+		unset( self::$expected[ $index ] );
+
+		return true;
 	}
 
 	/**
