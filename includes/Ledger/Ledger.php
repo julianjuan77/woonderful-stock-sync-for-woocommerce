@@ -35,6 +35,81 @@ final class Ledger {
 	public const MAX_BATCH = 200;
 
 	/**
+	 * Cuánto se sigue reintentando un movimiento, desde su primer intento (ADR-001 §2).
+	 */
+	public const DELIVERY_CEILING = '6 HOUR';
+
+	/**
+	 * Espera máxima entre reintentos, en segundos.
+	 *
+	 * Sin tope, la espera del último intento se comería buena parte de las 6 horas.
+	 */
+	public const MAX_BACKOFF = 1800;
+
+	/**
+	 * Cuánto esperar antes del próximo intento.
+	 *
+	 * Duplicando desde un minuto: 1, 2, 4, 8, 16, 30, 30… En las 6 horas del techo entran
+	 * unos catorce intentos. Es una constante y no configuración, por lo mismo que el
+	 * retardo de entrega: nadie pidió moverla (ADR-006 §4).
+	 *
+	 * @param int $attempts Intentos hechos hasta ahora, contando el que falló.
+	 */
+	public static function backoff_for( int $attempts ): int {
+		$seconds = 60 * ( 2 ** max( 0, $attempts - 1 ) );
+
+		return (int) min( $seconds, self::MAX_BACKOFF );
+	}
+
+	/**
+	 * Anota el resultado de cada fila entregada.
+	 *
+	 * Dos caminos: confirmada, que cierra la fila; y fallida, que vuelve a la cola con el
+	 * próximo intento más adelante. El techo de las 6 horas no se mira acá sino al
+	 * reclamar: un worker que muere no llega a llamar a esta función, y sus filas tienen
+	 * que poder abandonarse igual.
+	 *
+	 * @param array<int, bool> $results ID del movimiento => si la otra tienda lo confirmó.
+	 */
+	public static function ack( array $results ): void {
+		global $wpdb;
+
+		$table = Installer::table( 'movements' );
+
+		foreach ( $results as $movement_id => $confirmed ) {
+			if ( $confirmed ) {
+				$wpdb->update( // phpcs:ignore WordPress.DB
+					$table,
+					array(
+						'delivery'     => 'confirmed',
+						'confirmed_at' => gmdate( 'Y-m-d H:i:s' ),
+						'claimed_by'   => null,
+						'claimed_at'   => null,
+					),
+					array( 'id' => (int) $movement_id )
+				);
+
+				continue;
+			}
+
+			$attempts = (int) $wpdb->get_var( // phpcs:ignore WordPress.DB
+				$wpdb->prepare( "SELECT attempts FROM {$table} WHERE id = %d", (int) $movement_id ) // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			);
+
+			$wpdb->update( // phpcs:ignore WordPress.DB
+				$table,
+				array(
+					'delivery'        => 'pending',
+					'claimed_by'      => null,
+					'claimed_at'      => null,
+					'next_attempt_at' => gmdate( 'Y-m-d H:i:s', time() + self::backoff_for( $attempts ) ),
+				),
+				array( 'id' => (int) $movement_id )
+			);
+		}
+	}
+
+	/**
 	 * Se aplicó al stock local.
 	 */
 	public const APPLIED = 'applied';
@@ -80,6 +155,17 @@ final class Ledger {
 		$table = Installer::table( 'movements' );
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+
+		// El techo se aplica acá y no al anotar el resultado: toda fila vuelve a pasar por
+		// el claim, muera quien muera, y un worker que muere nunca llama a `ack()`
+		// (ADR-001 §2).
+		$wpdb->query(
+			"UPDATE {$table}
+			    SET delivery = 'abandoned', claimed_by = NULL, claimed_at = NULL
+			  WHERE delivery IN ( 'pending', 'in_flight' )
+			    AND first_attempt_at IS NOT NULL
+			    AND first_attempt_at < UTC_TIMESTAMP() - INTERVAL " . self::DELIVERY_CEILING
+		);
 
 		// UTC_TIMESTAMP() y no NOW(): las fechas se guardan en UTC y `NOW()` devuelve la
 		// hora del servidor MySQL en su zona, así que en un servidor que no esté en UTC la
