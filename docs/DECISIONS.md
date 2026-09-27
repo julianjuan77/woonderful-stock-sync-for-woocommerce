@@ -101,6 +101,9 @@ Revisado: 2026-09-20 — los nombres del contrato (campos del JSON y valores de 
 pasaron a inglés, para no mezclar idiomas con los estados de §3. Sin cambios de diseño.
 Revisado: 2026-09-21 — ADR-005 suma un quinto endpoint, `GET /products`, y dos valores de
 `reason`: `bootstrap` y `unlink` viajan como movimientos. Ver §4.
+Revisado: 2026-09-27 — §3 dice qué pasa cuando el producto local no gestiona stock: bloquea y
+queda `held`. Responde la primera de las tres preguntas de la asimetría de configuración (§6
+del SPEC); las otras dos siguen abiertas.
 Revisado: 2026-09-27 — §3 nombra las **dos** causas de `discarded`: la generación no vigente
 y la ausencia de vínculo, que ADR-004 §1 ya daba por decidida. Y deja dicho que el `bootstrap`
 y el `unlink` se atienden antes de buscar el vínculo, porque lo crean y lo borran.
@@ -592,6 +595,21 @@ de qué queda fuera de la fase 2 dejaría ese par afuera de la reconciliación p
 cajón de lo que no se supo aplicar es justo lo que rompe la consulta de `held`. Un movimiento
 que **podría** aplicarse más tarde —el producto está en la papelera, el par está suspendido—
 es `held`, no `discarded`.
+
+**Una asimetría de configuración bloquea: `held`.** Si el producto local existe pero no
+gestiona stock, no hay dónde aplicar el movimiento. Es la pregunta abierta de §6 del SPEC —las
+dos tiendas configuradas distinto para el mismo par— y de las tres cosas que esa pregunta pide
+decidir, ésta responde la primera:
+
+| Qué se decide acá | |
+| --- | --- |
+| ¿Bloquea o aplica a medias? | **Bloquea.** `held`, nunca `discarded` y nunca una aplicación parcial |
+| ¿Se le toca la configuración a la otra tienda? | **No.** Es la restricción dura de §6: activarle la gestión de stock sería una escritura que el dueño no pidió y no vería |
+
+Quedan sin decidir las otras dos —que el dueño lo **vea** en la pantalla, y que los movimientos
+retenidos se apliquen solos cuando corrija la configuración— y ninguna es propia de este caso:
+**hoy ningún movimiento `held` se reintenta**, ni siquiera el del producto en la papelera,
+porque la pieza que los desbloquea está sin escribir.
 
 **El `bootstrap` y el `unlink` son la excepción, y se atienden antes de buscar el vínculo.**
 Esos dos movimientos no usan el vínculo: uno lo **crea** y el otro lo **borra**. Un bootstrap

@@ -1808,7 +1808,12 @@ Ninguna impide cerrar el SPEC, pero cada una bloquea una parte concreta.
       nadie se entera. Va al ADR de la reconciliación (UC-06), que está sin escribir.
 
 - [ ] **¿Qué pasa cuando las dos tiendas están configuradas distinto para el mismo producto
-      vinculado?**
+      vinculado?** **Parcialmente resuelta.** ADR-001 §3 contesta la primera de las tres: la
+      asimetría **bloquea** —el movimiento queda `held`, nunca `discarded` ni aplicado a
+      medias— y no se le toca la configuración a la otra tienda. Siguen abiertas las otras
+      dos: que el dueño lo **vea** en la pantalla (tarea 8.2) y que los retenidos se apliquen
+      **solos** cuando corrija la configuración, que es el mecanismo de desbloqueo de pares
+      que hoy no existe para ningún caso.
       Bloquea: el comportamiento de UC-01, UC-02 y UC-04 ante asimetrías, y el ruido que eso
       genera en la reconciliación de UC-06. El SPEC hoy asume configuración simétrica y no
       dice nada de los dos casos concretos: que A **gestione stock** de un SKU y B no —B no
