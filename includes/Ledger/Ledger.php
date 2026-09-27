@@ -183,12 +183,19 @@ final class Ledger {
 		$cutoff = gmdate( 'Y-m-d H:i:s', time() - $days * DAY_IN_SECONDS );
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+		$links = Installer::table( 'links' );
+
+		// La generación del vínculo viaja en la consulta: si un re-bootstrap reutilizó la
+		// fila, su stock base nuevo ya absorbió lo de antes, y sumarle los movimientos de
+		// la generación anterior lo correría dos veces (ADR-005 §4).
 		$purgeable = (array) $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT id, origin_store, origin_seq, link_id, delta, delivery, application
-				   FROM {$table}
-				  WHERE created_at < %s
-				    AND ( delivery = 'confirmed' OR application IN ( 'applied', 'discarded' ) )",
+				"SELECT m.id, m.origin_store, m.origin_seq, m.link_id, m.delta, m.application,
+				        m.generation, l.generation AS link_generation
+				   FROM {$table} m
+				   LEFT JOIN {$links} l ON l.id = m.link_id
+				  WHERE m.created_at < %s
+				    AND ( m.delivery = 'confirmed' OR m.application IN ( 'applied', 'discarded' ) )",
 				$cutoff
 			)
 		);
@@ -208,7 +215,10 @@ final class Ledger {
 			// Sólo se consolida lo que está reflejado en el stock local. Una recibida
 			// descartada nunca se aplicó: sumarla correría el stock base justo por los
 			// movimientos que decidimos no aplicar.
-			if ( null !== $row->link_id && self::DISCARDED !== $row->application ) {
+			if ( null !== $row->link_id
+				&& self::DISCARDED !== $row->application
+				&& (int) $row->generation === (int) $row->link_generation
+			) {
 				$link_id                 = (int) $row->link_id;
 				$consolidate[ $link_id ] = ( $consolidate[ $link_id ] ?? 0 ) + (int) $row->delta;
 			}
@@ -221,24 +231,39 @@ final class Ledger {
 
 		$wpdb->query( 'START TRANSACTION' );
 
-		$links = Installer::table( 'links' );
-
+		// Nada de esto puede quedar a medias: el stock base consolidado con las filas
+		// todavía en el libro contaría esos movimientos dos veces, y borrar las filas sin
+		// mover la marca haría que la fase 1 se las vuelva a ofrecer (ADR-004 §4).
 		foreach ( $consolidate as $link_id => $delta ) {
-			$wpdb->query(
+			$updated = $wpdb->query(
 				$wpdb->prepare( "UPDATE {$links} SET base_stock = base_stock + %d WHERE id = %d", $delta, $link_id )
 			);
+
+			if ( false === $updated ) {
+				self::rollback_purge();
+
+				return 0;
+			}
 		}
 
 		$placeholders = implode( ', ', array_fill( 0, count( $ids ), '%d' ) );
 
-		$wpdb->query(
+		$deleted = $wpdb->query(
 			$wpdb->prepare( "DELETE FROM {$table} WHERE id IN ( {$placeholders} )", $ids )
 		);
 
+		if ( false === $deleted ) {
+			self::rollback_purge();
+
+			return 0;
+		}
+
+		// La marca, adentro de la transacción: `wp_options` es InnoDB como las nuestras,
+		// así que un rollback se la lleva también.
+		self::remember_purged( $purged_upto );
+
 		$wpdb->query( 'COMMIT' );
 		// phpcs:enable
-
-		self::remember_purged( $purged_upto );
 
 		return count( $ids );
 	}
@@ -262,6 +287,17 @@ final class Ledger {
 		}
 
 		update_option( 'wss_peers', $peers, false );
+	}
+
+	/**
+	 * Deshace la transacción y limpia la caché de la opción que quedó escrita en memoria.
+	 */
+	private static function rollback_purge(): void {
+		global $wpdb;
+
+		$wpdb->query( 'ROLLBACK' ); // phpcs:ignore WordPress.DB
+
+		wp_cache_delete( 'wss_peers', 'options' );
 	}
 
 	/**

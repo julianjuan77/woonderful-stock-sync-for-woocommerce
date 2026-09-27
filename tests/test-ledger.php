@@ -829,6 +829,9 @@ class Test_Ledger extends WP_UnitTestCase {
 					'confirmed_at'    => gmdate( 'Y-m-d H:i:s', time() - 100 * DAY_IN_SECONDS ),
 					'next_attempt_at' => null,
 					'link_id'         => $this->link_id,
+					// La del vínculo que arma set_up: sólo se consolida la generación
+					// vigente, así que un movimiento de otra no cuenta.
+					'generation'      => 77,
 				),
 				$overrides
 			)
