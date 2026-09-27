@@ -63,13 +63,19 @@ final class Ledger {
 	 * condicional y no un `SELECT` seguido de un `UPDATE`: dos pasadas simultáneas que
 	 * leyeran las mismas filas se llevarían el mismo lote.
 	 *
-	 * @param string $worker Identificador de quien reclama.
-	 * @param int    $limit  Tope de movimientos por lote.
+	 * El token lo genera esta función y no lo recibe: si dos pasadas usaran el mismo, la
+	 * segunda se llevaría también las filas que la primera está enviando —el lote pasaría
+	 * de 200 y los ACK caerían sobre filas ajenas—, que es justo lo que el claim evita.
+	 * Cada fila devuelta trae su `claimed_by`.
 	 *
-	 * @return object[] Las filas reclamadas por este worker.
+	 * @param int $limit Tope de movimientos por lote.
+	 *
+	 * @return object[] Las filas reclamadas en esta llamada.
 	 */
-	public static function claim( string $worker, int $limit = self::MAX_BATCH ): array {
+	public static function claim( int $limit = self::MAX_BATCH ): array {
 		global $wpdb;
+
+		$worker = wp_generate_uuid4();
 
 		$table = Installer::table( 'movements' );
 
@@ -85,10 +91,17 @@ final class Ledger {
 			    AND claimed_at < UTC_TIMESTAMP() - INTERVAL " . self::CLAIM_TIMEOUT
 		);
 
+		// El intento se cuenta acá y no al anotar el resultado: si el worker muere, nadie
+		// llega a anotarlo y el techo de 6 horas no avanzaría nunca (ADR-001 §2). Un lote
+		// que siempre supera el tiempo de PHP se reintentaría para siempre.
 		$wpdb->query(
 			$wpdb->prepare(
 				"UPDATE {$table}
-				    SET delivery = 'in_flight', claimed_by = %s, claimed_at = UTC_TIMESTAMP()
+				    SET delivery = 'in_flight',
+				        claimed_by = %s,
+				        claimed_at = UTC_TIMESTAMP(),
+				        attempts = attempts + 1,
+				        first_attempt_at = COALESCE( first_attempt_at, UTC_TIMESTAMP() )
 				  WHERE delivery = 'pending'
 				    AND next_attempt_at <= UTC_TIMESTAMP()
 				  ORDER BY next_attempt_at, id
