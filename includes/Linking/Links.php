@@ -19,6 +19,33 @@ defined( 'ABSPATH' ) || exit;
 final class Links {
 
 	/**
+	 * El vínculo de un producto de la otra tienda, o null si no tiene.
+	 *
+	 * `record()` busca por el producto de acá; `apply()` recibe "el producto 456 de la
+	 * tienda A" y necesita el de acá. Es para lo que ADR-004 creó el índice `remote`.
+	 *
+	 * @param string $remote_store   Identificador de la otra tienda.
+	 * @param int    $remote_product ID del producto en esa tienda.
+	 */
+	public static function for_remote_product( string $remote_store, int $remote_product ): ?\stdClass {
+		global $wpdb;
+
+		$table = Installer::table( 'links' );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT * FROM {$table} WHERE remote_store = %s AND remote_product = %d",
+				$remote_store,
+				$remote_product
+			)
+		);
+		// phpcs:enable
+
+		return $row instanceof \stdClass ? $row : null;
+	}
+
+	/**
 	 * El vínculo de un producto local, o null si no tiene.
 	 *
 	 * @param int $product_id ID del producto en esta tienda.
