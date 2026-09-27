@@ -155,9 +155,9 @@ class Test_Ledger extends WP_UnitTestCase {
 	 */
 	public function test_an_applicable_movement_is_applied(): void {
 		$product_id = $this->create_product( 10 );
-		$this->link_product( $product_id, 456, 77 );
+		$this->link_product( $product_id, 789, 77 );
 
-		$state = Ledger::apply( $this->incoming( 456, -2 ) );
+		$state = Ledger::apply( $this->incoming( 789, -2 ) );
 
 		$this->assertSame( 'applied', $state );
 		$this->assertSame( 8, $this->stock_of( $product_id ) );
@@ -168,9 +168,9 @@ class Test_Ledger extends WP_UnitTestCase {
 	 */
 	public function test_the_received_row_keeps_its_origin(): void {
 		$product_id = $this->create_product( 10 );
-		$this->link_product( $product_id, 456, 77 );
+		$this->link_product( $product_id, 789, 77 );
 
-		Ledger::apply( $this->incoming( 456, -2 ) );
+		Ledger::apply( $this->incoming( 789, -2 ) );
 
 		global $wpdb;
 		$table    = Installer::table( 'movements' );
@@ -178,7 +178,7 @@ class Test_Ledger extends WP_UnitTestCase {
 
 		$this->assertSame( self::REMOTE_STORE, $movement->origin_store );
 		$this->assertSame( 77, (int) $movement->origin_seq );
-		$this->assertSame( 456, (int) $movement->origin_product );
+		$this->assertSame( 789, (int) $movement->origin_product );
 		$this->assertSame( 'applied', $movement->application );
 		$this->assertNull( $movement->delivery );
 	}
@@ -191,10 +191,10 @@ class Test_Ledger extends WP_UnitTestCase {
 	 */
 	public function test_a_resent_movement_is_not_applied_twice(): void {
 		$product_id = $this->create_product( 10 );
-		$this->link_product( $product_id, 456, 77 );
+		$this->link_product( $product_id, 789, 77 );
 
-		$this->assertSame( 'applied', Ledger::apply( $this->incoming( 456, -2 ) ) );
-		$this->assertSame( 'applied', Ledger::apply( $this->incoming( 456, -2 ) ) );
+		$this->assertSame( 'applied', Ledger::apply( $this->incoming( 789, -2 ) ) );
+		$this->assertSame( 'applied', Ledger::apply( $this->incoming( 789, -2 ) ) );
 
 		$this->assertSame( 8, $this->stock_of( $product_id ) );
 		$this->assertSame( 1, $this->count_movements() );
@@ -219,9 +219,9 @@ class Test_Ledger extends WP_UnitTestCase {
 	 */
 	public function test_a_movement_from_an_old_generation_is_discarded(): void {
 		$product_id = $this->create_product( 10 );
-		$this->link_product( $product_id, 456, 412 );
+		$this->link_product( $product_id, 789, 412 );
 
-		$state = Ledger::apply( $this->incoming( 456, -2, array( 'generation' => 77 ) ) );
+		$state = Ledger::apply( $this->incoming( 789, -2, array( 'generation' => 77 ) ) );
 
 		$this->assertSame( 'discarded', $state );
 		$this->assertSame( 10, $this->stock_of( $product_id ) );
@@ -235,11 +235,11 @@ class Test_Ledger extends WP_UnitTestCase {
 	 */
 	public function test_a_movement_for_a_missing_product_is_held(): void {
 		$product_id = $this->create_product( 10 );
-		$this->link_product( $product_id, 456, 77 );
+		$this->link_product( $product_id, 789, 77 );
 
 		wp_delete_post( $product_id, true );
 
-		$state = Ledger::apply( $this->incoming( 456, -2 ) );
+		$state = Ledger::apply( $this->incoming( 789, -2 ) );
 
 		$this->assertSame( 'held', $state );
 	}
@@ -252,16 +252,16 @@ class Test_Ledger extends WP_UnitTestCase {
 	 */
 	public function test_applying_arms_the_guard(): void {
 		$product_id = $this->create_product( 10 );
-		$this->link_product( $product_id, 456, 77 );
+		$this->link_product( $product_id, 789, 77 );
 
 		Guard::forget_all();
 
-		Ledger::apply( $this->incoming( 456, -2 ) );
+		Ledger::apply( $this->incoming( 789, -2 ) );
 
-		// Si el guard se hubiera anotado y nadie lo consumiera, seguiría disponible; lo
-		// que se comprueba es que la aplicación lo haya consumido: el cambio de stock
-		// pasó por el detector con la anotación puesta.
-		$this->assertFalse( Guard::consume( $product_id ), 'el guard tendría que haberse consumido' );
+		// Hoy nadie la consume porque el detector todavía no existe (tarea 4.1): lo que
+		// se comprueba es que `apply()` la haya dejado puesta antes de tocar el stock.
+		// Cuando el detector exista, este test pasa a verificar que la consumió.
+		$this->assertTrue( Guard::consume( $product_id ), 'apply() tiene que anotar el guard' );
 	}
 
 	/**
