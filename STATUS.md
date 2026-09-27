@@ -132,8 +132,8 @@ Verificado rompiéndolo: sin el `UPDATE` cae `LED-02`; registrando productos sin
 | | Tarea | Estado |
 |---|---|---|
 | 6.1 | Crear el vínculo y emitir el bootstrap | ⬜ |
-| 6.2 | Recibir un bootstrap y crear la fila del otro lado | ⬜ |
-| 6.3 | Desvincular y emitir el `unlink` | ⬜ |
+| 6.2 | Recibir un bootstrap y crear la fila del otro lado. **`apply()` tiene que atenderlo antes de buscar el vínculo**: hoy lo descartaría con ACK y el par no se crearía nunca (ADR-001 §3) | ⬜ |
+| 6.3 | Desvincular y emitir el `unlink`. Mismo caso que 6.2: se atiende antes de buscar el vínculo, porque lo borra | ⬜ |
 | 6.4 | El estado derivado: vinculado, suspendido, sin vincular | ⬜ |
 | 6.5 | `Links::for_product()` — escrito en 3.1, le falta el resto de la clase | 🔄 |
 
