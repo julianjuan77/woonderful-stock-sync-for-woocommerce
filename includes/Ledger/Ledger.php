@@ -30,6 +30,11 @@ final class Ledger {
 	public const DELIVERY_DELAY = 10;
 
 	/**
+	 * Tope de movimientos por lote. El receptor rechaza uno más grande (ADR-001 §4).
+	 */
+	public const MAX_BATCH = 200;
+
+	/**
 	 * Se aplicó al stock local.
 	 */
 	public const APPLIED = 'applied';
@@ -43,6 +48,66 @@ final class Ledger {
 	 * No se va a aplicar nunca: sin vínculo, o de una generación que ya no corre.
 	 */
 	public const DISCARDED = 'discarded';
+
+	/**
+	 * Cuánto puede quedar una fila en vuelo antes de volver a estar disponible.
+	 *
+	 * Un worker que muere a mitad la dejaría tomada para siempre (ADR-001 §2).
+	 */
+	public const CLAIM_TIMEOUT = '5 MINUTE';
+
+	/**
+	 * Libera lo vencido y reclama un lote de movimientos para entregar.
+	 *
+	 * Son los dos primeros pasos de la pasada (ADR-001 §2). El segundo es un `UPDATE`
+	 * condicional y no un `SELECT` seguido de un `UPDATE`: dos pasadas simultáneas que
+	 * leyeran las mismas filas se llevarían el mismo lote.
+	 *
+	 * @param string $worker Identificador de quien reclama.
+	 * @param int    $limit  Tope de movimientos por lote.
+	 *
+	 * @return object[] Las filas reclamadas por este worker.
+	 */
+	public static function claim( string $worker, int $limit = self::MAX_BATCH ): array {
+		global $wpdb;
+
+		$table = Installer::table( 'movements' );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+
+		// UTC_TIMESTAMP() y no NOW(): las fechas se guardan en UTC y `NOW()` devuelve la
+		// hora del servidor MySQL en su zona, así que en un servidor que no esté en UTC la
+		// entrega se adelantaría o se atrasaría esa diferencia.
+		$wpdb->query(
+			"UPDATE {$table}
+			    SET delivery = 'pending', claimed_by = NULL, claimed_at = NULL
+			  WHERE delivery = 'in_flight'
+			    AND claimed_at < UTC_TIMESTAMP() - INTERVAL " . self::CLAIM_TIMEOUT
+		);
+
+		$wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$table}
+				    SET delivery = 'in_flight', claimed_by = %s, claimed_at = UTC_TIMESTAMP()
+				  WHERE delivery = 'pending'
+				    AND next_attempt_at <= UTC_TIMESTAMP()
+				  ORDER BY next_attempt_at, id
+				  LIMIT %d",
+				$worker,
+				max( 1, min( $limit, self::MAX_BATCH ) )
+			)
+		);
+
+		$claimed = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT * FROM {$table} WHERE delivery = 'in_flight' AND claimed_by = %s ORDER BY id",
+				$worker
+			)
+		);
+		// phpcs:enable
+
+		return (array) $claimed;
+	}
 
 	/**
 	 * Aplica un movimiento que llegó de la otra tienda.
