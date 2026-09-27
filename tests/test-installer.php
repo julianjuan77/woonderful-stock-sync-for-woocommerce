@@ -285,6 +285,33 @@ class Test_Installer extends WP_UnitTestCase {
 	}
 
 	/**
+	 * El resultado se guarda también cuando es malo. Con `false` como valor no se guardaba:
+	 * WordPress compara contra el default de una opción inexistente —que es `false`—,
+	 * concluye que no hay nada que cambiar, y no escribe. La consulta cara a
+	 * information_schema se repetía en cada request.
+	 *
+	 * SCH-14
+	 */
+	public function test_an_unhealthy_result_is_stored(): void {
+		global $wpdb;
+
+		Installer::install();
+
+		$table = Installer::table( 'nonces' );
+		$wpdb->query( "DROP TABLE {$table}" ); // phpcs:ignore WordPress.DB
+		delete_option( Installer::OPTION_SCHEMA_HEALTHY );
+
+		$this->assertFalse( Installer::refresh_schema_status() );
+
+		$stored = (int) $wpdb->get_var( // phpcs:ignore WordPress.DB
+			$wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->options} WHERE option_name = %s", Installer::OPTION_SCHEMA_HEALTHY )
+		);
+
+		$this->assertSame( 1, $stored, 'el resultado malo tiene que quedar guardado' );
+		$this->assertFalse( Installer::schema_is_healthy() );
+	}
+
+	/**
 	 * Un sitio que actualiza desde una versión anterior a este control no tiene la opción
 	 * escrita, y ahí hay que mirar las tablas una vez en vez de dar por buena su ausencia.
 	 *
