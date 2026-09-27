@@ -168,17 +168,8 @@ final class Ledger {
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
 
-		// El techo se aplica acá y no al anotar el resultado: toda fila vuelve a pasar por
-		// el claim, muera quien muera, y un worker que muere nunca llama a `ack()`
-		// (ADR-001 §2).
-		$wpdb->query(
-			"UPDATE {$table}
-			    SET delivery = 'abandoned', claimed_by = NULL, claimed_at = NULL
-			  WHERE delivery IN ( 'pending', 'in_flight' )
-			    AND first_attempt_at IS NOT NULL
-			    AND first_attempt_at < UTC_TIMESTAMP() - INTERVAL " . self::DELIVERY_CEILING
-		);
-
+		// Paso 1 — liberar lo que quedó colgado de una pasada anterior.
+		//
 		// UTC_TIMESTAMP() y no NOW(): las fechas se guardan en UTC y `NOW()` devuelve la
 		// hora del servidor MySQL en su zona, así que en un servidor que no esté en UTC la
 		// entrega se adelantaría o se atrasaría esa diferencia.
@@ -189,7 +180,23 @@ final class Ledger {
 			    AND claimed_at < UTC_TIMESTAMP() - INTERVAL " . self::CLAIM_TIMEOUT
 		);
 
-		// El intento se cuenta acá y no al anotar el resultado: si el worker muere, nadie
+		// Paso 2 — abandonar lo que pasó el techo. **Sólo lo que está esperando, nunca lo
+		// que está en camino**: cancelar una fila que otra pasada está entregando haría
+		// que su ACK llegue a una fila abandonada y la reconciliación la reenvíe sin
+		// necesidad.
+		//
+		// Va después del paso 1 a propósito: así la fila de un worker muerto se libera y
+		// se abandona en la misma pasada. Y el techo se mira acá y no al anotar el
+		// resultado porque un worker que muere nunca llama a `ack()` (ADR-001 §2).
+		$wpdb->query(
+			"UPDATE {$table}
+			    SET delivery = 'abandoned', claimed_by = NULL, claimed_at = NULL
+			  WHERE delivery = 'pending'
+			    AND first_attempt_at IS NOT NULL
+			    AND first_attempt_at < UTC_TIMESTAMP() - INTERVAL " . self::DELIVERY_CEILING
+		);
+
+		// Paso 3 — reclamar el lote. El intento se cuenta acá y no al anotar el resultado: si el worker muere, nadie
 		// llega a anotarlo y el techo de 6 horas no avanzaría nunca (ADR-001 §2). Un lote
 		// que siempre supera el tiempo de PHP se reintentaría para siempre.
 		$wpdb->query(
