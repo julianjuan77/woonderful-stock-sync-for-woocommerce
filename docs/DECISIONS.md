@@ -101,6 +101,9 @@ Revisado: 2026-09-20 — los nombres del contrato (campos del JSON y valores de 
 pasaron a inglés, para no mezclar idiomas con los estados de §3. Sin cambios de diseño.
 Revisado: 2026-09-21 — ADR-005 suma un quinto endpoint, `GET /products`, y dos valores de
 `reason`: `bootstrap` y `unlink` viajan como movimientos. Ver §4.
+Revisado: 2026-09-27 — los ejemplos de §4 mostraban `"id": "A-77"`, de antes de que ADR-002
+resolviera el formato. El identificador viaja como dos campos, `origin` y `seq`: `A-77` es
+sólo la forma de mostrarlo. No es un cambio de diseño — §4 ya delegaba el formato.
 Revisado: 2026-09-26 — ADR-007 cambia la huella a `sha256( get_option( 'home' ) )`:
 `home_url()` varía con el request y con quien la filtre. Ver §1, detección de clon.
 Temas: rest-api, api-externa, db-schema, opciones
@@ -623,7 +626,8 @@ que manda sobre esa pieza:
 ```json
 { "movements": [
     {
-      "id":         "A-77",
+      "origin":     "8f4e2a91-c7b3-4d05-8a1f-9c48b2703d17",
+      "seq":        77,
       "generation": 4,
       "delta":      -1,
       "product":    123,
@@ -635,7 +639,8 @@ que manda sobre esa pieza:
 
 | Campo        | Qué es                                                        | Quién fija su formato |
 | ------------ | ------------------------------------------------------------- | --------------------- |
-| `id`         | Identificador global: tienda de origen + secuencia            | ADR de identidad      |
+| `origin`     | La tienda que lo emitió                                       | ADR de identidad      |
+| `seq`        | Su número dentro de esa tienda. Con `origin`, el identificador global | ADR de identidad |
 | `generation` | La generación del vínculo vigente cuando se emitió            | ADR de vinculación    |
 | `delta`      | Entero con signo. §5 no admite decimales                      | Este ADR              |
 | `product`    | ID local del producto **en la tienda de origen**              | ADR de identidad      |
@@ -650,7 +655,7 @@ tener.
 **El que no puede faltar es `generation`:**
 
 ```
-Sin generation: {"id":"A-77","delta":-1,"product":123}
+Sin generation: {"origin":"8f4e…","seq":77,"delta":-1,"product":123}
    → el receptor no tiene con qué saber si es de la época que corre
    → lo aplica, y el stock queda mal contra un libro que no lo cuenta
    → el 'discarded' de §3 queda sin uso, porque nunca hay con qué decidir descartar
@@ -664,9 +669,9 @@ vinculación.
 
 ```json
 { "results": [
-    {"id": "A-77", "status": "received"},
-    {"id": "A-78", "status": "received"},
-    {"id": "A-79", "status": "error", "reason": "..."}
+    {"origin": "8f4e…", "seq": 77, "status": "received"},
+    {"origin": "8f4e…", "seq": 78, "status": "received"},
+    {"origin": "8f4e…", "seq": 79, "status": "error", "reason": "..."}
 ] }
 ```
 
