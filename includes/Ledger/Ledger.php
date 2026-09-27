@@ -74,22 +74,27 @@ final class Ledger {
 	 * que se llevó la fila; y un id equivocado —el de un movimiento recibido, que no tiene
 	 * entrega— lo metería en la cola de salida (ADR-001 §3).
 	 *
-	 * @param string           $worker  El token con el que se reclamaron las filas.
-	 * @param array<int, bool> $results ID del movimiento => si la otra tienda lo confirmó.
+	 * Un `true` es una confirmación; cualquier texto es un fallo, y ese texto es el motivo
+	 * que contestó el receptor. Se guarda en la fila porque es lo que después explica un
+	 * movimiento abandonado: el log tiene la causa del lote, la fila tiene la suya
+	 * (ADR-001 §2).
+	 *
+	 * @param string                  $worker  El token con el que se reclamaron las filas.
+	 * @param array<int, bool|string> $results ID del movimiento => true, o el motivo del fallo.
 	 */
 	public static function ack( string $worker, array $results ): void {
 		global $wpdb;
 
 		$table = Installer::table( 'movements' );
 
-		foreach ( $results as $movement_id => $confirmed ) {
+		foreach ( $results as $movement_id => $result ) {
 			$owned = array(
 				'id'         => (int) $movement_id,
 				'delivery'   => 'in_flight',
 				'claimed_by' => $worker,
 			);
 
-			if ( $confirmed ) {
+			if ( true === $result ) {
 				$wpdb->update( // phpcs:ignore WordPress.DB
 					$table,
 					array(
@@ -115,6 +120,9 @@ final class Ledger {
 					'claimed_by'      => null,
 					'claimed_at'      => null,
 					'next_attempt_at' => gmdate( 'Y-m-d H:i:s', time() + self::backoff_for( $attempts ) ),
+					// Recortado al tamaño de la columna: un motivo más largo haría fallar
+					// el UPDATE entero y la fila quedaría en vuelo hasta que venza su claim.
+					'last_error'      => mb_substr( is_string( $result ) ? $result : 'error', 0, 255 ),
 				),
 				$owned
 			);
