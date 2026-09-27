@@ -610,6 +610,41 @@ class Test_Ledger extends WP_UnitTestCase {
 	}
 
 	/**
+	 * La espera crece con los intentos. Mirar sólo que sea "más adelante" pasaría igual
+	 * con un backoff fijo, que es lo que el ADR no quiere: sin curva, una tienda caída
+	 * recibiría un intento por minuto durante seis horas.
+	 *
+	 * LED-43
+	 */
+	public function test_the_wait_grows_between_failures(): void {
+		global $wpdb;
+
+		$movement = $this->pending_movement();
+
+		$waits = array();
+
+		for ( $failure = 1; $failure <= 2; $failure++ ) {
+			$claimed = Ledger::claim();
+
+			$before = time();
+			Ledger::ack( (string) $claimed[0]->claimed_by, array( $movement => 'la tienda no responde' ) );
+
+			$waits[] = strtotime( (string) $this->column_of( $movement, 'next_attempt_at' ) ) - $before;
+
+			// Adelantar el reloj de la fila para poder reclamarla otra vez.
+			$wpdb->update( // phpcs:ignore WordPress.DB
+				Installer::table( 'movements' ),
+				array( 'next_attempt_at' => gmdate( 'Y-m-d H:i:s', time() - 10 ) ),
+				array( 'id' => $movement )
+			);
+		}
+
+		$this->assertEqualsWithDelta( Ledger::backoff_for( 1 ), $waits[0], 2 );
+		$this->assertEqualsWithDelta( Ledger::backoff_for( 2 ), $waits[1], 2 );
+		$this->assertGreaterThan( $waits[0], $waits[1] );
+	}
+
+	/**
 	 * La columna son 255 caracteres: un motivo más largo haría fallar el UPDATE entero y
 	 * la fila quedaría en vuelo, sin nadie que la libere hasta que venza el claim.
 	 *
