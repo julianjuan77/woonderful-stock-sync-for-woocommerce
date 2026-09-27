@@ -107,6 +107,9 @@ mientras escribía la función.
 | El movimiento lleva la generación vigente del par | ADR-005 §4 | `LED-03` | [test-ledger.php](test-ledger.php) |
 | Un movimiento no se entrega enseguida | ADR-006 §4 | `LED-05` | [test-ledger.php](test-ledger.php) |
 | Nada entra a la malla hasta que el dueño vincula | UC-03, ADR-006 §1 | `LED-07` | [test-ledger.php](test-ledger.php) |
+| El ACK confirma recepción y no efecto: un reenvío no aplica dos veces | ADR-001 §3 | `LED-13` | [test-ledger.php](test-ledger.php) |
+| El receptor sólo aplica la generación vigente | ADR-005 §4 | `LED-15` | [test-ledger.php](test-ledger.php) |
+| Un movimiento que no se puede aplicar se retiene, no se descarta | SPEC §3, UC-03 | `LED-16` | [test-ledger.php](test-ledger.php) |
 | El guard no tapa la venta de otro producto del mismo request | ADR-006 §3, SPEC §3 | `GRD-04` | [test-guard.php](test-guard.php) |
 | El guard es de un solo uso | ADR-006 §3 | `GRD-03` | [test-guard.php](test-guard.php) |
 | El secreto se borra siempre al desinstalar | ADR-003 | `UNI-01` | [test-uninstall.php](test-uninstall.php) |
@@ -202,6 +205,13 @@ varios tests sin chocar.
 | `LED-08` | Delta 0 | Devuelve `null` y no escribe nada |
 | `LED-09` | El `UPDATE` de la secuencia falla | Se deshacen las dos escrituras: no queda ninguna fila |
 | `LED-10` | Las consultas de `record()` | El `INSERT` va después del `START TRANSACTION` y el `COMMIT` después del `UPDATE` |
+| `LED-11` | Un movimiento aplicable | Descuenta el stock de verdad y devuelve `applied` |
+| `LED-12` | Idem | La fila del receptor guarda origen, secuencia y producto de origen, con el eje de entrega vacío |
+| `LED-13` | El mismo movimiento dos veces | No descuenta dos veces y queda una sola fila |
+| `LED-14` | Sin vínculo | `discarded` |
+| `LED-15` | Generación que ya no corre | `discarded`, y el stock no se toca |
+| `LED-16` | El producto local borrado | `held`: guardado y reintentable |
+| `LED-17` | Al aplicar | El guard queda anotado antes de tocar el stock |
 
 ## [`tests/test-guard.php`](test-guard.php) — el guard anti-eco
 
@@ -241,6 +251,8 @@ la suite de WordPress abre para cada test.
 ## Lo que todavía no tiene tests
 
 - Todo `Transport/` y `Reconciliation/`: no hay código todavía.
+- Que el detector consuma el guard que `apply()` deja puesto: hoy nadie lo consume porque el
+  detector no existe (tarea 4.1). `LED-17` verifica sólo que quede anotado.
 - La purga que consolida el stock base.
 - Que `boot()` **no registre** la sincronización cuando está suspendida. Hoy no hay nada
   registrado que verificar; el test va cuando exista el detector.

@@ -34,14 +34,14 @@ make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS=
 
 ## 🔄 En progreso
 
-**3.2 — `Ledger::apply()`: aplicar un movimiento recibido.**
+**3.3 — `Ledger::claim()`: liberar lo vencido y reclamar un lote.**
 
-El guard (4.2) ya está, así que `apply()` puede escribirse entera: el caso `applied` necesita
-tocar el stock de WooCommerce, y sin guard eso emitiría un movimiento de vuelta.
+Son los dos primeros pasos de la pasada de ADR-001 §2: el `UPDATE` que devuelve a `pending`
+lo que lleva más de 5 minutos en `in_flight`, y el que reclama un lote marcándolo con el
+worker.
 
-Done cuando: decide entre `applied`, `held` y `discarded` según el vínculo y la generación,
-aplica el delta con el guard puesto, escribe la fila del receptor, tiene sus tests `LED-NN`,
-lint y tests en verde, y está commiteada.
+Done cuando: los dos `UPDATE` condicionales funcionan, el lote respeta el tope de 200, tiene
+sus tests `LED-NN`, lint y tests en verde, y está commiteada.
 
 ---
 
@@ -81,8 +81,8 @@ Leyenda: ✅ hecho · 🔄 en curso · ⬜ pendiente · 🔒 bloqueado
 | | Tarea | Estado | Commit | Tests |
 |---|---|---|---|---|
 | 3.1 | `record()`: escribir un movimiento propio, con la secuencia en una transacción | ✅ | `2668a7a` | `LED-01`…`LED-08` |
-| 3.2 | `apply()`: aplicar un movimiento recibido y decidir `applied` / `held` / `discarded` | 🔄 | | |
-| 3.3 | `claim()`: liberar lo vencido y reclamar un lote | ⬜ | | |
+| 3.2 | `apply()`: aplicar un movimiento recibido y decidir `applied` / `held` / `discarded` | ✅ | `7af47c9` | `LED-11`…`LED-17` |
+| 3.3 | `claim()`: liberar lo vencido y reclamar un lote | 🔄 | | |
 | 3.4 | `ack()`: anotar el resultado de cada fila entregada | ⬜ | | |
 | 3.5 | `purge()`: la retención, consolidando el stock base | ⬜ | | |
 
@@ -192,6 +192,6 @@ seguridad y convenciones de código.
 | La reconciliación de cierre de una importación no tiene ADR | §6 del SPEC → tarea 1.9 |
 | El auditor de tests ya es un agente del entorno: `.claude/agents/test-auditor.md` | — |
 | `record()` escribiría movimientos con origen vacío si faltara el identificador. Hoy no puede pasar: `boot()` lo genera antes de todo | Auditoría 2026-09-26 |
-| `Links::for_product()` devuelve la primera fila si un producto tuviera dos vínculos. Con dos tiendas no ocurre | Auditoría 2026-09-26 |
+| `Links::for_remote_product()` devuelve la primera fila si hubiera dos vínculos con el mismo remoto. Con dos tiendas no ocurre en producción, pero **ya tropezó un test**: el fixture creaba dos | Auditoría 2026-09-26 |
 | ADR-001 dice que el tamaño de lote y la curva de backoff son "configuración". Cuando se escriba 5.4, decidir si de verdad lo son o son constantes, como se resolvió con el retardo | ADR-001 §2 |
 | Infection cuando exista `Transport/`: necesita PCOV en la imagen de wp-restore | — |
