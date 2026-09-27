@@ -60,9 +60,10 @@ Leyenda: ✅ hecho · 🔄 en curso · ⬜ pendiente · 🔒 bloqueado
 | 1.5 | ADR-004 — Esquema de la base de datos | ✅ |
 | 1.6 | ADR-005 — Vinculación de productos | ✅ |
 | 1.7 | ADR-006 — El detector de cambios de stock | ✅ |
-| 1.8 | ADR — Reconciliación (UC-06): las dos fases, el candado, el cierre de una importación | ⬜ |
-| 1.9 | ADR — Log de acciones y avisos (UC-03, UC-08) | ⬜ |
-| 1.10 | ADR — Interfaz (UC-05): pantalla de vinculación y de ajustes | ⬜ |
+| 1.8 | ADR-007 — Qué se hashea en la huella del sitio | ✅ |
+| 1.9 | ADR — Reconciliación (UC-06): las dos fases, el candado, el cierre de una importación | ⬜ |
+| 1.10 | ADR — Log de acciones y avisos (UC-03, UC-08) | ⬜ |
+| 1.11 | ADR — Interfaz (UC-05): pantalla de vinculación y de ajustes | ⬜ |
 
 ### 2. Cimientos
 
@@ -140,16 +141,16 @@ Verificado rompiéndolo: sin el `UPDATE` cae `LED-02`; registrando productos sin
 
 | | Tarea | Estado |
 |---|---|---|
-| 7.1 | Fase 1: el digest y la reentrega de lo que falta | 🔒 1.8 |
-| 7.2 | Fase 2: comparar el stock real contra el libro | 🔒 1.8 |
-| 7.3 | El candado con vencimiento y la pasada nocturna | 🔒 1.8 |
+| 7.1 | Fase 1: el digest y la reentrega de lo que falta | 🔒 1.9 |
+| 7.2 | Fase 2: comparar el stock real contra el libro | 🔒 1.9 |
+| 7.3 | El candado con vencimiento y la pasada nocturna | 🔒 1.9 |
 
 ### 8. La interfaz — `admin/`
 
 | | Tarea | Estado |
 |---|---|---|
-| 8.1 | Pantalla de ajustes: emparejamiento, estado del canal, la casilla de borrado | 🔒 1.10 |
-| 8.2 | Pantalla de vinculación: sugerencias por SKU, vinculación masiva, estado por producto | 🔒 1.10 |
+| 8.1 | Pantalla de ajustes: emparejamiento, estado del canal, la casilla de borrado | 🔒 1.11 |
+| 8.2 | Pantalla de vinculación: sugerencias por SKU, vinculación masiva, estado por producto | 🔒 1.11 |
 
 ### 9. Publicación
 
@@ -185,12 +186,10 @@ seguridad y convenciones de código.
 
 | Qué | Dónde |
 |---|---|
-| El SPEC referencia ADR-004 y ADR-005 con otro significado, heredado de un arranque anterior | `docs/SPEC.md` |
-| UC-01 dice "reintenta un número **finito** de veces"; ADR-001 fijó el techo en tiempo | `docs/SPEC.md` |
 | Preguntas abiertas de §6 sin cerrar: multisite y volumen real del catálogo | `docs/SPEC.md` |
 | El clon servido en la **misma URL por HTTPS** pasa la detección. Declarado, no resuelto | ADR-001 §1, ADR-007 |
 | El emparejamiento tiene que rechazar una tienda cuya opción `home` no sea `https` | ADR-007 → Transporte |
-| La reconciliación de cierre de una importación no tiene ADR | §6 del SPEC → tarea 1.8 |
+| La reconciliación de cierre de una importación no tiene ADR | §6 del SPEC → tarea 1.9 |
 | El auditor de tests ya es un agente del entorno: `.claude/agents/test-auditor.md` | — |
 | **`LED-02` no detecta si se saca la transacción de `record()`.** Verificar que dos escrituras estén en una transacción pide simular un corte del proceso | Auditoría 2026-09-26 |
 | **`PLG-07` dice "la identidad antes que el esquema" y sólo verifica que existan las dos.** Verificar un orden, no un resultado | Auditoría 2026-09-26 |
