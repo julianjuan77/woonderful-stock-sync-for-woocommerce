@@ -231,7 +231,7 @@ varios tests sin chocar.
 | `LED-29` | Reclamar un movimiento | Cuenta como intento: `attempts` sube y queda `first_attempt_at` |
 | `LED-30` | Reclamar uno que ya tenía intentos | `first_attempt_at` no se pisa; `attempts` sube |
 | `LED-31` | Una fila confirmada | Queda `confirmed`, con su hora y sin claim |
-| `LED-32` | Una fila que falló | Vuelve a `pending`, con el próximo intento más adelante |
+| `LED-32` | Una fila que falló | Vuelve a `pending`, con el próximo intento más adelante y el motivo guardado |
 | `LED-33` | La curva de backoff | 1, 2, 4, 8, 16 min… con tope de 30 |
 | `LED-34` | Una fila con 7 horas desde el primer intento | Se abandona al reclamar, y no se entrega |
 | `LED-35` | Una con 5 horas | Se sigue reclamando |
@@ -240,6 +240,8 @@ varios tests sin chocar.
 | `LED-38` | Un `ack()` sobre un movimiento **recibido** | No le toca el `delivery`: no tiene entrega que anotar |
 | `LED-39` | Una fila pasada del techo que un worker vivo está entregando | **No se abandona**: se abandona lo que espera, no lo que está en camino |
 | `LED-40` | La misma, de un worker muerto | Se libera y se abandona en la misma pasada |
+| `LED-41` | Un motivo de 400 caracteres | Se recorta a 255 y la fila se actualiza igual |
+| `LED-42` | Falla y después se confirma | El motivo del fallo queda como historia |
 
 ## [`tests/test-guard.php`](test-guard.php) — el guard anti-eco
 
