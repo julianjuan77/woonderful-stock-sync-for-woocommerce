@@ -150,6 +150,38 @@ class Test_Plugin extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Los tests llaman a `boot()` a mano, así que ninguno se entera si el archivo
+	 * principal deja de engancharlo. Sin estos dos `add_action`, el plugin no arranca y
+	 * la suite sigue entera en verde.
+	 *
+	 * PLG-14
+	 */
+	public function test_the_main_file_hooks_the_plugin_up(): void {
+		$this->assertNotFalse(
+			has_action( 'plugins_loaded', array( Plugin::class, 'boot' ) ),
+			'plugins_loaded tiene que llamar a boot()'
+		);
+		$this->assertNotFalse(
+			has_action( 'activate_' . plugin_basename( WSS_PLUGIN_FILE ), array( Plugin::class, 'activate' ) ),
+			'la activación tiene que llamar a activate()'
+		);
+	}
+
+	/**
+	 * PLG-15 — Un sitio suspendido engancha el aviso, no sólo sabe que lo está.
+	 */
+	public function test_boot_hooks_the_suspension_notice(): void {
+		update_option( Store::OPTION_FINGERPRINT, hash( 'sha256', 'https://otra.test' ) );
+
+		remove_action( 'admin_notices', array( Plugin::class, 'notice_suspended' ) );
+		$this->assertFalse( has_action( 'admin_notices', array( Plugin::class, 'notice_suspended' ) ) );
+
+		Plugin::boot();
+
+		$this->assertNotFalse( has_action( 'admin_notices', array( Plugin::class, 'notice_suspended' ) ) );
+	}
+
+	/**
 	 * PLG-10 — Sin WooCommerce, el plugin avisa en el admin.
 	 */
 	public function test_it_warns_when_woocommerce_is_missing(): void {
@@ -180,6 +212,18 @@ class Test_Plugin extends WP_UnitTestCase {
 		Plugin::boot();
 
 		$this->assertSame( Installer::SCHEMA_VERSION, (int) get_option( Installer::OPTION_VERSION ) );
+
+		// Y que las tablas hayan vuelto: install() escribe la versión aunque dbDelta no
+		// haya creado nada, así que la opción sola no prueba que migró.
+		foreach ( array( 'movements', 'links', 'nonces' ) as $name ) {
+			$table = Installer::table( $name );
+
+			$this->assertSame(
+				$table,
+				$wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ), // phpcs:ignore WordPress.DB
+				$name
+			);
+		}
 	}
 
 	/**
@@ -220,6 +264,27 @@ class Test_Plugin extends WP_UnitTestCase {
 			'/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/',
 			(string) $identity_when_creating
 		);
+	}
+
+	/**
+	 * PLG-13 — Con las tablas rotas, el aviso habla de las tablas y no del clon.
+	 */
+	public function test_a_broken_schema_shows_its_own_notice(): void {
+		global $wpdb;
+
+		update_option( Store::OPTION_FINGERPRINT, Store::fingerprint() );
+
+		$table = Installer::table( 'movements' );
+		$wpdb->query( "ALTER TABLE {$table} ENGINE=MyISAM" ); // phpcs:ignore WordPress.DB
+		Installer::refresh_schema_status();
+
+		ob_start();
+		Plugin::notice_suspended();
+		$output = (string) ob_get_clean();
+
+		$this->assertStringContainsString( 'notice-error', $output );
+		$this->assertStringContainsString( 'tablas', $output );
+		$this->assertStringNotContainsString( 'copia', $output );
 	}
 
 	/**

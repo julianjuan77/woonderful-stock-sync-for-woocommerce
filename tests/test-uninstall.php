@@ -18,6 +18,8 @@ class Test_Uninstall extends WP_UnitTestCase {
 	private const OPTION_DELETE_ALL = 'wss_delete_data_on_uninstall';
 
 	public function set_up(): void {
+		global $wpdb;
+
 		parent::set_up();
 
 		// Con tablas temporales el DROP no se puede comprobar: no figuran en SHOW TABLES.
@@ -28,6 +30,32 @@ class Test_Uninstall extends WP_UnitTestCase {
 		Store::ensure_identity();
 
 		update_option( Store::OPTION_FINGERPRINT, Store::fingerprint() );
+
+		// Con las tablas vacías, "siguen existiendo" lo cumple igual un TRUNCATE.
+		$wpdb->insert(
+			Installer::table( 'links' ),
+			array(
+				'local_product'  => 123,
+				'remote_store'   => 'tienda-b',
+				'remote_product' => 456,
+				'generation'     => 1,
+				'base_stock'     => 10,
+				'base_set_at'    => gmdate( 'Y-m-d H:i:s' ),
+			)
+		);
+		$wpdb->insert(
+			Installer::table( 'movements' ),
+			array(
+				'origin_store'   => Store::id(),
+				'origin_seq'     => 1,
+				'generation'     => 1,
+				'delta'          => -1,
+				'reason'         => 'sale',
+				'created_at'     => gmdate( 'Y-m-d H:i:s' ),
+				'origin_product' => 123,
+				'delivery'       => 'confirmed',
+			)
+		);
 		update_option(
 			'wss_peers',
 			array(
@@ -69,6 +97,19 @@ class Test_Uninstall extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Cuántas filas quedan en una tabla del plugin.
+	 *
+	 * @param string $name Nombre corto de la tabla.
+	 */
+	private function count_rows( string $name ): int {
+		global $wpdb;
+
+		$table = Installer::table( $name );
+
+		return (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table}" ); // phpcs:ignore WordPress.DB
+	}
+
+	/**
 	 * Nombres de las tablas del plugin que siguen existiendo.
 	 *
 	 * @return string[]
@@ -98,6 +139,7 @@ class Test_Uninstall extends WP_UnitTestCase {
 
 		$this->assertArrayNotHasKey( 'secret', $peers['tienda-b'] );
 		$this->assertSame( 'https://tienda-b.test/wp-json/wss/v1', $peers['tienda-b']['url'] );
+		$this->assertSame( 'tienda-b', $peers['tienda-b']['id'] );
 	}
 
 	/**
@@ -115,6 +157,9 @@ class Test_Uninstall extends WP_UnitTestCase {
 			),
 			$this->surviving_tables()
 		);
+
+		$this->assertSame( 1, $this->count_rows( 'movements' ), 'el libro tiene que conservar sus filas' );
+		$this->assertSame( 1, $this->count_rows( 'links' ), 'los vínculos tienen que conservar sus filas' );
 	}
 
 	/**
@@ -129,6 +174,8 @@ class Test_Uninstall extends WP_UnitTestCase {
 
 		$this->assertSame( $identity, Store::id() );
 		$this->assertSame( Installer::SCHEMA_VERSION, (int) get_option( Installer::OPTION_VERSION ) );
+		$this->assertSame( Store::fingerprint(), get_option( Store::OPTION_FINGERPRINT ) );
+		$this->assertNotFalse( get_option( Store::OPTION_LABEL, false ) );
 	}
 
 	/**

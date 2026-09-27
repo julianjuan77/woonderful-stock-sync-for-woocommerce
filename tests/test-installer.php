@@ -377,12 +377,16 @@ class Test_Installer extends WP_UnitTestCase {
 	public function test_a_missing_table_is_reported(): void {
 		global $wpdb;
 
-		Installer::install();
+		// Las tres, no una: mirar sólo `nonces` dejaría pasar que alguien saque `links`
+		// de la lista de tablas que se controlan.
+		foreach ( array( 'movements', 'links', 'nonces' ) as $name ) {
+			Installer::install();
 
-		$table = Installer::table( 'nonces' );
-		$wpdb->query( "DROP TABLE {$table}" ); // phpcs:ignore WordPress.DB
+			$table = Installer::table( $name );
+			$wpdb->query( "DROP TABLE {$table}" ); // phpcs:ignore WordPress.DB
 
-		$this->assertSame( array( $table ), Installer::unhealthy_tables() );
+			$this->assertSame( array( $table ), Installer::unhealthy_tables(), $name );
+		}
 	}
 
 	/**
@@ -391,12 +395,16 @@ class Test_Installer extends WP_UnitTestCase {
 	public function test_it_detects_a_table_without_transactions(): void {
 		global $wpdb;
 
-		Installer::install();
+		foreach ( array( 'movements', 'links', 'nonces' ) as $name ) {
+			Installer::install();
 
-		$table = Installer::table( 'nonces' );
-		$wpdb->query( "ALTER TABLE {$table} ENGINE=MyISAM" ); // phpcs:ignore WordPress.DB
+			$table = Installer::table( $name );
+			$wpdb->query( "ALTER TABLE {$table} ENGINE=MyISAM" ); // phpcs:ignore WordPress.DB
 
-		$this->assertSame( array( $table ), Installer::unhealthy_tables() );
+			$this->assertSame( array( $table ), Installer::unhealthy_tables(), $name );
+
+			$wpdb->query( "DROP TABLE {$table}" ); // phpcs:ignore WordPress.DB
+		}
 	}
 
 	/**
