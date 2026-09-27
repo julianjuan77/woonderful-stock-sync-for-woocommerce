@@ -179,6 +179,37 @@ class Test_Ledger extends WP_UnitTestCase {
 	}
 
 	/**
+	 * La transacción existe para que las dos escrituras vayan juntas o no vaya ninguna.
+	 * Si el UPDATE de la secuencia falla y se confirma igual, queda en el libro una fila
+	 * pendiente de entregar con el identificador en NULL: el receptor no puede
+	 * deduplicarla (ADR-004 §1).
+	 *
+	 * LED-09
+	 */
+	public function test_a_failed_sequence_update_leaves_nothing(): void {
+		global $wpdb;
+
+		$break_the_update = static function ( string $query ): string {
+			if ( 0 === stripos( ltrim( $query ), 'UPDATE' ) && str_contains( $query, 'origin_seq' ) ) {
+				return 'UPDATE wss_no_existe SET origin_seq = 1';
+			}
+
+			return $query;
+		};
+
+		add_filter( 'query', $break_the_update );
+		$wpdb->suppress_errors( true );
+
+		$result = Ledger::record( 123, -1 );
+
+		$wpdb->suppress_errors( false );
+		remove_filter( 'query', $break_the_update );
+
+		$this->assertNull( $result );
+		$this->assertSame( 0, $this->count_movements() );
+	}
+
+	/**
 	 * LED-07 — Un producto sin vincular no genera movimiento.
 	 */
 	public function test_an_unlinked_product_writes_nothing(): void {
