@@ -114,6 +114,7 @@ mientras escribía la función.
 | El guard es de un solo uso | ADR-006 §3 | `GRD-03` | [test-guard.php](test-guard.php) |
 | El claim vence a los 5 minutos | ADR-001 §2 | `LED-25`, `LED-26` | [test-ledger.php](test-ledger.php) |
 | El techo de 6 h se mide desde el primer intento, y el intento es el claim | ADR-001 §2 | `LED-29`, `LED-30` | [test-ledger.php](test-ledger.php) |
+| Agotado el techo, el movimiento se abandona y lo rescata la reconciliación | ADR-001 §2 | `LED-34`, `LED-35` | [test-ledger.php](test-ledger.php) |
 | El lote no pasa de 200 | ADR-001 §4 | `LED-27` | [test-ledger.php](test-ledger.php) |
 | El secreto se borra siempre al desinstalar | ADR-003 | `UNI-01` | [test-uninstall.php](test-uninstall.php) |
 | Los nonces se borran siempre | ADR-003 | `UNI-02` | [test-uninstall.php](test-uninstall.php) |
@@ -228,6 +229,12 @@ varios tests sin chocar.
 | `LED-28` | La sesión de MySQL en otra zona horaria | Reclama igual: el paso 2 compara contra `UTC_TIMESTAMP()` |
 | `LED-29` | Reclamar un movimiento | Cuenta como intento: `attempts` sube y queda `first_attempt_at` |
 | `LED-30` | Reclamar uno que ya tenía intentos | `first_attempt_at` no se pisa; `attempts` sube |
+| `LED-31` | Una fila confirmada | Queda `confirmed`, con su hora y sin claim |
+| `LED-32` | Una fila que falló | Vuelve a `pending`, con el próximo intento más adelante |
+| `LED-33` | La curva de backoff | 1, 2, 4, 8, 16 min… con tope de 30 |
+| `LED-34` | Una fila con 7 horas desde el primer intento | Se abandona al reclamar, y no se entrega |
+| `LED-35` | Una con 5 horas | Se sigue reclamando |
+| `LED-36` | Un id que no está en el libro | No rompe nada |
 
 ## [`tests/test-guard.php`](test-guard.php) — el guard anti-eco
 
