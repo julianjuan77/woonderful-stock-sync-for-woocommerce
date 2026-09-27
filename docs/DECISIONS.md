@@ -101,6 +101,9 @@ Revisado: 2026-09-20 — los nombres del contrato (campos del JSON y valores de 
 pasaron a inglés, para no mezclar idiomas con los estados de §3. Sin cambios de diseño.
 Revisado: 2026-09-21 — ADR-005 suma un quinto endpoint, `GET /products`, y dos valores de
 `reason`: `bootstrap` y `unlink` viajan como movimientos. Ver §4.
+Revisado: 2026-09-27 — §3 nombra las **dos** causas de `discarded`: la generación no vigente
+y la ausencia de vínculo, que ADR-004 §1 ya daba por decidida. Y deja dicho que el `bootstrap`
+y el `unlink` se atienden antes de buscar el vínculo, porque lo crean y lo borran.
 Revisado: 2026-09-27 — los ejemplos de §4 mostraban `"id": "A-77"`, de antes de que ADR-002
 resolviera el formato. El identificador viaja como dos campos, `origin` y `seq`: `A-77` es
 sólo la forma de mostrarlo. No es un cambio de diseño — §4 ya delegaba el formato.
@@ -578,9 +581,23 @@ Sin ese tercer valor esos movimientos quedarían en `held` para siempre y envene
 las consultas de abajo: la de qué aplicar al desbloquear un par los vería en cada pasada, y la
 de qué queda fuera de la fase 2 dejaría ese par afuera de la reconciliación para siempre.
 
-**La única causa de `discarded` hoy es la generación no vigente.** Sumar otra es una decisión
-de diseño y va a un ADR: la tentación de usarlo como cajón de lo que no se supo aplicar es
-justo lo que rompe la consulta de `held`.
+**Las causas de `discarded` son dos, y sólo dos:**
+
+| Causa | Por qué no se va a aplicar nunca |
+| --- | --- |
+| La generación no es la vigente | La época a la que pertenece ya no corre |
+| **No hay vínculo para ese producto** | El par se desvinculó: no hay a qué producto local aplicarlo, y nada lo va a volver a crear |
+
+**Sumar una tercera es una decisión de diseño y va a un ADR**: la tentación de usarlo como
+cajón de lo que no se supo aplicar es justo lo que rompe la consulta de `held`. Un movimiento
+que **podría** aplicarse más tarde —el producto está en la papelera, el par está suspendido—
+es `held`, no `discarded`.
+
+**El `bootstrap` y el `unlink` son la excepción, y se atienden antes de buscar el vínculo.**
+Esos dos movimientos no usan el vínculo: uno lo **crea** y el otro lo **borra**. Un bootstrap
+llega justamente cuando el vínculo todavía no existe (ADR-005 §2), así que preguntar por el
+vínculo antes de mirarlos descartaría el movimiento que venía a crearlo — y como `discarded`
+se confirma con ACK, el par no se crearía nunca y nadie se enteraría.
 
 #### Las consultas que esto deja triviales
 
