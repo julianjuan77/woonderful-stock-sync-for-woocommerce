@@ -183,6 +183,46 @@ class Test_Plugin extends WP_UnitTestCase {
 	}
 
 	/**
+	 * ADR-002 fija que la identidad se genera **antes que nada**: es lo que numera los
+	 * movimientos, así que tiene que existir antes que la tabla que los guarda.
+	 *
+	 * Verificar un orden no se puede con el estado final —las dos cosas terminan
+	 * existiendo igual— así que se mira el momento: cuando sale el primer CREATE TABLE,
+	 * ¿ya había identidad?
+	 *
+	 * PLG-12
+	 */
+	public function test_the_identity_exists_before_the_first_table(): void {
+		global $wpdb;
+
+		$identity_when_creating = null;
+
+		$watch = static function ( string $query ) use ( &$identity_when_creating ): string {
+			if ( null === $identity_when_creating && str_contains( $query, 'CREATE TABLE' ) ) {
+				$identity_when_creating = Store::id();
+			}
+
+			return $query;
+		};
+
+		delete_option( Store::OPTION_ID );
+
+		foreach ( array( 'movements', 'links', 'nonces' ) as $name ) {
+			$table = Installer::table( $name );
+			$wpdb->query( "DROP TABLE IF EXISTS {$table}" ); // phpcs:ignore WordPress.DB
+		}
+
+		add_filter( 'query', $watch );
+		Plugin::activate();
+		remove_filter( 'query', $watch );
+
+		$this->assertMatchesRegularExpression(
+			'/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/',
+			(string) $identity_when_creating
+		);
+	}
+
+	/**
 	 * PLG-06 — Un sitio sano no avisa nada.
 	 */
 	public function test_a_healthy_site_shows_no_notice(): void {
