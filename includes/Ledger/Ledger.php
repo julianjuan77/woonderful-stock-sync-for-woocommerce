@@ -69,14 +69,26 @@ final class Ledger {
 	 * reclamar: un worker que muere no llega a llamar a esta función, y sus filas tienen
 	 * que poder abandonarse igual.
 	 *
+	 * Cada escritura exige además que la fila **siga en vuelo y sea de este worker**. Sin
+	 * eso, una pasada lenta que anota después de que su claim venció pisa el trabajo de la
+	 * que se llevó la fila; y un id equivocado —el de un movimiento recibido, que no tiene
+	 * entrega— lo metería en la cola de salida (ADR-001 §3).
+	 *
+	 * @param string           $worker  El token con el que se reclamaron las filas.
 	 * @param array<int, bool> $results ID del movimiento => si la otra tienda lo confirmó.
 	 */
-	public static function ack( array $results ): void {
+	public static function ack( string $worker, array $results ): void {
 		global $wpdb;
 
 		$table = Installer::table( 'movements' );
 
 		foreach ( $results as $movement_id => $confirmed ) {
+			$owned = array(
+				'id'         => (int) $movement_id,
+				'delivery'   => 'in_flight',
+				'claimed_by' => $worker,
+			);
+
 			if ( $confirmed ) {
 				$wpdb->update( // phpcs:ignore WordPress.DB
 					$table,
@@ -86,7 +98,7 @@ final class Ledger {
 						'claimed_by'   => null,
 						'claimed_at'   => null,
 					),
-					array( 'id' => (int) $movement_id )
+					$owned
 				);
 
 				continue;
@@ -104,7 +116,7 @@ final class Ledger {
 					'claimed_at'      => null,
 					'next_attempt_at' => gmdate( 'Y-m-d H:i:s', time() + self::backoff_for( $attempts ) ),
 				),
-				array( 'id' => (int) $movement_id )
+				$owned
 			);
 		}
 	}
