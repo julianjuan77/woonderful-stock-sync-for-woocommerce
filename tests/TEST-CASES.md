@@ -244,10 +244,10 @@ la suite de WordPress abre para cada test.
 - La purga que consolida el stock base.
 - Que `boot()` **no registre** la sincronización cuando está suspendida. Hoy no hay nada
   registrado que verificar; el test va cuando exista el detector.
-- **La rama `if ( ! class_exists( 'WooCommerce' ) )` de `boot()`.** El bootstrap declara una
-  clase `WooCommerce` vacía para que la otra mitad de `boot()` sea alcanzable, y una clase no
-  se puede desdefinir: esa rama queda fuera de alcance para toda la corrida. `PLG-10` cubre
-  lo que el dueño ve —el aviso—, pero no que `boot()` efectivamente corte ahí.
+- **La rama `if ( ! class_exists( 'WooCommerce' ) )` de `boot()`.** El bootstrap carga
+  WooCommerce de verdad —el plugin le cambia el stock a productos reales— así que la clase
+  existe durante toda la corrida y esa rama queda fuera de alcance. `PLG-10` cubre lo que el
+  dueño ve —el aviso—, pero no que `boot()` efectivamente corte ahí.
 
   El costo es acotado: la cabecera declara `Requires Plugins: woocommerce`, así que desde
   WordPress 6.5 el plugin **no se puede activar** sin WooCommerce. Esa rama sólo se alcanza

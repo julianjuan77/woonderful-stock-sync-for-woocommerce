@@ -25,26 +25,33 @@ $wss_suite = getenv( 'WP_PHPUNIT__DIR' ) ?: $wss_root . '/vendor/wp-phpunit/wp-p
 
 require_once $wss_suite . '/includes/functions.php';
 
-// `boot()` corta si no existe la clase WooCommerce, y la suite arranca un WordPress
-// limpio sin plugins: sin esto, la mitad de boot() —la migración y la guarda— no la
-// alcanza ningún test.
-//
-// Alcanza con que la clase exista porque es lo único que boot() pregunta. El día que el
-// código llame a una función de WooCommerce de verdad —`wc_get_product()`, por ejemplo—
-// este stub deja de servir y habrá que cargar WooCommerce o mockear esa función.
-//
-// Costo: con la clase siempre definida, la rama "no hay WooCommerce" deja de ser
-// alcanzable. Ver tests/TEST-CASES.md, "Lo que todavía no tiene tests".
-if ( ! class_exists( 'WooCommerce' ) ) {
-	// phpcs:ignore Generic.Classes.OpeningBraceSameLine.BraceOnNewLine, Squiz.Commenting.ClassComment.Missing
-	class WooCommerce {}
-}
+// WooCommerce, de verdad y no un stub: el plugin le cambia el stock a productos reales y
+// eso es lo único que promete. Se carga como mu-plugin, antes que el nuestro, para que
+// `class_exists( 'WooCommerce' )` sea cierto cuando corra `boot()`.
+tests_add_filter(
+	'muplugins_loaded',
+	static function (): void {
+		require_once WP_PLUGIN_DIR . '/woocommerce/woocommerce.php';
+	}
+);
 
 // El plugin no se autocarga en el entorno de tests: se carga acá, como un mu-plugin.
 tests_add_filter(
 	'muplugins_loaded',
 	static function () use ( $wss_root ): void {
 		require $wss_root . '/woonderful-stock-sync-for-woocommerce.php';
+	}
+);
+
+// WooCommerce necesita sus propias tablas en el prefijo de test. Su instalador las crea.
+tests_add_filter(
+	'setup_theme',
+	static function (): void {
+		WC_Install::install();
+
+		// Los roles se cachean antes de que WooCommerce agregue los suyos.
+		$GLOBALS['wp_roles'] = null; // phpcs:ignore WordPress.WP.GlobalVariablesOverride
+		wp_roles();
 	}
 );
 
