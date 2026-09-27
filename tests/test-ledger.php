@@ -29,6 +29,14 @@ class Test_Ledger extends WP_UnitTestCase {
 	 */
 	private const REMOTE_STORE = 'b1b1b1b1-0000-4000-8000-000000000000';
 
+	/**
+	 * Secuencias para los movimientos de prueba.
+	 *
+	 * Un contador y no `wp_rand()`: dos filas que sacaran el mismo número chocarían
+	 * contra el `UNIQUE` y el test fallaría de vez en cuando.
+	 */
+	private int $next_seq = 1000;
+
 	public function set_up(): void {
 		parent::set_up();
 
@@ -383,7 +391,7 @@ class Test_Ledger extends WP_UnitTestCase {
 			array_merge(
 				array(
 					'origin_store'    => Store::id(),
-					'origin_seq'      => wp_rand( 1000, 999999 ),
+					'origin_seq'      => ++$this->next_seq,
 					'generation'      => 1,
 					'delta'           => -1,
 					'reason'          => 'sale',
@@ -418,11 +426,11 @@ class Test_Ledger extends WP_UnitTestCase {
 		$first  = $this->pending_movement();
 		$second = $this->pending_movement();
 
-		$claimed = Ledger::claim( 'worker-1' );
+		$claimed = Ledger::claim();
 
 		$this->assertCount( 2, $claimed );
 		$this->assertSame( 'in_flight', $this->column_of( $first, 'delivery' ) );
-		$this->assertSame( 'worker-1', $this->column_of( $second, 'claimed_by' ) );
+		$this->assertNotNull( $this->column_of( $second, 'claimed_by' ) );
 	}
 
 	/**
@@ -431,17 +439,30 @@ class Test_Ledger extends WP_UnitTestCase {
 	public function test_it_does_not_claim_what_is_not_due_yet(): void {
 		$this->pending_movement( array( 'next_attempt_at' => gmdate( 'Y-m-d H:i:s', time() + 3600 ) ) );
 
-		$this->assertCount( 0, Ledger::claim( 'worker-1' ) );
+		$this->assertCount( 0, Ledger::claim() );
 	}
 
 	/**
-	 * LED-24 — Lo que ya reclamó otro worker no se vuelve a reclamar.
+	 * Dos pasadas no pueden llevarse las mismas filas. El token lo genera `claim()`, así
+	 * que no depende de que quien llama elija bien: con un identificador fijo por sitio,
+	 * la segunda pasada se llevaría también lo que la primera está enviando.
+	 *
+	 * LED-24
 	 */
-	public function test_it_does_not_take_what_another_worker_holds(): void {
+	public function test_two_passes_never_take_the_same_rows(): void {
+		$this->pending_movement();
+		$this->pending_movement();
 		$this->pending_movement();
 
-		$this->assertCount( 1, Ledger::claim( 'worker-1' ) );
-		$this->assertCount( 0, Ledger::claim( 'worker-2' ) );
+		$first  = Ledger::claim( 2 );
+		$second = Ledger::claim( 2 );
+
+		$this->assertCount( 2, $first );
+		$this->assertCount( 1, $second );
+
+		$ids = static fn( array $rows ): array => array_map( static fn( $row ): int => (int) $row->id, $rows );
+
+		$this->assertSame( array(), array_intersect( $ids( $first ), $ids( $second ) ) );
 	}
 
 	/**
@@ -459,10 +480,18 @@ class Test_Ledger extends WP_UnitTestCase {
 			)
 		);
 
-		$claimed = Ledger::claim( 'worker-1' );
+		global $wpdb;
+
+		// Con la zona corrida: si el paso 1 comparara contra NOW(), este claim muerto
+		// tardaría tres horas de más en liberarse.
+		$wpdb->query( "SET time_zone = '-03:00'" ); // phpcs:ignore WordPress.DB
+
+		$claimed = Ledger::claim();
+
+		$wpdb->query( "SET time_zone = '+00:00'" ); // phpcs:ignore WordPress.DB
 
 		$this->assertCount( 1, $claimed );
-		$this->assertSame( 'worker-1', $this->column_of( $movement, 'claimed_by' ) );
+		$this->assertNotSame( 'worker-muerto', $this->column_of( $movement, 'claimed_by' ) );
 	}
 
 	/**
@@ -477,7 +506,7 @@ class Test_Ledger extends WP_UnitTestCase {
 			)
 		);
 
-		$this->assertCount( 0, Ledger::claim( 'worker-1' ) );
+		$this->assertCount( 0, Ledger::claim() );
 	}
 
 	/**
@@ -488,7 +517,7 @@ class Test_Ledger extends WP_UnitTestCase {
 			$this->pending_movement();
 		}
 
-		$this->assertCount( 3, Ledger::claim( 'worker-1', 3 ) );
+		$this->assertCount( 3, Ledger::claim( 3 ) );
 	}
 
 	/**
@@ -505,11 +534,45 @@ class Test_Ledger extends WP_UnitTestCase {
 
 		$wpdb->query( "SET time_zone = '-03:00'" ); // phpcs:ignore WordPress.DB
 
-		$claimed = Ledger::claim( 'worker-1' );
+		$claimed = Ledger::claim();
 
 		$wpdb->query( "SET time_zone = '+00:00'" ); // phpcs:ignore WordPress.DB
 
 		$this->assertCount( 1, $claimed, 'la zona del servidor no puede cambiar qué se entrega' );
+	}
+
+	/**
+	 * El intento es el claim, no el ACK: si el worker muere, `ack()` no corre nunca y el
+	 * techo de 6 horas no avanzaría jamás (ADR-001 §2).
+	 *
+	 * LED-29
+	 */
+	public function test_claiming_counts_as_an_attempt(): void {
+		$movement = $this->pending_movement();
+
+		Ledger::claim();
+
+		$this->assertSame( '1', $this->column_of( $movement, 'attempts' ) );
+		$this->assertNotNull( $this->column_of( $movement, 'first_attempt_at' ) );
+	}
+
+	/**
+	 * LED-30 — La hora del primer intento no se pisa en los reintentos siguientes.
+	 */
+	public function test_the_first_attempt_is_not_overwritten(): void {
+		$movement = $this->pending_movement(
+			array(
+				'attempts'         => 3,
+				'first_attempt_at' => gmdate( 'Y-m-d H:i:s', time() - 7200 ),
+			)
+		);
+
+		$first_attempt = $this->column_of( $movement, 'first_attempt_at' );
+
+		Ledger::claim();
+
+		$this->assertSame( $first_attempt, $this->column_of( $movement, 'first_attempt_at' ) );
+		$this->assertSame( '4', $this->column_of( $movement, 'attempts' ) );
 	}
 
 	/**
