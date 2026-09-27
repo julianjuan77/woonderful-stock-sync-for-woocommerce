@@ -598,14 +598,51 @@ class Test_Ledger extends WP_UnitTestCase {
 		$movement = $this->pending_movement();
 		$claimed  = Ledger::claim();
 
-		Ledger::ack( (string) $claimed[0]->claimed_by, array( $movement => false ) );
+		Ledger::ack( (string) $claimed[0]->claimed_by, array( $movement => 'cURL 28: timeout' ) );
 
 		$this->assertSame( 'pending', $this->column_of( $movement, 'delivery' ) );
+		$this->assertSame( 'cURL 28: timeout', $this->column_of( $movement, 'last_error' ) );
 		$this->assertNull( $this->column_of( $movement, 'claimed_by' ) );
 		$this->assertGreaterThan(
 			gmdate( 'Y-m-d H:i:s' ),
 			(string) $this->column_of( $movement, 'next_attempt_at' )
 		);
+	}
+
+	/**
+	 * La columna son 255 caracteres: un motivo más largo haría fallar el UPDATE entero y
+	 * la fila quedaría en vuelo, sin nadie que la libere hasta que venza el claim.
+	 *
+	 * LED-41
+	 */
+	public function test_a_long_error_is_truncated(): void {
+		$movement = $this->pending_movement();
+		$claimed  = Ledger::claim();
+
+		Ledger::ack( (string) $claimed[0]->claimed_by, array( $movement => str_repeat( 'x', 400 ) ) );
+
+		$this->assertSame( 255, strlen( (string) $this->column_of( $movement, 'last_error' ) ) );
+		$this->assertSame( 'pending', $this->column_of( $movement, 'delivery' ) );
+	}
+
+	/**
+	 * LED-42 — Al confirmarse, el último error queda como historia.
+	 */
+	public function test_the_last_error_survives_a_later_confirmation(): void {
+		$movement = $this->pending_movement();
+
+		$claimed = Ledger::claim();
+		Ledger::ack( (string) $claimed[0]->claimed_by, array( $movement => 'la tienda no responde' ) );
+
+		$this->pending_movement( array( 'id' => null ) );
+		global $wpdb;
+		$wpdb->update( Installer::table( 'movements' ), array( 'next_attempt_at' => gmdate( 'Y-m-d H:i:s', time() - 10 ) ), array( 'id' => $movement ) );
+
+		$claimed = Ledger::claim();
+		Ledger::ack( (string) $claimed[0]->claimed_by, array( $movement => true ) );
+
+		$this->assertSame( 'confirmed', $this->column_of( $movement, 'delivery' ) );
+		$this->assertSame( 'la tienda no responde', $this->column_of( $movement, 'last_error' ) );
 	}
 
 	/**
@@ -717,7 +754,7 @@ class Test_Ledger extends WP_UnitTestCase {
 		$movement = $this->pending_movement();
 		$claimed  = Ledger::claim();
 
-		Ledger::ack( 'token-de-otra-pasada', array( $movement => false ) );
+		Ledger::ack( 'token-de-otra-pasada', array( $movement => 'falló' ) );
 
 		$this->assertSame( 'in_flight', $this->column_of( $movement, 'delivery' ) );
 		$this->assertSame( (string) $claimed[0]->claimed_by, $this->column_of( $movement, 'claimed_by' ) );
@@ -738,7 +775,7 @@ class Test_Ledger extends WP_UnitTestCase {
 		$table    = Installer::table( 'movements' );
 		$received = (int) $wpdb->get_var( "SELECT id FROM {$table} LIMIT 1" ); // phpcs:ignore WordPress.DB
 
-		Ledger::ack( 'un-token', array( $received => false ) );
+		Ledger::ack( 'un-token', array( $received => 'falló' ) );
 
 		$this->assertNull( $this->column_of( $received, 'delivery' ) );
 	}
