@@ -107,7 +107,7 @@ mientras escribía la función.
 | El movimiento lleva la generación vigente del par | ADR-005 §4 | `LED-03` | [test-ledger.php](test-ledger.php) |
 | Un movimiento no se entrega enseguida | ADR-006 §4 | `LED-05` | [test-ledger.php](test-ledger.php) |
 | Nada entra a la malla hasta que el dueño vincula | UC-03, ADR-006 §1 | `LED-07` | [test-ledger.php](test-ledger.php) |
-| El guard no tapa una venta local del mismo request | ADR-006 §3, SPEC §3 | `GRD-05` | [test-guard.php](test-guard.php) |
+| El guard no tapa la venta de otro producto del mismo request | ADR-006 §3, SPEC §3 | `GRD-04` | [test-guard.php](test-guard.php) |
 | El guard es de un solo uso | ADR-006 §3 | `GRD-03` | [test-guard.php](test-guard.php) |
 | El secreto se borra siempre al desinstalar | ADR-003 | `UNI-01` | [test-uninstall.php](test-uninstall.php) |
 | Los nonces se borran siempre | ADR-003 | `UNI-02` | [test-uninstall.php](test-uninstall.php) |
@@ -201,12 +201,17 @@ varios tests sin chocar.
 | ID | Caso | Resultado esperado |
 |---|---|---|
 | `GRD-01` | Un cambio que nadie anotó | No es nuestro |
-| `GRD-02` | El cambio anotado | Es nuestro |
-| `GRD-03` | El mismo cambio dos veces | Sólo la primera es nuestra |
-| `GRD-04` | Otro producto | No lo tapa |
-| `GRD-05` | **Una venta local del mismo producto en el mismo request** | No se tapa: los valores no coinciden |
-| `GRD-06` | Varias expectativas a la vez | Cada una se consume por su cuenta |
-| `GRD-07` | Una expectativa que nadie consumió | Se puede descartar |
+| `GRD-02` | El cambio del producto anotado | Es nuestro |
+| `GRD-03` | Dos cambios del mismo producto, una anotación | Sólo el primero es nuestro |
+| `GRD-04` | **La venta de otro producto mientras aplicamos** | No se tapa: es el agujero que tiene una bandera global y el guard no |
+| `GRD-05` | Un lote con dos movimientos del mismo producto | Dos anotaciones, dos cambios nuestros |
+| `GRD-06` | Varios productos anotados | Cada uno se consume por su cuenta |
+| `GRD-07` | Una anotación que nadie consumió | Se puede descartar |
+
+**El agujero declarado:** una venta del **mismo** producto que caiga entre el `expect()` y la
+escritura se comería la anotación. Entre esas dos líneas no corre nada, y una venta de otro
+request corre en otro proceso de PHP y no pasa por nuestro callback: haría falta un hook
+anidado dentro de nuestra propia llamada que toque el mismo producto.
 
 ---
 
