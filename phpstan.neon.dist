@@ -11,8 +11,9 @@ parameters:
         - vendor/php-stubs/wordpress-stubs/wordpress-stubs.php
     scanFiles:
         - vendor/php-stubs/wordpress-stubs/wordpress-stubs.php
+        - vendor/php-stubs/woocommerce-stubs/woocommerce-stubs.php
     ignoreErrors:
         # Constantes definidas en el archivo principal — no visibles para PHPStan.
         - '#Constant WSS_(PLUGIN_FILE|PLUGIN_DIR) not found#'
-        # WooCommerce no está en los stubs de WordPress.
+        # FeaturesUtil no está en los stubs de WooCommerce.
         - '#unknown class Automattic\\WooCommerce\\Utilities\\FeaturesUtil#'
