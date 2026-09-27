@@ -191,5 +191,10 @@ seguridad y convenciones de código.
 | El clon servido en la **misma URL por HTTPS** pasa la detección. Declarado, no resuelto | ADR-001 §1, ADR-007 |
 | El emparejamiento tiene que rechazar una tienda cuya opción `home` no sea `https` | ADR-007 → Transporte |
 | La reconciliación de cierre de una importación no tiene ADR | §6 del SPEC → tarea 1.8 |
-| El auditor de tests, si rinde en otros plugins, va a `.claude/agents/` del entorno | — |
+| El auditor de tests ya es un agente del entorno: `.claude/agents/test-auditor.md` | — |
+| **`LED-02` no detecta si se saca la transacción de `record()`.** Verificar que dos escrituras estén en una transacción pide simular un corte del proceso | Auditoría 2026-09-26 |
+| **`PLG-07` dice "la identidad antes que el esquema" y sólo verifica que existan las dos.** Verificar un orden, no un resultado | Auditoría 2026-09-26 |
+| `record()` escribiría movimientos con origen vacío si faltara el identificador. Hoy no puede pasar: `boot()` lo genera antes de todo | Auditoría 2026-09-26 |
+| `Links::for_product()` devuelve la primera fila si un producto tuviera dos vínculos. Con dos tiendas no ocurre | Auditoría 2026-09-26 |
+| ADR-001 dice que el tamaño de lote y la curva de backoff son "configuración". Cuando se escriba 5.4, decidir si de verdad lo son o son constantes, como se resolvió con el retardo | ADR-001 §2 |
 | Infection cuando exista `Transport/`: necesita PCOV en la imagen de wp-restore | — |
