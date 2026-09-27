@@ -116,6 +116,9 @@ mientras escribía la función.
 | El techo de 6 h se mide desde el primer intento, y el intento es el claim | ADR-001 §2 | `LED-29`, `LED-30` | [test-ledger.php](test-ledger.php) |
 | Agotado el techo, el movimiento se abandona y lo rescata la reconciliación | ADR-001 §2 | `LED-34`, `LED-35`, `LED-39`, `LED-40` | [test-ledger.php](test-ledger.php) |
 | Una fila recibida no tiene eje de entrega | ADR-001 §3 | `LED-38` | [test-ledger.php](test-ledger.php) |
+| No se purga lo que la otra tienda todavía no confirmó | ADR-004 §4 | `LED-46` | [test-ledger.php](test-ledger.php) |
+| Al purgar, el stock base absorbe lo purgado | ADR-004 §4 | `LED-47`, `LED-48` | [test-ledger.php](test-ledger.php) |
+| Cada tienda declara hasta dónde purgó | ADR-004 §4 | `LED-49` | [test-ledger.php](test-ledger.php) |
 | El lote no pasa de 200 | ADR-001 §4 | `LED-27` | [test-ledger.php](test-ledger.php) |
 | El secreto se borra siempre al desinstalar | ADR-003 | `UNI-01` | [test-uninstall.php](test-uninstall.php) |
 | Los nonces se borran siempre | ADR-003 | `UNI-02` | [test-uninstall.php](test-uninstall.php) |
@@ -243,6 +246,12 @@ varios tests sin chocar.
 | `LED-41` | Un motivo de 400 caracteres | Se recorta a 255 y la fila se actualiza igual |
 | `LED-42` | Falla y después se confirma | El motivo del fallo queda como historia |
 | `LED-43` | Dos fallos seguidos | La segunda espera es el doble de la primera, no un número fijo |
+| `LED-44` | Movimientos terminados de hace 100 días | Se purgan |
+| `LED-45` | Uno terminado de hace 10 días | No se toca |
+| `LED-46` | Viejos pero `abandoned`, `pending` o `held` | **No se purgan**: lo que no llegó se queda |
+| `LED-47` | Purgar −2, −1 y +3 | El stock base absorbe la suma: el total no cambia |
+| `LED-48` | Purgar una recibida `discarded` | Se borra pero **no se consolida**: nunca tocó el stock |
+| `LED-49` | Purgar una recibida de la otra tienda | Queda la marca de hasta qué secuencia se purgó |
 
 ## [`tests/test-guard.php`](test-guard.php) — el guard anti-eco
 
@@ -282,6 +291,8 @@ la suite de WordPress abre para cada test.
 ## Lo que todavía no tiene tests
 
 - Todo `Transport/` y `Reconciliation/`: no hay código todavía.
+- Que el libro que crece sin techo —porque la otra tienda no vuelve nunca— se **avise**
+  (UC-08). `purge()` ya lo deja crecer a propósito; el aviso va con el ADR del log.
 - Que el detector consuma el guard que `apply()` deja puesto: hoy nadie lo consume porque el
   detector no existe (tarea 4.1). `LED-17` verifica sólo que quede anotado.
 - La purga que consolida el stock base.

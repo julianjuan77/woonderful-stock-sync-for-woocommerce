@@ -34,14 +34,18 @@ make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS=
 
 ## 🔄 En progreso
 
-**3.5 — `Ledger::purge()`: la retención, consolidando el stock base.**
+**4.1 — El detector: los cuatro hooks de stock y el cálculo del delta.**
 
-Los 90 días de §5 del SPEC, con las tres reglas duras de ADR-004 §4: sólo se purga lo
-terminado, el stock base absorbe la suma de lo purgado en la misma transacción, y no se purga
-por debajo de lo que la otra tienda todavía no conoce.
+Los pares `before`/`set` de producto y variación (ADR-006 §1). El delta sale del par, se
+descarta lo que no corresponde —sin stock gestionado, sin vincular, y lo que anotó el guard—
+y se escribe con `Ledger::record()`.
 
-Done cuando: las tres reglas se cumplen, tiene sus tests `LED-NN`, lint y tests en verde, y
-está commiteada.
+Va con la conversación pendiente de ADR-006: **el delta calculado desde los hooks puede
+mentir** si el objeto del producto venía desactualizado, porque WooCommerce le entrega al
+hook un número calculado y no releído.
+
+Done cuando: el detector emite un movimiento por cada cambio de stock de un producto
+vinculado y ninguno por los demás, tiene sus tests, lint y tests en verde, y está commiteada.
 
 ---
 
@@ -84,7 +88,7 @@ Leyenda: ✅ hecho · 🔄 en curso · ⬜ pendiente · 🔒 bloqueado
 | 3.2 | `apply()`: aplicar un movimiento recibido y decidir `applied` / `held` / `discarded` | ✅ | `7af47c9` | `LED-11`…`LED-17` |
 | 3.3 | `claim()`: liberar lo vencido y reclamar un lote | ✅ | `3b768ef` | `LED-22`…`LED-28` |
 | 3.4 | `ack()`: anotar el resultado de cada fila entregada, y abandonar lo que pasó el techo de 6 h | ✅ | `47e084c` | `LED-31`…`LED-43` |
-| 3.5 | `purge()`: la retención, consolidando el stock base | 🔄 | | |
+| 3.5 | `purge()`: la retención, consolidando el stock base | ✅ | `74cc9b5` | `LED-44`…`LED-49` |
 
 **3.1 en detalle** — `2668a7a`
 
@@ -109,7 +113,7 @@ Verificado rompiéndolo: sin el `UPDATE` cae `LED-02`; registrando productos sin
 
 | | Tarea | Estado | Commit | Tests |
 |---|---|---|---|---|
-| 4.1 | Los cuatro hooks de stock y el cálculo del delta | ⬜ | | |
+| 4.1 | Los cuatro hooks de stock y el cálculo del delta | 🔄 | | |
 | 4.2 | El guard anti-eco | ✅ | `1feb126` | `GRD-01`…`GRD-07` |
 | 4.3 | El estampado del motivo desde los hooks de pedido | ⬜ | | |
 | 4.4 | Qué se ignora: sin stock gestionado, sin vincular, bootstrap | ⬜ | | |
