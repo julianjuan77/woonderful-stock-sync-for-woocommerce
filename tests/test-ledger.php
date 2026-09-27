@@ -34,6 +34,8 @@ class Test_Ledger extends WP_UnitTestCase {
 	 *
 	 * Un contador y no `wp_rand()`: dos filas que sacaran el mismo número chocarían
 	 * contra el `UNIQUE` y el test fallaría de vez en cuando.
+	 *
+	 * @var int
 	 */
 	private int $next_seq = 1000;
 
