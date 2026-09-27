@@ -128,9 +128,9 @@ mientras escribía la función.
 | `SCH-06` | La misma secuencia de dos tiendas distintas | Los dos entran |
 | `SCH-07` | `maybe_upgrade()` con la versión al día | No ejecuta ninguna consulta |
 | `SCH-08` | `maybe_upgrade()` con la versión atrasada | Reinstala las tres tablas **por nombre** y deja la versión al día |
-| `SCH-09` | Una de las tablas pasada a MyISAM | `tables_without_transactions()` la nombra |
+| `SCH-09` | **Cada una** de las tres tablas pasada a MyISAM | `unhealthy_tables()` la nombra |
 | `SCH-10` | Las tres definiciones SQL | Declaran `ENGINE=InnoDB` explícito, no el default del host |
-| `SCH-11` | Una de las tablas borrada | `unhealthy_tables()` la nombra: se busca por ausencia, no entre lo que devuelve `information_schema` |
+| `SCH-11` | **Cada una** de las tres tablas borrada | `unhealthy_tables()` la nombra: se busca por ausencia, no entre lo que devuelve `information_schema` |
 | `SCH-12` | Las opciones que se leen en cada request | Están autocargadas, leído de la columna `autoload` |
 | `SCH-13` | Sin resultado guardado —un sitio que actualiza desde antes del control— | Mira las tablas una vez, en vez de dar por buena la ausencia del dato |
 | `SCH-14` | El esquema está roto y no había resultado guardado | El resultado **malo** queda guardado: con un booleano no se guardaba y la consulta cara se repetía en cada request |
@@ -166,8 +166,11 @@ mientras escribía la función.
 | `PLG-07` | `activate()` sobre una instalación vacía | Quedan la identidad y el esquema |
 | `PLG-09` | `suspension_reason()` con todo en orden | No ejecuta ninguna consulta: lee la opción autocargada |
 | `PLG-10` | Sin WooCommerce | El plugin avisa en el admin |
-| `PLG-11` | `boot()` con el esquema atrasado | Migra: es la mitad de `boot()` que antes no alcanzaba ningún test |
+| `PLG-11` | `boot()` con el esquema atrasado | Migra: la versión queda al día **y las tres tablas vuelven a existir** |
 | `PLG-12` | Cuando sale el primer `CREATE TABLE` de la activación | La identidad ya existe (ADR-002) |
+| `PLG-13` | Las tablas rotas | El aviso habla de las tablas, no del clon |
+| `PLG-14` | El archivo principal | Engancha `plugins_loaded` y el hook de activación |
+| `PLG-15` | `boot()` con el sitio suspendido | Engancha el aviso, no sólo sabe que está suspendido |
 | `PLG-08` | `boot()` sin identidad: el plugin no pasó por la activación | Genera la identidad |
 
 ## [`tests/test-uninstall.php`](test-uninstall.php) — la desinstalación
@@ -179,8 +182,8 @@ varios tests sin chocar.
 | ID | Caso | Resultado esperado |
 |---|---|---|
 | `UNI-01` | Casilla en falso | El secreto de `wss_peers` se va; la URL y el identificador quedan |
-| `UNI-02` | Casilla en falso | Sólo se borra la tabla de nonces |
-| `UNI-03` | Casilla en falso | La identidad y la versión de esquema quedan |
+| `UNI-02` | Casilla en falso | Sólo se borra la tabla de nonces, y el libro y los vínculos **conservan sus filas** |
+| `UNI-03` | Casilla en falso | Quedan la identidad, la versión de esquema, la huella y la etiqueta |
 | `UNI-04` | Casilla marcada | No queda ninguna tabla |
 | `UNI-05` | Casilla marcada | No queda ninguna de las siete opciones |
 | `UNI-06` | **Casilla nunca tocada** — el estado de fábrica | No se borra nada: es el caso del dueño que nunca abrió los ajustes |
@@ -264,4 +267,7 @@ la suite de WordPress abre para cada test.
 | 2026-09-26 | `SCH-07` y `PLG-09` contaban consultas sobre una caché que cebaba el propio test: pasaban con `autoload = false`, que es justo lo que decían verificar. Y la versión del esquema efectivamente no se autocargaba: una consulta por página |
 | 2026-09-26 | `UNI-05` revisaba seis opciones de las siete que borra `uninstall.php`; faltaba justo la autocargada |
 | 2026-09-26 | `LED-05` comparaba la fila contra `Ledger::DELIVERY_DELAY`, así que bajar la constante a 1 segundo cambiaba los dos lados y el test pasaba igual |
+| 2026-09-27 | Los tests que rompían una tabla rompían siempre `nonces` o `movements`: sacar `links` de las tablas controladas no lo detectaba nadie |
+| 2026-09-27 | "No se borró nada" se verificaba sobre tablas vacías, así que un `TRUNCATE` pasaba igual |
+| 2026-09-27 | Ningún test leía el aviso de esquema roto, ni verificaba que los `add_action` del arranque estuvieran puestos: los tests llaman a `boot()` a mano |
 | 2026-09-27 | Ningún test miraba que el resultado del control de esquema quedara **guardado**. Con un booleano nunca se guardaba el caso malo, y el cacheo que evita la consulta cara no funcionaba — pero como la función devolvía el valor correcto, todo pasaba en verde |
