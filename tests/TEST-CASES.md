@@ -109,7 +109,7 @@ mientras escribía la función.
 | Nada entra a la malla hasta que el dueño vincula | UC-03, ADR-006 §1 | `LED-07` | [test-ledger.php](test-ledger.php) |
 | El ACK confirma recepción y no efecto: un reenvío no aplica dos veces | ADR-001 §3 | `LED-13` | [test-ledger.php](test-ledger.php) |
 | El receptor sólo aplica la generación vigente | ADR-005 §4 | `LED-15` | [test-ledger.php](test-ledger.php) |
-| Un movimiento que no se puede aplicar se retiene, no se descarta | SPEC §3, UC-03 | `LED-16` | [test-ledger.php](test-ledger.php) |
+| Un movimiento que no se puede aplicar se retiene, no se descarta | SPEC §3, UC-03 | `LED-16`, `LED-20` | [test-ledger.php](test-ledger.php) |
 | El guard no tapa la venta de otro producto del mismo request | ADR-006 §3, SPEC §3 | `GRD-04` | [test-guard.php](test-guard.php) |
 | El guard es de un solo uso | ADR-006 §3 | `GRD-03` | [test-guard.php](test-guard.php) |
 | El secreto se borra siempre al desinstalar | ADR-003 | `UNI-01` | [test-uninstall.php](test-uninstall.php) |
@@ -211,7 +211,11 @@ varios tests sin chocar.
 | `LED-14` | Sin vínculo | `discarded` |
 | `LED-15` | Generación que ya no corre | `discarded`, y el stock no se toca |
 | `LED-16` | El producto local borrado | `held`: guardado y reintentable |
-| `LED-17` | Al aplicar | El guard queda anotado antes de tocar el stock |
+| `LED-17` | Al aplicar | El guard ya está anotado **cuando WooCommerce avisa el cambio**, no después |
+| `LED-18` | Un movimiento de +2 | Suma: una devolución no descuenta |
+| `LED-19` | El `INSERT` de la fila falla | Devuelve `null`: sin fila no hay nada que confirmar, y el emisor reintenta |
+| `LED-20` | El producto local en la papelera | `held`, y el stock no se toca |
+| `LED-21` | Una variación que toma el stock del padre | El guard anota el **padre**, que es quien cambia |
 
 ## [`tests/test-guard.php`](test-guard.php) — el guard anti-eco
 
@@ -279,6 +283,8 @@ la suite de WordPress abre para cada test.
 | 2026-09-26 | `SCH-07` y `PLG-09` contaban consultas sobre una caché que cebaba el propio test: pasaban con `autoload = false`, que es justo lo que decían verificar. Y la versión del esquema efectivamente no se autocargaba: una consulta por página |
 | 2026-09-26 | `UNI-05` revisaba seis opciones de las siete que borra `uninstall.php`; faltaba justo la autocargada |
 | 2026-09-26 | `LED-05` comparaba la fila contra `Ledger::DELIVERY_DELAY`, así que bajar la constante a 1 segundo cambiaba los dos lados y el test pasaba igual |
+| 2026-09-27 | `LED-11` probaba sólo un delta negativo: usar siempre `'decrease'` pasaba igual, y las devoluciones suman |
+| 2026-09-27 | `LED-17` miraba el guard **después** de aplicar, así que anotarlo al final pasaba igual. Ahora lo mira desde el hook de WooCommerce |
 | 2026-09-27 | Los tests que rompían una tabla rompían siempre `nonces` o `movements`: sacar `links` de las tablas controladas no lo detectaba nadie |
 | 2026-09-27 | "No se borró nada" se verificaba sobre tablas vacías, así que un `TRUNCATE` pasaba igual |
 | 2026-09-27 | Ningún test leía el aviso de esquema roto, ni verificaba que los `add_action` del arranque estuvieran puestos: los tests llaman a `boot()` a mano |
