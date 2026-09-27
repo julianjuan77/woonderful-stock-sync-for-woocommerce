@@ -897,15 +897,86 @@ class Test_Ledger extends WP_UnitTestCase {
 	 * LED-47
 	 */
 	public function test_the_base_stock_absorbs_what_was_purged(): void {
+		// Deltas que NO suman cero: con −2, −1 y +3 el test pasaba igual sin consolidar
+		// nada, porque el resultado esperado era el mismo número de antes.
 		$this->old_movement( array( 'delta' => -2 ) );
 		$this->old_movement( array( 'delta' => -1 ) );
-		$this->old_movement( array( 'delta' => 3 ) );
 
 		$base_before = $this->base_stock_of( $this->link_id );
 
 		Ledger::purge();
 
-		$this->assertSame( $base_before + 0, $this->base_stock_of( $this->link_id ) );
+		$this->assertSame( $base_before - 3, $this->base_stock_of( $this->link_id ) );
+	}
+
+	/**
+	 * Si un re-bootstrap reutiliza la fila del vínculo en vez de borrarla, el stock base
+	 * nuevo ya absorbió lo de antes: sumarle los movimientos viejos lo correría dos veces
+	 * y la fase 2 vería un desvío falso.
+	 *
+	 * LED-50
+	 */
+	public function test_it_only_consolidates_the_current_generation(): void {
+		$this->old_movement(
+			array(
+				'delta'      => -5,
+				'generation' => 1,
+			)
+		);
+
+		global $wpdb;
+		$wpdb->update( // phpcs:ignore WordPress.DB
+			Installer::table( 'links' ),
+			array( 'generation' => 2 ),
+			array( 'id' => $this->link_id )
+		);
+
+		$base_before = $this->base_stock_of( $this->link_id );
+
+		$this->assertSame( 1, Ledger::purge() );
+		$this->assertSame( $base_before, $this->base_stock_of( $this->link_id ) );
+	}
+
+	/**
+	 * La marca se escribe adentro de la transacción: si el proceso muriera entre el
+	 * COMMIT y la marca, las filas ya no estarían y la fase 1 las volvería a ofrecer.
+	 *
+	 * LED-51
+	 */
+	public function test_a_failed_purge_leaves_everything_as_it_was(): void {
+		global $wpdb;
+
+		$this->old_movement(
+			array(
+				'delta'        => -5,
+				'origin_store' => self::REMOTE_STORE,
+				'origin_seq'   => 4120,
+				'delivery'     => null,
+				'confirmed_at' => null,
+				'application'  => 'applied',
+			)
+		);
+
+		$base_before = $this->base_stock_of( $this->link_id );
+
+		$break_the_delete = static function ( string $query ): string {
+			return 0 === stripos( ltrim( $query ), 'DELETE' ) ? 'DELETE FROM wss_no_existe' : $query;
+		};
+
+		add_filter( 'query', $break_the_delete );
+		$wpdb->suppress_errors( true );
+
+		$purged = Ledger::purge();
+
+		$wpdb->suppress_errors( false );
+		remove_filter( 'query', $break_the_delete );
+
+		$this->assertSame( 0, $purged );
+		$this->assertSame( 1, $this->count_movements(), 'la fila sigue en el libro' );
+		$this->assertSame( $base_before, $this->base_stock_of( $this->link_id ), 'el stock base no se movió' );
+
+		$peers = (array) get_option( 'wss_peers', array() );
+		$this->assertSame( 0, (int) ( $peers[ self::REMOTE_STORE ]['purged_through'] ?? 0 ) );
 	}
 
 	/**
