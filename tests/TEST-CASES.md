@@ -103,7 +103,7 @@ mientras escribía la función.
 | El clon se apaga solo | ADR-001 §1, ADR-007 | `ID-06`, `ID-07`, `ID-08`, `ID-11`, `PLG-02`, `PLG-05` | [test-store.php](test-store.php), [test-plugin.php](test-plugin.php) |
 | Una tabla que falta o no admite transacciones suspende | ADR-004 §5 | `SCH-09`, `SCH-11`, `PLG-03` | [test-installer.php](test-installer.php), [test-plugin.php](test-plugin.php) |
 | La identidad se genera antes que el esquema | ADR-002, consecuencias | `PLG-07`, `PLG-08` | [test-plugin.php](test-plugin.php) |
-| La secuencia propia es el `AUTO_INCREMENT`, completado en la misma transacción | ADR-004 §1 | `LED-02`, `LED-09` | [test-ledger.php](test-ledger.php) |
+| La secuencia propia es el `AUTO_INCREMENT`, completado en la misma transacción | ADR-004 §1 | `LED-02`, `LED-09`, `LED-10` | [test-ledger.php](test-ledger.php) |
 | El movimiento lleva la generación vigente del par | ADR-005 §4 | `LED-03` | [test-ledger.php](test-ledger.php) |
 | Un movimiento no se entrega enseguida | ADR-006 §4 | `LED-05` | [test-ledger.php](test-ledger.php) |
 | Nada entra a la malla hasta que el dueño vincula | UC-03, ADR-006 §1 | `LED-07` | [test-ledger.php](test-ledger.php) |
@@ -166,6 +166,7 @@ mientras escribía la función.
 | `PLG-09` | `suspension_reason()` con todo en orden | No ejecuta ninguna consulta: lee la opción autocargada |
 | `PLG-10` | Sin WooCommerce | El plugin avisa en el admin |
 | `PLG-11` | `boot()` con el esquema atrasado | Migra: es la mitad de `boot()` que antes no alcanzaba ningún test |
+| `PLG-12` | Cuando sale el primer `CREATE TABLE` de la activación | La identidad ya existe (ADR-002) |
 | `PLG-08` | `boot()` sin identidad: el plugin no pasó por la activación | Genera la identidad |
 
 ## [`tests/test-uninstall.php`](test-uninstall.php) — la desinstalación
@@ -196,6 +197,7 @@ varios tests sin chocar.
 | `LED-07` | Producto sin vincular | Devuelve `null` y no escribe nada |
 | `LED-08` | Delta 0 | Devuelve `null` y no escribe nada |
 | `LED-09` | El `UPDATE` de la secuencia falla | Se deshacen las dos escrituras: no queda ninguna fila |
+| `LED-10` | Las consultas de `record()` | El `INSERT` va después del `START TRANSACTION` y el `COMMIT` después del `UPDATE` |
 
 ## [`tests/test-guard.php`](test-guard.php) — el guard anti-eco
 
@@ -213,6 +215,22 @@ varios tests sin chocar.
 escritura se comería la anotación. Entre esas dos líneas no corre nada, y una venta de otro
 request corre en otro proceso de PHP y no pasa por nuestro callback: haría falta un hook
 anidado dentro de nuestra propia llamada que toque el mismo producto.
+
+## Cómo se prueba algo que no deja rastro en el estado final
+
+Tres casos de esta suite no se pueden verificar mirando cómo queda la base, porque lo que
+deciden es **cuándo** o **dentro de qué** pasa algo. Los tres usan el mismo recurso: engancharse
+al filtro `query` de WordPress y mirar las consultas mientras pasan.
+
+| Qué hay que probar | Cómo |
+|---|---|
+| Un orden (`PLG-12`) | Cuando sale el primer `CREATE TABLE`, preguntar si ya había identidad |
+| Una transacción (`LED-10`) | Ver que el `INSERT` caiga después del `START TRANSACTION` y el `COMMIT` después del `UPDATE` |
+| Un fallo de escritura (`LED-09`) | Reemplazar la consulta por una rota y ver que no quede nada |
+
+Los dos primeros miran el mecanismo y no el efecto, que es menos deseable y acá es lo único
+posible: el efecto de una transacción no se puede observar desde adentro de la transacción que
+la suite de WordPress abre para cada test.
 
 ---
 
