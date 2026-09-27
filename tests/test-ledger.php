@@ -371,6 +371,148 @@ class Test_Ledger extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Escribe un movimiento propio ya entregable, saltándose la espera de `record()`.
+	 *
+	 * @param array<string, mixed> $overrides Columnas a pisar.
+	 */
+	private function pending_movement( array $overrides = array() ): int {
+		global $wpdb;
+
+		$wpdb->insert(
+			Installer::table( 'movements' ),
+			array_merge(
+				array(
+					'origin_store'    => Store::id(),
+					'origin_seq'      => wp_rand( 1000, 999999 ),
+					'generation'      => 1,
+					'delta'           => -1,
+					'reason'          => 'sale',
+					'created_at'      => gmdate( 'Y-m-d H:i:s', time() - 60 ),
+					'origin_product'  => 123,
+					'delivery'        => 'pending',
+					'next_attempt_at' => gmdate( 'Y-m-d H:i:s', time() - 30 ),
+				),
+				$overrides
+			)
+		);
+
+		return (int) $wpdb->insert_id;
+	}
+
+	/**
+	 * Una columna de un movimiento.
+	 *
+	 * @param int    $movement_id ID del movimiento.
+	 * @param string $column      Columna.
+	 */
+	private function column_of( int $movement_id, string $column ): ?string {
+		$movement = $this->movement( $movement_id );
+
+		return null === $movement ? null : ( null === $movement->$column ? null : (string) $movement->$column );
+	}
+
+	/**
+	 * LED-22 — Reclamar devuelve las filas pendientes y las marca en vuelo.
+	 */
+	public function test_claiming_takes_the_pending_rows(): void {
+		$first  = $this->pending_movement();
+		$second = $this->pending_movement();
+
+		$claimed = Ledger::claim( 'worker-1' );
+
+		$this->assertCount( 2, $claimed );
+		$this->assertSame( 'in_flight', $this->column_of( $first, 'delivery' ) );
+		$this->assertSame( 'worker-1', $this->column_of( $second, 'claimed_by' ) );
+	}
+
+	/**
+	 * LED-23 — Lo que todavía no le toca no se reclama.
+	 */
+	public function test_it_does_not_claim_what_is_not_due_yet(): void {
+		$this->pending_movement( array( 'next_attempt_at' => gmdate( 'Y-m-d H:i:s', time() + 3600 ) ) );
+
+		$this->assertCount( 0, Ledger::claim( 'worker-1' ) );
+	}
+
+	/**
+	 * LED-24 — Lo que ya reclamó otro worker no se vuelve a reclamar.
+	 */
+	public function test_it_does_not_take_what_another_worker_holds(): void {
+		$this->pending_movement();
+
+		$this->assertCount( 1, Ledger::claim( 'worker-1' ) );
+		$this->assertCount( 0, Ledger::claim( 'worker-2' ) );
+	}
+
+	/**
+	 * Un worker que murió a mitad deja filas en vuelo para siempre: pasado el plazo
+	 * vuelven a estar disponibles (ADR-001 §2).
+	 *
+	 * LED-25
+	 */
+	public function test_it_releases_a_stale_claim(): void {
+		$movement = $this->pending_movement(
+			array(
+				'delivery'   => 'in_flight',
+				'claimed_by' => 'worker-muerto',
+				'claimed_at' => gmdate( 'Y-m-d H:i:s', time() - 600 ),
+			)
+		);
+
+		$claimed = Ledger::claim( 'worker-1' );
+
+		$this->assertCount( 1, $claimed );
+		$this->assertSame( 'worker-1', $this->column_of( $movement, 'claimed_by' ) );
+	}
+
+	/**
+	 * LED-26 — Un claim reciente de otro worker no se toca.
+	 */
+	public function test_it_leaves_a_fresh_claim_alone(): void {
+		$this->pending_movement(
+			array(
+				'delivery'   => 'in_flight',
+				'claimed_by' => 'worker-vivo',
+				'claimed_at' => gmdate( 'Y-m-d H:i:s', time() - 30 ),
+			)
+		);
+
+		$this->assertCount( 0, Ledger::claim( 'worker-1' ) );
+	}
+
+	/**
+	 * LED-27 — El lote respeta el tope que le pasan.
+	 */
+	public function test_it_respects_the_batch_size(): void {
+		for ( $i = 0; $i < 5; $i++ ) {
+			$this->pending_movement();
+		}
+
+		$this->assertCount( 3, Ledger::claim( 'worker-1', 3 ) );
+	}
+
+	/**
+	 * Las fechas se guardan en UTC y `NOW()` devuelve la hora del servidor MySQL en su
+	 * zona: con el servidor en otra zona, comparar contra `NOW()` entrega tarde o
+	 * temprano. El SQL tiene que usar `UTC_TIMESTAMP()`.
+	 *
+	 * LED-28
+	 */
+	public function test_it_does_not_depend_on_the_server_timezone(): void {
+		global $wpdb;
+
+		$this->pending_movement();
+
+		$wpdb->query( "SET time_zone = '-03:00'" ); // phpcs:ignore WordPress.DB
+
+		$claimed = Ledger::claim( 'worker-1' );
+
+		$wpdb->query( "SET time_zone = '+00:00'" ); // phpcs:ignore WordPress.DB
+
+		$this->assertCount( 1, $claimed, 'la zona del servidor no puede cambiar qué se entrega' );
+	}
+
+	/**
 	 * LED-01 — Un cambio de un producto vinculado escribe una fila con sus datos.
 	 */
 	public function test_it_writes_a_row_for_a_linked_product(): void {
