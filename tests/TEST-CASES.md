@@ -249,9 +249,11 @@ varios tests sin chocar.
 | `LED-44` | Movimientos terminados de hace 100 días | Se purgan |
 | `LED-45` | Uno terminado de hace 10 días | No se toca |
 | `LED-46` | Viejos pero `abandoned`, `pending` o `held` | **No se purgan**: lo que no llegó se queda |
-| `LED-47` | Purgar −2, −1 y +3 | El stock base absorbe la suma: el total no cambia |
+| `LED-47` | Purgar −2 y −1 | El stock base baja 3: con deltas que sumaran cero, el test pasaba sin consolidar nada |
 | `LED-48` | Purgar una recibida `discarded` | Se borra pero **no se consolida**: nunca tocó el stock |
 | `LED-49` | Purgar una recibida de la otra tienda | Queda la marca de hasta qué secuencia se purgó |
+| `LED-50` | Purgar un movimiento de una generación anterior | Se borra pero **no se consolida** |
+| `LED-51` | El `DELETE` de la purga falla | No queda nada a medias: ni el stock base movido, ni la marca |
 
 ## [`tests/test-guard.php`](test-guard.php) — el guard anti-eco
 
@@ -321,6 +323,7 @@ la suite de WordPress abre para cada test.
 | 2026-09-26 | `SCH-07` y `PLG-09` contaban consultas sobre una caché que cebaba el propio test: pasaban con `autoload = false`, que es justo lo que decían verificar. Y la versión del esquema efectivamente no se autocargaba: una consulta por página |
 | 2026-09-26 | `UNI-05` revisaba seis opciones de las siete que borra `uninstall.php`; faltaba justo la autocargada |
 | 2026-09-26 | `LED-05` comparaba la fila contra `Ledger::DELIVERY_DELAY`, así que bajar la constante a 1 segundo cambiaba los dos lados y el test pasaba igual |
+| 2026-09-27 | `LED-47` usaba deltas que sumaban cero y esperaba el mismo número de antes: borrar la consolidación entera dejaba la suite en verde, en el test que justificaba la regla principal de la tarea |
 | 2026-09-27 | `LED-32` miraba que el próximo intento quedara "más adelante" y no cuánto: un backoff fijo pasaba igual, y una tienda caída recibiría un intento por minuto durante seis horas |
 | 2026-09-27 | `LED-24` decía "no reclama lo de otro worker" y lo probaba con el mismo identificador: el caso real —dos pasadas que se pisan— no lo cubría nadie |
 | 2026-09-27 | `LED-28` protegía sólo el paso 2 del claim: un `NOW()` en el paso 1 dejaba un claim muerto tres horas sin liberar |
