@@ -256,12 +256,118 @@ class Test_Ledger extends WP_UnitTestCase {
 
 		Guard::forget_all();
 
-		Ledger::apply( $this->incoming( 789, -2 ) );
+		// Mirar el guard después de `apply()` no dice nada del orden: quedaría igual si se
+		// anotara al final. El espía hace lo que va a hacer el detector —consumir— en el
+		// momento exacto en que WooCommerce avisa el cambio.
+		$armed = null;
 
-		// Hoy nadie la consume porque el detector todavía no existe (tarea 4.1): lo que
-		// se comprueba es que `apply()` la haya dejado puesta antes de tocar el stock.
-		// Cuando el detector exista, este test pasa a verificar que la consumió.
-		$this->assertTrue( Guard::consume( $product_id ), 'apply() tiene que anotar el guard' );
+		$spy = static function ( $product ) use ( &$armed ): void {
+			$armed = Guard::consume( $product->get_id() );
+		};
+
+		add_action( 'woocommerce_product_set_stock', $spy );
+		Ledger::apply( $this->incoming( 789, -2 ) );
+		remove_action( 'woocommerce_product_set_stock', $spy );
+
+		$this->assertTrue( $armed, 'el guard tiene que estar puesto cuando el stock cambia' );
+	}
+
+	/**
+	 * Una devolución suma. Con un solo test de −2, usar siempre 'decrease' pasaría igual.
+	 *
+	 * LED-18
+	 */
+	public function test_a_positive_delta_adds_stock(): void {
+		$product_id = $this->create_product( 10 );
+		$this->link_product( $product_id, 789, 77 );
+
+		$this->assertSame( 'applied', Ledger::apply( $this->incoming( 789, 2 ) ) );
+		$this->assertSame( 12, $this->stock_of( $product_id ) );
+	}
+
+	/**
+	 * Si el INSERT falla de verdad —un error de la base, o un campo más largo que su
+	 * columna— no se puede confirmar: con un ACK el emisor deja de reintentar y el
+	 * movimiento se pierde en las dos tiendas (ADR-001 §3).
+	 *
+	 * LED-19
+	 */
+	public function test_a_failed_insert_is_not_confirmable(): void {
+		global $wpdb;
+
+		$product_id = $this->create_product( 10 );
+		$this->link_product( $product_id, 789, 77 );
+
+		$table = Installer::table( 'movements' );
+
+		$break_the_insert = static function ( string $query ) use ( $table ): string {
+			if ( 0 === stripos( ltrim( $query ), 'INSERT' ) && str_contains( $query, $table ) ) {
+				return 'INSERT INTO wss_no_existe (id) VALUES (1)';
+			}
+
+			return $query;
+		};
+
+		add_filter( 'query', $break_the_insert );
+		$wpdb->suppress_errors( true );
+
+		$state = Ledger::apply( $this->incoming( 789, -2 ) );
+
+		$wpdb->suppress_errors( false );
+		remove_filter( 'query', $break_the_insert );
+
+		$this->assertNull( $state, 'sin fila no hay nada que confirmar' );
+		$this->assertSame( 10, $this->stock_of( $product_id ) );
+		$this->assertSame( 0, $this->count_movements() );
+	}
+
+	/**
+	 * La papelera deja el par suspendido (UC-03), y `wc_get_product()` devuelve el
+	 * producto igual: hay que mirar el estado.
+	 *
+	 * LED-20
+	 */
+	public function test_a_movement_for_a_trashed_product_is_held(): void {
+		$product_id = $this->create_product( 10 );
+		$this->link_product( $product_id, 789, 77 );
+
+		wp_trash_post( $product_id );
+
+		$this->assertSame( 'held', Ledger::apply( $this->incoming( 789, -2 ) ) );
+		$this->assertSame( 10, $this->stock_of( $product_id ) );
+	}
+
+	/**
+	 * En una variación que toma el stock del padre, quien cambia es el padre: el guard
+	 * tiene que anotar ese ID o el detector va a ver el cambio como una venta.
+	 *
+	 * LED-21
+	 */
+	public function test_the_guard_notes_the_product_that_holds_the_stock(): void {
+		$parent = new WC_Product_Variable();
+		$parent->set_manage_stock( true );
+		$parent->set_stock_quantity( 10 );
+		$parent_id = (int) $parent->save();
+
+		$variation = new WC_Product_Variation();
+		$variation->set_parent_id( $parent_id );
+		$variation_id = (int) $variation->save();
+
+		$this->link_product( $variation_id, 789, 77 );
+
+		$armed = null;
+
+		$spy = static function ( $product ) use ( &$armed ): void {
+			$armed = Guard::consume( $product->get_id() );
+		};
+
+		add_action( 'woocommerce_product_set_stock', $spy );
+		add_action( 'woocommerce_variation_set_stock', $spy );
+		Ledger::apply( $this->incoming( 789, -2 ) );
+		remove_action( 'woocommerce_product_set_stock', $spy );
+		remove_action( 'woocommerce_variation_set_stock', $spy );
+
+		$this->assertTrue( $armed, 'el guard tiene que anotar el producto que lleva el stock' );
 	}
 
 	/**
