@@ -114,7 +114,8 @@ mientras escribía la función.
 | El guard es de un solo uso | ADR-006 §3 | `GRD-03` | [test-guard.php](test-guard.php) |
 | El claim vence a los 5 minutos | ADR-001 §2 | `LED-25`, `LED-26` | [test-ledger.php](test-ledger.php) |
 | El techo de 6 h se mide desde el primer intento, y el intento es el claim | ADR-001 §2 | `LED-29`, `LED-30` | [test-ledger.php](test-ledger.php) |
-| Agotado el techo, el movimiento se abandona y lo rescata la reconciliación | ADR-001 §2 | `LED-34`, `LED-35` | [test-ledger.php](test-ledger.php) |
+| Agotado el techo, el movimiento se abandona y lo rescata la reconciliación | ADR-001 §2 | `LED-34`, `LED-35`, `LED-39`, `LED-40` | [test-ledger.php](test-ledger.php) |
+| Una fila recibida no tiene eje de entrega | ADR-001 §3 | `LED-38` | [test-ledger.php](test-ledger.php) |
 | El lote no pasa de 200 | ADR-001 §4 | `LED-27` | [test-ledger.php](test-ledger.php) |
 | El secreto se borra siempre al desinstalar | ADR-003 | `UNI-01` | [test-uninstall.php](test-uninstall.php) |
 | Los nonces se borran siempre | ADR-003 | `UNI-02` | [test-uninstall.php](test-uninstall.php) |
@@ -235,6 +236,10 @@ varios tests sin chocar.
 | `LED-34` | Una fila con 7 horas desde el primer intento | Se abandona al reclamar, y no se entrega |
 | `LED-35` | Una con 5 horas | Se sigue reclamando |
 | `LED-36` | Un id que no está en el libro | No rompe nada |
+| `LED-37` | Un `ack()` con el token de otra pasada | No toca la fila |
+| `LED-38` | Un `ack()` sobre un movimiento **recibido** | No le toca el `delivery`: no tiene entrega que anotar |
+| `LED-39` | Una fila pasada del techo que un worker vivo está entregando | **No se abandona**: se abandona lo que espera, no lo que está en camino |
+| `LED-40` | La misma, de un worker muerto | Se libera y se abandona en la misma pasada |
 
 ## [`tests/test-guard.php`](test-guard.php) — el guard anti-eco
 
