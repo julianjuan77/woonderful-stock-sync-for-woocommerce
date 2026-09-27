@@ -113,6 +113,7 @@ mientras escribía la función.
 | El guard no tapa la venta de otro producto del mismo request | ADR-006 §3, SPEC §3 | `GRD-04` | [test-guard.php](test-guard.php) |
 | El guard es de un solo uso | ADR-006 §3 | `GRD-03` | [test-guard.php](test-guard.php) |
 | El claim vence a los 5 minutos | ADR-001 §2 | `LED-25`, `LED-26` | [test-ledger.php](test-ledger.php) |
+| El techo de 6 h se mide desde el primer intento, y el intento es el claim | ADR-001 §2 | `LED-29`, `LED-30` | [test-ledger.php](test-ledger.php) |
 | El lote no pasa de 200 | ADR-001 §4 | `LED-27` | [test-ledger.php](test-ledger.php) |
 | El secreto se borra siempre al desinstalar | ADR-003 | `UNI-01` | [test-uninstall.php](test-uninstall.php) |
 | Los nonces se borran siempre | ADR-003 | `UNI-02` | [test-uninstall.php](test-uninstall.php) |
@@ -220,11 +221,13 @@ varios tests sin chocar.
 | `LED-21` | Una variación que toma el stock del padre | El guard anota el **padre**, que es quien cambia |
 | `LED-22` | Dos movimientos pendientes | Los reclama los dos y quedan `in_flight` con el worker anotado |
 | `LED-23` | Un movimiento con el reintento en el futuro | No se reclama |
-| `LED-24` | Un movimiento que ya tiene otro worker | No se reclama |
-| `LED-25` | Un claim de hace 10 minutos | Se libera y lo toma el worker nuevo |
+| `LED-24` | Tres pendientes, dos pasadas de a dos | Ninguna fila cae en las dos: el token lo genera `claim()` |
+| `LED-25` | Un claim de hace 10 minutos, **con la sesión en otra zona horaria** | Se libera igual: el paso 1 también compara en UTC |
 | `LED-26` | Un claim de hace 30 segundos | No se toca |
 | `LED-27` | Cinco pendientes, tope de 3 | Reclama 3 |
-| `LED-28` | La sesión de MySQL en otra zona horaria | Reclama igual: el SQL compara contra `UTC_TIMESTAMP()` |
+| `LED-28` | La sesión de MySQL en otra zona horaria | Reclama igual: el paso 2 compara contra `UTC_TIMESTAMP()` |
+| `LED-29` | Reclamar un movimiento | Cuenta como intento: `attempts` sube y queda `first_attempt_at` |
+| `LED-30` | Reclamar uno que ya tenía intentos | `first_attempt_at` no se pisa; `attempts` sube |
 
 ## [`tests/test-guard.php`](test-guard.php) — el guard anti-eco
 
@@ -292,6 +295,9 @@ la suite de WordPress abre para cada test.
 | 2026-09-26 | `SCH-07` y `PLG-09` contaban consultas sobre una caché que cebaba el propio test: pasaban con `autoload = false`, que es justo lo que decían verificar. Y la versión del esquema efectivamente no se autocargaba: una consulta por página |
 | 2026-09-26 | `UNI-05` revisaba seis opciones de las siete que borra `uninstall.php`; faltaba justo la autocargada |
 | 2026-09-26 | `LED-05` comparaba la fila contra `Ledger::DELIVERY_DELAY`, así que bajar la constante a 1 segundo cambiaba los dos lados y el test pasaba igual |
+| 2026-09-27 | `LED-24` decía "no reclama lo de otro worker" y lo probaba con el mismo identificador: el caso real —dos pasadas que se pisan— no lo cubría nadie |
+| 2026-09-27 | `LED-28` protegía sólo el paso 2 del claim: un `NOW()` en el paso 1 dejaba un claim muerto tres horas sin liberar |
+| 2026-09-27 | `pending_movement()` generaba la secuencia con `wp_rand()`: dos filas con el mismo número chocaban contra el `UNIQUE` y el test fallaba de vez en cuando |
 | 2026-09-27 | `LED-11` probaba sólo un delta negativo: usar siempre `'decrease'` pasaba igual, y las devoluciones suman |
 | 2026-09-27 | `LED-17` miraba el guard **después** de aplicar, así que anotarlo al final pasaba igual. Ahora lo mira desde el hook de WooCommerce |
 | 2026-09-27 | Los tests que rompían una tabla rompían siempre `nonces` o `movements`: sacar `links` de las tablas controladas no lo detectaba nadie |
