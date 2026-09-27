@@ -34,14 +34,14 @@ make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS=
 
 ## 🔄 En progreso
 
-**3.3 — `Ledger::claim()`: liberar lo vencido y reclamar un lote.**
+**3.4 — `Ledger::ack()`: anotar el resultado de cada fila entregada.**
 
-Son los dos primeros pasos de la pasada de ADR-001 §2: el `UPDATE` que devuelve a `pending`
-lo que lleva más de 5 minutos en `in_flight`, y el que reclama un lote marcándolo con el
-worker.
+El tercer paso de la pasada. Una fila confirmada pasa a `confirmed` con su `confirmed_at`;
+una que falló vuelve a `pending` con el siguiente reintento calculado; y la que ya pasó las
+6 horas desde el primer intento pasa a `abandoned`.
 
-Done cuando: los dos `UPDATE` condicionales funcionan, el lote respeta el tope de 200, tiene
-sus tests `LED-NN`, lint y tests en verde, y está commiteada.
+Done cuando: los tres caminos funcionan, la curva de backoff está definida, tiene sus tests
+`LED-NN`, lint y tests en verde, y está commiteada.
 
 ---
 
@@ -82,8 +82,8 @@ Leyenda: ✅ hecho · 🔄 en curso · ⬜ pendiente · 🔒 bloqueado
 |---|---|---|---|---|
 | 3.1 | `record()`: escribir un movimiento propio, con la secuencia en una transacción | ✅ | `2668a7a` | `LED-01`…`LED-08` |
 | 3.2 | `apply()`: aplicar un movimiento recibido y decidir `applied` / `held` / `discarded` | ✅ | `7af47c9` | `LED-11`…`LED-17` |
-| 3.3 | `claim()`: liberar lo vencido y reclamar un lote | 🔄 | | |
-| 3.4 | `ack()`: anotar el resultado de cada fila entregada | ⬜ | | |
+| 3.3 | `claim()`: liberar lo vencido y reclamar un lote | ✅ | `a0f47c1` | `LED-22`…`LED-28` |
+| 3.4 | `ack()`: anotar el resultado de cada fila entregada, y abandonar lo que pasó el techo de 6 h | 🔄 | | |
 | 3.5 | `purge()`: la retención, consolidando el stock base | ⬜ | | |
 
 **3.1 en detalle** — `2668a7a`

@@ -112,6 +112,8 @@ mientras escribía la función.
 | Un movimiento que no se puede aplicar se retiene, no se descarta | SPEC §3, UC-03 | `LED-16`, `LED-20` | [test-ledger.php](test-ledger.php) |
 | El guard no tapa la venta de otro producto del mismo request | ADR-006 §3, SPEC §3 | `GRD-04` | [test-guard.php](test-guard.php) |
 | El guard es de un solo uso | ADR-006 §3 | `GRD-03` | [test-guard.php](test-guard.php) |
+| El claim vence a los 5 minutos | ADR-001 §2 | `LED-25`, `LED-26` | [test-ledger.php](test-ledger.php) |
+| El lote no pasa de 200 | ADR-001 §4 | `LED-27` | [test-ledger.php](test-ledger.php) |
 | El secreto se borra siempre al desinstalar | ADR-003 | `UNI-01` | [test-uninstall.php](test-uninstall.php) |
 | Los nonces se borran siempre | ADR-003 | `UNI-02` | [test-uninstall.php](test-uninstall.php) |
 | Con la casilla en falso no se pierde nada más | ADR-003 | `UNI-02`, `UNI-03` | [test-uninstall.php](test-uninstall.php) |
@@ -216,6 +218,13 @@ varios tests sin chocar.
 | `LED-19` | El `INSERT` de la fila falla | Devuelve `null`: sin fila no hay nada que confirmar, y el emisor reintenta |
 | `LED-20` | El producto local en la papelera | `held`, y el stock no se toca |
 | `LED-21` | Una variación que toma el stock del padre | El guard anota el **padre**, que es quien cambia |
+| `LED-22` | Dos movimientos pendientes | Los reclama los dos y quedan `in_flight` con el worker anotado |
+| `LED-23` | Un movimiento con el reintento en el futuro | No se reclama |
+| `LED-24` | Un movimiento que ya tiene otro worker | No se reclama |
+| `LED-25` | Un claim de hace 10 minutos | Se libera y lo toma el worker nuevo |
+| `LED-26` | Un claim de hace 30 segundos | No se toca |
+| `LED-27` | Cinco pendientes, tope de 3 | Reclama 3 |
+| `LED-28` | La sesión de MySQL en otra zona horaria | Reclama igual: el SQL compara contra `UTC_TIMESTAMP()` |
 
 ## [`tests/test-guard.php`](test-guard.php) — el guard anti-eco
 
