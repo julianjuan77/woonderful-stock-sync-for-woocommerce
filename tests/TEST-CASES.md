@@ -242,6 +242,7 @@ varios tests sin chocar.
 | `LED-40` | La misma, de un worker muerto | Se libera y se abandona en la misma pasada |
 | `LED-41` | Un motivo de 400 caracteres | Se recorta a 255 y la fila se actualiza igual |
 | `LED-42` | Falla y después se confirma | El motivo del fallo queda como historia |
+| `LED-43` | Dos fallos seguidos | La segunda espera es el doble de la primera, no un número fijo |
 
 ## [`tests/test-guard.php`](test-guard.php) — el guard anti-eco
 
@@ -309,6 +310,7 @@ la suite de WordPress abre para cada test.
 | 2026-09-26 | `SCH-07` y `PLG-09` contaban consultas sobre una caché que cebaba el propio test: pasaban con `autoload = false`, que es justo lo que decían verificar. Y la versión del esquema efectivamente no se autocargaba: una consulta por página |
 | 2026-09-26 | `UNI-05` revisaba seis opciones de las siete que borra `uninstall.php`; faltaba justo la autocargada |
 | 2026-09-26 | `LED-05` comparaba la fila contra `Ledger::DELIVERY_DELAY`, así que bajar la constante a 1 segundo cambiaba los dos lados y el test pasaba igual |
+| 2026-09-27 | `LED-32` miraba que el próximo intento quedara "más adelante" y no cuánto: un backoff fijo pasaba igual, y una tienda caída recibiría un intento por minuto durante seis horas |
 | 2026-09-27 | `LED-24` decía "no reclama lo de otro worker" y lo probaba con el mismo identificador: el caso real —dos pasadas que se pisan— no lo cubría nadie |
 | 2026-09-27 | `LED-28` protegía sólo el paso 2 del claim: un `NOW()` en el paso 1 dejaba un claim muerto tres horas sin liberar |
 | 2026-09-27 | `pending_movement()` generaba la secuencia con `wp_rand()`: dos filas con el mismo número chocaban contra el `UNIQUE` y el test fallaba de vez en cuando |
