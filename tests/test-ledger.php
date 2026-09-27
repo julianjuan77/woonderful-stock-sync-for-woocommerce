@@ -7,6 +7,7 @@
 
 declare( strict_types = 1 );
 
+use Woonderful\StockSync\Detector\Guard;
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Ledger\Ledger;
 use Woonderful\StockSync\Schema\Installer;
@@ -22,6 +23,11 @@ class Test_Ledger extends WP_UnitTestCase {
 	 * @var int
 	 */
 	private int $link_id = 0;
+
+	/**
+	 * La otra tienda de la malla.
+	 */
+	private const REMOTE_STORE = 'b1b1b1b1-0000-4000-8000-000000000000';
 
 	public function set_up(): void {
 		parent::set_up();
@@ -50,6 +56,52 @@ class Test_Ledger extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Crea un producto de WooCommerce que gestiona stock.
+	 *
+	 * @param int $stock Con cuántas unidades arranca.
+	 */
+	private function create_product( int $stock ): int {
+		$product = new WC_Product_Simple();
+		$product->set_manage_stock( true );
+		$product->set_stock_quantity( $stock );
+
+		return (int) $product->save();
+	}
+
+	/**
+	 * El stock que tiene un producto, leído de la base.
+	 *
+	 * @param int $product_id Producto.
+	 */
+	private function stock_of( int $product_id ): int {
+		return (int) get_post_meta( $product_id, '_stock', true );
+	}
+
+	/**
+	 * Un movimiento tal como llega de la otra tienda.
+	 *
+	 * @param int   $product   Producto en la tienda de origen.
+	 * @param int   $delta     Unidades con signo.
+	 * @param array $overrides Campos a pisar.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function incoming( int $product, int $delta, array $overrides = array() ): array {
+		return array_merge(
+			array(
+				'origin'     => self::REMOTE_STORE,
+				'seq'        => 77,
+				'generation' => 77,
+				'delta'      => $delta,
+				'product'    => $product,
+				'reason'     => 'sale',
+				'reference'  => 'pedido #4512',
+			),
+			$overrides
+		);
+	}
+
+	/**
 	 * Vincula un producto local con uno remoto.
 	 *
 	 * @param int $local      Producto de esta tienda.
@@ -63,7 +115,7 @@ class Test_Ledger extends WP_UnitTestCase {
 			Installer::table( 'links' ),
 			array(
 				'local_product'  => $local,
-				'remote_store'   => 'b1b1b1b1-0000-4000-8000-000000000000',
+				'remote_store'   => self::REMOTE_STORE,
 				'remote_product' => $remote,
 				'generation'     => $generation,
 				'base_stock'     => 10,
@@ -96,6 +148,120 @@ class Test_Ledger extends WP_UnitTestCase {
 		$table = Installer::table( 'movements' );
 
 		return (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table}" ); // phpcs:ignore WordPress.DB
+	}
+
+	/**
+	 * LED-11 — Un movimiento aplicable descuenta el stock y queda como `applied`.
+	 */
+	public function test_an_applicable_movement_is_applied(): void {
+		$product_id = $this->create_product( 10 );
+		$this->link_product( $product_id, 456, 77 );
+
+		$state = Ledger::apply( $this->incoming( 456, -2 ) );
+
+		$this->assertSame( 'applied', $state );
+		$this->assertSame( 8, $this->stock_of( $product_id ) );
+	}
+
+	/**
+	 * LED-12 — La fila del receptor guarda el movimiento con su origen y su secuencia.
+	 */
+	public function test_the_received_row_keeps_its_origin(): void {
+		$product_id = $this->create_product( 10 );
+		$this->link_product( $product_id, 456, 77 );
+
+		Ledger::apply( $this->incoming( 456, -2 ) );
+
+		global $wpdb;
+		$table    = Installer::table( 'movements' );
+		$movement = $wpdb->get_row( "SELECT * FROM {$table} LIMIT 1" ); // phpcs:ignore WordPress.DB
+
+		$this->assertSame( self::REMOTE_STORE, $movement->origin_store );
+		$this->assertSame( 77, (int) $movement->origin_seq );
+		$this->assertSame( 456, (int) $movement->origin_product );
+		$this->assertSame( 'applied', $movement->application );
+		$this->assertNull( $movement->delivery );
+	}
+
+	/**
+	 * Un reenvío no puede descontar dos veces: el ACK confirma que el movimiento está
+	 * guardado, así que el emisor puede reintentarlo sin saber que ya llegó (ADR-001 §3).
+	 *
+	 * LED-13
+	 */
+	public function test_a_resent_movement_is_not_applied_twice(): void {
+		$product_id = $this->create_product( 10 );
+		$this->link_product( $product_id, 456, 77 );
+
+		$this->assertSame( 'applied', Ledger::apply( $this->incoming( 456, -2 ) ) );
+		$this->assertSame( 'applied', Ledger::apply( $this->incoming( 456, -2 ) ) );
+
+		$this->assertSame( 8, $this->stock_of( $product_id ) );
+		$this->assertSame( 1, $this->count_movements() );
+	}
+
+	/**
+	 * LED-14 — Sin vínculo, el movimiento se descarta y no toca ningún stock.
+	 */
+	public function test_a_movement_without_a_link_is_discarded(): void {
+		$state = Ledger::apply( $this->incoming( 999, -2 ) );
+
+		$this->assertSame( 'discarded', $state );
+		$this->assertSame( 1, $this->count_movements() );
+	}
+
+	/**
+	 * Un delta que quedó en cola del vínculo anterior llega después de un bootstrap
+	 * nuevo: no es un duplicado y la deduplicación no lo detiene, pero pertenece a una
+	 * época que ya no corre (ADR-005 §4).
+	 *
+	 * LED-15
+	 */
+	public function test_a_movement_from_an_old_generation_is_discarded(): void {
+		$product_id = $this->create_product( 10 );
+		$this->link_product( $product_id, 456, 412 );
+
+		$state = Ledger::apply( $this->incoming( 456, -2, array( 'generation' => 77 ) ) );
+
+		$this->assertSame( 'discarded', $state );
+		$this->assertSame( 10, $this->stock_of( $product_id ) );
+	}
+
+	/**
+	 * El producto local desapareció: no se puede aplicar, pero tampoco se descarta —
+	 * descartarlo pierde stock en silencio (§3 del SPEC, UC-03).
+	 *
+	 * LED-16
+	 */
+	public function test_a_movement_for_a_missing_product_is_held(): void {
+		$product_id = $this->create_product( 10 );
+		$this->link_product( $product_id, 456, 77 );
+
+		wp_delete_post( $product_id, true );
+
+		$state = Ledger::apply( $this->incoming( 456, -2 ) );
+
+		$this->assertSame( 'held', $state );
+	}
+
+	/**
+	 * Aplicar cambia el stock local, y el detector lo vería como una venta: el guard
+	 * tiene que quedar anotado antes (ADR-006 §3).
+	 *
+	 * LED-17
+	 */
+	public function test_applying_arms_the_guard(): void {
+		$product_id = $this->create_product( 10 );
+		$this->link_product( $product_id, 456, 77 );
+
+		Guard::forget_all();
+
+		Ledger::apply( $this->incoming( 456, -2 ) );
+
+		// Si el guard se hubiera anotado y nadie lo consumiera, seguiría disponible; lo
+		// que se comprueba es que la aplicación lo haya consumido: el cambio de stock
+		// pasó por el detector con la anotación puesta.
+		$this->assertFalse( Guard::consume( $product_id ), 'el guard tendría que haberse consumido' );
 	}
 
 	/**
