@@ -178,7 +178,7 @@ del otro lado, y resuelve el movimiento con esa correspondencia.
 
 **El par lo fija el dueño al vincular**, en el mismo acto que el stock base: "estos dos
 productos son el mismo y arrancan en N" (UC-03, UC-07). Con una sola vía para fijarlo —la
-pantalla— no hay mapeos cruzados posibles (ADR-004).
+pantalla— no hay mapeos cruzados posibles (ADR-005).
 
 **El SKU sigue siendo el lenguaje del dueño, pero no la identidad del plugin.** Es lo que
 **sugiere** el par la primera vez —lo que evita tener que aparear a mano un catálogo
@@ -712,7 +712,7 @@ sugerencia de más se descarta de un clic.
 - [ ] _(caso borde — no se re-vincula solo)_ Dado ese mismo producto suspendido, cuando en la
       otra tienda aparece un producto **nuevo** con el mismo SKU que tenía el borrado,
       entonces el plugin **no lo adopta como par**: lo ofrece como sugerencia y la confirma
-      el dueño. Adoptarlo solo reintroduciría el agujero que ADR-004 vino a cerrar.
+      el dueño. Adoptarlo solo reintroduciría el agujero que ADR-005 vino a cerrar.
 - [ ] _(desvincular)_ Dado un producto vinculado, cuando el dueño lo desvincula desde la
       pantalla, entonces deja de emitir y de recibir movimientos, su stock **no se toca** en
       ninguna de las dos tiendas, y el historial y el stock base quedan registrados.
@@ -1767,7 +1767,7 @@ soporte a decimales es una migración del esquema y queda fuera de v1.
   dueño puede vincular a mano dos productos con SKU distinto, o sin SKU— pero es lo que hace
   que la vinculación masiva resuelva el catálogo entero en un clic. Cuanto peor el SKU, más
   trabajo manual en el arranque; después de vincular, el SKU puede cambiar libremente
-  (ADR-004).
+  (ADR-005).
 - **Un producto nuevo no sincroniza hasta que el dueño lo vincula desde la maestra.** El
   plugin lo sugiere y lo avisa por email (UC-08), pero no entra a la malla solo. Hay que darlo
   de alta en las dos tiendas y **cargar el stock real en la maestra antes de vincularlo**: el
@@ -1824,7 +1824,7 @@ Ninguna impide cerrar el SPEC, pero cada una bloquea una parte concreta.
       `ZAP-001` y `zap-001` se proponen solas y **hoy la respuesta de hecho es "no
       distingue"**, sin que nadie lo haya decidido. Hacerla sensible exige forzar `BINARY` en
       la comparación, con su costo en índices. Hay que elegir entre respetar el comportamiento
-      de WooCommerce o ser estricto. **Dejó de ser riesgoso con ADR-004 y ADR-005:** lo único
+      de WooCommerce o ser estricto. **Dejó de ser riesgoso con ADR-005:** lo único
       en juego es qué pares se **sugieren**; un cambio de criterio no puede romper un par ya
       vinculado ni desincronizar nada — a lo sumo cambia una lista de sugerencias.
 - [ ] **¿Cómo se autentican las tiendas entre sí?** No bloquea el SPEC pero sí el primer
