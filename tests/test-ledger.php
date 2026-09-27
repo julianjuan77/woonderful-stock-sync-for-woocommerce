@@ -582,9 +582,9 @@ class Test_Ledger extends WP_UnitTestCase {
 	 */
 	public function test_a_confirmed_row_is_closed(): void {
 		$movement = $this->pending_movement();
-		Ledger::claim();
+		$claimed  = Ledger::claim();
 
-		Ledger::ack( array( $movement => true ) );
+		Ledger::ack( (string) $claimed[0]->claimed_by, array( $movement => true ) );
 
 		$this->assertSame( 'confirmed', $this->column_of( $movement, 'delivery' ) );
 		$this->assertNotNull( $this->column_of( $movement, 'confirmed_at' ) );
@@ -596,9 +596,9 @@ class Test_Ledger extends WP_UnitTestCase {
 	 */
 	public function test_a_failed_row_goes_back_to_the_queue(): void {
 		$movement = $this->pending_movement();
-		Ledger::claim();
+		$claimed  = Ledger::claim();
 
-		Ledger::ack( array( $movement => false ) );
+		Ledger::ack( (string) $claimed[0]->claimed_by, array( $movement => false ) );
 
 		$this->assertSame( 'pending', $this->column_of( $movement, 'delivery' ) );
 		$this->assertNull( $this->column_of( $movement, 'claimed_by' ) );
@@ -657,9 +657,45 @@ class Test_Ledger extends WP_UnitTestCase {
 	 * LED-36 — Un id que no está en el libro no rompe nada.
 	 */
 	public function test_acking_an_unknown_id_does_nothing(): void {
-		Ledger::ack( array( 999999 => true ) );
+		Ledger::ack( 'un-token', array( 999999 => true ) );
 
 		$this->assertSame( 0, $this->count_movements() );
+	}
+
+	/**
+	 * Un worker lento puede anotar su resultado después de que su claim venció y otra
+	 * pasada se llevó la fila: la escritura tiene que no encontrarla.
+	 *
+	 * LED-37
+	 */
+	public function test_an_ack_from_another_worker_changes_nothing(): void {
+		$movement = $this->pending_movement();
+		$claimed  = Ledger::claim();
+
+		Ledger::ack( 'token-de-otra-pasada', array( $movement => false ) );
+
+		$this->assertSame( 'in_flight', $this->column_of( $movement, 'delivery' ) );
+		$this->assertSame( (string) $claimed[0]->claimed_by, $this->column_of( $movement, 'claimed_by' ) );
+	}
+
+	/**
+	 * Una fila recibida no tiene entrega que anotar: los dos ejes existen justamente para
+	 * eso, y un ack con el id equivocado la metería en la cola de salida (ADR-001 §3).
+	 *
+	 * LED-38
+	 */
+	public function test_an_ack_never_touches_a_received_movement(): void {
+		$product_id = $this->create_product( 10 );
+		$this->link_product( $product_id, 789, 77 );
+		Ledger::apply( $this->incoming( 789, -2 ) );
+
+		global $wpdb;
+		$table    = Installer::table( 'movements' );
+		$received = (int) $wpdb->get_var( "SELECT id FROM {$table} LIMIT 1" ); // phpcs:ignore WordPress.DB
+
+		Ledger::ack( 'un-token', array( $received => false ) );
+
+		$this->assertNull( $this->column_of( $received, 'delivery' ) );
 	}
 
 	/**
