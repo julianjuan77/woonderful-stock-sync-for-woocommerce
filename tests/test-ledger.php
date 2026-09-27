@@ -816,6 +816,145 @@ class Test_Ledger extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Escribe un movimiento viejo y terminado, listo para purgar.
+	 *
+	 * @param array<string, mixed> $overrides Columnas a pisar.
+	 */
+	private function old_movement( array $overrides = array() ): int {
+		return $this->pending_movement(
+			array_merge(
+				array(
+					'created_at'      => gmdate( 'Y-m-d H:i:s', time() - 100 * DAY_IN_SECONDS ),
+					'delivery'        => 'confirmed',
+					'confirmed_at'    => gmdate( 'Y-m-d H:i:s', time() - 100 * DAY_IN_SECONDS ),
+					'next_attempt_at' => null,
+					'link_id'         => $this->link_id,
+				),
+				$overrides
+			)
+		);
+	}
+
+	/**
+	 * El stock base de un vínculo.
+	 *
+	 * @param int $link_id Vínculo.
+	 */
+	private function base_stock_of( int $link_id ): int {
+		global $wpdb;
+
+		$table = Installer::table( 'links' );
+
+		return (int) $wpdb->get_var( $wpdb->prepare( "SELECT base_stock FROM {$table} WHERE id = %d", $link_id ) ); // phpcs:ignore WordPress.DB
+	}
+
+	/**
+	 * LED-44 — Lo terminado y viejo se purga.
+	 */
+	public function test_it_purges_what_is_finished_and_old(): void {
+		$this->old_movement();
+		$this->old_movement();
+
+		$this->assertSame( 2, Ledger::purge() );
+		$this->assertSame( 0, $this->count_movements() );
+	}
+
+	/**
+	 * LED-45 — Lo reciente no se toca, por más terminado que esté.
+	 */
+	public function test_it_leaves_recent_movements_alone(): void {
+		$this->old_movement( array( 'created_at' => gmdate( 'Y-m-d H:i:s', time() - 10 * DAY_IN_SECONDS ) ) );
+
+		$this->assertSame( 0, Ledger::purge() );
+	}
+
+	/**
+	 * Lo que no llegó no se purga: borrarlo le quitaría a la reconciliación la única
+	 * forma de repararlo, y el desvío quedaría permanente y silencioso (§3 del SPEC).
+	 *
+	 * LED-46
+	 */
+	public function test_it_never_purges_what_is_not_finished(): void {
+		$this->old_movement( array( 'delivery' => 'abandoned' ) );
+		$this->old_movement( array( 'delivery' => 'pending' ) );
+		$this->old_movement(
+			array(
+				'delivery'     => null,
+				'confirmed_at' => null,
+				'application'  => 'held',
+			)
+		);
+
+		$this->assertSame( 0, Ledger::purge() );
+		$this->assertSame( 3, $this->count_movements() );
+	}
+
+	/**
+	 * Al purgar, el stock base absorbe la suma de lo purgado: si no, la fórmula
+	 * `base + movimientos` deja de dar el mismo número y la fase 2 reportaría
+	 * discrepancias falsas en todos los productos con historia (ADR-004 §4).
+	 *
+	 * LED-47
+	 */
+	public function test_the_base_stock_absorbs_what_was_purged(): void {
+		$this->old_movement( array( 'delta' => -2 ) );
+		$this->old_movement( array( 'delta' => -1 ) );
+		$this->old_movement( array( 'delta' => 3 ) );
+
+		$base_before = $this->base_stock_of( $this->link_id );
+
+		Ledger::purge();
+
+		$this->assertSame( $base_before + 0, $this->base_stock_of( $this->link_id ) );
+	}
+
+	/**
+	 * Una recibida descartada nunca tocó el stock: consolidarla correría el stock base
+	 * justo por los movimientos que decidimos no aplicar.
+	 *
+	 * LED-48
+	 */
+	public function test_a_discarded_movement_is_not_consolidated(): void {
+		$this->old_movement(
+			array(
+				'delta'        => -5,
+				'delivery'     => null,
+				'confirmed_at' => null,
+				'application'  => 'discarded',
+			)
+		);
+
+		$base_before = $this->base_stock_of( $this->link_id );
+
+		$this->assertSame( 1, Ledger::purge() );
+		$this->assertSame( $base_before, $this->base_stock_of( $this->link_id ) );
+	}
+
+	/**
+	 * Purgar una fila recibida borra el registro que la deduplica: sin la marca, la
+	 * fase 1 se la vuelve a ofrecer y se aplicaría dos veces (ADR-004 §4).
+	 *
+	 * LED-49
+	 */
+	public function test_it_records_how_far_it_purged_for_each_store(): void {
+		$this->old_movement(
+			array(
+				'origin_store' => self::REMOTE_STORE,
+				'origin_seq'   => 4120,
+				'delivery'     => null,
+				'confirmed_at' => null,
+				'application'  => 'applied',
+			)
+		);
+
+		Ledger::purge();
+
+		$peers = (array) get_option( 'wss_peers', array() );
+
+		$this->assertSame( 4120, (int) ( $peers[ self::REMOTE_STORE ]['purged_through'] ?? 0 ) );
+	}
+
+	/**
 	 * LED-01 — Un cambio de un producto vinculado escribe una fila con sus datos.
 	 */
 	public function test_it_writes_a_row_for_a_linked_product(): void {
