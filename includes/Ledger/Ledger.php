@@ -152,6 +152,119 @@ final class Ledger {
 	public const CLAIM_TIMEOUT = '5 MINUTE';
 
 	/**
+	 * Días que se conservan los movimientos terminados (§5 del SPEC).
+	 */
+	public const RETENTION_DAYS = 90;
+
+	/**
+	 * Purga los movimientos terminados y viejos, consolidando el stock base.
+	 *
+	 * Tres reglas duras (ADR-004 §4):
+	 *
+	 * - **Sólo lo terminado.** Lo que todavía no llegó —`abandoned`, `pending`— se queda:
+	 *   borrarlo le quitaría a la reconciliación la única forma de repararlo, y el desvío
+	 *   entre las dos tiendas quedaría permanente y silencioso. Lo mismo un `held`, que
+	 *   espera su turno.
+	 * - **El stock base absorbe lo purgado**, en la misma transacción. Sin eso la fórmula
+	 *   `base + movimientos` deja de dar el mismo número y la fase 2 reportaría
+	 *   discrepancias falsas en todos los productos con historia.
+	 * - **Queda la marca de hasta dónde se purgó** de cada tienda remota. Purgar una fila
+	 *   recibida borra el registro que la deduplica: sin la marca, la fase 1 se la vuelve
+	 *   a ofrecer y se aplicaría dos veces.
+	 *
+	 * @param int $days Días de retención.
+	 *
+	 * @return int Movimientos purgados.
+	 */
+	public static function purge( int $days = self::RETENTION_DAYS ): int {
+		global $wpdb;
+
+		$table  = Installer::table( 'movements' );
+		$cutoff = gmdate( 'Y-m-d H:i:s', time() - $days * DAY_IN_SECONDS );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+		$purgeable = (array) $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, origin_store, origin_seq, link_id, delta, delivery, application
+				   FROM {$table}
+				  WHERE created_at < %s
+				    AND ( delivery = 'confirmed' OR application IN ( 'applied', 'discarded' ) )",
+				$cutoff
+			)
+		);
+
+		if ( array() === $purgeable ) {
+			return 0;
+		}
+
+		$ids          = array();
+		$consolidate  = array();
+		$purged_upto  = array();
+		$own_store    = Store::id();
+
+		foreach ( $purgeable as $row ) {
+			$ids[] = (int) $row->id;
+
+			// Sólo se consolida lo que está reflejado en el stock local. Una recibida
+			// descartada nunca se aplicó: sumarla correría el stock base justo por los
+			// movimientos que decidimos no aplicar.
+			if ( null !== $row->link_id && self::DISCARDED !== $row->application ) {
+				$link_id                 = (int) $row->link_id;
+				$consolidate[ $link_id ] = ( $consolidate[ $link_id ] ?? 0 ) + (int) $row->delta;
+			}
+
+			if ( (string) $row->origin_store !== $own_store ) {
+				$store                 = (string) $row->origin_store;
+				$purged_upto[ $store ] = max( $purged_upto[ $store ] ?? 0, (int) $row->origin_seq );
+			}
+		}
+
+		$wpdb->query( 'START TRANSACTION' );
+
+		$links = Installer::table( 'links' );
+
+		foreach ( $consolidate as $link_id => $delta ) {
+			$wpdb->query(
+				$wpdb->prepare( "UPDATE {$links} SET base_stock = base_stock + %d WHERE id = %d", $delta, $link_id )
+			);
+		}
+
+		$placeholders = implode( ', ', array_fill( 0, count( $ids ), '%d' ) );
+
+		$wpdb->query(
+			$wpdb->prepare( "DELETE FROM {$table} WHERE id IN ( {$placeholders} )", $ids )
+		);
+
+		$wpdb->query( 'COMMIT' );
+		// phpcs:enable
+
+		self::remember_purged( $purged_upto );
+
+		return count( $ids );
+	}
+
+	/**
+	 * Anota hasta qué secuencia se purgó de cada tienda remota.
+	 *
+	 * @param array<string, int> $purged_upto Tienda => última secuencia purgada.
+	 */
+	private static function remember_purged( array $purged_upto ): void {
+		if ( array() === $purged_upto ) {
+			return;
+		}
+
+		$peers = (array) get_option( 'wss_peers', array() );
+
+		foreach ( $purged_upto as $store => $seq ) {
+			$peer                     = (array) ( $peers[ $store ] ?? array() );
+			$peer['purged_through']   = max( (int) ( $peer['purged_through'] ?? 0 ), $seq );
+			$peers[ $store ]          = $peer;
+		}
+
+		update_option( 'wss_peers', $peers, false );
+	}
+
+	/**
 	 * Libera lo vencido y reclama un lote de movimientos para entregar.
 	 *
 	 * Son los dos primeros pasos de la pasada (ADR-001 §2). El segundo es un `UPDATE`
