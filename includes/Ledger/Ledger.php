@@ -84,7 +84,16 @@ final class Ledger {
 
 		$movement_id = (int) $wpdb->insert_id;
 
-		$wpdb->update( $table, array( 'origin_seq' => $movement_id ), array( 'id' => $movement_id ) );
+		$updated = $wpdb->update( $table, array( 'origin_seq' => $movement_id ), array( 'id' => $movement_id ) );
+
+		// La transacción está para que las dos escrituras vayan juntas o no vaya ninguna:
+		// confirmar con la secuencia sin llenar deja en el libro la fila que la
+		// transacción tenía que impedir, pendiente de entregar y sin identificador.
+		if ( false === $updated ) {
+			$wpdb->query( 'ROLLBACK' ); // phpcs:ignore WordPress.DB
+
+			return null;
+		}
 
 		$wpdb->query( 'COMMIT' ); // phpcs:ignore WordPress.DB
 
