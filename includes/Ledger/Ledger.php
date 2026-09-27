@@ -57,9 +57,10 @@ final class Ledger {
 	 *
 	 * @param array<string, mixed> $movement El movimiento como viene en el JSON.
 	 *
-	 * @return string Estado de aplicación: applied, held o discarded.
+	 * @return string|null Estado de aplicación, o null si no se pudo guardar: sin fila no
+	 *                     hay nada que confirmar.
 	 */
-	public static function apply( array $movement ): string {
+	public static function apply( array $movement ): ?string {
 		global $wpdb;
 
 		$origin  = (string) ( $movement['origin'] ?? '' );
@@ -82,8 +83,12 @@ final class Ledger {
 			// Sin vínculo no hay a qué producto aplicarlo; de una generación vieja, no se
 			// va a aplicar nunca (ADR-005 §4).
 			$state = self::DISCARDED;
-		} elseif ( ! $local instanceof \WC_Product || ! $local->managing_stock() ) {
+		} elseif ( ! $local instanceof \WC_Product || 'trash' === $local->get_status() || ! $local->managing_stock() ) {
 			// Guardado y reintentable: descartarlo perdería stock en silencio (UC-03).
+			//
+			// La papelera cuenta como ausente: `wc_get_product()` devuelve el producto
+			// igual, con `managing_stock()` en true, así que hay que mirar el estado o se
+			// le descontaría stock a algo que el dueño mandó a la papelera.
 			$state = self::HELD;
 		} else {
 			$state = self::APPLIED;
@@ -114,15 +119,24 @@ final class Ledger {
 		if ( false === $inserted ) {
 			$wpdb->query( 'ROLLBACK' ); // phpcs:ignore WordPress.DB
 
-			// Otro request lo escribió entre la consulta y el INSERT: el UNIQUE lo
-			// rechazó, que es exactamente lo que tiene que pasar.
-			return (string) ( self::application_state_of( $origin, $seq ) ?? self::DISCARDED );
+			// Si otro request lo escribió entre la consulta y el INSERT, el UNIQUE lo
+			// rechazó y el movimiento **está** guardado: se puede confirmar.
+			//
+			// Si falló por otra cosa —un error de la base, un campo más largo que su
+			// columna— no hay nada guardado, y confirmarlo haría que el emisor deje de
+			// reintentar: el movimiento se perdería en las dos tiendas. Devolver null es
+			// lo que impide ese ACK.
+			return self::application_state_of( $origin, $seq );
 		}
 
 		if ( self::APPLIED === $state && $local instanceof \WC_Product ) {
 			// El cambio de stock lo provoca el plugin: sin esto el detector lo vería como
 			// una venta y lo emitiría de vuelta (ADR-006 §3).
-			Guard::expect( $local_id );
+			//
+			// Se anota el que **lleva** el stock, no el que se pidió: en una variación que
+			// lo toma del padre, quien cambia es el padre, y es su ID el que va a llegar
+			// al hook.
+			Guard::expect( (int) $local->get_stock_managed_by_id() );
 
 			wc_update_product_stock( $local, abs( $delta ), $delta < 0 ? 'decrease' : 'increase' );
 		}
