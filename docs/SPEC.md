@@ -388,10 +388,11 @@ pasan por el mismo detector de UC-04.
       mismo que si hubieran llegado en orden: la malla no garantiza orden de entrega y el
       diseño no lo necesita (§3).
 - [ ] _(fallo — tienda inaccesible)_ Dado que B no responde en el momento de la venta en A,
-      entonces la cola reintenta un número **finito** de veces; si los agota, abandona el
-      envío y lo registra en el log. El movimiento sigue en el libro de A y lo entrega la
-      reconciliación de UC-06 cuando B vuelve. Por cualquiera de los dos caminos, el stock de
-      B queda en 9 y el descuento se aplica **una sola vez**. No hay reintento eterno (§3).
+      entonces la cola reintenta con backoff hasta que pasan **6 horas desde el primer
+      intento**; ahí abandona el envío y lo registra en el log. El movimiento sigue en el
+      libro de A y lo entrega la reconciliación de UC-06 cuando B vuelve. Por cualquiera de
+      los dos caminos, el stock de B queda en 9 y el descuento se aplica **una sola vez**. No
+      hay reintento eterno (§3, ADR-001 §2).
 - [ ] _(caso borde — sin vincular)_ Dado un producto que existe en A pero no está vinculado
       con ninguno de B, cuando se vende en A, entonces no se propaga nada y **no** se escribe
       una entrada de log por cada venta: el producto ya figura como _sin vincular_ en la
@@ -460,10 +461,11 @@ vuelve rota queda donde corresponde: en la persona que recibe la devolución.
       **ajuste**, no como otra devolución: el libro conserva la causa real de cada delta, que
       es lo que después lee el historial de UC-05.
 - [ ] _(fallo — tienda inaccesible)_ Dado que B no responde cuando se procesa el reembolso en
-      A, entonces la cola reintenta un número **finito** de veces; si los agota, abandona el
-      envío y lo registra en el log. El movimiento sigue en el libro de A y lo entrega la
-      reconciliación de UC-06 cuando B vuelve. Por cualquiera de los dos caminos, el stock de
-      B queda en 10 y la reposición se aplica **una sola vez**. No hay reintento eterno (§3).
+      A, entonces la cola reintenta con backoff hasta que pasan **6 horas desde el primer
+      intento**; ahí abandona el envío y lo registra en el log. El movimiento sigue en el
+      libro de A y lo entrega la reconciliación de UC-06 cuando B vuelve. Por cualquiera de
+      los dos caminos, el stock de B queda en 10 y la reposición se aplica **una sola vez**.
+      No hay reintento eterno (§3, ADR-001 §2).
 
 **Fuera de este caso:** decidir si la mercadería devuelta está en condiciones de volver a
 venderse, la reposición por ingreso de compra al depósito, y **toda edición manual de stock
