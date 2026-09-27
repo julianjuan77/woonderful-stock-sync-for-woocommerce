@@ -68,7 +68,12 @@ final class Installer {
 	public static function refresh_schema_status(): bool {
 		$healthy = array() === self::unhealthy_tables();
 
-		update_option( self::OPTION_SCHEMA_HEALTHY, $healthy, true );
+		// 'yes'/'no' y no un booleano: `update_option()` compara el valor nuevo contra lo
+		// que devuelve `get_option()` de una opción que no existe, que es `false`. Con
+		// `false` como valor concluye que no hay nada que cambiar y **no escribe**, así
+		// que el resultado malo no se guardaba nunca y la consulta cara se repetía en
+		// cada request.
+		update_option( self::OPTION_SCHEMA_HEALTHY, $healthy ? 'yes' : 'no', true );
 
 		return $healthy;
 	}
@@ -77,14 +82,14 @@ final class Installer {
 	 * Si las tablas están sanas, según el último control.
 	 */
 	public static function schema_is_healthy(): bool {
-		$stored = get_option( self::OPTION_SCHEMA_HEALTHY, null );
+		$stored = (string) get_option( self::OPTION_SCHEMA_HEALTHY, '' );
 
 		// Sin dato guardado —una instalación anterior a este control— se mira una vez.
-		if ( null === $stored ) {
+		if ( '' === $stored ) {
 			return self::refresh_schema_status();
 		}
 
-		return (bool) $stored;
+		return 'yes' === $stored;
 	}
 
 	/**
