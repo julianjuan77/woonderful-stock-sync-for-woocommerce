@@ -578,6 +578,91 @@ class Test_Ledger extends WP_UnitTestCase {
 	}
 
 	/**
+	 * LED-31 — Una fila confirmada queda confirmada, con su hora y sin claim.
+	 */
+	public function test_a_confirmed_row_is_closed(): void {
+		$movement = $this->pending_movement();
+		Ledger::claim();
+
+		Ledger::ack( array( $movement => true ) );
+
+		$this->assertSame( 'confirmed', $this->column_of( $movement, 'delivery' ) );
+		$this->assertNotNull( $this->column_of( $movement, 'confirmed_at' ) );
+		$this->assertNull( $this->column_of( $movement, 'claimed_by' ) );
+	}
+
+	/**
+	 * LED-32 — Una fila que falló vuelve a la cola, con el próximo intento más adelante.
+	 */
+	public function test_a_failed_row_goes_back_to_the_queue(): void {
+		$movement = $this->pending_movement();
+		Ledger::claim();
+
+		Ledger::ack( array( $movement => false ) );
+
+		$this->assertSame( 'pending', $this->column_of( $movement, 'delivery' ) );
+		$this->assertNull( $this->column_of( $movement, 'claimed_by' ) );
+		$this->assertGreaterThan(
+			gmdate( 'Y-m-d H:i:s' ),
+			(string) $this->column_of( $movement, 'next_attempt_at' )
+		);
+	}
+
+	/**
+	 * LED-33 — El backoff crece con los intentos y no pasa del tope.
+	 */
+	public function test_the_backoff_grows_and_is_capped(): void {
+		$this->assertSame( 60, Ledger::backoff_for( 1 ) );
+		$this->assertSame( 120, Ledger::backoff_for( 2 ) );
+		$this->assertSame( 960, Ledger::backoff_for( 5 ) );
+		$this->assertSame( Ledger::MAX_BACKOFF, Ledger::backoff_for( 20 ) );
+	}
+
+	/**
+	 * Toda fila vuelve a pasar por `claim()`, muera quien muera, así que el techo se
+	 * aplica ahí: en `ack()` no alcanzaría porque un worker muerto nunca lo llama
+	 * (ADR-001 §2).
+	 *
+	 * LED-34
+	 */
+	public function test_claiming_abandons_what_passed_the_ceiling(): void {
+		$movement = $this->pending_movement(
+			array(
+				'attempts'         => 12,
+				'first_attempt_at' => gmdate( 'Y-m-d H:i:s', time() - 7 * HOUR_IN_SECONDS ),
+			)
+		);
+
+		$claimed = Ledger::claim();
+
+		$this->assertCount( 0, $claimed, 'no se entrega lo que ya pasó el techo' );
+		$this->assertSame( 'abandoned', $this->column_of( $movement, 'delivery' ) );
+	}
+
+	/**
+	 * LED-35 — Lo que todavía está dentro del techo se sigue reclamando.
+	 */
+	public function test_it_still_claims_what_is_inside_the_ceiling(): void {
+		$this->pending_movement(
+			array(
+				'attempts'         => 12,
+				'first_attempt_at' => gmdate( 'Y-m-d H:i:s', time() - 5 * HOUR_IN_SECONDS ),
+			)
+		);
+
+		$this->assertCount( 1, Ledger::claim() );
+	}
+
+	/**
+	 * LED-36 — Un id que no está en el libro no rompe nada.
+	 */
+	public function test_acking_an_unknown_id_does_nothing(): void {
+		Ledger::ack( array( 999999 => true ) );
+
+		$this->assertSame( 0, $this->count_movements() );
+	}
+
+	/**
 	 * LED-01 — Un cambio de un producto vinculado escribe una fila con sus datos.
 	 */
 	public function test_it_writes_a_row_for_a_linked_product(): void {
