@@ -1560,6 +1560,8 @@ existen en algunos movimientos. Vacía en una venta, llena en un bootstrap.
 ## ADR-006 — El detector de cambios de stock
 
 Estado: Aprobada · 2026-09-24 · aprobada por Julián
+Revisado: 2026-09-27 — el retardo de entrega es una constante y no configuración: el ADR
+prometía una perilla que nadie pidió y que el código no tenía. Ver §4.
 Revisado: 2026-09-27 — el guard anota **sólo el producto**, no el valor esperado. Leyendo el
 código de WooCommerce se vio que el valor que llega a los hooks es calculado y no releído, así
 que bajo concurrencia no coincide con lo anotado y el cambio propio se emitiría como una
@@ -1763,8 +1765,14 @@ created_at:       14:00:00
 next_attempt_at:  14:00:10     ← la cola no lo toca antes
 ```
 
-> **El valor lo elegí yo: 10 segundos, configurable. Es la perilla entre velocidad de
-> propagación y agrupamiento; miralo.**
+**Son 10 segundos, y es una constante del código: no una opción.** El valor equilibra
+velocidad de propagación contra agrupamiento, y nadie pidió poder moverlo. Una opción no es
+gratis —hay que ponerla en una pantalla, validarla, documentarla, probar los valores raros y
+bancarla para siempre— y lo único que sabemos hoy es que 10 segundos parece razonable, no que
+alguien vaya a querer otro número.
+
+Si el volumen real del catálogo (§6 del SPEC, sin cerrar) mostrara que 10 no sirve, se cambia
+la constante en una versión. Eso es un release, no una perilla.
 
 Resuelve dos cosas de una:
 
