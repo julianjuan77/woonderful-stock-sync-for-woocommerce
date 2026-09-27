@@ -133,6 +133,7 @@ mientras escribía la función.
 | `SCH-11` | Una de las tablas borrada | `unhealthy_tables()` la nombra: se busca por ausencia, no entre lo que devuelve `information_schema` |
 | `SCH-12` | Las opciones que se leen en cada request | Están autocargadas, leído de la columna `autoload` |
 | `SCH-13` | Sin resultado guardado —un sitio que actualiza desde antes del control— | Mira las tablas una vez, en vez de dar por buena la ausencia del dato |
+| `SCH-14` | El esquema está roto y no había resultado guardado | El resultado **malo** queda guardado: con un booleano no se guardaba y la consulta cara se repetía en cada request |
 
 ## [`tests/test-store.php`](test-store.php) — la identidad
 
@@ -263,3 +264,4 @@ la suite de WordPress abre para cada test.
 | 2026-09-26 | `SCH-07` y `PLG-09` contaban consultas sobre una caché que cebaba el propio test: pasaban con `autoload = false`, que es justo lo que decían verificar. Y la versión del esquema efectivamente no se autocargaba: una consulta por página |
 | 2026-09-26 | `UNI-05` revisaba seis opciones de las siete que borra `uninstall.php`; faltaba justo la autocargada |
 | 2026-09-26 | `LED-05` comparaba la fila contra `Ledger::DELIVERY_DELAY`, así que bajar la constante a 1 segundo cambiaba los dos lados y el test pasaba igual |
+| 2026-09-27 | Ningún test miraba que el resultado del control de esquema quedara **guardado**. Con un booleano nunca se guardaba el caso malo, y el cacheo que evita la consulta cara no funcionaba — pero como la función devolvía el valor correcto, todo pasaba en verde |
