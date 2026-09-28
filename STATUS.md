@@ -112,7 +112,7 @@ Verificado rompiéndolo: sin el `UPDATE` cae `LED-02`; registrando productos sin
 
 | | Tarea | Estado |
 |---|---|---|
-| 5.1 | La firma HMAC: firmar y verificar, con la ruta REST y la query ordenada | ✅ |
+| 5.1 | La firma HMAC: firmar y verificar, con la ruta REST y la query ordenada. `c2fd2aa`, `SIG-01`…`SIG-10` | ✅ |
 | 5.2 | El almacén de nonces y su purga | ⬜ |
 | 5.3 | `POST /movements` del lado receptor, con el ACK por movimiento | ⬜ |
 | 5.4 | El envío por lotes del lado emisor | ⬜ |
