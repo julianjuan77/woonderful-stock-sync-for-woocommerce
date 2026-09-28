@@ -116,6 +116,10 @@ Revisado: 2026-09-28 — aprobado por Julián. §1 fija qué se firma exactament
 REST y no la URL, que cambia con los permalinks; la query ordenada, que la fórmula no cubría y
 en `GET /products` decide qué se devuelve; y el formato de cada campo. Ver §1, "Qué entra en
 la firma, exactamente".
+Revisado: 2026-09-28 — aprobado por Julián. Los nonces se guardan **10 minutos**, no 5:
+la ventana acepta timestamps adelantados, así que un request puede seguir pasándola hasta 10
+minutos después de recibido, y con el nonce ya borrado el reenvío entraba. Y el nonce se
+anota **después** de verificar la firma. Ver §1, "El almacén de nonces".
 Temas: rest-api, api-externa, db-schema, opciones
 Cubre: includes/Transport/_.php, includes/Rest/_.php
 
@@ -229,9 +233,35 @@ La única excepción es el `GET /health` del paso 4 del emparejamiento: va firma
 código, contra una tienda que todavía no está emparejada, y sólo se acepta mientras hay un
 canje en curso.
 
-El almacén de nonces es una tabla propia. **La purga la hace la misma pasada recurrente que
-vacía pendientes** (§2), que corre en las dos tiendas: borra todo nonce con más de 5 minutos,
-porque fuera de la ventana ya no sirve para nada.
+#### El almacén de nonces
+
+Es una tabla propia. **La purga la hace la misma pasada recurrente que vacía pendientes** (§2),
+que corre en las dos tiendas: borra todo nonce anotado hace **más de 10 minutos**.
+
+**Por qué 10 y no 5.** Un nonce sirve mientras un request con ese nonce pueda pasar la ventana,
+y la ventana vale para los dos lados: acepta un timestamp hasta 5 minutos **adelantado**.
+
+```
+El reloj de A adelanta 5 min: su request dice 12:05 y en B son las 12:00.
+
+12:00  B lo acepta (5 min de diferencia) y anota el nonce
+12:06  con 5 min de retención, la purga lo borra
+12:09  el mismo request, reenviado: 12:05 contra 12:09 → 4 min, pasa la ventana;
+       el nonce ya no está → se acepta de nuevo  ❌
+```
+
+El peor caso es un timestamp 5 minutos adelantado, que la ventana acepta hasta 5 minutos
+después de esa hora: 10 minutos desde que se recibió. Guardado ese tiempo, mientras el request
+pueda pasar la ventana su nonce sigue anotado. Son **dos ventanas**, y así se escribe en el
+código, para que no se separen si la ventana cambia.
+
+**Por qué no guardar el timestamp del request y purgar por él.** Cada nonce se borraría justo
+cuando deja de servir, pero `seen_at` pasaría a significar otra cosa: un cambio de esquema con
+migración para ahorrarse unas filas de más, en una tabla que con dos tiendas tiene pocas.
+
+**El nonce se anota después de que la firma verifica, no antes.** Anotarlo antes dejaría que
+cualquiera sin el secreto llene la tabla con requests de firma inventada. El orden del
+receptor es: tienda emparejada → firma y ventana → nonce.
 
 #### El emparejamiento, paso a paso (ocurre una sola vez)
 
