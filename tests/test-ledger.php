@@ -7,7 +7,6 @@
 
 declare( strict_types = 1 );
 
-use Woonderful\StockSync\Detector\Detector;
 use Woonderful\StockSync\Detector\Guard;
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Ledger\Ledger;
@@ -49,12 +48,7 @@ class Test_Ledger extends WP_UnitTestCase {
 		Installer::install();
 		Store::ensure_identity();
 
-		// Si otro test llamó a boot(), el detector quedó enganchado y consume el guard antes
-		// que los espías de LED-17 y LED-21. Estos tests son del libro, no del detector.
-		foreach ( array( 'product', 'variation' ) as $type ) {
-			remove_action( "woocommerce_{$type}_before_set_stock", array( Detector::class, 'before_change' ) );
-			remove_action( "woocommerce_{$type}_set_stock", array( Detector::class, 'after_change' ) );
-		}
+		wss_unhook_detector();
 
 		$this->link_id = $this->link_product( 123, 456, 77 );
 	}
@@ -1207,5 +1201,63 @@ class Test_Ledger extends WP_UnitTestCase {
 	public function test_a_zero_delta_writes_nothing(): void {
 		$this->assertNull( Ledger::record( 123, 0 ) );
 		$this->assertSame( 0, $this->count_movements() );
+	}
+
+	/**
+	 * LED-52 — Estampar completa el motivo y la referencia de un movimiento pendiente.
+	 */
+	public function test_stamping_completes_a_pending_movement(): void {
+		$movement_id = (int) Ledger::record( 123, -2 );
+
+		Ledger::stamp( $movement_id, 'sale', 'pedido #4512' );
+
+		$this->assertSame( 'sale', $this->movement( $movement_id )->reason );
+		$this->assertSame( 'pedido #4512', $this->movement( $movement_id )->reference );
+	}
+
+	/**
+	 * Un movimiento que la cola ya se llevó viaja con el motivo que tenía: cambiarlo acá
+	 * dejaría las dos tiendas con historiales distintos.
+	 *
+	 * LED-53
+	 */
+	public function test_stamping_leaves_a_movement_in_flight_alone(): void {
+		global $wpdb;
+
+		$movement_id = (int) Ledger::record( 123, -2 );
+		$wpdb->update( Installer::table( 'movements' ), array( 'delivery' => 'in_flight' ), array( 'id' => $movement_id ) ); // phpcs:ignore WordPress.DB
+
+		Ledger::stamp( $movement_id, 'sale', 'pedido #4512' );
+
+		$this->assertSame( 'adjustment', $this->movement( $movement_id )->reason );
+		$this->assertNull( $this->movement( $movement_id )->reference );
+	}
+
+	/**
+	 * LED-54 — Un movimiento recibido no es nuestro: no se estampa.
+	 */
+	public function test_stamping_leaves_a_received_movement_alone(): void {
+		$product_id = $this->create_product( 10 );
+		$this->link_product( $product_id, 789, 77 );
+
+		global $wpdb;
+
+		Ledger::apply(
+			$this->incoming(
+				789,
+				-2,
+				array(
+					'reason'    => 'adjustment',
+					'reference' => null,
+				)
+			)
+		);
+
+		$table       = Installer::table( 'movements' );
+		$movement_id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$table} WHERE origin_store = %s", self::REMOTE_STORE ) ); // phpcs:ignore WordPress.DB
+
+		Ledger::stamp( $movement_id, 'sale', 'pedido #4512' );
+
+		$this->assertSame( 'adjustment', $this->movement( $movement_id )->reason );
 	}
 }

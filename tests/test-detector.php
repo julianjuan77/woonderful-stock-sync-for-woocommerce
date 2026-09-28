@@ -37,16 +37,22 @@ class Test_Detector extends WP_UnitTestCase {
 		Installer::install();
 		Store::ensure_identity();
 
+		// La suite recrea las tablas de WordPress en cada corrida, pero no las de
+		// WooCommerce. Las líneas de pedido quedan confirmadas —por la transacción de
+		// record() y por el DROP TABLE del tear_down— y la corrida siguiente, con los IDs
+		// de pedido desde cero, se las hereda: un pedido de una línea descuenta ocho veces.
+		// Borradas acá, el próximo commit implícito confirma el borrado.
+		global $wpdb;
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}woocommerce_order_itemmeta" ); // phpcs:ignore WordPress.DB
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}woocommerce_order_items" ); // phpcs:ignore WordPress.DB
+
 		Detector::register();
 	}
 
 	public function tear_down(): void {
 		global $wpdb;
 
-		foreach ( array( 'product', 'variation' ) as $type ) {
-			remove_action( "woocommerce_{$type}_before_set_stock", array( Detector::class, 'before_change' ) );
-			remove_action( "woocommerce_{$type}_set_stock", array( Detector::class, 'after_change' ) );
-		}
+		wss_unhook_detector();
 
 		Detector::forget_all();
 		Guard::forget_all();
@@ -120,6 +126,37 @@ class Test_Detector extends WP_UnitTestCase {
 			static fn ( $row ) => array( (int) $row->origin_product, (int) $row->delta ),
 			$rows
 		);
+	}
+
+	/**
+	 * El motivo y la referencia de cada movimiento, en orden.
+	 *
+	 * @return array<int, array{0: string, 1: string|null}>
+	 */
+	private function stamps(): array {
+		global $wpdb;
+
+		$table = Installer::table( 'movements' );
+		$rows  = $wpdb->get_results( "SELECT reason, reference FROM {$table} ORDER BY id" ); // phpcs:ignore WordPress.DB
+
+		return array_map(
+			static fn ( $row ) => array( (string) $row->reason, null === $row->reference ? null : (string) $row->reference ),
+			$rows
+		);
+	}
+
+	/**
+	 * Un pedido con una línea del producto.
+	 *
+	 * @param int $product_id Producto.
+	 * @param int $qty        Unidades.
+	 */
+	private function create_order( int $product_id, int $qty ): WC_Order {
+		$order = wc_create_order();
+		$order->add_product( wc_get_product( $product_id ), $qty );
+		$order->save();
+
+		return $order;
 	}
 
 	/**
@@ -307,5 +344,119 @@ class Test_Detector extends WP_UnitTestCase {
 		$this->assertSame( 'applied', $state );
 		$this->assertSame( 8, (int) get_post_meta( $product_id, '_stock', true ) );
 		$this->assertSame( 0, $own );
+	}
+
+	/**
+	 * DET-11 — Un cambio sin pedido detrás se queda en `adjustment`, sin referencia.
+	 */
+	public function test_a_change_without_an_order_stays_an_adjustment(): void {
+		$this->create_product( 10 );
+		$product_id = $this->create_product( 10 );
+
+		wc_update_product_stock( $product_id, 2, 'decrease' );
+
+		$this->assertSame( array( array( 'adjustment', null ) ), $this->stamps() );
+	}
+
+	/**
+	 * DET-12 — La venta de un pedido se estampa con su número.
+	 */
+	public function test_an_order_stamps_a_sale(): void {
+		$product_id = $this->create_product( 10 );
+		$order      = $this->create_order( $product_id, 2 );
+
+		wc_reduce_stock_levels( $order->get_id() );
+
+		$this->assertSame( array( array( $product_id, -2 ) ), $this->movements() );
+		$this->assertSame( array( array( 'sale', 'pedido #' . $order->get_order_number() ) ), $this->stamps() );
+	}
+
+	/**
+	 * DET-13 — Un pedido cancelado devuelve el stock, y eso es un `refund`.
+	 */
+	public function test_a_restored_order_stamps_a_refund(): void {
+		$product_id = $this->create_product( 10 );
+		$order      = $this->create_order( $product_id, 2 );
+
+		wc_reduce_stock_levels( $order->get_id() );
+		wc_increase_stock_levels( $order->get_id() );
+
+		$reference = 'pedido #' . $order->get_order_number();
+
+		$this->assertSame( array( array( $product_id, -2 ), array( $product_id, 2 ) ), $this->movements() );
+		$this->assertSame( array( array( 'sale', $reference ), array( 'refund', $reference ) ), $this->stamps() );
+	}
+
+	/**
+	 * DET-14 — Un reembolso que repone una unidad es un `refund` de +1.
+	 */
+	public function test_a_restocked_refund_stamps_a_refund(): void {
+		$product_id = $this->create_product( 10 );
+		$order      = $this->create_order( $product_id, 2 );
+
+		wc_reduce_stock_levels( $order->get_id() );
+
+		$items = $order->get_items();
+		$item  = reset( $items );
+
+		wc_create_refund(
+			array(
+				'order_id'      => $order->get_id(),
+				'amount'        => 0,
+				'restock_items' => true,
+				'line_items'    => array(
+					$item->get_id() => array(
+						'qty'          => 1,
+						'refund_total' => 0,
+					),
+				),
+			)
+		);
+
+		$this->assertSame( array( $product_id, 1 ), $this->movements()[1] );
+		$this->assertSame( array( 'refund', 'pedido #' . $order->get_order_number() ), $this->stamps()[1] );
+	}
+
+	/**
+	 * El cambio del pedido lo tapó el guard, así que no se registró. El estampado no puede
+	 * caer sobre el ajuste anterior del mismo producto, que no tiene nada que ver.
+	 *
+	 * DET-15
+	 */
+	public function test_an_unrecorded_change_does_not_stamp_an_earlier_one(): void {
+		$product_id = $this->create_product( 10 );
+		$order      = $this->create_order( $product_id, 2 );
+
+		wc_update_product_stock( $product_id, 1, 'decrease' );
+
+		Guard::expect( $product_id );
+		wc_reduce_stock_levels( $order->get_id() );
+
+		$this->assertSame( array( array( 'adjustment', null ) ), $this->stamps() );
+	}
+
+	/**
+	 * La línea del pedido es la variación, pero la fila es del padre: se estampa la del
+	 * padre.
+	 *
+	 * DET-16
+	 */
+	public function test_an_order_of_a_variation_stamps_the_parent_row(): void {
+		$parent = new WC_Product_Variable();
+		$parent->set_manage_stock( true );
+		$parent->set_stock_quantity( 10 );
+		$parent_id = (int) $parent->save();
+
+		$variation = new WC_Product_Variation();
+		$variation->set_parent_id( $parent_id );
+		$variation_id = (int) $variation->save();
+
+		$this->link( $parent_id );
+
+		$order = $this->create_order( $variation_id, 2 );
+		wc_reduce_stock_levels( $order->get_id() );
+
+		$this->assertSame( array( array( $parent_id, -2 ) ), $this->movements() );
+		$this->assertSame( array( array( 'sale', 'pedido #' . $order->get_order_number() ) ), $this->stamps() );
 	}
 }

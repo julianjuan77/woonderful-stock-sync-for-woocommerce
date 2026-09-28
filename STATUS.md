@@ -24,7 +24,7 @@ git show 2668a7a --stat      # qué archivos tocó y cuántas líneas
 git show 2668a7a             # el diff completo
 ```
 
-Y para correr sólo los tests de una pieza, en vez de los 118:
+Y para correr sólo los tests de una pieza, en vez de los 127:
 
 ```bash
 make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS="--filter Test_Ledger"
@@ -34,8 +34,8 @@ make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS=
 
 ## 🔄 En progreso
 
-Nada. Lo que sigue es **4.3, el estampado del motivo**: los tres hooks de pedido de ADR-006 §2
-completan `reason` y `reference` de la fila que el detector acaba de escribir.
+Nada. Del bloque 4 queda la 4.4, que depende del bootstrap (6.1). Lo siguiente que no está
+bloqueado es el transporte: **5.1, la firma HMAC**.
 
 ---
 
@@ -105,7 +105,7 @@ Verificado rompiéndolo: sin el `UPDATE` cae `LED-02`; registrando productos sin
 |---|---|---|---|---|
 | 4.1 | Los cuatro hooks de stock y el cálculo del delta, leído de la base | ✅ | `a3db571`, `25984d3` | `DET-01`…`DET-10`, `PLG-16`, `PLG-17` |
 | 4.2 | El guard anti-eco | ✅ | `1feb126` | `GRD-01`…`GRD-07` |
-| 4.3 | El estampado del motivo desde los hooks de pedido | ⬜ | | |
+| 4.3 | El estampado del motivo desde los hooks de pedido | ✅ | | `DET-11`…`DET-16`, `LED-52`…`LED-54` |
 | 4.4 | Qué se ignora: sin stock gestionado y sin vincular ya van en 4.1; falta el bootstrap, que depende de 6.1 | ⬜ | | |
 
 ### 5. El transporte — `includes/Transport/` y `includes/Rest/`
@@ -193,4 +193,5 @@ seguridad y convenciones de código.
 | Si un hook de terceros cambia el stock de **otro** producto vinculado dentro de `apply()`, el `record()` del detector abre su `START TRANSACTION` adentro de la de `apply()`, y MySQL confirma la de afuera en ese momento: la aplicación queda confirmada antes de tiempo. Hace falta un hook anidado para que pase | Sesión 2026-09-28 → revisar con 5.3 |
 | Si `wc_update_product_stock()` lanza una excepción dentro de `apply()`, la transacción queda abierta y la anotación del guard puesta. Al fin del request no pasa nada: MySQL deshace, no hay ACK y el emisor reintenta. **El riesgo es que el endpoint atrape la excepción y siga con el lote**: el `START TRANSACTION` siguiente confirma la mitad hecha, la fila queda `applied` sin haber cambiado el stock, se confirma y el movimiento se pierde en las dos tiendas. 5.3 elige: `ROLLBACK` en `apply()`, o no atrapar | Revisión 2026-09-28 → tarea 5.3 |
 | Un cambio ajeno al stock del mismo producto entre las dos lecturas del detector se cuenta dos veces. Declarado y aceptado: son milisegundos, y lo corrige la reconciliación | ADR-006 §1 → tarea 7.2 |
+| Editar las líneas de un pedido desde el admin deja el movimiento en `adjustment`, sin número de pedido: `wc_maybe_adjust_line_item_product_stock()` no dispara ningún hook que estampe | Sesión 2026-09-28 → ADR del log (UC-04) |
 | Infection cuando exista `Transport/`: necesita PCOV en la imagen de wp-restore | — |

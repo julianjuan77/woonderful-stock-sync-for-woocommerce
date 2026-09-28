@@ -116,6 +116,9 @@ mientras escribía la función.
 | Aplicar un movimiento remoto no genera eco | ADR-006 §3, SPEC §3 | `DET-10` | [test-detector.php](test-detector.php) |
 | La variación que toma el stock del padre mueve al padre | ADR-006 §1 | `DET-07` | [test-detector.php](test-detector.php) |
 | Un sitio suspendido no emite movimientos | ADR-001 §1 | `PLG-17` | [test-plugin.php](test-plugin.php) |
+| El motivo se estampa después; sin documento queda `adjustment` | ADR-006 §2 | `DET-11`…`DET-14` | [test-detector.php](test-detector.php) |
+| El estampado nunca cae sobre una fila que no es la del pedido | ADR-006 §2 | `DET-15`, `DET-16`, `LED-54` | [test-detector.php](test-detector.php), [test-ledger.php](test-ledger.php) |
+| Lo que ya salió no se reescribe | ADR-006 §2 | `LED-53` | [test-ledger.php](test-ledger.php) |
 | El claim vence a los 5 minutos | ADR-001 §2 | `LED-25`, `LED-26` | [test-ledger.php](test-ledger.php) |
 | El techo de 6 h se mide desde el primer intento, y el intento es el claim | ADR-001 §2 | `LED-29`, `LED-30` | [test-ledger.php](test-ledger.php) |
 | Agotado el techo, el movimiento se abandona y lo rescata la reconciliación | ADR-001 §2 | `LED-34`, `LED-35`, `LED-39`, `LED-40` | [test-ledger.php](test-ledger.php) |
@@ -260,6 +263,9 @@ varios tests sin chocar.
 | `LED-49` | Purgar una recibida de la otra tienda | Queda la marca de hasta qué secuencia se purgó |
 | `LED-50` | Purgar un movimiento de una generación anterior | Se borra pero **no se consolida** |
 | `LED-51` | El `DELETE` de la purga falla | No queda nada a medias: ni el stock base movido, ni la marca |
+| `LED-52` | Estampar un movimiento propio pendiente | Quedan el motivo y la referencia |
+| `LED-53` | Estampar un movimiento que la cola ya se llevó | No cambia: viaja con el motivo que tenía |
+| `LED-54` | Estampar un movimiento recibido | No cambia: no es nuestro |
 
 ## [`tests/test-guard.php`](test-guard.php) — el guard anti-eco
 
@@ -293,9 +299,28 @@ nuestro callback (ADR-006 §3).
 | `DET-08` | Una variación con stock propio | El movimiento es de la variación |
 | `DET-09` | Un `before` que se quedó sin su `set` | No sirve de punto de partida para el cambio siguiente |
 | `DET-10` | `apply()` de un movimiento remoto, con el detector enganchado | Aplica y no emite nada propio: no hay eco |
+| `DET-11` | Un cambio sin pedido detrás | Queda `adjustment`, sin referencia |
+| `DET-12` | `wc_reduce_stock_levels()` de un pedido | `sale` con `pedido #<número>` |
+| `DET-13` | El mismo pedido, cancelado: `wc_increase_stock_levels()` | El segundo movimiento es `refund` con la misma referencia |
+| `DET-14` | Un reembolso que repone una unidad | `refund` de +1 |
+| `DET-15` | **El cambio del pedido lo tapó el guard**, con un ajuste anterior del mismo producto | El ajuste sigue siendo `adjustment`: el estampado no cae sobre una fila ajena |
+| `DET-16` | El pedido de una variación que toma el stock del padre | Se estampa la fila del padre |
 
 Verificado rompiéndolo: leyendo el objeto en el `before` en vez de la base caen `DET-02` y
-`DET-03`.
+`DET-03`; sin borrar el movimiento recordado en cada `set` cae `DET-15`; estampando por el ID de
+la línea y no por el que lleva el stock cae `DET-16`.
+
+**Las líneas de pedido se limpian en el `set_up`.** La suite recrea las tablas de WordPress en
+cada corrida pero no las de WooCommerce, y las líneas quedan confirmadas: la transacción de
+`record()` y el `DROP TABLE` del `tear_down` confirman la del test. En la corrida siguiente los
+IDs de pedido vuelven a empezar y un pedido nuevo hereda las líneas viejas. El síntoma: la suite
+pasa la primera vez y falla la segunda, con un pedido de una línea que descuenta ocho veces.
+Borrarlas en el `tear_down` no sirve: va después del `DROP TABLE`, en una transacción nueva que
+el `ROLLBACK` de la suite deshace.
+
+**Límite conocido:** editar las líneas de un pedido desde el admin cambia el stock por
+`wc_maybe_adjust_line_item_product_stock()`, que no dispara ninguno de los tres hooks. Ese
+movimiento queda `adjustment` sin número de pedido: el delta es correcto, la atribución no.
 
 **La ventana declarada:** si otro request escribe el stock del mismo producto entre las dos
 lecturas, ese cambio se cuenta dos veces. Son milisegundos y no se puede reproducir en un test

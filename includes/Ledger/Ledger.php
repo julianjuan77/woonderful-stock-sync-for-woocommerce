@@ -511,6 +511,35 @@ final class Ledger {
 	}
 
 	/**
+	 * Completa el motivo y la referencia de un movimiento propio (ADR-006 §2).
+	 *
+	 * Sólo mientras siga `pending`: si la cola ya se lo llevó, está viajando con el motivo
+	 * que tenía, y cambiarlo acá dejaría las dos tiendas con historiales distintos.
+	 *
+	 * @param int    $movement_id ID del movimiento.
+	 * @param string $reason      El motivo.
+	 * @param string $reference   Con qué se audita: el número de pedido.
+	 */
+	public static function stamp( int $movement_id, string $reason, string $reference ): void {
+		global $wpdb;
+
+		$wpdb->update( // phpcs:ignore WordPress.DB
+			Installer::table( 'movements' ),
+			array(
+				'reason'    => $reason,
+				// Recortado al tamaño de la columna, como el motivo de un fallo: un número
+				// de pedido filtrado a algo muy largo haría fallar el UPDATE entero.
+				'reference' => mb_substr( $reference, 0, 100 ),
+			),
+			array(
+				'id'           => $movement_id,
+				'origin_store' => Store::id(),
+				'delivery'     => 'pending',
+			)
+		);
+	}
+
+	/**
 	 * Registra un movimiento propio.
 	 *
 	 * @param int         $product_id ID del producto en esta tienda.

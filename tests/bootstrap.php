@@ -56,3 +56,20 @@ tests_add_filter(
 );
 
 require $wss_suite . '/includes/bootstrap.php';
+
+/**
+ * Desengancha el detector.
+ *
+ * `boot()` lo engancha, y enganchado se queda para los tests que siguen: consume el guard
+ * antes que los espías del libro y escribe movimientos que esos tests no esperan.
+ */
+function wss_unhook_detector(): void {
+	foreach ( array( 'product', 'variation' ) as $type ) {
+		remove_action( "woocommerce_{$type}_before_set_stock", array( \Woonderful\StockSync\Detector\Detector::class, 'before_change' ) );
+		remove_action( "woocommerce_{$type}_set_stock", array( \Woonderful\StockSync\Detector\Detector::class, 'after_change' ) );
+	}
+
+	remove_action( 'woocommerce_reduce_order_item_stock', array( \Woonderful\StockSync\Detector\Detector::class, 'stamp_sale' ), 10 );
+	remove_action( 'woocommerce_restore_order_item_stock', array( \Woonderful\StockSync\Detector\Detector::class, 'stamp_restore' ), 10 );
+	remove_action( 'woocommerce_restock_refunded_item', array( \Woonderful\StockSync\Detector\Detector::class, 'stamp_refund' ), 10 );
+}

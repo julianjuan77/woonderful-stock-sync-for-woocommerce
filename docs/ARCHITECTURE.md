@@ -164,6 +164,12 @@ los pares `before`/`set` de producto y variación y en cada uno hace un `SELECT`
 en una venta, y ya trae el valor nuevo en el `before` de un guardado (ADR-006 §1). Se
 registra en `boot()` después de la guarda: un sitio suspendido no emite (`PLG-17`).
 
+**El motivo se estampa sobre la fila recién escrita.** El detector recuerda, por producto, el
+movimiento que acaba de escribir; cada `set` pisa o borra ese recuerdo. Los tres hooks de
+pedido lo consumen y llaman a `Ledger::stamp()`, que sólo toca una fila propia que siga
+`pending`: lo que la cola ya se llevó viaja con el motivo que tenía. La referencia es
+`pedido #` más `get_order_number()`, lo que ve el dueño (ADR-006 §2).
+
 **Depende de WooCommerce activo**, verificado con `class_exists( 'WooCommerce' )`. Sin él, el
 plugin no registra nada y muestra un aviso en el admin. Action Scheduler viene dentro de
 WooCommerce (§5 del SPEC exige 8.2+), así que no es una dependencia aparte.

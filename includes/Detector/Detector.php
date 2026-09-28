@@ -33,13 +33,28 @@ final class Detector {
 	private static array $before = array();
 
 	/**
-	 * Engancha los cuatro hooks.
+	 * El movimiento que acaba de escribir cada producto, para que el pedido lo estampe.
+	 *
+	 * Cada `set` lo pisa o lo borra: si el cambio del pedido no se registró —lo anotó el
+	 * guard, o el producto no está vinculado— no queda una fila anterior a mano para
+	 * estamparle un motivo que no es suyo.
+	 *
+	 * @var array<int, int>
+	 */
+	private static array $recorded = array();
+
+	/**
+	 * Engancha los cuatro hooks de stock y los tres que estampan el motivo.
 	 */
 	public static function register(): void {
 		foreach ( array( 'product', 'variation' ) as $type ) {
 			add_action( "woocommerce_{$type}_before_set_stock", array( self::class, 'before_change' ) );
 			add_action( "woocommerce_{$type}_set_stock", array( self::class, 'after_change' ) );
 		}
+
+		add_action( 'woocommerce_reduce_order_item_stock', array( self::class, 'stamp_sale' ), 10, 3 );
+		add_action( 'woocommerce_restore_order_item_stock', array( self::class, 'stamp_restore' ), 10, 4 );
+		add_action( 'woocommerce_restock_refunded_item', array( self::class, 'stamp_refund' ), 10, 5 );
 	}
 
 	/**
@@ -72,7 +87,7 @@ final class Detector {
 		}
 
 		$before = self::$before[ $product_id ];
-		unset( self::$before[ $product_id ] );
+		unset( self::$before[ $product_id ], self::$recorded[ $product_id ] );
 
 		// Se consume antes de cualquier otro descarte: una anotación que sobreviviera
 		// taparía el próximo cambio de este producto, que ya no es nuestro.
@@ -84,7 +99,77 @@ final class Detector {
 			return;
 		}
 
-		Ledger::record( $product_id, self::stock_in_db( $product_id ) - $before );
+		$movement_id = Ledger::record( $product_id, self::stock_in_db( $product_id ) - $before );
+
+		if ( null !== $movement_id ) {
+			self::$recorded[ $product_id ] = $movement_id;
+		}
+	}
+
+	/**
+	 * Un pedido descontó el stock de una línea (ADR-006 §2).
+	 *
+	 * @param \WC_Order_Item_Product $item   La línea.
+	 * @param array<string, mixed>   $change Lo que cambió; no se usa.
+	 * @param \WC_Order              $order  El pedido.
+	 */
+	public static function stamp_sale( $item, $change, $order ): void {
+		if ( $item instanceof \WC_Order_Item_Product ) {
+			self::stamp( $item->get_product(), 'sale', $order );
+		}
+	}
+
+	/**
+	 * Un pedido cancelado devolvió el stock de una línea.
+	 *
+	 * @param \WC_Order_Item_Product $item      La línea.
+	 * @param int                    $new_stock No se usa.
+	 * @param int                    $old_stock No se usa.
+	 * @param \WC_Order              $order     El pedido.
+	 */
+	public static function stamp_restore( $item, $new_stock, $old_stock, $order ): void {
+		if ( $item instanceof \WC_Order_Item_Product ) {
+			self::stamp( $item->get_product(), 'refund', $order );
+		}
+	}
+
+	/**
+	 * Un reembolso repuso stock.
+	 *
+	 * @param int         $product_id No se usa: el producto viene entero al final.
+	 * @param int         $old_stock  No se usa.
+	 * @param int         $new_stock  No se usa.
+	 * @param \WC_Order   $order      El pedido reembolsado.
+	 * @param \WC_Product $product    El producto.
+	 */
+	public static function stamp_refund( $product_id, $old_stock, $new_stock, $order, $product ): void {
+		self::stamp( $product, 'refund', $order );
+	}
+
+	/**
+	 * Completa el motivo del movimiento que acaba de escribir el producto.
+	 *
+	 * Se busca por el que **lleva** el stock: en una variación que lo toma del padre, la
+	 * fila es del padre.
+	 *
+	 * @param mixed  $product El producto de la línea.
+	 * @param string $reason  El motivo.
+	 * @param mixed  $order   El pedido.
+	 */
+	private static function stamp( $product, string $reason, $order ): void {
+		if ( ! $product instanceof \WC_Product || ! $order instanceof \WC_Order ) {
+			return;
+		}
+
+		$product_id = (int) $product->get_stock_managed_by_id();
+
+		if ( ! isset( self::$recorded[ $product_id ] ) ) {
+			return;
+		}
+
+		Ledger::stamp( self::$recorded[ $product_id ], $reason, 'pedido #' . $order->get_order_number() );
+
+		unset( self::$recorded[ $product_id ] );
 	}
 
 	/**
@@ -111,9 +196,11 @@ final class Detector {
 	}
 
 	/**
-	 * Descarta los `before` que quedaron sin su `set`.
+	 * Descarta lo que quedó del request: los `before` sin su `set` y los movimientos sin
+	 * estampar. Para los tests, como `Guard::forget_all()`.
 	 */
 	public static function forget_all(): void {
-		self::$before = array();
+		self::$before   = array();
+		self::$recorded = array();
 	}
 }

@@ -51,11 +51,7 @@ class Test_Plugin extends WP_UnitTestCase {
 		delete_option( Installer::OPTION_VERSION );
 		delete_option( Installer::OPTION_SCHEMA_HEALTHY );
 
-		// boot() engancha el detector, y enganchado se queda para los tests que siguen.
-		foreach ( array( 'product', 'variation' ) as $type ) {
-			remove_action( "woocommerce_{$type}_before_set_stock", array( Detector::class, 'before_change' ) );
-			remove_action( "woocommerce_{$type}_set_stock", array( Detector::class, 'after_change' ) );
-		}
+		wss_unhook_detector();
 
 		parent::tear_down();
 	}
