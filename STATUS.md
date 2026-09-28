@@ -105,7 +105,7 @@ Verificado rompiéndolo: sin el `UPDATE` cae `LED-02`; registrando productos sin
 |---|---|---|---|---|
 | 4.1 | Los cuatro hooks de stock y el cálculo del delta, leído de la base | ✅ | `a3db571`, `25984d3` | `DET-01`…`DET-10`, `PLG-16`, `PLG-17` |
 | 4.2 | El guard anti-eco | ✅ | `1feb126` | `GRD-01`…`GRD-07` |
-| 4.3 | El estampado del motivo desde los hooks de pedido | ✅ | | `DET-11`…`DET-16`, `LED-52`…`LED-54` |
+| 4.3 | El estampado del motivo desde los hooks de pedido | ✅ | `3173cc4` | `DET-11`…`DET-16`, `LED-52`…`LED-54` |
 | 4.4 | Qué se ignora: sin stock gestionado y sin vincular ya van en 4.1; falta el bootstrap, que depende de 6.1 | ⬜ | | |
 
 ### 5. El transporte — `includes/Transport/` y `includes/Rest/`
