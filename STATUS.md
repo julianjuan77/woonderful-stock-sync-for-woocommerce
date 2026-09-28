@@ -1,6 +1,6 @@
 # Woonderful Stock Sync for WooCommerce — Estado del proyecto
 
-> Plugin: `woonderful-stock-sync-for-woocommerce` | WP 6.5+ | PHP 8.1+ | WooCommerce 8.2+
+> Plugin: `woonderful-stock-sync-for-woocommerce` | WP 6.5+ | PHP 8.1+ | WooCommerce 9.1+
 > Repo: [woonderful-stock-sync-for-woocommerce](https://github.com/julianjuan77/woonderful-stock-sync-for-woocommerce)
 > Creado: 2026-09-20 · Última sesión: 2026-09-28
 

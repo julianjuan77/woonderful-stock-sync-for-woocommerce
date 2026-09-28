@@ -1719,7 +1719,7 @@ además, casi siempre termina siendo un síntoma de la tienda caída, que sí se
 | Número de tiendas                  | Exactamente dos                                       | v1. El diseño admite más sin cambios de esquema; queda fuera de alcance (§2)         |
 | WordPress mínimo                   | 6.5                                                   |                                                                                      |
 | PHP mínimo                         | 8.1                                                   |                                                                                      |
-| WooCommerce mínimo                 | 8.2                                                   | Versión en la que HPOS pasa a ser el almacenamiento de pedidos por defecto           |
+| WooCommerce mínimo                 | 9.1                                                   | Trae `woocommerce_restore_order_item_stock`, que estampa las cancelaciones (ADR-006 §2). HPOS es el almacenamiento por defecto desde 8.2 |
 | HPOS                               | Compatible, declarado explícitamente                  |                                                                                      |
 | Multisite                          | A definir (§6)                                        |                                                                                      |
 | Cantidades                         | Enteras                                               | El libro guarda `delta` entero. Ver abajo: `wc_stock_amount` es filtrable            |

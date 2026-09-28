@@ -329,7 +329,7 @@ falta entregar.
 
 **Action Scheduler sólo dispara:** una acción recurrente, "vaciar pendientes hacia la otra
 tienda", que toma un lote por pasada. No se agenda una acción por movimiento. Es gratis en
-dependencias: §5 exige WooCommerce 8.2+, que ya lo trae.
+dependencias: §5 exige WooCommerce 9.1+, que ya lo trae.
 
 #### Qué hace cada pasada, en orden
 
@@ -1737,7 +1737,7 @@ entra un CSV o cuando lo toca otro plugin.
 | Hook que estampa | Motivo | Referencia |
 | --- | --- | --- |
 | `woocommerce_reduce_order_item_stock` | `sale` | El número de pedido |
-| `woocommerce_restore_order_item_stock` | `refund` | El número de pedido |
+| `woocommerce_restore_order_item_stock` | `refund` | El número de pedido. Existe desde WooCommerce 9.1, y por eso es el mínimo (§5 del SPEC) |
 | `woocommerce_restock_refunded_item` | `refund` | El número de pedido |
 
 **Por qué así y no declarando el motivo por adelantado.** Es lo que hace el rubro: en Odoo

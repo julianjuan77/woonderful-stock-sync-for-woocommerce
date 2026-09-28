@@ -172,7 +172,7 @@ pedido lo consumen y llaman a `Ledger::stamp()`, que sólo toca una fila propia 
 
 **Depende de WooCommerce activo**, verificado con `class_exists( 'WooCommerce' )`. Sin él, el
 plugin no registra nada y muestra un aviso en el admin. Action Scheduler viene dentro de
-WooCommerce (§5 del SPEC exige 8.2+), así que no es una dependencia aparte.
+WooCommerce (§5 del SPEC exige 9.1+), así que no es una dependencia aparte.
 
 ---
 
