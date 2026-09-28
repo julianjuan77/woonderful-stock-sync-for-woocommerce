@@ -24,7 +24,7 @@ git show 2668a7a --stat      # qué archivos tocó y cuántas líneas
 git show 2668a7a             # el diff completo
 ```
 
-Y para correr sólo los tests de una pieza, en vez de los 127:
+Y para correr sólo los tests de una pieza, en vez de los 128:
 
 ```bash
 make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS="--filter Test_Ledger"
@@ -105,7 +105,7 @@ Verificado rompiéndolo: sin el `UPDATE` cae `LED-02`; registrando productos sin
 |---|---|---|---|---|
 | 4.1 | Los cuatro hooks de stock y el cálculo del delta, leído de la base | ✅ | `a3db571`, `25984d3` | `DET-01`…`DET-10`, `PLG-16`, `PLG-17` |
 | 4.2 | El guard anti-eco | ✅ | `1feb126` | `GRD-01`…`GRD-07` |
-| 4.3 | El estampado del motivo desde los hooks de pedido | ✅ | `3173cc4` | `DET-11`…`DET-16`, `LED-52`…`LED-54` |
+| 4.3 | El estampado del motivo desde los hooks de pedido | ✅ | `3173cc4` | `DET-11`…`DET-16`, `LED-52`…`LED-55` |
 | 4.4 | Qué se ignora: sin stock gestionado y sin vincular ya van en 4.1; falta el bootstrap, que depende de 6.1 | ⬜ | | |
 
 ### 5. El transporte — `includes/Transport/` y `includes/Rest/`

@@ -266,6 +266,7 @@ varios tests sin chocar.
 | `LED-52` | Estampar un movimiento propio pendiente | Quedan el motivo y la referencia |
 | `LED-53` | Estampar un movimiento que la cola ya se llevó | No cambia: viaja con el motivo que tenía |
 | `LED-54` | Estampar un movimiento recibido | No cambia: no es nuestro |
+| `LED-55` | Estampar una referencia de 150 caracteres | Se guardan 100 y el motivo. Sin el recorte, el `UPDATE` falla entero y la fila queda `adjustment` |
 
 ## [`tests/test-guard.php`](test-guard.php) — el guard anti-eco
 

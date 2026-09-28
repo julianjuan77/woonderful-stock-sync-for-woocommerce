@@ -350,7 +350,6 @@ class Test_Detector extends WP_UnitTestCase {
 	 * DET-11 — Un cambio sin pedido detrás se queda en `adjustment`, sin referencia.
 	 */
 	public function test_a_change_without_an_order_stays_an_adjustment(): void {
-		$this->create_product( 10 );
 		$product_id = $this->create_product( 10 );
 
 		wc_update_product_stock( $product_id, 2, 'decrease' );

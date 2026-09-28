@@ -1260,4 +1260,19 @@ class Test_Ledger extends WP_UnitTestCase {
 
 		$this->assertSame( 'adjustment', $this->movement( $movement_id )->reason );
 	}
+
+	/**
+	 * Un número de pedido filtrado a algo más largo que la columna: sin recortarlo, el
+	 * UPDATE falla entero y la fila se queda sin el motivo.
+	 *
+	 * LED-55
+	 */
+	public function test_a_long_reference_is_truncated(): void {
+		$movement_id = (int) Ledger::record( 123, -2 );
+
+		Ledger::stamp( $movement_id, 'sale', str_repeat( 'x', 150 ) );
+
+		$this->assertSame( 'sale', $this->movement( $movement_id )->reason );
+		$this->assertSame( str_repeat( 'x', 100 ), $this->movement( $movement_id )->reference );
+	}
 }
