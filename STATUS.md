@@ -2,7 +2,7 @@
 
 > Plugin: `woonderful-stock-sync-for-woocommerce` | WP 6.5+ | PHP 8.1+ | WooCommerce 8.2+
 > Repo: [woonderful-stock-sync-for-woocommerce](https://github.com/julianjuan77/woonderful-stock-sync-for-woocommerce)
-> Creado: 2026-09-20 · Última sesión: 2026-09-26
+> Creado: 2026-09-20 · Última sesión: 2026-09-28
 
 Sincroniza el stock entre dos tiendas WooCommerce propias que despachan del mismo depósito.
 Pool único, sin reparto: lo que se vende en una descuenta en las dos.
@@ -24,7 +24,7 @@ git show 2668a7a --stat      # qué archivos tocó y cuántas líneas
 git show 2668a7a             # el diff completo
 ```
 
-Y para correr sólo los tests de una pieza, en vez de los 38:
+Y para correr sólo los tests de una pieza, en vez de los 118:
 
 ```bash
 make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS="--filter Test_Ledger"
@@ -34,18 +34,8 @@ make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS=
 
 ## 🔄 En progreso
 
-**4.1 — El detector: los cuatro hooks de stock y el cálculo del delta.**
-
-Los pares `before`/`set` de producto y variación (ADR-006 §1). El delta sale del par, se
-descarta lo que no corresponde —sin stock gestionado, sin vincular, y lo que anotó el guard—
-y se escribe con `Ledger::record()`.
-
-Va con la conversación pendiente de ADR-006: **el delta calculado desde los hooks puede
-mentir** si el objeto del producto venía desactualizado, porque WooCommerce le entrega al
-hook un número calculado y no releído.
-
-Done cuando: el detector emite un movimiento por cada cambio de stock de un producto
-vinculado y ninguno por los demás, tiene sus tests, lint y tests en verde, y está commiteada.
+Nada. Lo que sigue es **4.3, el estampado del motivo**: los tres hooks de pedido de ADR-006 §2
+completan `reason` y `reference` de la fila que el detector acaba de escribir.
 
 ---
 
@@ -113,10 +103,10 @@ Verificado rompiéndolo: sin el `UPDATE` cae `LED-02`; registrando productos sin
 
 | | Tarea | Estado | Commit | Tests |
 |---|---|---|---|---|
-| 4.1 | Los cuatro hooks de stock y el cálculo del delta | 🔄 | | |
+| 4.1 | Los cuatro hooks de stock y el cálculo del delta, leído de la base | ✅ | `a3db571`, `25984d3` | `DET-01`…`DET-10`, `PLG-16`, `PLG-17` |
 | 4.2 | El guard anti-eco | ✅ | `1feb126` | `GRD-01`…`GRD-07` |
 | 4.3 | El estampado del motivo desde los hooks de pedido | ⬜ | | |
-| 4.4 | Qué se ignora: sin stock gestionado, sin vincular, bootstrap | ⬜ | | |
+| 4.4 | Qué se ignora: sin stock gestionado y sin vincular ya van en 4.1; falta el bootstrap, que depende de 6.1 | ⬜ | | |
 
 ### 5. El transporte — `includes/Transport/` y `includes/Rest/`
 
@@ -178,7 +168,7 @@ La fuente es `docs/DECISIONS.md`. Acá sólo el índice de las aprobadas.
 | ADR-003 | Qué se borra al desinstalar; el secreto siempre | 2026-09-20 |
 | ADR-004 | Tres tablas InnoDB, tres índices, la retención | 2026-09-20 |
 | ADR-005 | El vínculo, su generación, el bootstrap y el `unlink` | 2026-09-21 |
-| ADR-006 | Los hooks del detector, el estampado y el guard anti-eco | 2026-09-24 |
+| ADR-006 | Los hooks del detector, el estampado y el guard anti-eco. Revisado el 2026-09-28: el delta sale de la base | 2026-09-24 |
 | ADR-007 | La huella hashea la opción `home` cruda, con esquema | 2026-09-26 |
 
 `docs/ARCHITECTURE.md` documenta el resultado: modelo de datos, contrato público, módulos,
@@ -200,4 +190,6 @@ seguridad y convenciones de código.
 | La marca de purga se calcula con `max()` de lo purgado, y los reintentos desordenan las secuencias: el ADR de la reconciliación tiene que decir que cada tienda ofrece sus filas no confirmadas sin mirar la marca | Revisión 2026-09-27 → tarea 1.9 |
 | `remember_purged()` usa el UUID de la tienda remota como clave de `wss_peers`, y esa clave la fija el emparejamiento: si usara otra, la purga crearía un par fantasma sin URL ni secreto | Revisión 2026-09-27 → tarea 5.7 |
 | ADR-001 dice que el tamaño de lote y la curva de backoff son "configuración". Cuando se escriba 5.4, decidir si de verdad lo son o son constantes, como se resolvió con el retardo | ADR-001 §2 |
+| Si un hook de terceros cambia el stock de **otro** producto vinculado dentro de `apply()`, el `record()` del detector abre su `START TRANSACTION` adentro de la de `apply()`, y MySQL confirma la de afuera en ese momento: la aplicación queda confirmada antes de tiempo. Hace falta un hook anidado para que pase | Sesión 2026-09-28 → revisar con 5.3 |
+| Un cambio ajeno al stock del mismo producto entre las dos lecturas del detector se cuenta dos veces. Declarado y aceptado: son milisegundos, y lo corrige la reconciliación | ADR-006 §1 → tarea 7.2 |
 | Infection cuando exista `Transport/`: necesita PCOV en la imagen de wp-restore | — |
