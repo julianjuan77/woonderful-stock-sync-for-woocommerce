@@ -24,7 +24,7 @@ git show 2668a7a --stat      # qué archivos tocó y cuántas líneas
 git show 2668a7a             # el diff completo
 ```
 
-Y para correr sólo los tests de una pieza, en vez de los 128:
+Y para correr sólo los tests de una pieza, en vez de los 138:
 
 ```bash
 make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS="--filter Test_Ledger"
@@ -34,8 +34,8 @@ make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS=
 
 ## 🔄 En progreso
 
-Nada. Del bloque 4 queda la 4.4, que depende del bootstrap (6.1). Lo siguiente que no está
-bloqueado es el transporte: **5.1, la firma HMAC**.
+Nada. Lo siguiente es **5.2, el almacén de nonces y su purga**: el receptor rechaza un nonce ya
+visto dentro de la ventana de 5 minutos.
 
 ---
 
@@ -112,7 +112,7 @@ Verificado rompiéndolo: sin el `UPDATE` cae `LED-02`; registrando productos sin
 
 | | Tarea | Estado |
 |---|---|---|
-| 5.1 | La firma HMAC: firmar y verificar | ⬜ |
+| 5.1 | La firma HMAC: firmar y verificar, con la ruta REST y la query ordenada | ✅ |
 | 5.2 | El almacén de nonces y su purga | ⬜ |
 | 5.3 | `POST /movements` del lado receptor, con el ACK por movimiento | ⬜ |
 | 5.4 | El envío por lotes del lado emisor | ⬜ |

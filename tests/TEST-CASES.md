@@ -116,6 +116,10 @@ mientras escribía la función.
 | Aplicar un movimiento remoto no genera eco | ADR-006 §3, SPEC §3 | `DET-10` | [test-detector.php](test-detector.php) |
 | La variación que toma el stock del padre mueve al padre | ADR-006 §1 | `DET-07` | [test-detector.php](test-detector.php) |
 | Un sitio suspendido no emite movimientos | ADR-001 §1 | `PLG-17` | [test-plugin.php](test-plugin.php) |
+| La firma es la del ADR, no la que el código crea | ADR-001 §1 | `SIG-01`, `SIG-02` | [test-signature.php](test-signature.php) |
+| Cada parte del request está firmada, la query incluida | ADR-001 §1 | `SIG-04` | [test-signature.php](test-signature.php) |
+| La firma no depende de los permalinks ni del orden de la query | ADR-001 §1 | `SIG-05`, `SIG-06` | [test-signature.php](test-signature.php) |
+| Ventana de ±5 minutos | ADR-001 §1 | `SIG-08` | [test-signature.php](test-signature.php) |
 | El motivo se estampa después; sin documento queda `adjustment` | ADR-006 §2 | `DET-11`…`DET-14` | [test-detector.php](test-detector.php) |
 | El estampado nunca cae sobre una fila que no es la del pedido | ADR-006 §2 | `DET-15`, `DET-16`, `LED-54` | [test-detector.php](test-detector.php), [test-ledger.php](test-ledger.php) |
 | Lo que ya salió no se reescribe | ADR-006 §2 | `LED-53` | [test-ledger.php](test-ledger.php) |
@@ -268,6 +272,24 @@ varios tests sin chocar.
 | `LED-54` | Estampar un movimiento recibido | No cambia: no es nuestro |
 | `LED-55` | Estampar una referencia de 150 caracteres | Se guardan 100 y el motivo. Sin el recorte, el `UPDATE` falla entero y la fila queda `adjustment` |
 
+## [`tests/test-signature.php`](test-signature.php) — la firma
+
+| ID | Caso | Resultado esperado |
+|---|---|---|
+| `SIG-01` | **El request de referencia, firmado** | La misma firma que calcula `hmac` de Python sobre el texto del ADR: otra implementación del ADR se entendería con ésta |
+| `SIG-02` | El texto que se firma | Seis líneas en el orden del ADR, sin salto al final, método en mayúsculas |
+| `SIG-03` | Un request bien firmado | Verifica |
+| `SIG-04` | Cambiar método, ruta, query, timestamp, nonce, cuerpo o secreto | Cada uno rompe la firma |
+| `SIG-05` | La query en otro orden | Verifica igual |
+| `SIG-06` | `rest_route` en la query, como con permalinks sin formato | Verifica igual |
+| `SIG-07` | Un parámetro que es una lista | No verifica, y no se puede firmar |
+| `SIG-08` | El timestamp a ±300 y a ±301 segundos | Vale hasta 300, en los dos sentidos |
+| `SIG-09` | La firma en mayúsculas | No verifica: va en hex en minúsculas |
+| `SIG-10` | Las cabeceras que arma el emisor | Verifican, y cada request lleva su nonce |
+
+Verificado rompiéndolo: sin sacar `rest_route` cae `SIG-06`; sin ordenar la query caen `SIG-01`,
+`SIG-02` y `SIG-05`; con un segundo más de ventana cae `SIG-08`.
+
 ## [`tests/test-guard.php`](test-guard.php) — el guard anti-eco
 
 | ID | Caso | Resultado esperado |
@@ -347,7 +369,7 @@ la suite de WordPress abre para cada test.
 
 ## Lo que todavía no tiene tests
 
-- Todo `Transport/` y `Reconciliation/`: no hay código todavía.
+- De `Transport/`, todo menos la firma; y todo `Reconciliation/`: no hay código todavía.
 - Que el libro que crece sin techo —porque la otra tienda no vuelve nunca— se **avise**
   (UC-08). `purge()` ya lo deja crecer a propósito; el aviso va con el ADR del log.
 - La purga que consolida el stock base.

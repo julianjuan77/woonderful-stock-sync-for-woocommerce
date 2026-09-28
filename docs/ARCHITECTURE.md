@@ -209,6 +209,12 @@ hasta que vuelva. La reconciliación nocturna lo repara; §5 del SPEC acepta has
 siempre al desinstalar (ADR-003) y **nunca aparece en el log ni en un mensaje de error**.
 Tampoco se loguea el código de emparejamiento.
 
+**La firma no depende de los permalinks.** `Transport\Signature` firma la ruta REST de
+`get_route()` y la query ordenada sin `rest_route`, así que el mismo request verifica igual en
+una tienda con permalinks y en una sin ellos. La compara con `hash_equals()`. Sólo cubre la
+firma y la ventana de ±5 minutos: que el nonce sea nuevo y que la tienda esté emparejada lo
+deciden el almacén de nonces y quien busca el secreto (ADR-001 §1).
+
 **Queries directas:** siempre con `$wpdb->prepare()`. El libro se toca sólo desde `Ledger/`.
 
 ---
