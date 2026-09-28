@@ -1606,16 +1606,20 @@ Revisado: 2026-09-27 — el guard anota **sólo el producto**, no el valor esper
 código de WooCommerce se vio que el valor que llega a los hooks es calculado y no releído, así
 que bajo concurrencia no coincide con lo anotado y el cambio propio se emitiría como una
 venta. Ver §3.
+Revisado: 2026-09-28 — aprobado por Julián. El delta sale de leer `_stock` de la base
+en los dos hooks, no del objeto del producto. En una venta el objeto puede venir
+desactualizado, y cuando se guarda un producto el `before` ya trae el valor nuevo: el delta
+daría 0 y el cambio no se emitiría nunca. Ver §1.
 Temas: hooks-publicos, db-schema
 Cubre: includes/Detector/_.php
 
 **La decisión, en cuatro líneas:**
 
-1. El detector escucha los **cuatro hooks de stock de WooCommerce**, en pares `before`/`set`:
-   el par da el delta.
+1. El detector escucha los **cuatro hooks de stock de WooCommerce**, en pares `before`/`set`,
+   y en cada uno **lee el stock de la base**: la diferencia entre las dos lecturas es el delta.
 2. **El motivo no se declara: se estampa después.** El movimiento nace `adjustment` y el
    documento que lo causó lo completa un instante más tarde.
-3. El **guard anti-eco es específico**: producto y valor esperado, de un solo uso.
+3. El **guard anti-eco es específico**: anota el producto, de un solo uso.
 4. Un movimiento **no se entrega hasta unos segundos después de creado**, lo que cierra la
    carrera del estampado y agrupa las ráfagas sin modo especial.
 
@@ -1628,18 +1632,59 @@ woocommerce_product_before_set_stock    ·  woocommerce_product_set_stock
 woocommerce_variation_before_set_stock  ·  woocommerce_variation_set_stock
 ```
 
-El par da el delta sin tener que consultar nada:
-
-```php
-// wc_update_product_stock(), en includes/wc-stock-functions.php
-do_action( 'woocommerce_product_before_set_stock', $product );  // el objeto tiene el valor VIEJO
-$new_stock = $data_store->update_product_stock( … );            // cambia la base
-$data_store->read_stock_quantity( $product_with_stock, … );     // refresca el objeto
-do_action( 'woocommerce_product_set_stock', $product );         // ahora tiene el NUEVO
-```
-
 Se disparan en las **dos** rutas por las que WooCommerce cambia stock: `wc_update_product_stock()`
 —ventas, devoluciones, cambios programáticos— y el data store cuando se guarda un producto.
+En las dos, `before` corre **antes de escribir** y `set` **después**.
+
+#### El delta sale de la base, no del objeto
+
+Cada hook lee `_stock` con una consulta directa, y el delta es la diferencia:
+
+```
+before   →  SELECT meta_value FROM wp_postmeta WHERE post_id = 123 AND meta_key = '_stock'   → 9
+         …  WooCommerce escribe
+set      →  la misma consulta                                                                → 7
+delta:      7 − 9 = −2
+```
+
+**Por qué no el objeto que entrega el hook.** Parecía que el par daba el delta sin consultar
+nada, y en cada ruta falla de una manera distinta:
+
+| Ruta | Qué tiene el objeto en `before` | Qué sale |
+| --- | --- | --- |
+| `wc_update_product_stock()` — una venta | El stock de cuando se cargó, que puede ser el principio del checkout | Si otro request vendió en el medio, el delta suma esa venta: la otra tienda descuenta de más |
+| El data store — guardar el producto | **El valor nuevo**: se lo pusieron antes de guardar y sólo falta escribir el meta | `before` y `set` dan lo mismo, el delta es 0 y el cambio **no se emite nunca** |
+
+```php
+// Venta: la copia se cargó con 10; otro request vendió 1 (base 9); ahora se venden 2
+before  → $product->get_stock_quantity() = 10     // viejo
+set     → $product->get_stock_quantity() = 7      // calculado de la base
+delta   = −3, y fueron −2
+```
+
+**Por qué SQL directo y no `get_post_meta()`.** `get_post_meta()` responde desde la caché de
+meta del request, que pudo cargarse antes de que otro proceso cambiara el stock: es otra vez
+un número viejo. WooCommerce borra esa caché después de su propia escritura, no antes.
+
+**Es lo que hace el rubro.** *Stock Sync for WooCommerce* (WP Trio, 2.11.0) lee el stock con
+un `SELECT` directo a `wp_postmeta` —su función se llama *"Get current stock directly from
+the DB"*— y calcula el delta contra el número nuevo que calcula WooCommerce. Los snippets de
+historial de stock que circulan (Business Bloomer, Webkul) leen `_stock` en el `before`.
+
+**Por qué no copiar Stock Sync entero.** Para las ventas engancha el filtro
+`woocommerce_update_product_stock_query` y la acción `woocommerce_updated_product_stock`, que
+están pegados a la escritura misma y achican la ventana todavía más. Pero sólo existen en la
+ruta de las ventas, así que hace falta el par `before`/`set` igual para la otra, y en una
+venta se disparan los dos: hay que llevar la cuenta de lo ya procesado para no emitirla dos
+veces. Para las ediciones a mano Stock Sync manda el número final y no un delta, y eso no nos
+sirve: pisar con un absoluto borra la venta que entró en la otra tienda (§3 del SPEC). Se
+eligió la versión simple: la ventana que queda es de milisegundos.
+
+**La ventana que queda, declarada.** Si otro request escribe el stock del mismo producto entre
+las dos lecturas, su cambio queda adentro del delta, y como ese request también emite el suyo,
+**ese cambio se cuenta dos veces**. En una venta entre las dos lecturas corre el `save()` del
+producto: son milisegundos. Lo corrige la fase 2 de la reconciliación, que compara el stock
+real contra el libro.
 
 **Por qué no el meta `_stock`.** Parece el punto más bajo y universal, y es el error: la
 propia función de WooCommerce avisa que **no pasa por `update_post_meta`**.
