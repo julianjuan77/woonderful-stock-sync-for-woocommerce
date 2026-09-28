@@ -112,6 +112,10 @@ resolviera el formato. El identificador viaja como dos campos, `origin` y `seq`:
 sólo la forma de mostrarlo. No es un cambio de diseño — §4 ya delegaba el formato.
 Revisado: 2026-09-26 — ADR-007 cambia la huella a `sha256( get_option( 'home' ) )`:
 `home_url()` varía con el request y con quien la filtre. Ver §1, detección de clon.
+Revisado: 2026-09-28 — aprobado por Julián. §1 fija qué se firma exactamente: la ruta
+REST y no la URL, que cambia con los permalinks; la query ordenada, que la fórmula no cubría y
+en `GET /products` decide qué se devuelve; y el formato de cada campo. Ver §1, "Qué entra en
+la firma, exactamente".
 Temas: rest-api, api-externa, db-schema, opciones
 Cubre: includes/Transport/_.php, includes/Rest/_.php
 
@@ -160,8 +164,53 @@ La firma se calcula así:
 
 ```
 HMAC-SHA256( secreto,
-             método + "\n" + ruta + "\n" + timestamp + "\n" + nonce + "\n" + sha256(cuerpo) )
+             método + "\n" + ruta + "\n" + query + "\n" + timestamp + "\n" + nonce + "\n" + sha256(cuerpo) )
 ```
+
+#### Qué entra en la firma, exactamente
+
+El texto que se firma tiene **seis líneas**, separadas por `\n` y sin salto al final:
+
+```
+POST                                   ← método, en mayúsculas
+/wss/v1/products                       ← la ruta REST
+page=3&per_page=100                    ← la query, ordenada; vacía si no hay
+1758300000                             ← timestamp, en segundos enteros
+7f3c1b9e4a2d…                          ← el nonce, tal como viaja en la cabecera
+e3b0c44298fc1c149afbf4c8996fb924…      ← sha256 del cuerpo crudo, en hex; el de "" si no hay
+```
+
+La firma es `hash_hmac( 'sha256', $texto, $secreto )` en hexadecimal en minúsculas, y se compara
+con `hash_equals()`.
+
+**La ruta es la ruta REST, no la URL.** Es lo que WordPress entrega como `get_route()`:
+`/wss/v1/products`. La misma llamada llega como `/wp-json/wss/v1/products` o como
+`/?rest_route=/wss/v1/products` según los permalinks del sitio, y con un prefijo si WordPress
+vive en un subdirectorio. Firmar la URL haría que cambiar los permalinks rompa el canal, con
+un error de firma que no dice por qué.
+
+**La query entra en la firma, ordenada.** En `GET /products` la página que se pide va en la
+query, y es parte de lo que el receptor usa para decidir qué devolver: fuera de la firma, se
+podría cambiar sin romperla. Se arma así, igual de los dos lados:
+
+1. Los parámetros **tal como los ve el receptor**: `get_query_params()`, que WordPress llena con
+   `wp_unslash( $_GET )`.
+2. **Sin `rest_route`**: con permalinks sin formato WordPress lo mete en la query, y es la ruta,
+   que ya va en la segunda línea.
+3. Ordenados por nombre, en orden de bytes.
+4. Nombre y valor codificados con `rawurlencode()` (RFC 3986), unidos con `=`, y los pares con
+   `&`.
+
+**Los parámetros son escalares.** Ninguno de los endpoints usa listas (`ids[]=1&ids[]=2`), y
+normalizarlas es donde este tipo de esquema se desincroniza entre los dos lados: un request
+con un parámetro que no es escalar no verifica.
+
+**Es lo que hace AWS SigV4**, que §*Prior art* ya cita: la query canónica ordenada y codificada
+es parte del texto firmado.
+
+**Por qué no la query sin firmar.** Con HTTPS y un nonce de un solo uso, cambiarla en tránsito
+es difícil, y `GET /products` sólo lee. Pero quedaba un hueco en la firma que había que
+declarar, para ahorrarse un orden y una codificación.
 
 **El secreto no viaja en ninguna llamada.** Vive en la base de las dos tiendas y sólo se usa
 para calcular la firma. La única vez que cruza la red es en la respuesta del canje (paso 5 de
