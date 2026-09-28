@@ -120,6 +120,11 @@ Revisado: 2026-09-28 — aprobado por Julián. Los nonces se guardan **10 minuto
 la ventana acepta timestamps adelantados, así que un request puede seguir pasándola hasta 10
 minutos después de recibido, y con el nonce ya borrado el reenvío entraba. Y el nonce se
 anota **después** de verificar la firma. Ver §1, "El almacén de nonces".
+Revisado: 2026-09-28 — aprobado por Julián. §4 fija cómo responde `POST /movements`: el
+`origin` de cada movimiento tiene que ser la tienda que firmó; sólo se rechaza lo que impide
+identificar o aplicar un movimiento, y el `reason` desconocido se guarda como llega; los
+resultados vuelven en el orden del lote; y cada rechazo del lote entero tiene su código. Ver
+§4, "Cómo responde `POST /movements`".
 Temas: rest-api, api-externa, db-schema, opciones
 Cubre: includes/Transport/_.php, includes/Rest/_.php
 
@@ -807,6 +812,55 @@ ACK por movimiento: falla 1 de 50 → se confirman 49 y se reintenta 1
 La confirmación se emite **después** de que la fila está escrita, no antes. Con la
 deduplicación apoyada en el `UNIQUE` del identificador global, que el movimiento ya esté
 presente significa que ya está guardado: confirmarlo es decir la verdad.
+
+#### Cómo responde `POST /movements`
+
+**Los resultados vuelven en el mismo orden y en la misma cantidad que los movimientos del
+lote**, cada uno con su `origin` y su `seq` cuando se pudieron leer. El emisor empareja por
+posición: un movimiento con el `seq` roto no se puede identificar de otra forma.
+
+**El `origin` de cada movimiento tiene que ser la tienda que firmó el request** (`X-WSS-Store`).
+Si no coincide, ese movimiento vuelve con `error` y no se escribe. Sin este control, B podría
+mandar un movimiento "de A con seq 78": chocaría contra el 78 propio de A en el `UNIQUE` del
+libro, y si ese número todavía no existe, entraría como fila recibida y el `record()` de A
+chocaría después contra ella. La venta de A se perdería sin aviso.
+
+**Se rechaza sólo lo que impide identificar o aplicar un movimiento.** Un `error` hace que el
+emisor reintente durante 6 horas y después lo abandone: si reintentar no cambia nada, el delta
+se pierde hasta la reconciliación. Así que:
+
+| Campo | Qué se exige | Si no |
+| --- | --- | --- |
+| `origin` | La tienda que firmó | `error` |
+| `seq` | Entero mayor que cero | `error` |
+| `generation` | Entero, cero o más | `error` |
+| `delta` | Entero | `error` |
+| `product` | Entero mayor que cero | `error` |
+| `reference` | Texto | Más de 100 caracteres **se recorta**, como al estamparla (ADR-006 §2) |
+| `reason` | Texto | **Se guarda como llega**, recortado a los 20 caracteres de la columna |
+
+**Por qué el `reason` desconocido no se rechaza.** Las dos tiendas se actualizan por separado
+(ver *Compatibilidad entre versiones*): una versión nueva puede sumar un motivo que la vieja
+todavía no conoce. Rechazarlo perdería stock por la etiqueta; guardarlo tal cual conserva el
+delta y el historial dice lo que mandó el otro lado.
+
+**Lo que rechaza el lote entero** corta antes de tocar el libro, con un código que dice qué
+pasó. En el orden en que se mira (§1):
+
+| Qué pasó | HTTP | Código |
+| --- | --- | --- |
+| La tienda no está emparejada, o no tiene secreto | 401 | `wss_unknown_store` |
+| El timestamp está fuera de la ventana | 401 | `wss_stale_timestamp` |
+| La firma no coincide | 401 | `wss_bad_signature` |
+| El nonce ya se vio | 401 | `wss_replayed_nonce` |
+| El cuerpo no es un JSON con una lista `movements` | 400 | `wss_bad_request` |
+| Más de 200 movimientos | 413 | `wss_batch_too_large` |
+
+Que el código diga cuál fue sirve para diagnosticar, sobre todo un reloj desfasado. Lo único
+que revela es si un identificador de tienda está emparejado, y un UUID no se adivina.
+
+**Una tienda sin secreto, o con el secreto vacío, es una tienda no emparejada.** `verify()`
+ya rechaza el secreto vacío, pero el endpoint no depende de eso.
 
 #### El receptor declara un máximo de 200 movimientos por lote
 
