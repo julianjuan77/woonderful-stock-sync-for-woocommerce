@@ -24,7 +24,7 @@ git show 2668a7a --stat      # qué archivos tocó y cuántas líneas
 git show 2668a7a             # el diff completo
 ```
 
-Y para correr sólo los tests de una pieza, en vez de los 139:
+Y para correr sólo los tests de una pieza, en vez de los 146:
 
 ```bash
 make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS="--filter Test_Ledger"
@@ -34,8 +34,9 @@ make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS=
 
 ## 🔄 En progreso
 
-Nada. Lo siguiente es **5.2, el almacén de nonces y su purga**: el receptor rechaza un nonce ya
-visto dentro de la ventana de 5 minutos.
+Nada. Lo siguiente es **5.3, `POST /movements` del lado receptor**: junta la firma, los nonces
+y `Ledger::apply()`, y tiene que resolver los dos cabos sueltos de transacciones que quedaron
+anotados para ella.
 
 ---
 
@@ -113,7 +114,7 @@ Verificado rompiéndolo: sin el `UPDATE` cae `LED-02`; registrando productos sin
 | | Tarea | Estado | Commit | Tests |
 |---|---|---|---|---|
 | 5.1 | La firma HMAC: firmar y verificar, con la ruta REST y la query ordenada | ✅ | `83051db`, `c2fd2aa` | `SIG-01`…`SIG-11` |
-| 5.2 | El almacén de nonces y su purga | ⬜ | | |
+| 5.2 | El almacén de nonces y su purga: dos ventanas de retención | ✅ | `b247cb9` | `NON-01`…`NON-07` |
 | 5.3 | `POST /movements` del lado receptor, con el ACK por movimiento | ⬜ | | |
 | 5.4 | El envío por lotes del lado emisor | ⬜ | | |
 | 5.5 | La pasada recurrente de Action Scheduler | ⬜ | | |
@@ -123,7 +124,10 @@ Verificado rompiéndolo: sin el `UPDATE` cae `LED-02`; registrando productos sin
 
 **Para 5.3:** el receptor le pasa a `Signature::verify()` lo que entrega WordPress —
 `get_route()`, `get_query_params()` y `get_body()`—, no la URL ni `$_GET`. Es lo que hace que
-la firma no dependa de los permalinks (ADR-001 §1).
+la firma no dependa de los permalinks. Y el orden es tienda emparejada → firma y ventana →
+`Nonces::claim()`: anotar el nonce antes dejaría llenar la tabla sin el secreto (ADR-001 §1).
+
+**Para 5.5:** la pasada recurrente llama a `Nonces::purge()`.
 
 ### 6. La vinculación — `includes/Linking/`
 
@@ -167,7 +171,7 @@ La fuente es `docs/DECISIONS.md`. Acá sólo el índice de las aprobadas.
 | ADR | Decide | Aprobada |
 |---|---|---|
 | [ADR-000](docs/DECISIONS.md) | El scaffold y el arranque | 2026-09-24 |
-| ADR-001 | `wss/v1` firmado con HMAC; el libro es la cola; dos ejes de estado. Revisado el 2026-09-28: qué entra exactamente en la firma | 2026-09-20 |
+| ADR-001 | `wss/v1` firmado con HMAC; el libro es la cola; dos ejes de estado. Revisado el 2026-09-28: qué entra exactamente en la firma, y los nonces se guardan dos ventanas | 2026-09-20 |
 | ADR-002 | UUID de tienda; la secuencia es el `AUTO_INCREMENT` | 2026-09-20 |
 | ADR-003 | Qué se borra al desinstalar; el secreto siempre | 2026-09-20 |
 | ADR-004 | Tres tablas InnoDB, tres índices, la retención | 2026-09-20 |

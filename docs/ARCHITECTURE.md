@@ -215,6 +215,12 @@ una tienda con permalinks y en una sin ellos. La compara con `hash_equals()`. S�
 firma y la ventana de ±5 minutos: que el nonce sea nuevo y que la tienda esté emparejada lo
 deciden el almacén de nonces y quien busca el secreto (ADR-001 §1).
 
+**Los nonces se guardan dos ventanas.** `Transport\Nonces::claim()` anota con `INSERT IGNORE`
+y la clave primaria decide: una fila escrita es un nonce nuevo, cero es un reenvío, y un
+error cuenta como visto. `purge()` borra lo anotado hace más de 10 minutos, porque un request
+con el reloj adelantado sigue pasando la ventana hasta entonces. El receptor anota el nonce
+**después** de verificar la firma.
+
 **Queries directas:** siempre con `$wpdb->prepare()`. El libro se toca sólo desde `Ledger/`.
 
 ---

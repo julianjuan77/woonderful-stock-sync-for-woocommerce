@@ -121,6 +121,9 @@ mientras escribía la función.
 | La firma no depende de los permalinks ni del orden de la query | ADR-001 §1 | `SIG-05`, `SIG-06` | [test-signature.php](test-signature.php) |
 | Ventana de ±5 minutos | ADR-001 §1 | `SIG-08` | [test-signature.php](test-signature.php) |
 | Sin secreto no hay firma válida | ADR-001 §1 | `SIG-11` | [test-signature.php](test-signature.php) |
+| Un nonce se acepta una sola vez | ADR-001 §1, ADR-004 §3 | `NON-02` | [test-nonces.php](test-nonces.php) |
+| Los nonces se guardan dos ventanas: el reenvío de un reloj adelantado se frena | ADR-001 §1 | `NON-04`, `NON-05`, `NON-06` | [test-nonces.php](test-nonces.php) |
+| Sin la tabla, ningún nonce es nuevo | ADR-001 §1 | `NON-07` | [test-nonces.php](test-nonces.php) |
 | El motivo se estampa después; sin documento queda `adjustment` | ADR-006 §2 | `DET-11`…`DET-14` | [test-detector.php](test-detector.php) |
 | El estampado nunca cae sobre una fila que no es la del pedido | ADR-006 §2 | `DET-15`, `DET-16`, `LED-54` | [test-detector.php](test-detector.php), [test-ledger.php](test-ledger.php) |
 | Lo que ya salió no se reescribe | ADR-006 §2 | `LED-53` | [test-ledger.php](test-ledger.php) |
@@ -298,6 +301,22 @@ parámetros.
 manda como `0`: el receptor firmaría otro texto. El tipo de `sign()` y `headers()` es
 `array<string, string|int>`, así que PHPStan lo frena en quien arme la URL (5.4, 5.8).
 
+## [`tests/test-nonces.php`](test-nonces.php) — el almacén de nonces
+
+| ID | Caso | Resultado esperado |
+|---|---|---|
+| `NON-01` | Un nonce que nunca se vio | Es nuevo |
+| `NON-02` | El mismo nonce, otra vez | Es un reenvío |
+| `NON-03` | Un nonce vacío, o de 65 caracteres | Se rechaza. El de 64 entra |
+| `NON-04` | **El reloj del emisor adelanta 5 minutos y el reenvío llega a los 9, después de una purga** | La firma todavía verifica, y el nonce sigue anotado: se frena |
+| `NON-05` | La purga, con nonces justo en el borde de las dos ventanas | Se va el de un segundo más; el del borde se queda |
+| `NON-06` | La retención | Son dos ventanas de la firma |
+| `NON-07` | La tabla no está | Nada es nuevo: el request se rechaza |
+
+Verificado rompiéndolo: con una sola ventana de retención caen `NON-04` y `NON-06`; sin el
+control de largo cae `NON-03`; tomando como nuevo cualquier resultado que no sea un error
+—el `0` de un repetido— caen `NON-02`, `NON-04` y `NON-05`.
+
 ## [`tests/test-guard.php`](test-guard.php) — el guard anti-eco
 
 | ID | Caso | Resultado esperado |
@@ -377,7 +396,7 @@ la suite de WordPress abre para cada test.
 
 ## Lo que todavía no tiene tests
 
-- De `Transport/`, todo menos la firma; y todo `Reconciliation/`: no hay código todavía.
+- De `Transport/`, todo menos la firma y los nonces; y todo `Reconciliation/`: no hay código todavía.
 - Que el libro que crece sin techo —porque la otra tienda no vuelve nunca— se **avise**
   (UC-08). `purge()` ya lo deja crecer a propósito; el aviso va con el ADR del log.
 - La purga que consolida el stock base.
