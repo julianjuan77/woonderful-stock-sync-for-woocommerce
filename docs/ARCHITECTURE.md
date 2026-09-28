@@ -221,6 +221,18 @@ error cuenta como visto. `purge()` borra lo anotado hace más de 10 minutos, por
 con el reloj adelantado sigue pasando la ventana hasta entonces. El receptor anota el nonce
 **después** de verificar la firma.
 
+**`apply()` no deja nada a medias.** Atrapa cualquier `\Throwable` —un `TypeError` de un hook
+de terceros no es una `Exception`—, hace `ROLLBACK`, descarta la anotación del guard y limpia
+la caché de **cada producto cuyo stock cambió** adentro de la transacción: el `ROLLBACK`
+deshace la base pero no la caché, y con Redis WooCommerce seguiría vendiendo con el stock
+deshecho. Los anota en el `before_set_stock`, que corre antes de escribir. Límite declarado:
+lo que un tercero escriba adentro de la transacción que no sea stock queda con su caché vieja.
+
+**Un `record()` adentro de `apply()` usa `SAVEPOINT`.** Si un hook cambia el stock de otro
+producto vinculado mientras `apply()` corre, el movimiento de ese cambio queda en la misma
+transacción: se confirma o se deshace junto. Un `START TRANSACTION` ahí confirmaría la de
+`apply()` a mitad de camino. La marca que elige entre los dos caminos la baja un `finally`.
+
 **Queries directas:** siempre con `$wpdb->prepare()`. El libro se toca sólo desde `Ledger/`.
 
 ---

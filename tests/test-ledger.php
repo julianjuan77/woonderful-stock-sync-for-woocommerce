@@ -7,6 +7,7 @@
 
 declare( strict_types = 1 );
 
+use Woonderful\StockSync\Detector\Detector;
 use Woonderful\StockSync\Detector\Guard;
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Ledger\Ledger;
@@ -1274,5 +1275,156 @@ class Test_Ledger extends WP_UnitTestCase {
 
 		$this->assertSame( 'sale', $this->movement( $movement_id )->reason );
 		$this->assertSame( str_repeat( 'x', 100 ), $this->movement( $movement_id )->reference );
+	}
+
+	/**
+	 * Un hook de terceros que falla adentro de `apply()` —un `TypeError`, que no es una
+	 * `Exception`— no deja nada a medias: ni la fila, ni el stock, ni la caché con el stock
+	 * deshecho, ni la anotación del guard.
+	 *
+	 * LED-56
+	 */
+	public function test_a_failing_hook_leaves_nothing_behind(): void {
+		$product_id = $this->create_product( 10 );
+		$this->link_product( $product_id, 789, 77 );
+
+		$break = static function (): void {
+			throw new TypeError( 'un plugin roto' );
+		};
+
+		add_action( 'woocommerce_product_set_stock', $break );
+		$state = Ledger::apply( $this->incoming( 789, -2 ) );
+		remove_action( 'woocommerce_product_set_stock', $break );
+
+		$this->assertNull( $state, 'sin fila no hay nada que confirmar' );
+		$this->assertSame( 10, $this->stock_of( $product_id ), 'el stock de la base' );
+		$this->assertSame( 10, wc_get_product( $product_id )->get_stock_quantity(), 'el stock que ve WooCommerce, de la caché' );
+		$this->assertFalse( Guard::consume( $product_id ), 'la anotación del guard' );
+
+		// Y la transacción se cerró: el próximo movimiento se aplica y queda.
+		$this->assertSame( 'applied', Ledger::apply( $this->incoming( 789, -1, array( 'seq' => 78 ) ) ) );
+		$this->assertSame( 9, $this->stock_of( $product_id ) );
+	}
+
+	/**
+	 * Mientras `apply()` cambia el stock de un producto, un hook de terceros cambia el de
+	 * otro vinculado. El detector registra ese cambio adentro de la transacción de
+	 * `apply()`, y si algo falla después, se deshace todo junto: el movimiento, el stock
+	 * del tercero y la fila recibida. Con un `START TRANSACTION` adentro, la fila recibida y
+	 * el movimiento del tercero habrían quedado confirmados.
+	 *
+	 * LED-57
+	 */
+	public function test_a_nested_movement_rolls_back_with_apply(): void {
+		$applied = $this->create_product( 10 );
+		$other   = $this->create_product( 20 );
+		$this->link_product( $applied, 789, 77 );
+		$this->link_product( $other, 790, 77 );
+
+		Detector::register();
+
+		$nested = static function ( $product ) use ( $applied, $other ): void {
+			if ( $product->get_id() === $applied ) {
+				wc_update_product_stock( $other, 1, 'decrease' );
+
+				throw new RuntimeException( 'falla después del cambio anidado' );
+			}
+		};
+
+		add_action( 'woocommerce_product_set_stock', $nested, 20 );
+		$state = Ledger::apply( $this->incoming( 789, -2 ) );
+		remove_action( 'woocommerce_product_set_stock', $nested, 20 );
+
+		wss_unhook_detector();
+
+		$this->assertNull( $state );
+		$this->assertSame( 0, $this->count_movements(), 'ni la fila recibida ni el movimiento del tercero' );
+		$this->assertSame( 20, $this->stock_of( $other ) );
+		$this->assertSame( 10, $this->stock_of( $applied ) );
+	}
+
+	/**
+	 * El mismo cambio anidado, sin falla: el movimiento del tercero se confirma con
+	 * `apply()`.
+	 *
+	 * LED-58
+	 */
+	public function test_a_nested_movement_commits_with_apply(): void {
+		$applied = $this->create_product( 10 );
+		$other   = $this->create_product( 20 );
+		$this->link_product( $applied, 789, 77 );
+		$this->link_product( $other, 790, 77 );
+
+		Detector::register();
+
+		$nested = static function ( $product ) use ( $applied, $other ): void {
+			if ( $product->get_id() === $applied ) {
+				wc_update_product_stock( $other, 1, 'decrease' );
+			}
+		};
+
+		add_action( 'woocommerce_product_set_stock', $nested, 20 );
+		$state = Ledger::apply( $this->incoming( 789, -2 ) );
+		remove_action( 'woocommerce_product_set_stock', $nested, 20 );
+
+		wss_unhook_detector();
+
+		global $wpdb;
+		$table = Installer::table( 'movements' );
+		$own   = $wpdb->get_results( $wpdb->prepare( "SELECT origin_product, delta FROM {$table} WHERE origin_store = %s", Store::id() ) ); // phpcs:ignore WordPress.DB
+
+		$this->assertSame( 'applied', $state );
+		$this->assertCount( 1, $own );
+		$this->assertSame( $other, (int) $own[0]->origin_product );
+		$this->assertSame( -1, (int) $own[0]->delta );
+		$this->assertSame( 8, $this->stock_of( $applied ) );
+	}
+
+	/**
+	 * Si el `record()` anidado falla, deshace sólo lo suyo. Con un `ROLLBACK` pelado
+	 * cerraría la transacción de `apply()` y la fila recibida se perdería.
+	 *
+	 * LED-59
+	 */
+	public function test_a_failing_nested_record_does_not_close_apply(): void {
+		$applied = $this->create_product( 10 );
+		$other   = $this->create_product( 20 );
+		$this->link_product( $applied, 789, 77 );
+		$this->link_product( $other, 790, 77 );
+
+		Detector::register();
+
+		$table = Installer::table( 'movements' );
+
+		// Rompe el UPDATE que completa la secuencia del movimiento propio.
+		$break_the_update = static function ( string $query ) use ( $table ): string {
+			if ( str_starts_with( $query, "UPDATE `{$table}` SET `origin_seq`" ) ) {
+				return "UPDATE `{$table}` SET `no_such_column` = 1";
+			}
+
+			return $query;
+		};
+
+		$nested = static function ( $product ) use ( $applied, $other ): void {
+			if ( $product->get_id() === $applied ) {
+				wc_update_product_stock( $other, 1, 'decrease' );
+			}
+		};
+
+		global $wpdb;
+		$suppress = $wpdb->suppress_errors( true );
+
+		add_filter( 'query', $break_the_update );
+		add_action( 'woocommerce_product_set_stock', $nested, 20 );
+		$state = Ledger::apply( $this->incoming( 789, -2 ) );
+		remove_action( 'woocommerce_product_set_stock', $nested, 20 );
+		remove_filter( 'query', $break_the_update );
+
+		$wpdb->suppress_errors( $suppress );
+		wss_unhook_detector();
+
+		$this->assertSame( 'applied', $state );
+		$this->assertSame( 1, $this->count_movements(), 'queda la fila recibida, sin el movimiento del tercero' );
+		$this->assertSame( 8, $this->stock_of( $applied ) );
 	}
 }

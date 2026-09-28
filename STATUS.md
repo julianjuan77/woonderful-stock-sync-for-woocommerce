@@ -24,7 +24,7 @@ git show 2668a7a --stat      # qué archivos tocó y cuántas líneas
 git show 2668a7a             # el diff completo
 ```
 
-Y para correr sólo los tests de una pieza, en vez de los 145:
+Y para correr sólo los tests de una pieza, en vez de los 149:
 
 ```bash
 make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS="--filter Test_Ledger"
@@ -201,8 +201,7 @@ seguridad y convenciones de código.
 | La marca de purga se calcula con `max()` de lo purgado, y los reintentos desordenan las secuencias: el ADR de la reconciliación tiene que decir que cada tienda ofrece sus filas no confirmadas sin mirar la marca | Revisión 2026-09-27 → tarea 1.9 |
 | `remember_purged()` usa el UUID de la tienda remota como clave de `wss_peers`, y esa clave la fija el emparejamiento: si usara otra, la purga crearía un par fantasma sin URL ni secreto | Revisión 2026-09-27 → tarea 5.7 |
 | ADR-001 dice que el tamaño de lote y la curva de backoff son "configuración". Cuando se escriba 5.4, decidir si de verdad lo son o son constantes, como se resolvió con el retardo | ADR-001 §2 |
-| Si un hook de terceros cambia el stock de **otro** producto vinculado dentro de `apply()`, el `record()` del detector abre su `START TRANSACTION` adentro de la de `apply()`, y MySQL confirma la de afuera en ese momento: la aplicación queda confirmada antes de tiempo. Hace falta un hook anidado para que pase | Sesión 2026-09-28 → revisar con 5.3 |
-| Si `wc_update_product_stock()` lanza una excepción dentro de `apply()`, la transacción queda abierta y la anotación del guard puesta. Al fin del request no pasa nada: MySQL deshace, no hay ACK y el emisor reintenta. **El riesgo es que el endpoint atrape la excepción y siga con el lote**: el `START TRANSACTION` siguiente confirma la mitad hecha, la fila queda `applied` sin haber cambiado el stock, se confirma y el movimiento se pierde en las dos tiendas. 5.3 elige: `ROLLBACK` en `apply()`, o no atrapar | Revisión 2026-09-28 → tarea 5.3 |
 | Un cambio ajeno al stock del mismo producto entre las dos lecturas del detector se cuenta dos veces. Declarado y aceptado: son milisegundos, y lo corrige la reconciliación | ADR-006 §1 → tarea 7.2 |
 | Editar las líneas de un pedido desde el admin deja el movimiento en `adjustment`, sin número de pedido: `wc_maybe_adjust_line_item_product_stock()` no dispara ningún hook que estampe | Sesión 2026-09-28 → ADR del log (UC-04) |
+| Si un hook de terceros escribe algo que no es stock adentro de la transacción de `apply()` y después falla, el `ROLLBACK` lo deshace pero su caché queda vieja. Sólo se limpia la del stock | Sesión 2026-09-28, declarado |
 | Infection sobre `Transport/`, que ya existe: necesita PCOV en la imagen de wp-restore | — |

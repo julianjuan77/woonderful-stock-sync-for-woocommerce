@@ -130,6 +130,8 @@ mientras escribía la función.
 | El motivo se estampa después; sin documento queda `adjustment` | ADR-006 §2 | `DET-11`…`DET-14` | [test-detector.php](test-detector.php) |
 | El estampado nunca cae sobre una fila que no es la del pedido | ADR-006 §2 | `DET-15`, `DET-16`, `LED-54` | [test-detector.php](test-detector.php), [test-ledger.php](test-ledger.php) |
 | Lo que ya salió no se reescribe | ADR-006 §2 | `LED-53` | [test-ledger.php](test-ledger.php) |
+| Una falla adentro de `apply()` no deja nada a medias, ni en la caché | STATUS, deuda de 5.3 | `LED-56`, `LED-57` | [test-ledger.php](test-ledger.php) |
+| Un `record()` anidado queda adentro de la transacción de `apply()` | STATUS, deuda de 5.3 | `LED-57`, `LED-58`, `LED-59` | [test-ledger.php](test-ledger.php) |
 | El claim vence a los 5 minutos | ADR-001 §2 | `LED-25`, `LED-26` | [test-ledger.php](test-ledger.php) |
 | El techo de 6 h se mide desde el primer intento, y el intento es el claim | ADR-001 §2 | `LED-29`, `LED-30` | [test-ledger.php](test-ledger.php) |
 | Agotado el techo, el movimiento se abandona y lo rescata la reconciliación | ADR-001 §2 | `LED-34`, `LED-35`, `LED-39`, `LED-40` | [test-ledger.php](test-ledger.php) |
@@ -277,8 +279,20 @@ varios tests sin chocar.
 | `LED-52` | Estampar un movimiento propio pendiente | Quedan el motivo y la referencia |
 | `LED-53` | Estampar un movimiento que la cola ya se llevó | No cambia: viaja con el motivo que tenía |
 | `LED-54` | Estampar un movimiento recibido | No cambia: no es nuestro |
+| `LED-56` | **Un hook de terceros tira un `TypeError` adentro de `apply()`** | Nada a medias: sin fila, el stock de la base y el de la caché como estaban, sin la anotación del guard, y el movimiento siguiente se aplica |
+| `LED-57` | Un hook cambia el stock de otro producto vinculado adentro de `apply()`, y después falla | Se deshace todo junto: la fila recibida, el movimiento del tercero y su stock, **también en la caché** |
+| `LED-58` | El mismo cambio anidado, sin falla | El movimiento del tercero se confirma con `apply()` |
+| `LED-59` | El `record()` anidado falla | Deshace sólo lo suyo: la fila recibida y el stock aplicado quedan |
 | `LED-55` | Estampar una referencia de 150 caracteres | Se guardan 100 y el motivo. Sin el recorte, el `UPDATE` falla entero y la fila queda `adjustment` |
 
+
+**Las transacciones de `apply()`**, verificado rompiéndolo: atrapando `\Exception` en vez de
+`\Throwable` cae `LED-56`; con `START TRANSACTION` adentro en vez de `SAVEPOINT` cae `LED-57`;
+con un `ROLLBACK` pelado en el `record()` anidado cae `LED-59`; sin limpiar la caché de lo que
+cambió caen `LED-56` y `LED-57`; sin descartar la anotación del guard cae `LED-56`.
+
+`LED-57` encontró que limpiar sólo la caché del producto aplicado no alcanzaba: el otro quedaba
+con 19 en la caché y 20 en la base.
 ## [`tests/test-signature.php`](test-signature.php) — la firma
 
 | ID | Caso | Resultado esperado |
