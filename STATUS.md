@@ -2,7 +2,7 @@
 
 > Plugin: `woonderful-stock-sync-for-woocommerce` | WP 6.5+ | PHP 8.1+ | WooCommerce 9.1+
 > Repo: [woonderful-stock-sync-for-woocommerce](https://github.com/julianjuan77/woonderful-stock-sync-for-woocommerce)
-> Creado: 2026-09-20 · Última sesión: 2026-09-28
+> Creado: 2026-09-20 · Última sesión: 2026-09-28 — el detector (4.1, 4.3), WooCommerce 9.1 como mínimo y la firma (5.1)
 
 Sincroniza el stock entre dos tiendas WooCommerce propias que despachan del mismo depósito.
 Pool único, sin reparto: lo que se vende en una descuenta en las dos.
@@ -105,21 +105,25 @@ Verificado rompiéndolo: sin el `UPDATE` cae `LED-02`; registrando productos sin
 |---|---|---|---|---|
 | 4.1 | Los cuatro hooks de stock y el cálculo del delta, leído de la base | ✅ | `a3db571`, `25984d3` | `DET-01`…`DET-10`, `PLG-16`, `PLG-17` |
 | 4.2 | El guard anti-eco | ✅ | `1feb126` | `GRD-01`…`GRD-07` |
-| 4.3 | El estampado del motivo desde los hooks de pedido | ✅ | `3173cc4` | `DET-11`…`DET-16`, `LED-52`…`LED-55` |
+| 4.3 | El estampado del motivo desde los hooks de pedido | ✅ | `3173cc4`, `c2da67f` | `DET-11`…`DET-16`, `LED-52`…`LED-55` |
 | 4.4 | Qué se ignora: sin stock gestionado y sin vincular ya van en 4.1; falta el bootstrap, que depende de 6.1 | ⬜ | | |
 
 ### 5. El transporte — `includes/Transport/` y `includes/Rest/`
 
-| | Tarea | Estado |
-|---|---|---|
-| 5.1 | La firma HMAC: firmar y verificar, con la ruta REST y la query ordenada. `c2fd2aa`, `SIG-01`…`SIG-10` | ✅ |
-| 5.2 | El almacén de nonces y su purga | ⬜ |
-| 5.3 | `POST /movements` del lado receptor, con el ACK por movimiento | ⬜ |
-| 5.4 | El envío por lotes del lado emisor | ⬜ |
-| 5.5 | La pasada recurrente de Action Scheduler | ⬜ |
-| 5.6 | `GET /health` | ⬜ |
-| 5.7 | El emparejamiento: `POST /pair` y el canje con su callback | ⬜ |
-| 5.8 | `GET /products` | ⬜ |
+| | Tarea | Estado | Commit | Tests |
+|---|---|---|---|---|
+| 5.1 | La firma HMAC: firmar y verificar, con la ruta REST y la query ordenada | ✅ | `83051db`, `c2fd2aa` | `SIG-01`…`SIG-10` |
+| 5.2 | El almacén de nonces y su purga | ⬜ | | |
+| 5.3 | `POST /movements` del lado receptor, con el ACK por movimiento | ⬜ | | |
+| 5.4 | El envío por lotes del lado emisor | ⬜ | | |
+| 5.5 | La pasada recurrente de Action Scheduler | ⬜ | | |
+| 5.6 | `GET /health` | ⬜ | | |
+| 5.7 | El emparejamiento: `POST /pair` y el canje con su callback | ⬜ | | |
+| 5.8 | `GET /products` | ⬜ | | |
+
+**Para 5.3:** el receptor le pasa a `Signature::verify()` lo que entrega WordPress —
+`get_route()`, `get_query_params()` y `get_body()`—, no la URL ni `$_GET`. Es lo que hace que
+la firma no dependa de los permalinks (ADR-001 §1).
 
 ### 6. La vinculación — `includes/Linking/`
 
@@ -163,13 +167,16 @@ La fuente es `docs/DECISIONS.md`. Acá sólo el índice de las aprobadas.
 | ADR | Decide | Aprobada |
 |---|---|---|
 | [ADR-000](docs/DECISIONS.md) | El scaffold y el arranque | 2026-09-24 |
-| ADR-001 | `wss/v1` firmado con HMAC; el libro es la cola; dos ejes de estado | 2026-09-20 |
+| ADR-001 | `wss/v1` firmado con HMAC; el libro es la cola; dos ejes de estado. Revisado el 2026-09-28: qué entra exactamente en la firma | 2026-09-20 |
 | ADR-002 | UUID de tienda; la secuencia es el `AUTO_INCREMENT` | 2026-09-20 |
 | ADR-003 | Qué se borra al desinstalar; el secreto siempre | 2026-09-20 |
 | ADR-004 | Tres tablas InnoDB, tres índices, la retención | 2026-09-20 |
 | ADR-005 | El vínculo, su generación, el bootstrap y el `unlink` | 2026-09-21 |
-| ADR-006 | Los hooks del detector, el estampado y el guard anti-eco. Revisado el 2026-09-28: el delta sale de la base | 2026-09-24 |
+| ADR-006 | Los hooks del detector, el estampado y el guard anti-eco. Revisado el 2026-09-28: el delta sale de la base, y el agujero del guard bien descrito | 2026-09-24 |
 | ADR-007 | La huella hashea la opción `home` cruda, con esquema | 2026-09-26 |
+
+El 2026-09-28 el SPEC §5 subió el mínimo de WooCommerce de 8.2 a 9.1: es la versión que trae
+el hook que estampa las cancelaciones (ADR-006 §2).
 
 `docs/ARCHITECTURE.md` documenta el resultado: modelo de datos, contrato público, módulos,
 seguridad y convenciones de código.
@@ -194,4 +201,4 @@ seguridad y convenciones de código.
 | Si `wc_update_product_stock()` lanza una excepción dentro de `apply()`, la transacción queda abierta y la anotación del guard puesta. Al fin del request no pasa nada: MySQL deshace, no hay ACK y el emisor reintenta. **El riesgo es que el endpoint atrape la excepción y siga con el lote**: el `START TRANSACTION` siguiente confirma la mitad hecha, la fila queda `applied` sin haber cambiado el stock, se confirma y el movimiento se pierde en las dos tiendas. 5.3 elige: `ROLLBACK` en `apply()`, o no atrapar | Revisión 2026-09-28 → tarea 5.3 |
 | Un cambio ajeno al stock del mismo producto entre las dos lecturas del detector se cuenta dos veces. Declarado y aceptado: son milisegundos, y lo corrige la reconciliación | ADR-006 §1 → tarea 7.2 |
 | Editar las líneas de un pedido desde el admin deja el movimiento en `adjustment`, sin número de pedido: `wc_maybe_adjust_line_item_product_stock()` no dispara ningún hook que estampe | Sesión 2026-09-28 → ADR del log (UC-04) |
-| Infection cuando exista `Transport/`: necesita PCOV en la imagen de wp-restore | — |
+| Infection sobre `Transport/`, que ya existe: necesita PCOV en la imagen de wp-restore | — |
