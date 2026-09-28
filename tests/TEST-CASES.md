@@ -45,6 +45,9 @@ Prefijo por dominio, número correlativo, y **no se renumeran** aunque un caso s
 | `UNI-NN` | La desinstalación | [`tests/test-uninstall.php`](test-uninstall.php) |
 | `LED-NN` | El libro de movimientos | [`tests/test-ledger.php`](test-ledger.php) |
 | `GRD-NN` | El guard anti-eco | [`tests/test-guard.php`](test-guard.php) |
+| `DET-NN` | El detector y el estampado del motivo | [`tests/test-detector.php`](test-detector.php) |
+| `SIG-NN` | La firma de los requests | [`tests/test-signature.php`](test-signature.php) |
+| `NON-NN` | El almacén de nonces | [`tests/test-nonces.php`](test-nonces.php) |
 
 Cada test lleva su ID en el docblock, así que se encuentra buscándolo:
 
@@ -122,7 +125,7 @@ mientras escribía la función.
 | Ventana de ±5 minutos | ADR-001 §1 | `SIG-08` | [test-signature.php](test-signature.php) |
 | Sin secreto no hay firma válida | ADR-001 §1 | `SIG-11` | [test-signature.php](test-signature.php) |
 | Un nonce se acepta una sola vez | ADR-001 §1, ADR-004 §3 | `NON-02` | [test-nonces.php](test-nonces.php) |
-| Los nonces se guardan dos ventanas: el reenvío de un reloj adelantado se frena | ADR-001 §1 | `NON-04`, `NON-05`, `NON-06` | [test-nonces.php](test-nonces.php) |
+| Los nonces se guardan dos ventanas: el reenvío de un reloj adelantado se frena | ADR-001 §1 | `NON-04`, `NON-05` | [test-nonces.php](test-nonces.php) |
 | Sin la tabla, ningún nonce es nuevo | ADR-001 §1 | `NON-07` | [test-nonces.php](test-nonces.php) |
 | El motivo se estampa después; sin documento queda `adjustment` | ADR-006 §2 | `DET-11`…`DET-14` | [test-detector.php](test-detector.php) |
 | El estampado nunca cae sobre una fila que no es la del pedido | ADR-006 §2 | `DET-15`, `DET-16`, `LED-54` | [test-detector.php](test-detector.php), [test-ledger.php](test-ledger.php) |
@@ -308,12 +311,14 @@ manda como `0`: el receptor firmaría otro texto. El tipo de `sign()` y `headers
 | `NON-01` | Un nonce que nunca se vio | Es nuevo |
 | `NON-02` | El mismo nonce, otra vez | Es un reenvío |
 | `NON-03` | Un nonce vacío, o de 65 caracteres | Se rechaza. El de 64 entra |
-| `NON-04` | **El reloj del emisor adelanta 5 minutos y el reenvío llega a los 9, después de una purga** | La firma todavía verifica, y el nonce sigue anotado: se frena |
+| `NON-04` | **El reloj del emisor adelanta 5 minutos y el reenvío llega a los 10 justos, después de una purga** | La firma todavía verifica, y el nonce sigue anotado: se frena. Es el peor caso: una retención un segundo menor lo deja pasar |
 | `NON-05` | La purga, con nonces justo en el borde de las dos ventanas | Se va el de un segundo más; el del borde se queda |
-| `NON-06` | La retención | Son dos ventanas de la firma |
 | `NON-07` | La tabla no está | Nada es nuevo: el request se rechaza |
 
-Verificado rompiéndolo: con una sola ventana de retención caen `NON-04` y `NON-06`; sin el
+`NON-06` comparaba la constante con la misma expresión que la define: repetía el código sin
+probar nada, y se borró cuando `NON-04` pasó a medir el borde.
+
+Verificado rompiéndolo: con una sola ventana de retención, o con un segundo menos, cae `NON-04`; sin el
 control de largo cae `NON-03`; tomando como nuevo cualquier resultado que no sea un error
 —el `0` de un repetido— caen `NON-02`, `NON-04` y `NON-05`.
 

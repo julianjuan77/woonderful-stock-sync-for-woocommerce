@@ -70,8 +70,10 @@ class Test_Nonces extends WP_UnitTestCase {
 	}
 
 	/**
-	 * El caso que obligó a guardarlos dos ventanas: el reloj del emisor adelanta 5 minutos,
-	 * y el reenvío llega a los 9. La firma todavía es válida; el nonce tiene que seguir ahí.
+	 * El caso que obligó a guardarlos dos ventanas, en su peor momento: el reloj del emisor
+	 * adelanta una ventana entera y el reenvío llega a las dos ventanas justas, el último
+	 * segundo en que la firma todavía verifica. El nonce tiene que seguir ahí: cualquier
+	 * retención menor, aunque sea por un segundo, lo deja pasar.
 	 *
 	 * NON-04
 	 */
@@ -80,7 +82,7 @@ class Test_Nonces extends WP_UnitTestCase {
 
 		Nonces::claim( '7f3c1b9e4a2d', self::NOW );
 
-		$replay_at = self::NOW + 9 * MINUTE_IN_SECONDS;
+		$replay_at = self::NOW + 2 * Signature::WINDOW;
 		Nonces::purge( $replay_at );
 
 		$signature = Signature::sign( 'secreto', 'POST', '/wss/v1/movements', array(), $timestamp, '7f3c1b9e4a2d', '' );
@@ -107,13 +109,6 @@ class Test_Nonces extends WP_UnitTestCase {
 		$this->assertTrue( Nonces::claim( 'viejo', self::NOW ), 'el viejo ya no está' );
 		$this->assertFalse( Nonces::claim( 'borde', self::NOW ), 'el del borde se queda' );
 		$this->assertFalse( Nonces::claim( 'nuevo', self::NOW ), 'el nuevo se queda' );
-	}
-
-	/**
-	 * NON-06 — La retención son dos ventanas, y sigue a la ventana si cambia.
-	 */
-	public function test_retention_is_two_windows(): void {
-		$this->assertSame( 2 * Signature::WINDOW, Nonces::RETENTION );
 	}
 
 	/**
