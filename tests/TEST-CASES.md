@@ -120,6 +120,7 @@ mientras escribía la función.
 | Cada parte del request está firmada, la query incluida | ADR-001 §1 | `SIG-04` | [test-signature.php](test-signature.php) |
 | La firma no depende de los permalinks ni del orden de la query | ADR-001 §1 | `SIG-05`, `SIG-06` | [test-signature.php](test-signature.php) |
 | Ventana de ±5 minutos | ADR-001 §1 | `SIG-08` | [test-signature.php](test-signature.php) |
+| Sin secreto no hay firma válida | ADR-001 §1 | `SIG-11` | [test-signature.php](test-signature.php) |
 | El motivo se estampa después; sin documento queda `adjustment` | ADR-006 §2 | `DET-11`…`DET-14` | [test-detector.php](test-detector.php) |
 | El estampado nunca cae sobre una fila que no es la del pedido | ADR-006 §2 | `DET-15`, `DET-16`, `LED-54` | [test-detector.php](test-detector.php), [test-ledger.php](test-ledger.php) |
 | Lo que ya salió no se reescribe | ADR-006 §2 | `LED-53` | [test-ledger.php](test-ledger.php) |
@@ -277,7 +278,7 @@ varios tests sin chocar.
 | ID | Caso | Resultado esperado |
 |---|---|---|
 | `SIG-01` | **El request de referencia, firmado** | La misma firma que calcula `hmac` de Python sobre el texto del ADR: otra implementación del ADR se entendería con ésta |
-| `SIG-02` | El texto que se firma | Seis líneas en el orden del ADR, sin salto al final, método en mayúsculas |
+| `SIG-02` | El texto que se firma, con query y **sin query** (`POST /movements`) | Seis líneas en el orden del ADR, sin salto al final, método en mayúsculas. Sin query la línea queda vacía, pero está |
 | `SIG-03` | Un request bien firmado | Verifica |
 | `SIG-04` | Cambiar método, ruta, query, timestamp, nonce, cuerpo o secreto | Cada uno rompe la firma |
 | `SIG-05` | La query en otro orden | Verifica igual |
@@ -286,9 +287,16 @@ varios tests sin chocar.
 | `SIG-08` | El timestamp a ±300 y a ±301 segundos | Vale hasta 300, en los dos sentidos |
 | `SIG-09` | La firma en mayúsculas | No verifica: va en hex en minúsculas |
 | `SIG-10` | Las cabeceras que arma el emisor | Verifican, y cada request lleva su nonce |
+| `SIG-11` | **Un request firmado con secreto vacío** | No verifica: un HMAC con clave vacía lo calcula cualquiera |
 
 Verificado rompiéndolo: sin sacar `rest_route` cae `SIG-06`; sin ordenar la query caen `SIG-01`,
-`SIG-02` y `SIG-05`; con un segundo más de ventana cae `SIG-08`.
+`SIG-02` y `SIG-05`; con un segundo más de ventana cae `SIG-08`; aceptando el secreto vacío cae
+`SIG-11`; filtrando las líneas vacías cae `SIG-02` —y sólo él: `SIG-01` usa una query con
+parámetros.
+
+**Los booleanos no van en la query.** `(string) false` es `""`, pero `http_build_query()` lo
+manda como `0`: el receptor firmaría otro texto. El tipo de `sign()` y `headers()` es
+`array<string, string|int>`, así que PHPStan lo frena en quien arme la URL (5.4, 5.8).
 
 ## [`tests/test-guard.php`](test-guard.php) — el guard anti-eco
 

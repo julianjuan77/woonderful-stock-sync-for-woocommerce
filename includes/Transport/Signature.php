@@ -27,12 +27,14 @@ final class Signature {
 	/**
 	 * Las cabeceras de un request firmado.
 	 *
-	 * @param string                $store  Identificador de la tienda que firma.
-	 * @param string                $secret El secreto compartido con la otra.
-	 * @param string                $method Método HTTP.
-	 * @param string                $route  Ruta REST, como `/wss/v1/movements`.
-	 * @param array<string, scalar> $query  Parámetros de la query.
-	 * @param string                $body   Cuerpo crudo, tal como se va a mandar.
+	 * @param string                    $store  Identificador de la tienda que firma.
+	 * @param string                    $secret El secreto compartido con la otra.
+	 * @param string                    $method Método HTTP.
+	 * @param string                    $route  Ruta REST, como `/wss/v1/movements`.
+	 * @param array<string, string|int> $query  Parámetros de la query. Sin booleanos: `false`
+	 *                                          se firma como "" y `http_build_query()` lo manda
+	 *                                          como 0, y el receptor no podría verificar.
+	 * @param string                    $body   Cuerpo crudo, tal como se va a mandar.
 	 *
 	 * @return array<string, string>
 	 */
@@ -51,13 +53,13 @@ final class Signature {
 	/**
 	 * La firma de un request.
 	 *
-	 * @param string                $secret    El secreto compartido.
-	 * @param string                $method    Método HTTP.
-	 * @param string                $route     Ruta REST.
-	 * @param array<string, scalar> $query     Parámetros de la query.
-	 * @param int                   $timestamp Segundos.
-	 * @param string                $nonce     El nonce del request.
-	 * @param string                $body      Cuerpo crudo.
+	 * @param string                    $secret    El secreto compartido.
+	 * @param string                    $method    Método HTTP.
+	 * @param string                    $route     Ruta REST.
+	 * @param array<string, string|int> $query     Parámetros de la query, sin booleanos.
+	 * @param int                       $timestamp Segundos.
+	 * @param string                    $nonce     El nonce del request.
+	 * @param string                    $body      Cuerpo crudo.
 	 *
 	 * @throws \InvalidArgumentException Si un parámetro de la query no es escalar.
 	 */
@@ -85,7 +87,9 @@ final class Signature {
 	 * @param int                 $now       El reloj propio.
 	 */
 	public static function verify( string $secret, string $method, string $route, array $query, int $timestamp, string $nonce, string $body, string $signature, int $now ): bool {
-		if ( abs( $now - $timestamp ) > self::WINDOW ) {
+		// Un HMAC con clave vacía lo calcula cualquiera. Si quien busca el secreto de una
+		// tienda sin emparejar recibe '', el request no puede pasar por firmado.
+		if ( '' === $secret || abs( $now - $timestamp ) > self::WINDOW ) {
 			return false;
 		}
 

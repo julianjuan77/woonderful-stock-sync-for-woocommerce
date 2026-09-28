@@ -76,7 +76,11 @@ class Test_Signature extends WP_UnitTestCase {
 	}
 
 	/**
-	 * SIG-02 — Las seis líneas, en el orden del ADR y sin salto al final.
+	 * Las seis líneas, en el orden del ADR y sin salto al final. Sin query —el caso de
+	 * `POST /movements`, el endpoint principal— la línea queda vacía pero está: sacarla
+	 * correría el resto y la otra tienda firmaría otro texto.
+	 *
+	 * SIG-02
 	 */
 	public function test_the_canonical_text_has_six_lines(): void {
 		$this->assertSame(
@@ -92,6 +96,11 @@ class Test_Signature extends WP_UnitTestCase {
 				'7f3c1b9e4a2d',
 				'{"movements":[]}'
 			)
+		);
+
+		$this->assertSame(
+			"POST\n/wss/v1/movements\n\n1758300000\n7f3c1b9e4a2d\n" . hash( 'sha256', '' ),
+			Signature::canonical( 'POST', '/wss/v1/movements', array(), self::NOW, '7f3c1b9e4a2d', '' )
 		);
 	}
 
@@ -223,6 +232,20 @@ class Test_Signature extends WP_UnitTestCase {
 				$headers['X-WSS-Signature'],
 				time()
 			)
+		);
+	}
+
+	/**
+	 * Un HMAC con clave vacía lo calcula cualquiera: si el receptor no encuentra el secreto
+	 * de una tienda y le queda '', el request no puede pasar por firmado.
+	 *
+	 * SIG-11
+	 */
+	public function test_an_empty_secret_never_verifies(): void {
+		$signature = Signature::sign( '', 'POST', '/wss/v1/movements', array(), self::NOW, '7f3c1b9e4a2d', '' );
+
+		$this->assertFalse(
+			Signature::verify( '', 'POST', '/wss/v1/movements', array(), self::NOW, '7f3c1b9e4a2d', '', $signature, self::NOW )
 		);
 	}
 }
