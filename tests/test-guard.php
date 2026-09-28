@@ -89,8 +89,8 @@ class Test_Guard extends WP_UnitTestCase {
 	}
 
 	/**
-	 * Una anotación que nadie consumió —porque la aplicación falló a mitad— no puede
-	 * quedar tapando un cambio posterior (ADR-006 §3).
+	 * `forget_all()` vacía las anotaciones. Lo usan los tests para no arrastrar estado de
+	 * uno al siguiente: en producción la anotación sin consumir muere con el request.
 	 *
 	 * GRD-07
 	 */

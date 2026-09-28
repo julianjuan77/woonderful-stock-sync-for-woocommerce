@@ -273,10 +273,11 @@ varios tests sin chocar.
 | `GRD-06` | Varios productos anotados | Cada uno se consume por su cuenta |
 | `GRD-07` | Una anotación que nadie consumió | Se puede descartar |
 
-**El agujero declarado:** una venta del **mismo** producto que caiga entre el `expect()` y la
-escritura se comería la anotación. Entre esas dos líneas no corre nada, y una venta de otro
-request corre en otro proceso de PHP y no pasa por nuestro callback: haría falta un hook
-anidado dentro de nuestra propia llamada que toque el mismo producto.
+**El agujero declarado:** entre el `expect()` y el `set` corren los hooks de `before` y el
+`save()` del producto con todo lo que dispara. Si código de terceros cambia desde ahí el stock
+del **mismo** producto, ese cambio consume la anotación y se pierde; el nuestro tampoco se
+emite, así que no hay eco. Una venta de otro request corre en otro proceso y no pasa por
+nuestro callback (ADR-006 §3).
 
 ## [`tests/test-detector.php`](test-detector.php) — el detector
 

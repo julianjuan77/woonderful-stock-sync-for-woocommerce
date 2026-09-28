@@ -71,6 +71,10 @@ final class Guard {
 
 	/**
 	 * Descarta lo que quedó sin consumir.
+	 *
+	 * Para los tests. En producción no hace falta mientras cada aplicación corra en su
+	 * propio request; un proceso que aplique muchas seguidas —Action Scheduler, WP-CLI—
+	 * tendría que llamarlo entre una y otra.
 	 */
 	public static function forget_all(): void {
 		self::$expected = array();

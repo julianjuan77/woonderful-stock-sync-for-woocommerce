@@ -1610,6 +1610,9 @@ Revisado: 2026-09-28 — aprobado por Julián. El delta sale de leer `_stock` de
 en los dos hooks, no del objeto del producto. En una venta el objeto puede venir
 desactualizado, y cuando se guarda un producto el `before` ya trae el valor nuevo: el delta
 daría 0 y el cambio no se emitiría nunca. Ver §1.
+Revisado: 2026-09-28 — aprobado por Julián. El agujero declarado del guard estaba mal
+descrito: entre el `expect()` y el `set` sí corre código de terceros. La conclusión no cambia;
+ahora dice qué se pierde. Ver §3.
 Temas: hooks-publicos, db-schema
 Cubre: includes/Detector/_.php
 
@@ -1835,11 +1838,14 @@ evento, porque el hook no tiene dónde ponerla. La forma posible es la bandera a
 nuestra propia llamada, y es la que se descarta arriba por ciega. El guard por producto es esa
 misma idea, acotada a un producto.
 
-**El agujero que queda, declarado:** una venta del mismo producto que entre en el mismo request
-entre el `expect()` y la escritura se consumiría la anotación. Entre esas dos líneas no corre
-nada, y una venta de otro request corre en otro proceso de PHP y no pasa por nuestro callback,
-así que para que ocurra haría falta un hook anidado dentro de nuestra propia llamada que toque
-el mismo producto.
+**El agujero que queda, declarado:** entre el `expect()` y el `set` que consume la anotación
+corre código de terceros: los hooks de `before`, el `save()` del producto y lo que ese `save()`
+dispara, como `woocommerce_update_product`. Si desde ahí alguien cambia el stock **del mismo
+producto**, ese cambio consume la anotación y **no se emite**. El nuestro tampoco, porque su
+`set` ya no encuentra la lectura previa: no hay eco, pero el cambio del tercero se pierde.
+Verificado con WooCommerce 11.0.1. Una venta de otro request corre en otro proceso de PHP y no
+pasa por nuestro callback, así que el agujero sólo lo abre un hook anidado dentro de nuestra
+propia llamada.
 
 ---
 
