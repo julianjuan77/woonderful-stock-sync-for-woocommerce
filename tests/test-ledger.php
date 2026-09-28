@@ -7,6 +7,7 @@
 
 declare( strict_types = 1 );
 
+use Woonderful\StockSync\Detector\Detector;
 use Woonderful\StockSync\Detector\Guard;
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Ledger\Ledger;
@@ -47,6 +48,13 @@ class Test_Ledger extends WP_UnitTestCase {
 
 		Installer::install();
 		Store::ensure_identity();
+
+		// Si otro test llamó a boot(), el detector quedó enganchado y consume el guard antes
+		// que los espías de LED-17 y LED-21. Estos tests son del libro, no del detector.
+		foreach ( array( 'product', 'variation' ) as $type ) {
+			remove_action( "woocommerce_{$type}_before_set_stock", array( Detector::class, 'before_change' ) );
+			remove_action( "woocommerce_{$type}_set_stock", array( Detector::class, 'after_change' ) );
+		}
 
 		$this->link_id = $this->link_product( 123, 456, 77 );
 	}

@@ -112,6 +112,10 @@ mientras escribía la función.
 | Un movimiento que no se puede aplicar se retiene, no se descarta | SPEC §3, UC-03 | `LED-16`, `LED-20` | [test-ledger.php](test-ledger.php) |
 | El guard no tapa la venta de otro producto del mismo request | ADR-006 §3, SPEC §3 | `GRD-04` | [test-guard.php](test-guard.php) |
 | El guard es de un solo uso | ADR-006 §3 | `GRD-03` | [test-guard.php](test-guard.php) |
+| El delta sale de la base, no del objeto | ADR-006 §1 | `DET-02`, `DET-03` | [test-detector.php](test-detector.php) |
+| Aplicar un movimiento remoto no genera eco | ADR-006 §3, SPEC §3 | `DET-10` | [test-detector.php](test-detector.php) |
+| La variación que toma el stock del padre mueve al padre | ADR-006 §1 | `DET-07` | [test-detector.php](test-detector.php) |
+| Un sitio suspendido no emite movimientos | ADR-001 §1 | `PLG-17` | [test-plugin.php](test-plugin.php) |
 | El claim vence a los 5 minutos | ADR-001 §2 | `LED-25`, `LED-26` | [test-ledger.php](test-ledger.php) |
 | El techo de 6 h se mide desde el primer intento, y el intento es el claim | ADR-001 §2 | `LED-29`, `LED-30` | [test-ledger.php](test-ledger.php) |
 | Agotado el techo, el movimiento se abandona y lo rescata la reconciliación | ADR-001 §2 | `LED-34`, `LED-35`, `LED-39`, `LED-40` | [test-ledger.php](test-ledger.php) |
@@ -183,6 +187,8 @@ mientras escribía la función.
 | `PLG-14` | El archivo principal | Engancha `plugins_loaded` y el hook de activación |
 | `PLG-15` | `boot()` con el sitio suspendido | Engancha el aviso, no sólo sabe que está suspendido |
 | `PLG-08` | `boot()` sin identidad: el plugin no pasó por la activación | Genera la identidad |
+| `PLG-16` | `boot()` con el sitio sano | Engancha el detector |
+| `PLG-17` | `boot()` con el sitio suspendido | **No** engancha el detector: un clon descontaría stock de la tienda real |
 
 ## [`tests/test-uninstall.php`](test-uninstall.php) — la desinstalación
 
@@ -272,6 +278,28 @@ escritura se comería la anotación. Entre esas dos líneas no corre nada, y una
 request corre en otro proceso de PHP y no pasa por nuestro callback: haría falta un hook
 anidado dentro de nuestra propia llamada que toque el mismo producto.
 
+## [`tests/test-detector.php`](test-detector.php) — el detector
+
+| ID | Caso | Resultado esperado |
+|---|---|---|
+| `DET-01` | Una venta de 2 | Un movimiento de −2 |
+| `DET-02` | **Guardar el producto de 10 a 15** | Un movimiento de +5. Con el objeto, el `before` ya traía 15 y no salía nada |
+| `DET-03` | **Vender 2 con un objeto cargado antes de otra venta de 1** | −1 y −2. Con el objeto, el segundo salía −3 |
+| `DET-04` | Un producto sin vincular | Nada |
+| `DET-05` | Guardar un producto que no gestiona stock | Nada |
+| `DET-06` | Un cambio anotado en el guard, y otro después | Sólo el segundo |
+| `DET-07` | Una variación que toma el stock del padre | El movimiento es del padre |
+| `DET-08` | Una variación con stock propio | El movimiento es de la variación |
+| `DET-09` | Un `before` que se quedó sin su `set` | No sirve de punto de partida para el cambio siguiente |
+| `DET-10` | `apply()` de un movimiento remoto, con el detector enganchado | Aplica y no emite nada propio: no hay eco |
+
+Verificado rompiéndolo: leyendo el objeto en el `before` en vez de la base caen `DET-02` y
+`DET-03`.
+
+**La ventana declarada:** si otro request escribe el stock del mismo producto entre las dos
+lecturas, ese cambio se cuenta dos veces. Son milisegundos y no se puede reproducir en un test
+de un solo proceso; lo corrige la reconciliación (ADR-006 §1).
+
 ## Cómo se prueba algo que no deja rastro en el estado final
 
 Tres casos de esta suite no se pueden verificar mirando cómo queda la base, porque lo que
@@ -295,11 +323,7 @@ la suite de WordPress abre para cada test.
 - Todo `Transport/` y `Reconciliation/`: no hay código todavía.
 - Que el libro que crece sin techo —porque la otra tienda no vuelve nunca— se **avise**
   (UC-08). `purge()` ya lo deja crecer a propósito; el aviso va con el ADR del log.
-- Que el detector consuma el guard que `apply()` deja puesto: hoy nadie lo consume porque el
-  detector no existe (tarea 4.1). `LED-17` verifica sólo que quede anotado.
 - La purga que consolida el stock base.
-- Que `boot()` **no registre** la sincronización cuando está suspendida. Hoy no hay nada
-  registrado que verificar; el test va cuando exista el detector.
 - **La rama `if ( ! class_exists( 'WooCommerce' ) )` de `boot()`.** El bootstrap carga
   WooCommerce de verdad —el plugin le cambia el stock a productos reales— así que la clase
   existe durante toda la corrida y esa rama queda fuera de alcance. `PLG-10` cubre lo que el

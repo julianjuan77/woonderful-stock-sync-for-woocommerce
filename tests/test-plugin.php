@@ -7,6 +7,7 @@
 
 declare( strict_types = 1 );
 
+use Woonderful\StockSync\Detector\Detector;
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Plugin;
 use Woonderful\StockSync\Schema\Installer;
@@ -49,6 +50,12 @@ class Test_Plugin extends WP_UnitTestCase {
 
 		delete_option( Installer::OPTION_VERSION );
 		delete_option( Installer::OPTION_SCHEMA_HEALTHY );
+
+		// boot() engancha el detector, y enganchado se queda para los tests que siguen.
+		foreach ( array( 'product', 'variation' ) as $type ) {
+			remove_action( "woocommerce_{$type}_before_set_stock", array( Detector::class, 'before_change' ) );
+			remove_action( "woocommerce_{$type}_set_stock", array( Detector::class, 'after_change' ) );
+		}
 
 		parent::tear_down();
 	}
@@ -333,5 +340,34 @@ class Test_Plugin extends WP_UnitTestCase {
 		Plugin::boot();
 
 		$this->assertNotSame( '', Store::id() );
+	}
+
+	/**
+	 * PLG-16 — Un sitio sano engancha el detector.
+	 */
+	public function test_boot_hooks_the_detector(): void {
+		update_option( Store::OPTION_FINGERPRINT, Store::fingerprint() );
+
+		Plugin::boot();
+
+		$this->assertNotFalse( has_action( 'woocommerce_product_set_stock', array( Detector::class, 'after_change' ) ) );
+	}
+
+	/**
+	 * Un clon que emitiera movimientos le descontaría stock a la tienda real con las
+	 * ventas de prueba de la copia (ADR-001 §1).
+	 *
+	 * PLG-17
+	 */
+	public function test_a_suspended_site_does_not_hook_the_detector(): void {
+		update_option( Store::OPTION_FINGERPRINT, hash( 'sha256', 'https://otra.test' ) );
+
+		// El bootstrap o un test anterior pudieron dejarlo enganchado.
+		remove_action( 'woocommerce_product_set_stock', array( Detector::class, 'after_change' ) );
+		$this->assertFalse( has_action( 'woocommerce_product_set_stock', array( Detector::class, 'after_change' ) ) );
+
+		Plugin::boot();
+
+		$this->assertFalse( has_action( 'woocommerce_product_set_stock', array( Detector::class, 'after_change' ) ) );
 	}
 }

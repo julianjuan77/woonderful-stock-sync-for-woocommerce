@@ -9,6 +9,7 @@ declare( strict_types = 1 );
 
 namespace Woonderful\StockSync;
 
+use Woonderful\StockSync\Detector\Detector;
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Schema\Installer;
 
@@ -61,8 +62,9 @@ final class Plugin {
 			return;
 		}
 
-		// Acá se registran el detector, el transporte y la reconciliación. Van después
-		// de la guarda a propósito: un plugin suspendido no emite ni acepta movimientos.
+		// Van después de la guarda a propósito: un plugin suspendido no emite ni acepta
+		// movimientos. Faltan el transporte y la reconciliación.
+		Detector::register();
 	}
 
 	/**

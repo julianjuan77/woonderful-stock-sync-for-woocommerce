@@ -138,7 +138,7 @@ woonderful-stock-sync-for-woocommerce/
 │   ├── Transport/                              # ADR-001
 │   ├── Identity/                               # ADR-002
 │   ├── Ledger/                                 # el libro
-│   ├── Detector/                               # pendiente de ADR
+│   ├── Detector/                               # ADR-006
 │   ├── Linking/                                # pendiente de ADR
 │   └── Reconciliation/
 ├── admin/                                      # Sólo se carga con is_admin()
@@ -157,6 +157,12 @@ guarda en una opción **autocargada**. `PLG-09` lo verifica contando consultas.
 
 **Regla de dependencias:** `includes/` no conoce `admin/`; `admin/` consume `includes/`.
 Nada de `includes/` imprime HTML.
+
+**El detector lee el stock de la base, nunca del objeto del producto.** `Detector` engancha
+los pares `before`/`set` de producto y variación y en cada uno hace un `SELECT` directo a
+`_stock`: el delta es la diferencia. El objeto que entrega el hook puede venir desactualizado
+en una venta, y ya trae el valor nuevo en el `before` de un guardado (ADR-006 §1). Se
+registra en `boot()` después de la guarda: un sitio suspendido no emite (`PLG-17`).
 
 **Depende de WooCommerce activo**, verificado con `class_exists( 'WooCommerce' )`. Sin él, el
 plugin no registra nada y muestra un aviso en el admin. Action Scheduler viene dentro de
