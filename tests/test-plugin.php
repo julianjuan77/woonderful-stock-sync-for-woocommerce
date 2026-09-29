@@ -10,6 +10,7 @@ declare( strict_types = 1 );
 use Woonderful\StockSync\Detector\Detector;
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Plugin;
+use Woonderful\StockSync\Rest\Health;
 use Woonderful\StockSync\Rest\Movements;
 use Woonderful\StockSync\Schema\Installer;
 use Woonderful\StockSync\Transport\Pass;
@@ -57,6 +58,7 @@ class Test_Plugin extends WP_UnitTestCase {
 		remove_action( 'rest_api_init', array( Movements::class, 'register_routes' ) );
 		remove_action( Pass::HOOK, array( Pass::class, 'run' ) );
 		remove_action( 'action_scheduler_init', array( Pass::class, 'maybe_ensure_scheduled' ) );
+		remove_action( 'rest_api_init', array( Health::class, 'register_routes' ) );
 
 		parent::tear_down();
 	}
@@ -436,5 +438,21 @@ class Test_Plugin extends WP_UnitTestCase {
 		$this->assertNotFalse(
 			has_action( 'deactivate_' . plugin_basename( WSS_PLUGIN_FILE ), array( Plugin::class, 'deactivate' ) )
 		);
+	}
+
+	/**
+	 * Un sitio suspendido responde `health` igual: es lo que le dice a la otra tienda por qué
+	 * no le llegan movimientos.
+	 *
+	 * PLG-23
+	 */
+	public function test_a_suspended_site_still_hooks_health(): void {
+		update_option( Store::OPTION_FINGERPRINT, hash( 'sha256', 'https://otra.test' ) );
+
+		remove_action( 'rest_api_init', array( Health::class, 'register_routes' ) );
+
+		Plugin::boot();
+
+		$this->assertNotFalse( has_action( 'rest_api_init', array( Health::class, 'register_routes' ) ) );
 	}
 }

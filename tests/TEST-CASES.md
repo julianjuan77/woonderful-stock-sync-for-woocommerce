@@ -51,6 +51,7 @@ Prefijo por dominio, número correlativo, y **no se renumeran** aunque un caso s
 | `MOV-NN` | `POST /movements` | [`tests/test-rest-movements.php`](test-rest-movements.php) |
 | `SND-NN` | El envío del lado emisor | [`tests/test-sender.php`](test-sender.php) |
 | `PAS-NN` | La pasada recurrente | [`tests/test-pass.php`](test-pass.php) |
+| `HLT-NN` | `GET /health` | [`tests/test-rest-health.php`](test-rest-health.php) |
 
 Cada test lleva su ID en el docblock, así que se encuentra buscándolo:
 
@@ -140,6 +141,8 @@ mientras escribía la función.
 | Sin tienda a quien mandar no se reclama nada | ADR-001 §2 | `SND-01` | [test-sender.php](test-sender.php) |
 | Una sola acción recurrente, cada 60 segundos | ADR-001 §2 | `PAS-03` | [test-pass.php](test-pass.php) |
 | Un clon corre la pasada pero no manda nada | ADR-001 §1 | `PAS-02`, `PLG-20` | [test-pass.php](test-pass.php), [test-plugin.php](test-plugin.php) |
+| `health` responde aunque la sincronización esté suspendida, y dice por qué | ADR-001 §4 | `HLT-02`, `HLT-03`, `PLG-23` | [test-rest-health.php](test-rest-health.php), [test-plugin.php](test-plugin.php) |
+| `health` no anota el nonce | ADR-001 §4 | `HLT-03`, `HLT-04` | [test-rest-health.php](test-rest-health.php) |
 | El motivo se estampa después; sin documento queda `adjustment` | ADR-006 §2 | `DET-11`…`DET-14` | [test-detector.php](test-detector.php) |
 | El estampado nunca cae sobre una fila que no es la del pedido | ADR-006 §2 | `DET-15`, `DET-16`, `LED-54` | [test-detector.php](test-detector.php), [test-ledger.php](test-ledger.php) |
 | Lo que ya salió no se reescribe | ADR-006 §2 | `LED-53` | [test-ledger.php](test-ledger.php) |
@@ -223,6 +226,7 @@ mientras escribía la función.
 | `PLG-20` | `boot()` con el sitio suspendido | **Sí** engancha el callback de la pasada —sin él Action Scheduler la marcaría fallida cada minuto—, pero no el control de su agendado |
 | `PLG-21` | `boot()` con el sitio sano | Engancha la pasada, y el control de su agendado en `action_scheduler_init`, no en `admin_init` |
 | `PLG-22` | El archivo principal | Engancha la desactivación |
+| `PLG-23` | `boot()` con el sitio suspendido | **Sí** engancha `GET /health` |
 
 ## [`tests/test-uninstall.php`](test-uninstall.php) — la desinstalación
 
@@ -419,6 +423,24 @@ agendar resultó redundante —la mutación que lo sacaba no hacía caer nada—
 impide la segunda es `unique`. Sin el límite horario cae `PAS-06`; con la hora sin autocarga
 cae `PAS-05`; enganchando el control a `admin_init` cae `PLG-21`; sin borrarla al desinstalar
 cae `UNI-07`.
+
+## [`tests/test-rest-health.php`](test-rest-health.php) — `GET /health`
+
+| ID | Caso | Resultado esperado |
+|---|---|---|
+| `HLT-01` | **Un GET firmado, sin cuerpo** | 200 con `store`, `label`, `version`, `api` y `suspended` en `null` |
+| `HLT-02` | El mismo GET en un clon | 200, con `suspended: cloned_site` |
+| `HLT-03` | La tabla de nonces rota | 200, con `suspended: unhealthy_schema`: no `wss_replayed_nonce` |
+| `HLT-04` | El mismo request dos veces | 200 las dos, y ningún nonce anotado |
+| `HLT-05` | Firma mala, o tienda que no está | 401 `wss_bad_signature` y `wss_unknown_store` |
+
+`HLT-01` encontró que `Auth` le pasaba a `verify()` el `null` que devuelve `get_body()` sin
+cuerpo: un `TypeError`, que el cliente veía como un 500. `POST /movements` no lo mostraba
+porque siempre trae cuerpo.
+
+Verificado rompiéndolo: sin pasar el cuerpo a texto caen los cinco; anotando el nonce caen
+`HLT-03` y `HLT-04`; con `suspended` siempre en `null` caen `HLT-02` y `HLT-03`; registrando la
+ruta después de la guarda cae `PLG-23`.
 
 ## [`tests/test-guard.php`](test-guard.php) — el guard anti-eco
 

@@ -93,6 +93,16 @@ en la activación y en `plugins_loaded` si la guardada es menor.
 **Cabeceras de firma:** `X-WSS-Store`, `X-WSS-Timestamp`, `X-WSS-Nonce`, `X-WSS-Signature`.
 Ventana de reloj: ±5 minutos.
 
+**La autenticación es una sola**, `Rest\Auth::authenticate()`, y va en el
+`permission_callback` de cada ruta. Toma el cuerpo como `(string) get_body()`: sin cuerpo,
+como en un GET, WordPress devuelve `null`.
+
+**`GET /health`** (`Rest\Health`, ADR-001 §4) responde `store`, `label`, `version`, `api` y
+`suspended` —`null`, `cloned_site` o `unhealthy_schema`—. Se registra **antes de la guarda**:
+un sitio suspendido responde igual, para que la otra tienda pueda explicar por qué no le
+llegan movimientos. Autentica sin anotar el nonce: sólo lee, y tiene que responder aunque la
+tabla de nonces esté rota.
+
 **`POST /movements`** (`Rest\Movements`, ADR-001 §4). La autenticación va en el
 `permission_callback`, en este orden: tienda emparejada con secreto → timestamp → firma →
 nonce. Cada rechazo tiene su código (`wss_unknown_store`, `wss_stale_timestamp`,

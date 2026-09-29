@@ -24,7 +24,7 @@ git show 2668a7a --stat      # qué archivos tocó y cuántas líneas
 git show 2668a7a             # el diff completo
 ```
 
-Y para correr sólo los tests de una pieza, en vez de los 185:
+Y para correr sólo los tests de una pieza, en vez de los 191:
 
 ```bash
 make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS="--filter Test_Ledger"
@@ -34,8 +34,8 @@ make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS=
 
 ## 🔄 En progreso
 
-Nada. Lo siguiente es **5.6, `GET /health`**: canal, firma y versión del otro lado. Es lo
-que usa el emparejamiento (5.7) en su callback.
+Nada. Lo siguiente es **5.7, el emparejamiento**: `POST /pair`, el canje del código y su
+callback a `GET /health` firmado con el código. Es la tarea que escribe `wss_peers`.
 
 ---
 
@@ -117,7 +117,7 @@ Verificado rompiéndolo: sin el `UPDATE` cae `LED-02`; registrando productos sin
 | 5.3 | `POST /movements` del lado receptor, con el ACK por movimiento | ✅ | `7e8f5c7`, `0cfae8a`, `32c64eb` | `MOV-01`…`MOV-13`, `LED-56`…`LED-59`, `PLG-18`, `PLG-19` |
 | 5.4 | El envío por lotes del lado emisor | ✅ | `b164978`, `4f2f842` | `SND-01`…`SND-10` |
 | 5.5 | La pasada recurrente de Action Scheduler | ✅ | `753f4eb` | `PAS-01`…`PAS-07`, `PLG-20`…`PLG-22`, `UNI-07` |
-| 5.6 | `GET /health` | ⬜ | | |
+| 5.6 | `GET /health` | ✅ | `02ce7dc` | `HLT-01`…`HLT-05`, `PLG-23` |
 | 5.7 | El emparejamiento: `POST /pair` y el canje con su callback | ⬜ | | |
 | 5.8 | `GET /products` | ⬜ | | |
 | 5.9 | **El envío al final del request de la venta**, con `fastcgi_finish_request()` como en woonderful-sync. Sólo lo escrito en ese request, con un timeout corto (≈5 s); sin PHP-FPM, queda para la pasada. Necesita revisar ADR-006 §4: el retardo de 10 s no hace falta para lo que se manda en el `shutdown`, porque el estampado ya corrió y la ráfaga del request sale junta | ⬜ | | |
@@ -128,7 +128,10 @@ línea de log de la pasada (ADR-001 §2), que todavía no se escribe. Antes de e
 es lo normal: loguearlo en cada pasada sería ruido.
 
 **Para 5.7:** el emparejamiento guarda en `wss_peers[<uuid>]` la `rest_url` que informó la otra
-tienda y el `secret`. Es lo que leen `Peers::only()` y `Peers::secret()`.
+tienda y el `secret`. Es lo que leen `Peers::only()` y `Peers::secret()`. El callback del paso 4
+llama a `GET /health` firmado con el código, no con el secreto: `Rest\Auth` sólo conoce el
+secreto, así que la variante con el código es de 5.7. Y la respuesta de `health` no va firmada:
+ahí la maestra le cree a lo que declara `store`, y 5.7 decide si alcanza con HTTPS.
 
 ### 6. La vinculación — `includes/Linking/`
 
@@ -172,7 +175,7 @@ La fuente es `docs/DECISIONS.md`. Acá sólo el índice de las aprobadas.
 | ADR | Decide | Aprobada |
 |---|---|---|
 | [ADR-000](docs/DECISIONS.md) | El scaffold y el arranque | 2026-09-24 |
-| ADR-001 | `wss/v1` firmado con HMAC; el libro es la cola; dos ejes de estado. Revisado el 2026-09-28: qué entra exactamente en la firma, los nonces se guardan dos ventanas, y cómo responde `POST /movements`. Revisado el 2026-09-29: el lote y los tiempos de la entrega son constantes | 2026-09-20 |
+| ADR-001 | `wss/v1` firmado con HMAC; el libro es la cola; dos ejes de estado. Revisado el 2026-09-28: qué entra exactamente en la firma, los nonces se guardan dos ventanas, y cómo responde `POST /movements`. Revisado el 2026-09-29: el lote y los tiempos de la entrega son constantes, y qué responde `GET /health` | 2026-09-20 |
 | ADR-002 | UUID de tienda; la secuencia es el `AUTO_INCREMENT` | 2026-09-20 |
 | ADR-003 | Qué se borra al desinstalar; el secreto siempre. Revisado el 2026-09-29: la hora del control de la pasada también, y desactivar la desagenda | 2026-09-20 |
 | ADR-004 | Tres tablas InnoDB, tres índices, la retención | 2026-09-20 |
