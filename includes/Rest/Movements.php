@@ -193,20 +193,23 @@ final class Movements {
 			return 'origin_mismatch';
 		}
 
-		$checks = array(
-			'seq'        => 1,
-			'generation' => 0,
-			'product'    => 1,
+		// El rango es el de la columna, no el de PHP. Sin modo estricto, MySQL guardaría un
+		// delta fuera de rango recortado mientras WooCommerce aplica el real, y el libro y el
+		// stock quedarían distintos. `seq` y `product` son BIGINT UNSIGNED: el entero de PHP
+		// no llega a pasarse.
+		$ranges = array(
+			'seq'        => array( 1, PHP_INT_MAX ),
+			'generation' => array( 0, 4294967295 ),
+			'delta'      => array( -2147483648, 2147483647 ),
+			'product'    => array( 1, PHP_INT_MAX ),
 		);
 
-		foreach ( $checks as $field => $minimum ) {
-			if ( ! is_int( $movement[ $field ] ?? null ) || $movement[ $field ] < $minimum ) {
+		foreach ( $ranges as $field => list( $minimum, $maximum ) ) {
+			$value = $movement[ $field ] ?? null;
+
+			if ( ! is_int( $value ) || $value < $minimum || $value > $maximum ) {
 				return 'invalid_' . $field;
 			}
-		}
-
-		if ( ! is_int( $movement['delta'] ?? null ) ) {
-			return 'invalid_delta';
 		}
 
 		return null;

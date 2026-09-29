@@ -476,4 +476,27 @@ class Test_Rest_Movements extends WP_UnitTestCase {
 		$this->assertSame( 200, $response->get_status() );
 		$this->assertCount( 200, $response->get_data()['results'] );
 	}
+
+	/**
+	 * Un entero que PHP acepta pero la columna no: sin modo estricto, MySQL guardaría el
+	 * delta recortado y WooCommerce aplicaría el real.
+	 *
+	 * MOV-13
+	 */
+	public function test_integers_outside_the_column_range_are_errors(): void {
+		list( $product_id, $remote ) = $this->linked_product( 10 );
+
+		$results = $this->send(
+			array(
+				$this->movement( 1, $remote, 2147483648 ),
+				$this->movement( 2, $remote, -2147483649 ),
+				$this->movement( 3, $remote, -1, array( 'generation' => 4294967296 ) ),
+				$this->movement( 4, $remote, -1 ),
+			)
+		)->get_data()['results'];
+
+		$this->assertSame( array( 'invalid_delta', 'invalid_delta', 'invalid_generation' ), array_column( array_slice( $results, 0, 3 ), 'reason' ) );
+		$this->assertSame( 'received', $results[3]['status'] );
+		$this->assertSame( 9, $this->stock_of( $product_id ) );
+	}
 }

@@ -360,10 +360,11 @@ control de largo cae `NON-03`; tomando como nuevo cualquier resultado que no sea
 | `MOV-10` | Un `reason` que esta versión no conoce y una referencia de 150 | `received`: el motivo se guarda como llega y la referencia se recorta a 100 |
 | `MOV-11` | Un hook de terceros hace fallar un movimiento | Ése vuelve `error` `not_stored`, sin tocar su stock; el siguiente se aplica |
 | `MOV-12` | Un lote de 200 justos | 200, con 200 resultados |
+| `MOV-13` | Un `delta` de ±2³¹ y una `generation` de 2³² | `error` `invalid_delta` e `invalid_generation`: el rango es el de la columna, no el de PHP |
 
 Verificado rompiéndolo: sin el control de `origin` cae `MOV-08`; anotando el nonce antes de la
 firma cae `MOV-04`; mirando la firma antes que el timestamp cae `MOV-03`; tomando el `null` de
-`apply()` como recibido cae `MOV-11`; con el techo en `>=` cae `MOV-12`.
+`apply()` como recibido cae `MOV-11`; con el techo en `>=` cae `MOV-12`; sin el tope superior de los rangos cae `MOV-13`.
 
 ## [`tests/test-guard.php`](test-guard.php) — el guard anti-eco
 

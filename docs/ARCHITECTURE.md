@@ -109,7 +109,8 @@ orden del lote**:
 
 `received` es el ACK: la fila está escrita, se haya aplicado, retenido o descartado. Los
 `reason` de error son `origin_mismatch`, `invalid_seq`, `invalid_generation`, `invalid_delta`,
-`invalid_product`, `invalid_movement` y `not_stored`, cuando `apply()` no pudo guardar. El
+`invalid_product`, `invalid_movement` y `not_stored`, cuando `apply()` no pudo guardar. Los
+enteros se validan con el rango de su columna: `delta` es `INT`, `generation` `INT UNSIGNED`. El
 `reason` de un movimiento se guarda como llega, recortado a 20; la referencia, a 100.
 
 El secreto de cada tienda lo lee `Transport\Peers::secret()` de `wss_peers[<uuid>]['secret']`;
