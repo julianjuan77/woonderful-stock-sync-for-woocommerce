@@ -129,6 +129,10 @@ Revisado: 2026-09-29 — aprobado por Julián. El tamaño de lote del emisor, la
 backoff, las 6 horas del techo y los 5 minutos del claim son **constantes**, no configuración:
 nadie pidió moverlos, y el código ya los tenía así. El lote es 200, igual al techo del
 receptor: un valor mayor haría que el receptor rechace todos los lotes. Ver §2 y §4.
+Revisado: 2026-09-29 — aprobado por Julián. §4 fija qué responde `GET /health`: la
+identidad, la etiqueta, la versión, la API y si está suspendida y por qué. Responde aunque la
+sincronización esté suspendida, y no anota el nonce: sólo lee. Ver §4, "Qué responde
+`GET /health`".
 Temas: rest-api, api-externa, db-schema, opciones
 Cubre: includes/Transport/_.php, includes/Rest/_.php
 
@@ -870,6 +874,40 @@ que revela es si un identificador de tienda está emparejado, y un UUID no se ad
 
 **Una tienda sin secreto, o con el secreto vacío, es una tienda no emparejada.** `verify()`
 ya rechaza el secreto vacío, pero el endpoint no depende de eso.
+
+#### Qué responde `GET /health`
+
+Firmado con el secreto, con la misma autenticación que `POST /movements` salvo el nonce:
+
+```json
+{ "store": "b1b1b1b1-0000-4000-8000-000000000000",
+  "label": "Minorista",
+  "version": "0.1.0",
+  "api": "wss/v1",
+  "suspended": null }
+```
+
+| Campo | Qué es |
+| --- | --- |
+| `store` | La identidad de la tienda que responde (ADR-002) |
+| `label` | Su etiqueta, para que la pantalla de la otra se lea (ADR-002) |
+| `version` | La versión del plugin, para mostrar el desfasaje antes de que moleste (*Compatibilidad entre versiones*) |
+| `api` | El namespace que sirve: hoy `wss/v1` |
+| `suspended` | `null`, o por qué está suspendida: `cloned_site` o `unhealthy_schema` |
+
+Que responda prueba el canal; que pase la autenticación prueba la firma.
+
+**Responde aunque la sincronización esté suspendida, y dice por qué.** Es lo único que deja a
+la otra tienda explicar en su pantalla por qué no le llegan movimientos, en vez de una falla
+muda. `POST /movements` no se registra en un sitio suspendido; `health` sólo lee.
+
+**No anota el nonce.** Reenviar un `health` no hace nada: sólo lee. Y con la tabla de nonces
+rota —una de las causas de `unhealthy_schema`— anotarlo haría responder `wss_replayed_nonce`
+justo cuando lo que hay que decir es que las tablas están mal.
+
+**La respuesta no va firmada.** Con HTTPS alcanza para la pantalla de ajustes. Si el paso 4 del
+emparejamiento necesita más —ahí la maestra le cree a lo que declara `store`—, lo decide la
+tarea del emparejamiento.
 
 #### El receptor declara un máximo de 200 movimientos por lote
 
