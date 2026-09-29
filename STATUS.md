@@ -2,7 +2,7 @@
 
 > Plugin: `woonderful-stock-sync-for-woocommerce` | WP 6.5+ | PHP 8.1+ | WooCommerce 9.1+
 > Repo: [woonderful-stock-sync-for-woocommerce](https://github.com/julianjuan77/woonderful-stock-sync-for-woocommerce)
-> Creado: 2026-09-20 · Última sesión: 2026-09-28 — el detector (4.1, 4.3), WooCommerce 9.1 como mínimo y la firma (5.1)
+> Creado: 2026-09-20 · Última sesión: 2026-09-29 — el transporte: firma (5.1), nonces (5.2), `POST /movements` (5.3) y el envío (5.4)
 
 Sincroniza el stock entre dos tiendas WooCommerce propias que despachan del mismo depósito.
 Pool único, sin reparto: lo que se vende en una descuenta en las dos.
@@ -122,11 +122,6 @@ Verificado rompiéndolo: sin el `UPDATE` cae `LED-02`; registrando productos sin
 | 5.7 | El emparejamiento: `POST /pair` y el canje con su callback | ⬜ | | |
 | 5.8 | `GET /products` | ⬜ | | |
 
-**Para 5.3:** el receptor le pasa a `Signature::verify()` lo que entrega WordPress —
-`get_route()`, `get_query_params()` y `get_body()`—, no la URL ni `$_GET`. Es lo que hace que
-la firma no dependa de los permalinks. Y el orden es tienda emparejada → firma y ventana →
-`Nonces::claim()`: anotar el nonce antes dejaría llenar la tabla sin el secreto (ADR-001 §1).
-
 **Para 5.5:** la pasada recurrente llama a `Sender::run()` y a `Nonces::purge()`. `run()`
 devuelve cuántos mandó, confirmó y fallaron, y el error del request si lo hubo: es lo que
 necesita la línea de log de la pasada (ADR-001 §2), que espera al ADR del log.
@@ -176,7 +171,7 @@ La fuente es `docs/DECISIONS.md`. Acá sólo el índice de las aprobadas.
 | ADR | Decide | Aprobada |
 |---|---|---|
 | [ADR-000](docs/DECISIONS.md) | El scaffold y el arranque | 2026-09-24 |
-| ADR-001 | `wss/v1` firmado con HMAC; el libro es la cola; dos ejes de estado. Revisado el 2026-09-28: qué entra exactamente en la firma, y los nonces se guardan dos ventanas | 2026-09-20 |
+| ADR-001 | `wss/v1` firmado con HMAC; el libro es la cola; dos ejes de estado. Revisado el 2026-09-28: qué entra exactamente en la firma, los nonces se guardan dos ventanas, y cómo responde `POST /movements`. Revisado el 2026-09-29: el lote y los tiempos de la entrega son constantes | 2026-09-20 |
 | ADR-002 | UUID de tienda; la secuencia es el `AUTO_INCREMENT` | 2026-09-20 |
 | ADR-003 | Qué se borra al desinstalar; el secreto siempre | 2026-09-20 |
 | ADR-004 | Tres tablas InnoDB, tres índices, la retención | 2026-09-20 |
@@ -204,7 +199,7 @@ seguridad y convenciones de código.
 | `record()` escribiría movimientos con origen vacío si faltara el identificador. Hoy no puede pasar: `boot()` lo genera antes de todo | Auditoría 2026-09-26 |
 | `Links::for_remote_product()` devuelve la primera fila si hubiera dos vínculos con el mismo remoto. Con dos tiendas no ocurre en producción, pero **ya tropezó un test**: el fixture creaba dos | Auditoría 2026-09-26 |
 | La marca de purga se calcula con `max()` de lo purgado, y los reintentos desordenan las secuencias: el ADR de la reconciliación tiene que decir que cada tienda ofrece sus filas no confirmadas sin mirar la marca | Revisión 2026-09-27 → tarea 1.9 |
-| `remember_purged()` usa el UUID de la tienda remota como clave de `wss_peers`, y esa clave la fija el emparejamiento: si usara otra, la purga crearía un par fantasma sin URL ni secreto | Revisión 2026-09-27 → tarea 5.7 |
+| `remember_purged()` usa el UUID de la tienda remota como clave de `wss_peers`, y esa clave la fija el emparejamiento: si usara otra, la purga crearía un par fantasma sin URL ni secreto. **Desde 5.4 es peor**: con dos entradas, `Peers::only()` devuelve null y el emisor deja de mandar todo | Revisión 2026-09-27 → tarea 5.7 |
 | Un cambio ajeno al stock del mismo producto entre las dos lecturas del detector se cuenta dos veces. Declarado y aceptado: son milisegundos, y lo corrige la reconciliación | ADR-006 §1 → tarea 7.2 |
 | Editar las líneas de un pedido desde el admin deja el movimiento en `adjustment`, sin número de pedido: `wc_maybe_adjust_line_item_product_stock()` no dispara ningún hook que estampe | Sesión 2026-09-28 → ADR del log (UC-04) |
 | Si un hook de terceros escribe algo que no es stock adentro de la transacción de `apply()` y después falla, el `ROLLBACK` lo deshace pero su caché queda vieja. Sólo se limpia la del stock | Sesión 2026-09-28, declarado |
