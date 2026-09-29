@@ -21,6 +21,46 @@ defined( 'ABSPATH' ) || exit;
 final class Auth {
 
 	/**
+	 * Engancha los encabezados que prohíben guardar las respuestas en caché.
+	 */
+	public static function register(): void {
+		add_filter( 'rest_post_dispatch', array( self::class, 'no_cache' ), 10, 3 );
+	}
+
+	/**
+	 * Que ninguna caché guarde una respuesta de `wss/v1`, ni las de error.
+	 *
+	 * WordPress manda estos encabezados sólo con un usuario logueado, y estos requests vienen
+	 * firmados, no logueados. Sin ellos, una caché que guarda por URL —Varnish, la de Nginx,
+	 * una regla "cache everything" de Cloudflare— le daría la respuesta de un request firmado
+	 * a cualquiera que pida la misma URL sin firma, y la autenticación ni correría.
+	 *
+	 * @param \WP_HTTP_Response|mixed $response La respuesta.
+	 * @param mixed                   $server   El servidor REST; no se usa.
+	 * @param \WP_REST_Request|mixed  $request  El request.
+	 *
+	 * @return \WP_HTTP_Response|mixed
+	 */
+	public static function no_cache( $response, $server, $request ) {
+		if ( ! $response instanceof \WP_HTTP_Response || ! $request instanceof \WP_REST_Request ) {
+			return $response;
+		}
+
+		if ( ! str_starts_with( $request->get_route(), '/' . Movements::NAMESPACE . '/' ) ) {
+			return $response;
+		}
+
+		foreach ( wp_get_nocache_headers() as $name => $value ) {
+			// Uno vacío WordPress lo saca en vez de mandarlo: `Last-Modified` viene en false.
+			if ( ! empty( $value ) ) {
+				$response->header( $name, (string) $value );
+			}
+		}
+
+		return $response;
+	}
+
+	/**
 	 * Autentica el request.
 	 *
 	 * La tienda primero, porque sin ella no hay secreto con qué verificar. El timestamp

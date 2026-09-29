@@ -127,6 +127,7 @@ mientras escribía la función.
 | Cada parte del request está firmada, la query incluida | ADR-001 §1 | `SIG-04` | [test-signature.php](test-signature.php) |
 | La firma no depende de los permalinks ni del orden de la query | ADR-001 §1 | `SIG-05`, `SIG-06` | [test-signature.php](test-signature.php) |
 | Ventana de ±5 minutos | ADR-001 §1 | `SIG-08` | [test-signature.php](test-signature.php) |
+| Ninguna respuesta firmada se guarda en caché | ARCHITECTURE §5 | `HLT-06`, `HLT-07`, `PLG-24` | [test-rest-health.php](test-rest-health.php), [test-plugin.php](test-plugin.php) |
 | Sin secreto no hay firma válida | ADR-001 §1 | `SIG-11` | [test-signature.php](test-signature.php) |
 | Un nonce se acepta una sola vez | ADR-001 §1, ADR-004 §3 | `NON-02` | [test-nonces.php](test-nonces.php) |
 | Los nonces se guardan dos ventanas: el reenvío de un reloj adelantado se frena | ADR-001 §1 | `NON-04`, `NON-05` | [test-nonces.php](test-nonces.php) |
@@ -227,6 +228,7 @@ mientras escribía la función.
 | `PLG-21` | `boot()` con el sitio sano | Engancha la pasada, y el control de su agendado en `action_scheduler_init`, no en `admin_init` |
 | `PLG-22` | El archivo principal | Engancha la desactivación |
 | `PLG-23` | `boot()` con el sitio suspendido | **Sí** engancha `GET /health` |
+| `PLG-24` | `boot()` con el sitio suspendido | **Sí** engancha los encabezados que prohíben la caché |
 
 ## [`tests/test-uninstall.php`](test-uninstall.php) — la desinstalación
 
@@ -433,6 +435,8 @@ cae `UNI-07`.
 | `HLT-03` | La tabla de nonces rota | 200, con `suspended: unhealthy_schema`: no `wss_replayed_nonce` |
 | `HLT-04` | El mismo request dos veces | 200 las dos, y ningún nonce anotado |
 | `HLT-05` | Firma mala, o tienda que no está | 401 `wss_bad_signature` y `wss_unknown_store` |
+| `HLT-06` | **La respuesta y el error de una ruta `wss/v1`, como los manda `serve_request()`** | Con `Cache-Control: … no-store …`, y sin el `Last-Modified` vacío |
+| `HLT-07` | Una ruta que no es de `wss/v1` | No se toca |
 
 `HLT-01` encontró que `Auth` le pasaba a `verify()` el `null` que devuelve `get_body()` sin
 cuerpo: un `TypeError`, que el cliente veía como un 500. `POST /movements` no lo mostraba
@@ -440,7 +444,9 @@ porque siempre trae cuerpo.
 
 Verificado rompiéndolo: sin pasar el cuerpo a texto caen los cinco; anotando el nonce caen
 `HLT-03` y `HLT-04`; con `suspended` siempre en `null` caen `HLT-02` y `HLT-03`; registrando la
-ruta después de la guarda cae `PLG-23`.
+ruta después de la guarda cae `PLG-23`; aplicando los encabezados a toda ruta cae `HLT-07`; sin
+ponerlos cae `HLT-06`; sin engancharlos en `boot()` cae `PLG-24`. Los tests aplican
+`rest_post_dispatch` a mano: `dispatch()` no lo aplica, lo hace `serve_request()`.
 
 ## [`tests/test-guard.php`](test-guard.php) — el guard anti-eco
 

@@ -11,6 +11,7 @@ namespace Woonderful\StockSync;
 
 use Woonderful\StockSync\Detector\Detector;
 use Woonderful\StockSync\Identity\Store;
+use Woonderful\StockSync\Rest\Auth;
 use Woonderful\StockSync\Rest\Health;
 use Woonderful\StockSync\Rest\Movements;
 use Woonderful\StockSync\Schema\Installer;
@@ -69,6 +70,7 @@ final class Plugin {
 		// Antes de la guarda, a propósito: ver Pass::register() y Health::register().
 		Pass::register();
 		Health::register();
+		Auth::register();
 
 		if ( null !== self::suspension_reason() ) {
 			add_action( 'admin_notices', array( self::class, 'notice_suspended' ) );

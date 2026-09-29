@@ -10,6 +10,7 @@ declare( strict_types = 1 );
 use Woonderful\StockSync\Detector\Detector;
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Plugin;
+use Woonderful\StockSync\Rest\Auth;
 use Woonderful\StockSync\Rest\Health;
 use Woonderful\StockSync\Rest\Movements;
 use Woonderful\StockSync\Schema\Installer;
@@ -59,6 +60,7 @@ class Test_Plugin extends WP_UnitTestCase {
 		remove_action( Pass::HOOK, array( Pass::class, 'run' ) );
 		remove_action( 'action_scheduler_init', array( Pass::class, 'maybe_ensure_scheduled' ) );
 		remove_action( 'rest_api_init', array( Health::class, 'register_routes' ) );
+		remove_filter( 'rest_post_dispatch', array( Auth::class, 'no_cache' ), 10 );
 
 		parent::tear_down();
 	}
@@ -454,5 +456,18 @@ class Test_Plugin extends WP_UnitTestCase {
 		Plugin::boot();
 
 		$this->assertNotFalse( has_action( 'rest_api_init', array( Health::class, 'register_routes' ) ) );
+	}
+
+	/**
+	 * PLG-24 — Un sitio suspendido también prohíbe la caché: responde `health`.
+	 */
+	public function test_a_suspended_site_still_forbids_caching(): void {
+		update_option( Store::OPTION_FINGERPRINT, hash( 'sha256', 'https://otra.test' ) );
+
+		remove_filter( 'rest_post_dispatch', array( Auth::class, 'no_cache' ), 10 );
+
+		Plugin::boot();
+
+		$this->assertNotFalse( has_filter( 'rest_post_dispatch', array( Auth::class, 'no_cache' ) ) );
 	}
 }

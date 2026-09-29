@@ -97,6 +97,13 @@ Ventana de reloj: ±5 minutos.
 `permission_callback` de cada ruta. Toma el cuerpo como `(string) get_body()`: sin cuerpo,
 como en un GET, WordPress devuelve `null`.
 
+**Ninguna respuesta de `wss/v1` se guarda en caché**, tampoco las de error. `Auth::no_cache()`,
+en `rest_post_dispatch`, les suma los encabezados de `wp_get_nocache_headers()`. WordPress los
+manda sólo con un usuario logueado, y estos requests vienen firmados: sin ellos, una caché que
+guarda por URL —Varnish, la de Nginx, "cache everything" de Cloudflare— le daría la respuesta
+de un request firmado a cualquiera que pida la misma URL, sin que la autenticación corra. Con
+`GET /products` eso sería el catálogo con el stock. Se engancha antes de la guarda.
+
 **`GET /health`** (`Rest\Health`, ADR-001 §4) responde `store`, `label`, `version`, `api` y
 `suspended` —`null`, `cloned_site` o `unhealthy_schema`—. Se registra **antes de la guarda**:
 un sitio suspendido responde igual, para que la otra tienda pueda explicar por qué no le

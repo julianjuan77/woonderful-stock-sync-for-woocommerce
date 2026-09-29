@@ -9,6 +9,7 @@ declare( strict_types = 1 );
 
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Plugin;
+use Woonderful\StockSync\Rest\Auth;
 use Woonderful\StockSync\Rest\Health;
 use Woonderful\StockSync\Schema\Installer;
 use Woonderful\StockSync\Transport\Peers;
@@ -171,5 +172,51 @@ class Test_Rest_Health extends WP_UnitTestCase {
 
 		$this->assertSame( 401, $unknown->get_status() );
 		$this->assertSame( 'wss_unknown_store', $unknown->get_data()['code'] );
+	}
+
+	/**
+	 * Lo que `serve_request()` le hace a la respuesta antes de mandarla. `dispatch()`, que es
+	 * lo que usan los tests, no aplica `rest_post_dispatch`.
+	 *
+	 * @param WP_REST_Request $request El request.
+	 */
+	private function served( WP_REST_Request $request ): WP_REST_Response {
+		Auth::register();
+
+		$response = apply_filters( 'rest_post_dispatch', rest_ensure_response( $this->server->dispatch( $request ) ), $this->server, $request );
+
+		remove_filter( 'rest_post_dispatch', array( Auth::class, 'no_cache' ), 10 );
+
+		return $response;
+	}
+
+	/**
+	 * WordPress manda "no guardes esto en caché" sólo con un usuario logueado, y estos
+	 * requests vienen firmados. Sin los encabezados, una caché por URL le daría la
+	 * respuesta firmada a cualquiera. También la de error.
+	 *
+	 * HLT-06
+	 */
+	public function test_signed_routes_forbid_caching(): void {
+		$requests = array(
+			'la respuesta' => $this->request(),
+			'el error'     => $this->request( array( 'X-WSS-Signature' => str_repeat( '0', 64 ) ) ),
+		);
+
+		foreach ( $requests as $what => $request ) {
+			$headers = $this->served( $request )->get_headers();
+
+			$this->assertStringContainsString( 'no-store', (string) ( $headers['Cache-Control'] ?? '' ), $what );
+			$this->assertArrayNotHasKey( 'Last-Modified', $headers, 'el vacío no se manda' );
+		}
+	}
+
+	/**
+	 * HLT-07 — Las rutas que no son de `wss/v1` no se tocan.
+	 */
+	public function test_other_routes_are_left_alone(): void {
+		$headers = $this->served( new WP_REST_Request( 'GET', '/wp/v2/types' ) )->get_headers();
+
+		$this->assertArrayNotHasKey( 'Cache-Control', $headers );
 	}
 }
