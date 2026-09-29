@@ -1154,6 +1154,10 @@ escriben los dos.
 ## ADR-003 — Desinstalación y borrado de datos
 
 Estado: Aprobada · 2026-09-20 · aprobada por Julián
+Revisado: 2026-09-29 — aprobado por Julián. Suma `wss_pass_checked_at`, la hora del último
+control de que la pasada recurrente esté agendada, y se borra **siempre**: no es un dato del
+dueño. Y deja dicho que desactivar desagenda la pasada. Ver *Qué borra cada caso* y
+*Desactivar no es desinstalar*.
 Temas: uninstall, opciones
 Cubre: uninstall.php
 
@@ -1173,6 +1177,7 @@ Ajustes → [ ] Borrar todos los datos al desinstalar     ← desmarcada de fáb
 | Vínculos entre productos y su stock base  | queda              | se borra        |
 | Ajustes del plugin                        | queda              | se borra        |
 | Almacén de nonces                         | se borra           | se borra        |
+| Hora del último control de la pasada      | se borra           | se borra        |
 | **Secreto compartido con la otra tienda** | **se borra**       | **se borra**    |
 
 ### Por qué desmarcada por defecto
@@ -1206,6 +1211,16 @@ válidos contra la otra tienda.
 
 Desactivar el plugin no borra nada, ni siquiera el secreto. Es la operación reversible: el
 dueño la usa para frenar la sincronización un rato, y espera encontrar todo como estaba.
+
+Lo único que hace es **desagendar la pasada recurrente** de Action Scheduler, que no es un
+dato: al reactivar se vuelve a agendar sola. Si WooCommerce se desactivó antes, Action
+Scheduler no está y la acción queda agendada; no rompe nada, porque al volver WooCommerce el
+callback está enganchado y la pasada sigue.
+
+**Por qué la hora del control se borra siempre.** `wss_pass_checked_at` dice cuándo se
+comprobó por última vez que la pasada estuviera agendada, para no mirarlo más de una vez por
+hora. No es un dato del dueño ni sirve después de reinstalar: conservarla sólo haría que el
+primer control de la reinstalación espere hasta una hora.
 
 ### Alcance
 
