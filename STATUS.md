@@ -117,7 +117,7 @@ Verificado rompiéndolo: sin el `UPDATE` cae `LED-02`; registrando productos sin
 | 5.3 | `POST /movements` del lado receptor, con el ACK por movimiento | ✅ | `7e8f5c7`, `0cfae8a`, `32c64eb` | `MOV-01`…`MOV-13`, `LED-56`…`LED-59`, `PLG-18`, `PLG-19` |
 | 5.4 | El envío por lotes del lado emisor | ✅ | `b164978`, `4f2f842` | `SND-01`…`SND-10` |
 | 5.5 | La pasada recurrente de Action Scheduler | ✅ | `753f4eb` | `PAS-01`…`PAS-07`, `PLG-20`…`PLG-22`, `UNI-07` |
-| 5.6 | `GET /health` | ✅ | `02ce7dc` | `HLT-01`…`HLT-05`, `PLG-23` |
+| 5.6 | `GET /health` | ✅ | `02ce7dc`, `638df6f` | `HLT-01`…`HLT-05`, `PLG-23` |
 | 5.7 | El emparejamiento: `POST /pair` y el canje con su callback | ⬜ | | |
 | 5.8 | `GET /products` | ⬜ | | |
 | 5.9 | **El envío al final del request de la venta**, con `fastcgi_finish_request()` como en woonderful-sync. Sólo lo escrito en ese request, con un timeout corto (≈5 s); sin PHP-FPM, queda para la pasada. Necesita revisar ADR-006 §4: el retardo de 10 s no hace falta para lo que se manda en el `shutdown`, porque el estampado ya corrió y la ráfaga del request sale junta | ⬜ | | |
