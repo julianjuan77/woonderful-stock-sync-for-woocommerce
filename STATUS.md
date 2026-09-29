@@ -24,7 +24,7 @@ git show 2668a7a --stat      # qué archivos tocó y cuántas líneas
 git show 2668a7a             # el diff completo
 ```
 
-Y para correr sólo los tests de una pieza, en vez de los 174:
+Y para correr sólo los tests de una pieza, en vez de los 181:
 
 ```bash
 make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS="--filter Test_Ledger"
@@ -34,9 +34,8 @@ make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS=
 
 ## 🔄 En progreso
 
-Nada. Lo siguiente es **5.5, la pasada recurrente de Action Scheduler**: llama a
-`Sender::run()` y a `Nonces::purge()`, y escribe la línea de log de la pasada cuando exista el
-ADR del log.
+Nada. Lo siguiente es **5.6, `GET /health`**: canal, firma y versión del otro lado. Es lo
+que usa el emparejamiento (5.7) en su callback.
 
 ---
 
@@ -117,16 +116,16 @@ Verificado rompiéndolo: sin el `UPDATE` cae `LED-02`; registrando productos sin
 | 5.2 | El almacén de nonces y su purga: dos ventanas de retención | ✅ | `b247cb9`, `909a69d` | `NON-01`…`NON-07`, sin `NON-06` |
 | 5.3 | `POST /movements` del lado receptor, con el ACK por movimiento | ✅ | `7e8f5c7`, `0cfae8a`, `32c64eb` | `MOV-01`…`MOV-13`, `LED-56`…`LED-59`, `PLG-18`, `PLG-19` |
 | 5.4 | El envío por lotes del lado emisor | ✅ | `b164978`, `4f2f842` | `SND-01`…`SND-10` |
-| 5.5 | La pasada recurrente de Action Scheduler | ⬜ | | |
+| 5.5 | La pasada recurrente de Action Scheduler | ✅ | | `PAS-01`…`PAS-04`, `PLG-20`…`PLG-22` |
 | 5.6 | `GET /health` | ⬜ | | |
 | 5.7 | El emparejamiento: `POST /pair` y el canje con su callback | ⬜ | | |
 | 5.8 | `GET /products` | ⬜ | | |
+| 5.9 | **El envío al final del request de la venta**, con `fastcgi_finish_request()` como en woonderful-sync. Sólo lo escrito en ese request, con un timeout corto (≈5 s); sin PHP-FPM, queda para la pasada. Necesita revisar ADR-006 §4: el retardo de 10 s no hace falta para lo que se manda en el `shutdown`, porque el estampado ya corrió y la ráfaga del request sale junta | ⬜ | | |
 
-**Para 5.5:** la pasada recurrente llama a `Sender::run()` y a `Nonces::purge()`. `run()`
-devuelve cuántos mandó, confirmó y fallaron, y el error del request si lo hubo —`no_peer` si
-no hay tienda emparejada—: es lo que necesita la línea de log de la pasada (ADR-001 §2), que
-espera al ADR del log. Antes de emparejar, `no_peer` es lo normal: loguearlo en cada pasada
-sería ruido.
+**Para el ADR del log (1.10):** `Sender::run()` devuelve cuántos mandó, confirmó y fallaron, y
+el error del request si lo hubo —`no_peer` si no hay tienda emparejada—. Es lo que necesita la
+línea de log de la pasada (ADR-001 §2), que todavía no se escribe. Antes de emparejar, `no_peer`
+es lo normal: loguearlo en cada pasada sería ruido.
 
 **Para 5.7:** el emparejamiento guarda en `wss_peers[<uuid>]` la `rest_url` que informó la otra
 tienda y el `secret`. Es lo que leen `Peers::only()` y `Peers::secret()`.
@@ -160,7 +159,7 @@ tienda y el `secret`. Es lo que leen `Peers::only()` y `Peers::secret()`.
 
 | | Tarea | Estado |
 |---|---|---|
-| 9.1 | `readme.txt` | ⬜ |
+| 9.1 | `readme.txt`. Recomendar un cron real del servidor contra `wp-cron.php` con `DISABLE_WP_CRON`: sin él, la pasada de cada minuto depende de que alguien visite el sitio | ⬜ |
 | 9.2 | `.pot` con `wp i18n make-pot` | ⬜ |
 | 9.3 | `make check-release` | ⬜ |
 

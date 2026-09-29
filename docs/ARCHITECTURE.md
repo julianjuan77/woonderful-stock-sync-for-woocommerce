@@ -217,9 +217,20 @@ WooCommerce (§5 del SPEC exige 9.1+), así que no es una dependencia aparte.
 
 | Job | Mecanismo | Frecuencia | Idempotencia |
 |---|---|---|---|
-| Vaciar pendientes hacia la otra tienda | Action Scheduler, **una** acción recurrente | Configurable | El receptor deduplica por `UNIQUE (origin_store, origin_seq)` |
+| Vaciar pendientes hacia la otra tienda, y purgar nonces | Action Scheduler, **una** acción recurrente: `wss_deliver`, grupo `woonderful-stock-sync` | 60 s, constante | El receptor deduplica por `UNIQUE (origin_store, origin_seq)` |
 
 **No se agenda una acción por movimiento**: la pasada toma un lote del libro.
+
+**`Transport\Pass`.** El callback se engancha **siempre**, antes de la guarda: un clon trae la
+acción agendada desde la tienda real, y sin callback Action Scheduler la marcaría fallida cada
+minuto. Es la pasada la que, suspendida, no hace nada. Se agenda en `admin_init` y no en cada
+request, porque mirarlo es una consulta; `unique` impide una segunda. Al desactivar se
+desagenda, y con eso alcanza: WordPress no deja desinstalar un plugin activo.
+
+**"Cada 60 segundos" depende del tráfico.** Action Scheduler lo dispara WP-Cron, que corre
+cuando alguien visita el sitio: en una tienda sin visitas la pasada puede tardar bastante más.
+Un cron real del servidor contra `wp-cron.php`, con `DISABLE_WP_CRON`, lo hace cada minuto de
+verdad. El envío al final del request de la venta (5.9) lo resuelve para las ventas.
 
 **Cada pasada, en orden:** libera los claims vencidos (5 min) → reclama un lote → envía y
 anota el ACK de cada fila. La purga de nonces viejos va en la misma pasada.

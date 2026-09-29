@@ -12,6 +12,7 @@ use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Plugin;
 use Woonderful\StockSync\Rest\Movements;
 use Woonderful\StockSync\Schema\Installer;
+use Woonderful\StockSync\Transport\Pass;
 
 /**
  * Un clon o una tabla sin transacciones apagan la sincronización (ADR-001 §1, ADR-004 §5).
@@ -54,6 +55,8 @@ class Test_Plugin extends WP_UnitTestCase {
 
 		wss_unhook_detector();
 		remove_action( 'rest_api_init', array( Movements::class, 'register_routes' ) );
+		remove_action( Pass::HOOK, array( Pass::class, 'run' ) );
+		remove_action( 'admin_init', array( Pass::class, 'ensure_scheduled' ) );
 
 		parent::tear_down();
 	}
@@ -394,5 +397,44 @@ class Test_Plugin extends WP_UnitTestCase {
 		Plugin::boot();
 
 		$this->assertFalse( has_action( 'rest_api_init', array( Movements::class, 'register_routes' ) ) );
+	}
+
+	/**
+	 * Un clon trae la acción agendada: sin callback, Action Scheduler la marcaría fallida
+	 * cada minuto. El callback se engancha igual, y la pasada decide no hacer nada.
+	 *
+	 * PLG-20
+	 */
+	public function test_a_suspended_site_still_hooks_the_pass(): void {
+		update_option( Store::OPTION_FINGERPRINT, hash( 'sha256', 'https://otra.test' ) );
+
+		remove_action( Pass::HOOK, array( Pass::class, 'run' ) );
+		remove_action( 'admin_init', array( Pass::class, 'ensure_scheduled' ) );
+
+		Plugin::boot();
+
+		$this->assertNotFalse( has_action( Pass::HOOK, array( Pass::class, 'run' ) ) );
+		$this->assertFalse( has_action( 'admin_init', array( Pass::class, 'ensure_scheduled' ) ), 'pero no agenda' );
+	}
+
+	/**
+	 * PLG-21 — Un sitio sano engancha la pasada y su agendado.
+	 */
+	public function test_boot_hooks_the_pass_and_its_scheduling(): void {
+		update_option( Store::OPTION_FINGERPRINT, Store::fingerprint() );
+
+		Plugin::boot();
+
+		$this->assertNotFalse( has_action( Pass::HOOK, array( Pass::class, 'run' ) ) );
+		$this->assertNotFalse( has_action( 'admin_init', array( Pass::class, 'ensure_scheduled' ) ) );
+	}
+
+	/**
+	 * PLG-22 — El archivo principal engancha la desactivación.
+	 */
+	public function test_the_main_file_hooks_deactivation(): void {
+		$this->assertNotFalse(
+			has_action( 'deactivate_' . plugin_basename( WSS_PLUGIN_FILE ), array( Plugin::class, 'deactivate' ) )
+		);
 	}
 }

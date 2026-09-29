@@ -50,6 +50,7 @@ Prefijo por dominio, número correlativo, y **no se renumeran** aunque un caso s
 | `NON-NN` | El almacén de nonces | [`tests/test-nonces.php`](test-nonces.php) |
 | `MOV-NN` | `POST /movements` | [`tests/test-rest-movements.php`](test-rest-movements.php) |
 | `SND-NN` | El envío del lado emisor | [`tests/test-sender.php`](test-sender.php) |
+| `PAS-NN` | La pasada recurrente | [`tests/test-pass.php`](test-pass.php) |
 
 Cada test lleva su ID en el docblock, así que se encuentra buscándolo:
 
@@ -137,6 +138,8 @@ mientras escribía la función.
 | Lo que manda el emisor lo acepta el receptor, con permalinks y sin ellos | ADR-001 §1, §4 | `SND-04` | [test-sender.php](test-sender.php) |
 | El emisor empareja los resultados por posición, y no confirma uno desordenado | ADR-001 §4 | `SND-05`, `SND-08` | [test-sender.php](test-sender.php) |
 | Sin tienda a quien mandar no se reclama nada | ADR-001 §2 | `SND-01` | [test-sender.php](test-sender.php) |
+| Una sola acción recurrente, cada 60 segundos | ADR-001 §2 | `PAS-03` | [test-pass.php](test-pass.php) |
+| Un clon corre la pasada pero no manda nada | ADR-001 §1 | `PAS-02`, `PLG-20` | [test-pass.php](test-pass.php), [test-plugin.php](test-plugin.php) |
 | El motivo se estampa después; sin documento queda `adjustment` | ADR-006 §2 | `DET-11`…`DET-14` | [test-detector.php](test-detector.php) |
 | El estampado nunca cae sobre una fila que no es la del pedido | ADR-006 §2 | `DET-15`, `DET-16`, `LED-54` | [test-detector.php](test-detector.php), [test-ledger.php](test-ledger.php) |
 | Lo que ya salió no se reescribe | ADR-006 §2 | `LED-53` | [test-ledger.php](test-ledger.php) |
@@ -217,6 +220,9 @@ mientras escribía la función.
 | `PLG-17` | `boot()` con el sitio suspendido | **No** engancha el detector: un clon descontaría stock de la tienda real |
 | `PLG-18` | `boot()` con el sitio sano | Engancha `POST /movements` |
 | `PLG-19` | `boot()` con el sitio suspendido | **No** engancha `POST /movements` |
+| `PLG-20` | `boot()` con el sitio suspendido | **Sí** engancha el callback de la pasada —sin él Action Scheduler la marcaría fallida cada minuto—, pero no su agendado |
+| `PLG-21` | `boot()` con el sitio sano | Engancha la pasada y su agendado |
+| `PLG-22` | El archivo principal | Engancha la desactivación |
 
 ## [`tests/test-uninstall.php`](test-uninstall.php) — la desinstalación
 
@@ -393,6 +399,21 @@ del `seq` o tomando un resultado faltante como confirmado cae `SND-08`; ignorand
 request caen `SND-06` y `SND-07`; firmando otra ruta cae `SND-04`; contando todas las entradas
 de `wss_peers` cae `SND-10`; sin el `no_peer` cae `SND-01`.
 
+## [`tests/test-pass.php`](test-pass.php) — la pasada recurrente
+
+| ID | Caso | Resultado esperado |
+|---|---|---|
+| `PAS-01` | Una pasada con un movimiento pendiente y un nonce viejo | Lo manda y lo confirma, y purga el nonce |
+| `PAS-02` | **La misma pasada en un sitio suspendido** | No manda ni purga nada |
+| `PAS-03` | Agendar dos veces | Una sola acción, recurrente, cada 60 segundos |
+| `PAS-04` | Desactivar el plugin | La acción se desagenda |
+
+Verificado rompiéndolo: sin el control de suspensión en la pasada cae `PAS-02`; agendando sin
+`unique` cae `PAS-03`; desactivando sin desagendar cae `PAS-04`; enganchando el callback
+después de la guarda caen `PLG-20` y `PLG-21`. Un primer `as_has_scheduled_action()` antes de
+agendar resultó redundante —la mutación que lo sacaba no hacía caer nada— y se borró: lo que
+impide la segunda es `unique`.
+
 ## [`tests/test-guard.php`](test-guard.php) — el guard anti-eco
 
 | ID | Caso | Resultado esperado |
@@ -472,7 +493,7 @@ la suite de WordPress abre para cada test.
 
 ## Lo que todavía no tiene tests
 
-- Del transporte, la pasada (5.5), `GET /health`, el emparejamiento y `GET /products`; y todo `Reconciliation/`: no hay código todavía.
+- Del transporte, `GET /health`, el emparejamiento y `GET /products`; y todo `Reconciliation/`: no hay código todavía.
 - Que el libro que crece sin techo —porque la otra tienda no vuelve nunca— se **avise**
   (UC-08). `purge()` ya lo deja crecer a propósito; el aviso va con el ADR del log.
 - La purga que consolida el stock base.

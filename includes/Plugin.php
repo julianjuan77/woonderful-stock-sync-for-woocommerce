@@ -13,6 +13,7 @@ use Woonderful\StockSync\Detector\Detector;
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Rest\Movements;
 use Woonderful\StockSync\Schema\Installer;
+use Woonderful\StockSync\Transport\Pass;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -43,6 +44,13 @@ final class Plugin {
 	}
 
 	/**
+	 * Corre una sola vez, al desactivar.
+	 */
+	public static function deactivate(): void {
+		Pass::unschedule();
+	}
+
+	/**
 	 * Corre en cada request, en plugins_loaded.
 	 */
 	public static function boot(): void {
@@ -57,6 +65,9 @@ final class Plugin {
 
 		Installer::maybe_upgrade();
 
+		// Antes de la guarda, a propósito: ver Pass::register().
+		Pass::register();
+
 		if ( null !== self::suspension_reason() ) {
 			add_action( 'admin_notices', array( self::class, 'notice_suspended' ) );
 
@@ -64,9 +75,10 @@ final class Plugin {
 		}
 
 		// Van después de la guarda a propósito: un plugin suspendido no emite ni acepta
-		// movimientos. Faltan el envío y la reconciliación.
+		// movimientos. Falta la reconciliación.
 		Detector::register();
 		Movements::register();
+		Pass::register_scheduling();
 	}
 
 	/**

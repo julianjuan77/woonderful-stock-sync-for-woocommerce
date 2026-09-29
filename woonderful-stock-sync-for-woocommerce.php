@@ -49,6 +49,7 @@ if ( ! is_readable( WSS_PLUGIN_DIR . 'vendor/autoload.php' ) ) {
 require_once WSS_PLUGIN_DIR . 'vendor/autoload.php';
 
 register_activation_hook( __FILE__, array( Plugin::class, 'activate' ) );
+register_deactivation_hook( __FILE__, array( Plugin::class, 'deactivate' ) );
 
 add_action( 'plugins_loaded', array( Plugin::class, 'boot' ) );
 
