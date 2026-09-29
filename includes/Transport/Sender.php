@@ -25,6 +25,13 @@ final class Sender {
 	public const ROUTE = '/wss/v1/movements';
 
 	/**
+	 * El error de una pasada sin tienda a quien mandar.
+	 *
+	 * Distinto de no tener nada que mandar: es lo que dice que la tienda quedó sin emparejar.
+	 */
+	public const NO_PEER = 'no_peer';
+
+	/**
 	 * Cuánto se espera la respuesta, en segundos.
 	 *
 	 * Muy por debajo de los 5 minutos del claim: si se acercara, el claim podría vencer con
@@ -51,6 +58,8 @@ final class Sender {
 		$peer = Peers::only();
 
 		if ( null === $peer ) {
+			$summary['error'] = self::NO_PEER;
+
 			return $summary;
 		}
 

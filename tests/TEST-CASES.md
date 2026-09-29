@@ -377,7 +377,7 @@ necesita, sin salir a ningún lado.
 
 | ID | Caso | Resultado esperado |
 |---|---|---|
-| `SND-01` | **Sin tienda emparejada** | No sale nada y **no se reclama nada**: las filas siguen `pending` con 0 intentos |
+| `SND-01` | **Sin tienda emparejada** | No sale nada y **no se reclama nada**: las filas siguen `pending` con 0 intentos. El resumen dice `no_peer`, distinto de no tener nada que mandar |
 | `SND-02` | Dos movimientos pendientes | Un POST a `<rest_url>/movements`; los dos confirmados |
 | `SND-03` | El cuerpo | Cada movimiento con los siete campos de ADR-001 §4 |
 | `SND-04` | **El request que arma el emisor, del lado del receptor** | Pasa `Movements::authenticate()`, con la base con permalinks y con `?rest_route=` |
@@ -385,11 +385,13 @@ necesita, sin salir a ningún lado.
 | `SND-06` | Falla la red | Todo el lote vuelve a la cola con el mensaje de la red |
 | `SND-07` | El receptor contesta 401 | Todo el lote vuelve a la cola con `HTTP 401 <código>` |
 | `SND-08` | Falta un resultado, y otro trae en su posición el `seq` de otra fila | Ninguno de los dos confirma: `missing_result` y `result_mismatch` |
-| `SND-09` | Nada venció su retardo | No sale nada |
+| `SND-09` | Nada venció su retardo | No sale nada, y el resumen no trae error |
+| `SND-10` | **Una entrada vieja en `wss_peers`, sin URL ni secreto**, junto a la tienda emparejada | Se manda igual: la entrada que dejó la purga de un UUID anterior no corta la entrega |
 
 Verificado rompiéndolo: reclamando antes de mirar si hay tienda cae `SND-01`; sin el control
 del `seq` o tomando un resultado faltante como confirmado cae `SND-08`; ignorando el error del
-request caen `SND-06` y `SND-07`; firmando otra ruta cae `SND-04`.
+request caen `SND-06` y `SND-07`; firmando otra ruta cae `SND-04`; contando todas las entradas
+de `wss_peers` cae `SND-10`; sin el `no_peer` cae `SND-01`.
 
 ## [`tests/test-guard.php`](test-guard.php) — el guard anti-eco
 

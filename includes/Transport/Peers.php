@@ -42,29 +42,29 @@ final class Peers {
 	 * El SPEC fija exactamente dos tiendas (§5), así que hay una sola a quien mandarle. Con
 	 * ninguna, o con más de una, el emisor no adivina: no manda.
 	 *
+	 * Cuentan sólo las entradas con `rest_url` y secreto. La purga anota hasta dónde purgó
+	 * de cada tienda de origen, y una tienda que se volvió a emparejar con otro UUID deja
+	 * una entrada vieja sin URL: contada, cortaría la entrega para siempre.
+	 *
 	 * @return array{store: string, rest_url: string, secret: string}|null
 	 */
 	public static function only(): ?array {
-		$peers = (array) get_option( self::OPTION, array() );
+		$paired = array();
 
-		if ( 1 !== count( $peers ) ) {
-			return null;
+		foreach ( (array) get_option( self::OPTION, array() ) as $store => $peer ) {
+			$peer     = (array) $peer;
+			$rest_url = is_string( $peer['rest_url'] ?? null ) ? $peer['rest_url'] : '';
+			$secret   = is_string( $peer['secret'] ?? null ) ? $peer['secret'] : '';
+
+			if ( '' !== $rest_url && '' !== $secret ) {
+				$paired[] = array(
+					'store'    => (string) $store,
+					'rest_url' => $rest_url,
+					'secret'   => $secret,
+				);
+			}
 		}
 
-		$store = (string) array_key_first( $peers );
-		$peer  = (array) $peers[ $store ];
-
-		$rest_url = is_string( $peer['rest_url'] ?? null ) ? $peer['rest_url'] : '';
-		$secret   = self::secret( $store );
-
-		if ( '' === $rest_url || '' === $secret ) {
-			return null;
-		}
-
-		return array(
-			'store'    => $store,
-			'rest_url' => $rest_url,
-			'secret'   => $secret,
-		);
+		return 1 === count( $paired ) ? $paired[0] : null;
 	}
 }

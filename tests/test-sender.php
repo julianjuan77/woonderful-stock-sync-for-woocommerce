@@ -196,11 +196,12 @@ class Test_Sender extends WP_UnitTestCase {
 		$movement_id = $this->pending_movement( -2 );
 		delete_option( Peers::OPTION );
 
-		Sender::run();
+		$summary = Sender::run();
 
 		$this->assertSame( array(), $this->sent );
 		$this->assertSame( 'pending', $this->column_of( $movement_id, 'delivery' ) );
 		$this->assertSame( '0', $this->column_of( $movement_id, 'attempts' ) );
+		$this->assertSame( Sender::NO_PEER, $summary['error'], 'distinto de no tener nada que mandar' );
 	}
 
 	/**
@@ -408,6 +409,26 @@ class Test_Sender extends WP_UnitTestCase {
 	}
 
 	/**
+	 * La purga anota hasta dónde purgó de cada tienda de origen. Una tienda que se volvió a
+	 * emparejar con otro UUID deja una entrada vieja sin URL ni secreto, y contarla cortaría
+	 * la entrega para siempre.
+	 *
+	 * SND-10
+	 */
+	public function test_a_leftover_peer_entry_does_not_stop_delivery(): void {
+		$movement_id = $this->pending_movement( -2 );
+
+		$peers = get_option( Peers::OPTION );
+		$peers['c2c2c2c2-0000-4000-8000-000000000000'] = array( 'purged_through' => 77 );
+		update_option( Peers::OPTION, $peers, false );
+
+		Sender::run();
+
+		$this->assertCount( 1, $this->sent );
+		$this->assertSame( 'confirmed', $this->column_of( $movement_id, 'delivery' ) );
+	}
+
+	/**
 	 * SND-09 — Lo que todavía no venció su retardo no sale.
 	 */
 	public function test_nothing_due_sends_nothing(): void {
@@ -428,8 +449,9 @@ class Test_Sender extends WP_UnitTestCase {
 
 		Ledger::record( $product_id, -2 );
 
-		Sender::run();
+		$summary = Sender::run();
 
 		$this->assertSame( array(), $this->sent );
+		$this->assertNull( $summary['error'], 'no tener nada que mandar no es un error' );
 	}
 }
