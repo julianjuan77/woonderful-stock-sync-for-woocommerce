@@ -125,6 +125,10 @@ Revisado: 2026-09-28 — aprobado por Julián. §4 fija cómo responde `POST /mo
 identificar o aplicar un movimiento, y el `reason` desconocido se guarda como llega; los
 resultados vuelven en el orden del lote; y cada rechazo del lote entero tiene su código. Ver
 §4, "Cómo responde `POST /movements`".
+Revisado: 2026-09-29 — aprobado por Julián. El tamaño de lote del emisor, la curva de
+backoff, las 6 horas del techo y los 5 minutos del claim son **constantes**, no configuración:
+nadie pidió moverlos, y el código ya los tenía así. El lote es 200, igual al techo del
+receptor: un valor mayor haría que el receptor rechace todos los lotes. Ver §2 y §4.
 Temas: rest-api, api-externa, db-schema, opciones
 Cubre: includes/Transport/_.php, includes/Rest/_.php
 
@@ -433,7 +437,7 @@ UPDATE wss_movements SET delivery = 'in_flight', claimed_by = <worker>, claimed_
 **Claim** es eso: reservar filas antes de trabajarlas, para que otra pasada ya no las vea
 disponibles. **El claim vence a los 5 minutos**: alcanza para un lote que va lento y es corto
 frente a las 6 horas del techo de reintento, así que una fila colgada no cuesta casi nada. Es
-configuración, como el tamaño del lote.
+una constante, como el resto de los tiempos de la entrega (ver *El techo del reintento*).
 
 **Por qué el paso 2 es código propio y Action Scheduler no lo resuelve.** AS garantiza que no
 corran dos instancias de la misma acción a la vez. Eso no es lo mismo que marcar qué filas
@@ -490,8 +494,13 @@ repararlo.
 | **Por tiempo (6 horas)** | A los 10 minutos la otra tienda vuelve y el movimiento entra. Sin desvío   |
 
 Con un techo en cantidad de intentos el compromiso queda escondido dentro de la curva de
-backoff, y un cambio de configuración lo rompe sin que nadie lo note. La curva y las 6 horas
-son configuración; **que el techo se exprese en tiempo, no**.
+backoff, y un cambio lo rompe sin que nadie lo note. **Que el techo se exprese en tiempo es la
+decisión; cuánto tiempo es un número.**
+
+**La curva, las 6 horas y los 5 minutos del claim son constantes del código, no opciones**,
+por lo mismo que el retardo de entrega de ADR-006 §4: nadie pidió moverlos, y una opción hay
+que ponerla en una pantalla, validarla y bancarla para siempre. Si el uso real mostrara que
+alguno no sirve, se cambia en una versión.
 
 #### Qué se registra, y dónde
 
@@ -871,12 +880,14 @@ Lote de 5000  → se rechaza con un error explícito
 
 Sin tope, la ráfaga de importación de UC-04 —una carga de CSV que cambia el stock de miles de
 productos de golpe— puede hacerle timeout al receptor; el emisor lee
-ese timeout como caída y reintenta el mismo lote imposible hasta agotar las 6 horas. El tamaño
-que usa el emisor es configuración; **el techo del receptor es contrato**.
+ese timeout como caída y reintenta el mismo lote imposible hasta agotar las 6 horas. **El techo
+del receptor es contrato.**
 
-Y por eso el tamaño configurable del emisor **no puede pasar de 200**: sin ese límite, poner
-500 en los ajustes haría que el receptor rechazara todos los lotes y no saliera nunca ningún
-movimiento.
+**El emisor manda lotes de ese mismo tamaño, y es una constante, no configuración.** Una opción
+tendría que validarse contra el techo del otro lado: poner 500 en los ajustes haría que el
+receptor rechace todos los lotes y no salga nunca ningún movimiento. Y nadie pidió moverla, por
+lo mismo que el retardo de entrega de ADR-006 §4: si el volumen real del catálogo mostrara que
+200 no sirve, se cambia en una versión.
 
 #### Compatibilidad entre versiones
 
@@ -970,7 +981,7 @@ la combinación:
 | **Esquema**        | Materializar los dos ejes de estado; guardar en el eje de entrega `created_at`, `first_attempt_at` (contra el que se mide el techo de 6 h), `attempts`, `last_error`, `next_attempt_at` y `confirmed_at`; en el eje de aplicación, `applied_at`, que en un movimiento `held` es días posterior a la confirmación; crear el **almacén de nonces** con su purga |
 | **Identidad**      | El identificador que firma tiene que ser el mismo que numera los movimientos, y queda fijado en el emparejamiento |
 | **Retención**      | Una fila propia no se purga hasta que se confirme. Queda abierto el libro que crece sin techo porque la otra tienda no vuelve nunca: es una condición que hay que avisar por email (UC-08, el aviso de lo que no está sincronizando), no purgar en silencio |
-| **Opciones**       | El tamaño de lote (tope 200), la curva de backoff, las 6 horas del techo y los 5 minutos del claim. Por cada tienda remota: URL, identificador, secreto y fecha del emparejamiento. Del lado propio, **el hash de la URL del sitio al emparejar**, que es lo que detecta el clon: en claro lo reescribiría el `search-replace` de cualquier restore. El secreto es material sensible: `uninstall.php` tiene que borrarlo |
+| **Opciones**       | Por cada tienda remota: URL, identificador, secreto y fecha del emparejamiento. Del lado propio, **el hash de la URL del sitio al emparejar**, que es lo que detecta el clon: en claro lo reescribiría el `search-replace` de cualquier restore. El secreto es material sensible: `uninstall.php` tiene que borrarlo |
 
 
 ---
