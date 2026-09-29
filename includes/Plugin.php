@@ -11,6 +11,7 @@ namespace Woonderful\StockSync;
 
 use Woonderful\StockSync\Detector\Detector;
 use Woonderful\StockSync\Identity\Store;
+use Woonderful\StockSync\Rest\Movements;
 use Woonderful\StockSync\Schema\Installer;
 
 defined( 'ABSPATH' ) || exit;
@@ -63,8 +64,9 @@ final class Plugin {
 		}
 
 		// Van después de la guarda a propósito: un plugin suspendido no emite ni acepta
-		// movimientos. Faltan el transporte y la reconciliación.
+		// movimientos. Faltan el envío y la reconciliación.
 		Detector::register();
+		Movements::register();
 	}
 
 	/**

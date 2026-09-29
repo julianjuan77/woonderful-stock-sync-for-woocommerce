@@ -48,6 +48,7 @@ Prefijo por dominio, número correlativo, y **no se renumeran** aunque un caso s
 | `DET-NN` | El detector y el estampado del motivo | [`tests/test-detector.php`](test-detector.php) |
 | `SIG-NN` | La firma de los requests | [`tests/test-signature.php`](test-signature.php) |
 | `NON-NN` | El almacén de nonces | [`tests/test-nonces.php`](test-nonces.php) |
+| `MOV-NN` | `POST /movements` | [`tests/test-rest-movements.php`](test-rest-movements.php) |
 
 Cada test lleva su ID en el docblock, así que se encuentra buscándolo:
 
@@ -127,6 +128,11 @@ mientras escribía la función.
 | Un nonce se acepta una sola vez | ADR-001 §1, ADR-004 §3 | `NON-02` | [test-nonces.php](test-nonces.php) |
 | Los nonces se guardan dos ventanas: el reenvío de un reloj adelantado se frena | ADR-001 §1 | `NON-04`, `NON-05` | [test-nonces.php](test-nonces.php) |
 | Sin la tabla, ningún nonce es nuevo | ADR-001 §1 | `NON-07` | [test-nonces.php](test-nonces.php) |
+| El receptor autentica en el orden del ADR, y el nonce va al final | ADR-001 §4 | `MOV-02`…`MOV-05` | [test-rest-movements.php](test-rest-movements.php) |
+| El origen de cada movimiento es la tienda que firmó | ADR-001 §4 | `MOV-08` | [test-rest-movements.php](test-rest-movements.php) |
+| Un movimiento roto falla solo, en su posición; lo que no impide aplicar no se rechaza | ADR-001 §4 | `MOV-09`, `MOV-10`, `MOV-11` | [test-rest-movements.php](test-rest-movements.php) |
+| El techo de 200 es del receptor | ADR-001 §4 | `MOV-07`, `MOV-12` | [test-rest-movements.php](test-rest-movements.php) |
+| Un sitio suspendido no acepta movimientos | ADR-001 §1 | `PLG-19` | [test-plugin.php](test-plugin.php) |
 | El motivo se estampa después; sin documento queda `adjustment` | ADR-006 §2 | `DET-11`…`DET-14` | [test-detector.php](test-detector.php) |
 | El estampado nunca cae sobre una fila que no es la del pedido | ADR-006 §2 | `DET-15`, `DET-16`, `LED-54` | [test-detector.php](test-detector.php), [test-ledger.php](test-ledger.php) |
 | Lo que ya salió no se reescribe | ADR-006 §2 | `LED-53` | [test-ledger.php](test-ledger.php) |
@@ -205,6 +211,8 @@ mientras escribía la función.
 | `PLG-08` | `boot()` sin identidad: el plugin no pasó por la activación | Genera la identidad |
 | `PLG-16` | `boot()` con el sitio sano | Engancha el detector |
 | `PLG-17` | `boot()` con el sitio suspendido | **No** engancha el detector: un clon descontaría stock de la tienda real |
+| `PLG-18` | `boot()` con el sitio sano | Engancha `POST /movements` |
+| `PLG-19` | `boot()` con el sitio suspendido | **No** engancha `POST /movements` |
 
 ## [`tests/test-uninstall.php`](test-uninstall.php) — la desinstalación
 
@@ -336,6 +344,27 @@ Verificado rompiéndolo: con una sola ventana de retención, o con un segundo me
 control de largo cae `NON-03`; tomando como nuevo cualquier resultado que no sea un error
 —el `0` de un repetido— caen `NON-02`, `NON-04` y `NON-05`.
 
+## [`tests/test-rest-movements.php`](test-rest-movements.php) — `POST /movements`
+
+| ID | Caso | Resultado esperado |
+|---|---|---|
+| `MOV-01` | Un lote de dos, bien firmado | 200, dos `received` en orden, los dos stocks aplicados |
+| `MOV-02` | Una tienda que no está, y una que está sin secreto | 401 `wss_unknown_store` las dos |
+| `MOV-03` | El timestamp fuera de la ventana | 401 `wss_stale_timestamp`, no `wss_bad_signature` |
+| `MOV-04` | **Una firma mala** | 401 `wss_bad_signature`, y el nonce **no queda anotado** |
+| `MOV-05` | El mismo request, reenviado | 401 `wss_replayed_nonce`, el stock descontado una vez |
+| `MOV-06` | Un cuerpo que no es JSON, sin `movements`, o con `movements` que no es lista | 400 `wss_bad_request` |
+| `MOV-07` | Un lote de 201 | 413 `wss_batch_too_large`, nada escrito |
+| `MOV-08` | **Un movimiento con el `origin` de esta tienda** en medio del lote | `error` `origin_mismatch` en su posición; los otros dos, `received` |
+| `MOV-09` | `seq` como texto, `generation` negativa, `delta` decimal, `product` en cero, y algo que no es un movimiento | Cada uno `error` en su posición, con su motivo; el `seq` ilegible vuelve `null` |
+| `MOV-10` | Un `reason` que esta versión no conoce y una referencia de 150 | `received`: el motivo se guarda como llega y la referencia se recorta a 100 |
+| `MOV-11` | Un hook de terceros hace fallar un movimiento | Ése vuelve `error` `not_stored`, sin tocar su stock; el siguiente se aplica |
+| `MOV-12` | Un lote de 200 justos | 200, con 200 resultados |
+
+Verificado rompiéndolo: sin el control de `origin` cae `MOV-08`; anotando el nonce antes de la
+firma cae `MOV-04`; mirando la firma antes que el timestamp cae `MOV-03`; tomando el `null` de
+`apply()` como recibido cae `MOV-11`; con el techo en `>=` cae `MOV-12`.
+
 ## [`tests/test-guard.php`](test-guard.php) — el guard anti-eco
 
 | ID | Caso | Resultado esperado |
@@ -415,7 +444,7 @@ la suite de WordPress abre para cada test.
 
 ## Lo que todavía no tiene tests
 
-- De `Transport/`, todo menos la firma y los nonces; y todo `Reconciliation/`: no hay código todavía.
+- Del transporte, el envío (5.4), la pasada (5.5), `GET /health`, el emparejamiento y `GET /products`; y todo `Reconciliation/`: no hay código todavía.
 - Que el libro que crece sin techo —porque la otra tienda no vuelve nunca— se **avise**
   (UC-08). `purge()` ya lo deja crecer a propósito; el aviso va con el ADR del log.
 - La purga que consolida el stock base.

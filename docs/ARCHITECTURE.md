@@ -93,6 +93,28 @@ en la activación y en `plugins_loaded` si la guardada es menor.
 **Cabeceras de firma:** `X-WSS-Store`, `X-WSS-Timestamp`, `X-WSS-Nonce`, `X-WSS-Signature`.
 Ventana de reloj: ±5 minutos.
 
+**`POST /movements`** (`Rest\Movements`, ADR-001 §4). La autenticación va en el
+`permission_callback`, en este orden: tienda emparejada con secreto → timestamp → firma →
+nonce. Cada rechazo tiene su código (`wss_unknown_store`, `wss_stale_timestamp`,
+`wss_bad_signature`, `wss_replayed_nonce`, 401); después, `wss_bad_request` (400) y
+`wss_batch_too_large` (413). Autenticado, responde 200 con un resultado por movimiento **en el
+orden del lote**:
+
+```json
+{ "results": [
+    { "origin": "b1b1…", "seq": 77, "status": "received" },
+    { "origin": "b1b1…", "seq": null, "status": "error", "reason": "invalid_seq" }
+] }
+```
+
+`received` es el ACK: la fila está escrita, se haya aplicado, retenido o descartado. Los
+`reason` de error son `origin_mismatch`, `invalid_seq`, `invalid_generation`, `invalid_delta`,
+`invalid_product`, `invalid_movement` y `not_stored`, cuando `apply()` no pudo guardar. El
+`reason` de un movimiento se guarda como llega, recortado a 20; la referencia, a 100.
+
+El secreto de cada tienda lo lee `Transport\Peers::secret()` de `wss_peers[<uuid>]['secret']`;
+lo escribe el emparejamiento (5.7).
+
 **Campos de un movimiento**, todos en inglés (ADR-001 §4):
 
 ```json

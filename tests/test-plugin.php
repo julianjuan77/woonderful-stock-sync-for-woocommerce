@@ -10,6 +10,7 @@ declare( strict_types = 1 );
 use Woonderful\StockSync\Detector\Detector;
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Plugin;
+use Woonderful\StockSync\Rest\Movements;
 use Woonderful\StockSync\Schema\Installer;
 
 /**
@@ -52,6 +53,7 @@ class Test_Plugin extends WP_UnitTestCase {
 		delete_option( Installer::OPTION_SCHEMA_HEALTHY );
 
 		wss_unhook_detector();
+		remove_action( 'rest_api_init', array( Movements::class, 'register_routes' ) );
 
 		parent::tear_down();
 	}
@@ -365,5 +367,32 @@ class Test_Plugin extends WP_UnitTestCase {
 		Plugin::boot();
 
 		$this->assertFalse( has_action( 'woocommerce_product_set_stock', array( Detector::class, 'after_change' ) ) );
+	}
+
+	/**
+	 * PLG-18 — Un sitio sano recibe movimientos.
+	 */
+	public function test_boot_hooks_the_movements_endpoint(): void {
+		update_option( Store::OPTION_FINGERPRINT, Store::fingerprint() );
+
+		Plugin::boot();
+
+		$this->assertNotFalse( has_action( 'rest_api_init', array( Movements::class, 'register_routes' ) ) );
+	}
+
+	/**
+	 * Un clon que aceptara movimientos le aplicaría a la copia las ventas de la tienda
+	 * real, y respondería el ACK en su lugar (ADR-001 §1).
+	 *
+	 * PLG-19
+	 */
+	public function test_a_suspended_site_does_not_hook_the_movements_endpoint(): void {
+		update_option( Store::OPTION_FINGERPRINT, hash( 'sha256', 'https://otra.test' ) );
+
+		remove_action( 'rest_api_init', array( Movements::class, 'register_routes' ) );
+
+		Plugin::boot();
+
+		$this->assertFalse( has_action( 'rest_api_init', array( Movements::class, 'register_routes' ) ) );
 	}
 }
