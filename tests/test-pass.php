@@ -68,6 +68,7 @@ class Test_Pass extends WP_UnitTestCase {
 		}
 
 		delete_option( Peers::OPTION );
+		delete_option( Pass::OPTION_CHECKED );
 		delete_option( Store::OPTION_FINGERPRINT );
 		delete_option( Installer::OPTION_VERSION );
 		delete_option( Store::OPTION_ID );
@@ -216,5 +217,58 @@ class Test_Pass extends WP_UnitTestCase {
 		Plugin::deactivate();
 
 		$this->assertFalse( as_has_scheduled_action( Pass::HOOK, null, Pass::GROUP ) );
+	}
+
+	/**
+	 * Si hay una acción agendada.
+	 */
+	private function scheduled(): bool {
+		return as_has_scheduled_action( Pass::HOOK, null, Pass::GROUP );
+	}
+
+	/**
+	 * El primer control agenda, y deja la hora en una opción **autocargada**: se lee en cada
+	 * request, y sin autoload sería una consulta por página.
+	 *
+	 * PAS-05
+	 */
+	public function test_the_first_check_schedules_and_is_autoloaded(): void {
+		global $wpdb;
+
+		Pass::maybe_ensure_scheduled();
+
+		$autoload = $wpdb->get_var( $wpdb->prepare( "SELECT autoload FROM {$wpdb->options} WHERE option_name = %s", Pass::OPTION_CHECKED ) ); // phpcs:ignore WordPress.DB
+
+		$this->assertTrue( $this->scheduled() );
+		$this->assertContains( $autoload, array( 'yes', 'on', 'auto-on' ) );
+	}
+
+	/**
+	 * Dentro de la hora no se vuelve a mirar: ni siquiera si la acción se perdió.
+	 *
+	 * PAS-06
+	 */
+	public function test_within_the_hour_it_does_not_check(): void {
+		update_option( Pass::OPTION_CHECKED, time() - Pass::CHECK_EVERY + 60, true );
+
+		Pass::maybe_ensure_scheduled();
+
+		$this->assertFalse( $this->scheduled() );
+	}
+
+	/**
+	 * La pasada se perdió —un fatal, o dejó de reagendarse tras fallar seguido—, y nadie
+	 * entra al admin. Pasada la hora, cualquier request la vuelve a agendar.
+	 *
+	 * PAS-07
+	 */
+	public function test_a_lost_pass_comes_back_after_the_hour(): void {
+		Pass::ensure_scheduled();
+		update_option( Pass::OPTION_CHECKED, time() - Pass::CHECK_EVERY, true );
+		as_unschedule_all_actions( Pass::HOOK, array(), Pass::GROUP );
+
+		Pass::maybe_ensure_scheduled();
+
+		$this->assertTrue( $this->scheduled() );
 	}
 }

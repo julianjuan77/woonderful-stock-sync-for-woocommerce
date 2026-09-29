@@ -155,6 +155,7 @@ compatible; quitar uno o cambiarle el significado es `wss/v2`.
 | `wss_schema_version` | Versión del esquema, para las migraciones. **Autocargada**: `maybe_upgrade()` la lee en cada request |
 | `wss_schema_healthy` | Si las tres tablas existen y admiten transacciones. **Autocargada**: la guarda de arranque la lee en cada request |
 | `wss_delete_data_on_uninstall` | La casilla de ADR-003. Desmarcada de fábrica |
+| `wss_pass_checked_at` | Cuándo se controló por última vez que la pasada esté agendada. **Autocargada**: se lee en cada request. Se borra siempre al desinstalar (ADR-003) |
 
 ### Hooks para terceros
 
@@ -223,9 +224,19 @@ WooCommerce (§5 del SPEC exige 9.1+), así que no es una dependencia aparte.
 
 **`Transport\Pass`.** El callback se engancha **siempre**, antes de la guarda: un clon trae la
 acción agendada desde la tienda real, y sin callback Action Scheduler la marcaría fallida cada
-minuto. Es la pasada la que, suspendida, no hace nada. Se agenda en `admin_init` y no en cada
-request, porque mirarlo es una consulta; `unique` impide una segunda. Al desactivar se
-desagenda, y con eso alcanza: WordPress no deja desinstalar un plugin activo.
+minuto. Es la pasada la que, suspendida, no hace nada.
+
+**El agendado se controla en cualquier request, a lo sumo una vez por hora**, en
+`action_scheduler_init`. Action Scheduler agenda la próxima vuelta **después** de ejecutar la
+acción: un fatal a mitad —sin memoria, o PHP-FPM que mata el proceso— o cinco fallas seguidas
+la dejan sin próxima vuelta. Controlarlo sólo en el admin podía dejar la tienda días sin
+mandar. La hora del último control va en `wss_pass_checked_at`, autocargada, así que en cada
+request se lee sin ir a la base; `unique` impide una segunda acción.
+
+Al desactivar se desagenda y se borra esa hora; con eso alcanza, porque WordPress no deja
+desinstalar un plugin activo. **Si WooCommerce se desactivó antes**, Action Scheduler no está
+y la acción queda agendada: no rompe nada, porque al volver WooCommerce el callback está
+enganchado y la pasada sigue.
 
 **"Cada 60 segundos" depende del tráfico.** Action Scheduler lo dispara WP-Cron, que corre
 cuando alguien visita el sitio: en una tienda sin visitas la pasada puede tardar bastante más.

@@ -222,4 +222,19 @@ class Test_Uninstall extends WP_UnitTestCase {
 			$this->assertFalse( get_option( $option, false ), $option . ' tendría que estar borrada' );
 		}
 	}
+
+	/**
+	 * La hora del control de la pasada no es un dato del dueño: se va aunque se conserven
+	 * los datos (ADR-003, revisado el 2026-09-29).
+	 *
+	 * UNI-07
+	 */
+	public function test_the_pass_check_is_always_deleted(): void {
+		update_option( self::OPTION_DELETE_ALL, false );
+		update_option( 'wss_pass_checked_at', time(), true );
+
+		$this->run_uninstall();
+
+		$this->assertFalse( get_option( 'wss_pass_checked_at', false ) );
+	}
 }

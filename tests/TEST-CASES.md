@@ -220,8 +220,8 @@ mientras escribía la función.
 | `PLG-17` | `boot()` con el sitio suspendido | **No** engancha el detector: un clon descontaría stock de la tienda real |
 | `PLG-18` | `boot()` con el sitio sano | Engancha `POST /movements` |
 | `PLG-19` | `boot()` con el sitio suspendido | **No** engancha `POST /movements` |
-| `PLG-20` | `boot()` con el sitio suspendido | **Sí** engancha el callback de la pasada —sin él Action Scheduler la marcaría fallida cada minuto—, pero no su agendado |
-| `PLG-21` | `boot()` con el sitio sano | Engancha la pasada y su agendado |
+| `PLG-20` | `boot()` con el sitio suspendido | **Sí** engancha el callback de la pasada —sin él Action Scheduler la marcaría fallida cada minuto—, pero no el control de su agendado |
+| `PLG-21` | `boot()` con el sitio sano | Engancha la pasada, y el control de su agendado en `action_scheduler_init`, no en `admin_init` |
 | `PLG-22` | El archivo principal | Engancha la desactivación |
 
 ## [`tests/test-uninstall.php`](test-uninstall.php) — la desinstalación
@@ -238,6 +238,7 @@ varios tests sin chocar.
 | `UNI-04` | Casilla marcada | No queda ninguna tabla |
 | `UNI-05` | Casilla marcada | No queda ninguna de las siete opciones |
 | `UNI-06` | **Casilla nunca tocada** — el estado de fábrica | No se borra nada: es el caso del dueño que nunca abrió los ajustes |
+| `UNI-07` | Desinstalar conservando los datos | La hora del control de la pasada se va igual: no es un dato del dueño |
 
 ## [`tests/test-ledger.php`](test-ledger.php) — el libro
 
@@ -407,12 +408,17 @@ de `wss_peers` cae `SND-10`; sin el `no_peer` cae `SND-01`.
 | `PAS-02` | **La misma pasada en un sitio suspendido** | No manda ni purga nada |
 | `PAS-03` | Agendar dos veces | Una sola acción, recurrente, cada 60 segundos |
 | `PAS-04` | Desactivar el plugin | La acción se desagenda |
+| `PAS-05` | El primer control | Agenda, y la hora queda en una opción **autocargada** |
+| `PAS-06` | Un control dentro de la hora | No mira: aunque la acción se haya perdido, no hace nada |
+| `PAS-07` | **La pasada se perdió y nadie entra al admin**; pasó la hora | Cualquier request la vuelve a agendar |
 
 Verificado rompiéndolo: sin el control de suspensión en la pasada cae `PAS-02`; agendando sin
 `unique` cae `PAS-03`; desactivando sin desagendar cae `PAS-04`; enganchando el callback
 después de la guarda caen `PLG-20` y `PLG-21`. Un primer `as_has_scheduled_action()` antes de
 agendar resultó redundante —la mutación que lo sacaba no hacía caer nada— y se borró: lo que
-impide la segunda es `unique`.
+impide la segunda es `unique`. Sin el límite horario cae `PAS-06`; con la hora sin autocarga
+cae `PAS-05`; enganchando el control a `admin_init` cae `PLG-21`; sin borrarla al desinstalar
+cae `UNI-07`.
 
 ## [`tests/test-guard.php`](test-guard.php) — el guard anti-eco
 

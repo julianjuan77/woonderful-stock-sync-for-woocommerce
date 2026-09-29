@@ -38,6 +38,19 @@ final class Pass {
 	public const INTERVAL = 60;
 
 	/**
+	 * La hora del último control de que la acción esté agendada. **Autocargada**: se lee en
+	 * cada request sin consultar la base (ADR-003, revisado el 2026-09-29).
+	 */
+	public const OPTION_CHECKED = 'wss_pass_checked_at';
+
+	/**
+	 * Cada cuánto se controla, en segundos.
+	 *
+	 * Es lo que tarda, como mucho, en volver a agendarse una pasada que se perdió.
+	 */
+	public const CHECK_EVERY = 3600;
+
+	/**
 	 * Engancha el callback de la acción.
 	 *
 	 * Siempre, aunque la sincronización esté suspendida: un clon trae la acción agendada
@@ -49,14 +62,35 @@ final class Pass {
 	}
 
 	/**
-	 * Engancha el agendado.
+	 * Engancha el control del agendado.
 	 *
-	 * En `admin_init` y no en cada request: mirar si está agendada es una consulta, y
-	 * `boot()` corre en cada página de la tienda. El admin cubre lo que la activación no:
-	 * un plugin actualizado a mano, o una acción que alguien borró.
+	 * En cualquier request y no sólo en el admin. Action Scheduler agenda la próxima vuelta
+	 * de una acción recurrente **después** de ejecutarla: si el proceso muere en el medio
+	 * —sin memoria, o PHP-FPM lo mata—, o si la acción falló varias veces seguidas, no hay
+	 * próxima vuelta. Esperar a que el dueño entre al admin podía dejar la tienda días sin
+	 * mandar nada. En `action_scheduler_init`, que corre cuando ya se puede agendar.
 	 */
 	public static function register_scheduling(): void {
-		add_action( 'admin_init', array( self::class, 'ensure_scheduled' ) );
+		add_action( 'action_scheduler_init', array( self::class, 'maybe_ensure_scheduled' ) );
+	}
+
+	/**
+	 * Controla el agendado, a lo sumo una vez por hora.
+	 *
+	 * Mirar si está agendada es una consulta, y esto corre en cada página de la tienda: la
+	 * hora del último control va en una opción autocargada, que se lee sin ir a la base.
+	 */
+	public static function maybe_ensure_scheduled(): void {
+		$now = time();
+
+		if ( $now - (int) get_option( self::OPTION_CHECKED, 0 ) < self::CHECK_EVERY ) {
+			return;
+		}
+
+		// Antes de agendar: si agendar fallara, no se reintenta en cada request.
+		update_option( self::OPTION_CHECKED, $now, true );
+
+		self::ensure_scheduled();
 	}
 
 	/**
@@ -87,11 +121,17 @@ final class Pass {
 	/**
 	 * Desagenda la acción. Al desactivar el plugin.
 	 *
-	 * Alcanza con la desactivación: WordPress no deja desinstalar un plugin activo.
+	 * Alcanza con la desactivación: WordPress no deja desinstalar un plugin activo. Si
+	 * WooCommerce se desactivó antes, Action Scheduler no está y la acción queda agendada;
+	 * no rompe nada, porque al volver WooCommerce el callback está enganchado.
+	 *
+	 * Se borra también la hora del control, para que al reactivar se agende enseguida.
 	 */
 	public static function unschedule(): void {
 		if ( function_exists( 'as_unschedule_all_actions' ) ) {
 			as_unschedule_all_actions( self::HOOK, array(), self::GROUP );
 		}
+
+		delete_option( self::OPTION_CHECKED );
 	}
 }

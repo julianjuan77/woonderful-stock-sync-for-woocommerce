@@ -56,7 +56,7 @@ class Test_Plugin extends WP_UnitTestCase {
 		wss_unhook_detector();
 		remove_action( 'rest_api_init', array( Movements::class, 'register_routes' ) );
 		remove_action( Pass::HOOK, array( Pass::class, 'run' ) );
-		remove_action( 'admin_init', array( Pass::class, 'ensure_scheduled' ) );
+		remove_action( 'action_scheduler_init', array( Pass::class, 'maybe_ensure_scheduled' ) );
 
 		parent::tear_down();
 	}
@@ -409,12 +409,12 @@ class Test_Plugin extends WP_UnitTestCase {
 		update_option( Store::OPTION_FINGERPRINT, hash( 'sha256', 'https://otra.test' ) );
 
 		remove_action( Pass::HOOK, array( Pass::class, 'run' ) );
-		remove_action( 'admin_init', array( Pass::class, 'ensure_scheduled' ) );
+		remove_action( 'action_scheduler_init', array( Pass::class, 'maybe_ensure_scheduled' ) );
 
 		Plugin::boot();
 
 		$this->assertNotFalse( has_action( Pass::HOOK, array( Pass::class, 'run' ) ) );
-		$this->assertFalse( has_action( 'admin_init', array( Pass::class, 'ensure_scheduled' ) ), 'pero no agenda' );
+		$this->assertFalse( has_action( 'action_scheduler_init', array( Pass::class, 'maybe_ensure_scheduled' ) ), 'pero no agenda' );
 	}
 
 	/**
@@ -426,7 +426,7 @@ class Test_Plugin extends WP_UnitTestCase {
 		Plugin::boot();
 
 		$this->assertNotFalse( has_action( Pass::HOOK, array( Pass::class, 'run' ) ) );
-		$this->assertNotFalse( has_action( 'admin_init', array( Pass::class, 'ensure_scheduled' ) ) );
+		$this->assertNotFalse( has_action( 'action_scheduler_init', array( Pass::class, 'maybe_ensure_scheduled' ) ) );
 	}
 
 	/**

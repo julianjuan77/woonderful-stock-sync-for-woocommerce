@@ -32,6 +32,9 @@ if ( is_array( $wss_peers ) ) {
 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- no hay API de WordPress para borrar una tabla, y el nombre sale de $wpdb->prefix, no de una entrada.
 $wpdb->query( "DROP TABLE IF EXISTS {$wss_prefix}nonces" );
 
+// La hora del control de la pasada no es un dato del dueño (ADR-003).
+delete_option( 'wss_pass_checked_at' );
+
 if ( ! get_option( 'wss_delete_data_on_uninstall', false ) ) {
 	return;
 }
