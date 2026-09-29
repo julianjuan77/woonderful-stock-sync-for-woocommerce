@@ -115,7 +115,7 @@ Verificado rompiéndolo: sin el `UPDATE` cae `LED-02`; registrando productos sin
 |---|---|---|---|---|
 | 5.1 | La firma HMAC: firmar y verificar, con la ruta REST y la query ordenada | ✅ | `83051db`, `c2fd2aa` | `SIG-01`…`SIG-11` |
 | 5.2 | El almacén de nonces y su purga: dos ventanas de retención | ✅ | `b247cb9`, `909a69d` | `NON-01`…`NON-07`, sin `NON-06` |
-| 5.3 | `POST /movements` del lado receptor, con el ACK por movimiento | ✅ | `7e8f5c7`, `0cfae8a` | `MOV-01`…`MOV-12`, `LED-56`…`LED-59`, `PLG-18`, `PLG-19` |
+| 5.3 | `POST /movements` del lado receptor, con el ACK por movimiento | ✅ | `7e8f5c7`, `0cfae8a`, `32c64eb` | `MOV-01`…`MOV-12`, `LED-56`…`LED-59`, `PLG-18`, `PLG-19` |
 | 5.4 | El envío por lotes del lado emisor | ⬜ | | |
 | 5.5 | La pasada recurrente de Action Scheduler | ⬜ | | |
 | 5.6 | `GET /health` | ⬜ | | |
