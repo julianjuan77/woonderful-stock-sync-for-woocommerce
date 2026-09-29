@@ -24,7 +24,7 @@ git show 2668a7a --stat      # qué archivos tocó y cuántas líneas
 git show 2668a7a             # el diff completo
 ```
 
-Y para correr sólo los tests de una pieza, en vez de los 164:
+Y para correr sólo los tests de una pieza, en vez de los 173:
 
 ```bash
 make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS="--filter Test_Ledger"
@@ -34,9 +34,9 @@ make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS=
 
 ## 🔄 En progreso
 
-Nada. Lo siguiente es **5.4, el envío por lotes del lado emisor**: reclama con `claim()`, firma
-con `Signature::headers()`, manda a `POST /movements` y anota cada resultado con `ack()`,
-emparejando por posición.
+Nada. Lo siguiente es **5.5, la pasada recurrente de Action Scheduler**: llama a
+`Sender::run()` y a `Nonces::purge()`, y escribe la línea de log de la pasada cuando exista el
+ADR del log.
 
 ---
 
@@ -116,7 +116,7 @@ Verificado rompiéndolo: sin el `UPDATE` cae `LED-02`; registrando productos sin
 | 5.1 | La firma HMAC: firmar y verificar, con la ruta REST y la query ordenada | ✅ | `83051db`, `c2fd2aa` | `SIG-01`…`SIG-11` |
 | 5.2 | El almacén de nonces y su purga: dos ventanas de retención | ✅ | `b247cb9`, `909a69d` | `NON-01`…`NON-07`, sin `NON-06` |
 | 5.3 | `POST /movements` del lado receptor, con el ACK por movimiento | ✅ | `7e8f5c7`, `0cfae8a`, `32c64eb` | `MOV-01`…`MOV-13`, `LED-56`…`LED-59`, `PLG-18`, `PLG-19` |
-| 5.4 | El envío por lotes del lado emisor | ⬜ | | |
+| 5.4 | El envío por lotes del lado emisor | ✅ | `b164978` | `SND-01`…`SND-09` |
 | 5.5 | La pasada recurrente de Action Scheduler | ⬜ | | |
 | 5.6 | `GET /health` | ⬜ | | |
 | 5.7 | El emparejamiento: `POST /pair` y el canje con su callback | ⬜ | | |
@@ -127,10 +127,12 @@ Verificado rompiéndolo: sin el `UPDATE` cae `LED-02`; registrando productos sin
 la firma no dependa de los permalinks. Y el orden es tienda emparejada → firma y ventana →
 `Nonces::claim()`: anotar el nonce antes dejaría llenar la tabla sin el secreto (ADR-001 §1).
 
-**Para 5.4:** el emisor empareja los resultados **por posición**, no por `seq` (ADR-001 §4). Arma la
-query con los mismos valores que firmó, ya en texto: nada de booleanos (`SIG-07`).
+**Para 5.5:** la pasada recurrente llama a `Sender::run()` y a `Nonces::purge()`. `run()`
+devuelve cuántos mandó, confirmó y fallaron, y el error del request si lo hubo: es lo que
+necesita la línea de log de la pasada (ADR-001 §2), que espera al ADR del log.
 
-**Para 5.5:** la pasada recurrente llama a `Nonces::purge()`.
+**Para 5.7:** el emparejamiento guarda en `wss_peers[<uuid>]` la `rest_url` que informó la otra
+tienda y el `secret`. Es lo que leen `Peers::only()` y `Peers::secret()`.
 
 ### 6. La vinculación — `includes/Linking/`
 

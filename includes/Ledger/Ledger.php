@@ -337,7 +337,7 @@ final class Ledger {
 	 *
 	 * @param int $limit Tope de movimientos por lote.
 	 *
-	 * @return object[] Las filas reclamadas en esta llamada.
+	 * @return \stdClass[] Las filas reclamadas en esta llamada, de `get_results()`.
 	 */
 	public static function claim( int $limit = self::MAX_BATCH ): array {
 		global $wpdb;

@@ -49,6 +49,7 @@ Prefijo por dominio, número correlativo, y **no se renumeran** aunque un caso s
 | `SIG-NN` | La firma de los requests | [`tests/test-signature.php`](test-signature.php) |
 | `NON-NN` | El almacén de nonces | [`tests/test-nonces.php`](test-nonces.php) |
 | `MOV-NN` | `POST /movements` | [`tests/test-rest-movements.php`](test-rest-movements.php) |
+| `SND-NN` | El envío del lado emisor | [`tests/test-sender.php`](test-sender.php) |
 
 Cada test lleva su ID en el docblock, así que se encuentra buscándolo:
 
@@ -133,6 +134,9 @@ mientras escribía la función.
 | Un movimiento roto falla solo, en su posición; lo que no impide aplicar no se rechaza | ADR-001 §4 | `MOV-09`, `MOV-10`, `MOV-11` | [test-rest-movements.php](test-rest-movements.php) |
 | El techo de 200 es del receptor | ADR-001 §4 | `MOV-07`, `MOV-12` | [test-rest-movements.php](test-rest-movements.php) |
 | Un sitio suspendido no acepta movimientos | ADR-001 §1 | `PLG-19` | [test-plugin.php](test-plugin.php) |
+| Lo que manda el emisor lo acepta el receptor, con permalinks y sin ellos | ADR-001 §1, §4 | `SND-04` | [test-sender.php](test-sender.php) |
+| El emisor empareja los resultados por posición, y no confirma uno desordenado | ADR-001 §4 | `SND-05`, `SND-08` | [test-sender.php](test-sender.php) |
+| Sin tienda a quien mandar no se reclama nada | ADR-001 §2 | `SND-01` | [test-sender.php](test-sender.php) |
 | El motivo se estampa después; sin documento queda `adjustment` | ADR-006 §2 | `DET-11`…`DET-14` | [test-detector.php](test-detector.php) |
 | El estampado nunca cae sobre una fila que no es la del pedido | ADR-006 §2 | `DET-15`, `DET-16`, `LED-54` | [test-detector.php](test-detector.php), [test-ledger.php](test-ledger.php) |
 | Lo que ya salió no se reescribe | ADR-006 §2 | `LED-53` | [test-ledger.php](test-ledger.php) |
@@ -366,6 +370,27 @@ Verificado rompiéndolo: sin el control de `origin` cae `MOV-08`; anotando el no
 firma cae `MOV-04`; mirando la firma antes que el timestamp cae `MOV-03`; tomando el `null` de
 `apply()` como recibido cae `MOV-11`; con el techo en `>=` cae `MOV-12`; sin el tope superior de los rangos cae `MOV-13`.
 
+## [`tests/test-sender.php`](test-sender.php) — el envío
+
+La red la hace `pre_http_request`: el test guarda cada request y contesta lo que el caso
+necesita, sin salir a ningún lado.
+
+| ID | Caso | Resultado esperado |
+|---|---|---|
+| `SND-01` | **Sin tienda emparejada** | No sale nada y **no se reclama nada**: las filas siguen `pending` con 0 intentos |
+| `SND-02` | Dos movimientos pendientes | Un POST a `<rest_url>/movements`; los dos confirmados |
+| `SND-03` | El cuerpo | Cada movimiento con los siete campos de ADR-001 §4 |
+| `SND-04` | **El request que arma el emisor, del lado del receptor** | Pasa `Movements::authenticate()`, con la base con permalinks y con `?rest_route=` |
+| `SND-05` | Un resultado `received` y uno `error` | El primero confirmado; el segundo vuelve a la cola con el `reason` del receptor |
+| `SND-06` | Falla la red | Todo el lote vuelve a la cola con el mensaje de la red |
+| `SND-07` | El receptor contesta 401 | Todo el lote vuelve a la cola con `HTTP 401 <código>` |
+| `SND-08` | Falta un resultado, y otro trae en su posición el `seq` de otra fila | Ninguno de los dos confirma: `missing_result` y `result_mismatch` |
+| `SND-09` | Nada venció su retardo | No sale nada |
+
+Verificado rompiéndolo: reclamando antes de mirar si hay tienda cae `SND-01`; sin el control
+del `seq` o tomando un resultado faltante como confirmado cae `SND-08`; ignorando el error del
+request caen `SND-06` y `SND-07`; firmando otra ruta cae `SND-04`.
+
 ## [`tests/test-guard.php`](test-guard.php) — el guard anti-eco
 
 | ID | Caso | Resultado esperado |
@@ -445,7 +470,7 @@ la suite de WordPress abre para cada test.
 
 ## Lo que todavía no tiene tests
 
-- Del transporte, el envío (5.4), la pasada (5.5), `GET /health`, el emparejamiento y `GET /products`; y todo `Reconciliation/`: no hay código todavía.
+- Del transporte, la pasada (5.5), `GET /health`, el emparejamiento y `GET /products`; y todo `Reconciliation/`: no hay código todavía.
 - Que el libro que crece sin techo —porque la otra tienda no vuelve nunca— se **avise**
   (UC-08). `purge()` ya lo deja crecer a propósito; el aviso va con el ADR del log.
 - La purga que consolida el stock base.

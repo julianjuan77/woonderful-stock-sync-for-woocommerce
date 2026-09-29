@@ -116,6 +116,18 @@ enteros se validan con el rango de su columna: `delta` es `INT`, `generation` `I
 El secreto de cada tienda lo lee `Transport\Peers::secret()` de `wss_peers[<uuid>]['secret']`;
 lo escribe el emparejamiento (5.7).
 
+**El emisor** (`Transport\Sender::run()`, ADR-001 §2) manda a la única tienda emparejada
+(`Peers::only()`): sin una sola con `rest_url` y secreto, no reclama nada. `rest_url` es la
+base de la API de la otra tienda tal como ella la informó al emparejarse
+(`https://otra.com/wp-json/wss/v1`, o con `?rest_route=` sin permalinks), y se le suma
+`/movements`. Firma la ruta REST, no la URL. Espera 30 segundos, sin seguir redirecciones:
+un POST redirigido llega como GET. Empareja los resultados por posición, y uno que trae el
+`seq` de otra fila no confirma. Si falla el request entero, cada fila guarda el mismo motivo
+—el mensaje de la red o `HTTP <estado> <código>`— en `last_error`.
+
+**El lote, la curva de backoff, las 6 horas y los 5 minutos del claim son constantes**, no
+opciones (ADR-001, revisado el 2026-09-29).
+
 **Campos de un movimiento**, todos en inglés (ADR-001 §4):
 
 ```json
