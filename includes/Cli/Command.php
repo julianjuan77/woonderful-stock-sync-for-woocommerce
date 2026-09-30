@@ -47,8 +47,11 @@ final class Command {
 	 *
 	 * ## OPTIONS
 	 *
-	 * <código>
+	 * <code>
 	 * : El que emitió la otra tienda con `wp wss pairing-code`.
+	 *
+	 * El nombre va sin tildes: WP-CLI arma los argumentos a partir de este docblock, y con
+	 * `<código>` marca el argumento como inválido y rechaza el código.
 	 *
 	 * ## EXAMPLES
 	 *

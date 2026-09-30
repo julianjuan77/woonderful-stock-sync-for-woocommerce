@@ -505,6 +505,10 @@ constante `WP_CLI` no se puede definir en un test sin que quede para todos los d
 | `CLI-03` | `wp wss pair <código>` | Canjea y avisa que quedaron emparejadas |
 | `CLI-04` | `wp wss pair` con algo que no es un código | Termina con error y el código del error. Sin el `error()`, cae |
 
+**Lo que el WP-CLI falso no ve: el docblock.** El de verdad arma los argumentos a partir de él,
+y con `<código>` rechazaba el código como argumento de más. Lo encontró la prueba entre dos
+sitios (E.1), no un test: el nombre del argumento va sin tildes.
+
 **PHPUnit toma sólo `tests/test-*.php`.** Antes tomaba cualquier `.php` de `tests/`, y cargaba
 como test el stub de WP-CLI para PHPStan (`tests/stubs/`), que define la clase de verdad.
 
