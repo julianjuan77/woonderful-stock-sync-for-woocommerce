@@ -588,4 +588,50 @@ class Test_Pairing extends WP_UnitTestCase {
 
 		$this->assertSame( 401, $health->get_status() );
 	}
+
+	/**
+	 * Una copia de la base de esta tienda trae el mismo identificador. La maestra la rechaza:
+	 * no se guarda a sí misma como socia, no toca a la real, no guarda la huella, y el código
+	 * sigue valiendo para la tienda de verdad.
+	 *
+	 * PAR-17
+	 */
+	public function test_the_master_rejects_its_own_copy(): void {
+		Peers::pair( self::OTHER, self::OTHER_URL, str_repeat( 'e', 64 ), 'Mayorista' );
+		$peers = get_option( Peers::OPTION );
+
+		$code = Pairing::decode( (string) Pairing::create_code() )['c'];
+		$this->other_answers_health_as( Store::id() );
+
+		$response = $this->server->dispatch( $this->pair_request( $code, array( 'id' => Store::id() ) ) );
+
+		$this->assertSame( 409, $response->get_status() );
+		$this->assertSame( 'wss_same_store', $response->get_data()['code'] );
+		$this->assertSame( $peers, get_option( Peers::OPTION ), 'ni se guarda a sí misma ni borra a la real' );
+		$this->assertFalse( get_option( Store::OPTION_FINGERPRINT, false ) );
+		$this->assertSame( $code, Pairing::pending_code() );
+		$this->assertSame( array(), $this->sent, 'ni siquiera hace el callback' );
+	}
+
+	/**
+	 * La secundaria corta antes de salir a la red si el código es de su propio identificador.
+	 *
+	 * PAR-18
+	 */
+	public function test_the_secondary_does_not_redeem_its_own_code(): void {
+		$payload = (string) wp_json_encode(
+			array(
+				'url' => self::OTHER_URL,
+				'id'  => Store::id(),
+				'c'   => str_repeat( 'c', 64 ),
+			)
+		);
+		$code    = Pairing::PREFIX . rtrim( strtr( base64_encode( $payload ), '+/', '-_' ), '=' ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
+
+		$result = Pairing::redeem( $code );
+
+		$this->assertSame( 'wss_same_store', $result->get_error_code() );
+		$this->assertSame( array(), $this->sent );
+		$this->assertFalse( get_option( Peers::OPTION, false ) );
+	}
 }

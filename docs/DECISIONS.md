@@ -140,6 +140,9 @@ errores. Ver §1, "El emparejamiento, en detalle".
 Revisado: 2026-09-30 — corrige la anterior: la maestra no puede guardar sólo el hash del
 código, porque para verificar un HMAC hace falta la clave con que se firmó. Las dos tiendas
 guardan el código mismo, con su vencimiento. Ver §1, "El emparejamiento, en detalle".
+Revisado: 2026-09-30 — aprobado por Julián. El emparejamiento rechaza a una tienda con el
+mismo identificador, como pide ADR-002: `wss_same_store`, 409. Lo miran las dos puntas. Ver
+§1, "El emparejamiento, en detalle".
 Temas: rest-api, api-externa, db-schema, opciones
 Cubre: includes/Transport/_.php, includes/Rest/_.php
 
@@ -399,7 +402,17 @@ tienda a la otra.
 | El código no existe, venció, ya se usó, o la firma no coincide | 401 | `wss_pairing_invalid` |
 | Alguna de las dos no es `https` | 400 | `wss_insecure` |
 | El cuerpo no trae `url`, `id` o `label` | 400 | `wss_bad_request` |
+| La otra tienda tiene el mismo identificador: es una copia de esta base | 409 | `wss_same_store` |
 | El callback no respondió, o declaró otro identificador | 502 | `wss_callback_failed` |
+
+**Una tienda con el mismo identificador es una copia de ésta, y se rechaza** (ADR-002). Es un
+caso probable: armar la mayorista a partir de una copia de la base de la minorista. El callback
+pasaría —`health` dice la verdad: ese es su identificador—, la maestra se guardaría a sí misma
+como socia, borraría a la real, y la huella nueva levantaría la suspensión del clon. Lo miran
+las dos puntas: la maestra al recibir el `POST /pair`, y la secundaria antes de mandarlo, para
+cortar sin salir a la red. **409 y no 400**: el request está bien; lo que choca es el estado de
+las dos. La salida es que la copia genere su propio identificador —instalar el plugin desde cero
+en ella—; cómo se ofrece en la pantalla lo decide el ADR de interfaz.
 
 **Mientras no hay pantalla** (UC-05, tarea 8.1), el emparejamiento se dispara desde WP-CLI:
 `wp wss pairing-code` en la maestra y `wp wss pair <código>` en la secundaria.

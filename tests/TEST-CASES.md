@@ -134,6 +134,7 @@ mientras escribía la función.
 | La secundaria acepta el callback sólo mientras canjea, aunque tenga un secreto viejo | ADR-001 §1 | `PAR-09`, `PAR-10`, `PAR-11` | [test-pairing.php](test-pairing.php) |
 | Sin https no se empareja | ADR-001 §1, ADR-007 | `PAR-07`, `PAR-14` | [test-pairing.php](test-pairing.php) |
 | Emparejar deja una sola socia | ADR-001 §1 | `PAR-08` | [test-pairing.php](test-pairing.php) |
+| Una copia de la base no se empareja consigo misma | ADR-002 §1, ADR-001 §1 | `PAR-17`, `PAR-18` | [test-pairing.php](test-pairing.php) |
 | Ninguna respuesta firmada se guarda en caché | ARCHITECTURE §5 | `HLT-06`, `HLT-07`, `PLG-24` | [test-rest-health.php](test-rest-health.php), [test-plugin.php](test-plugin.php) |
 | Sin secreto no hay firma válida | ADR-001 §1 | `SIG-11` | [test-signature.php](test-signature.php) |
 | Un nonce se acepta una sola vez | ADR-001 §1, ADR-004 §3 | `NON-02` | [test-nonces.php](test-nonces.php) |
@@ -482,13 +483,16 @@ tipo de entorno en una estática sin filtro.
 | `PAR-14` | Algo que no es un código, o una maestra en http | `wss_pairing_invalid` y `wss_insecure`, sin mandar nada |
 | `PAR-15` | Un cuerpo sin `id` | 400 `wss_bad_request`, y el código sigue valiendo |
 | `PAR-16` | **Mientras dura el canje, otra tienda firma un `health` con el mismo código** | 401: el código autentica sólo a la maestra que lo emitió |
+| `PAR-17` | **Una copia de la base de la maestra canjea su código** | 409 `wss_same_store`: ni se guarda a sí misma ni borra a la socia real, no guarda la huella, no hace el callback, y el código sigue valiendo |
+| `PAR-18` | La secundaria canjea un código con su propio identificador | `wss_same_store` sin salir a la red |
 
 Verificado rompiéndolo, con nueve cambios: `health` sin la variante del canje (caen `PAR-09` y
 `PAR-11`) o que la usa sólo sin secreto (`PAR-11`); sin invalidar el código (`PAR-02`, `PAR-03`);
 el callback sin mirar el `store` (`PAR-06`); el canje sin cerrar la ventana (`PAR-09`, `PAR-10`,
 `PAR-12`); la firma mala como `wss_bad_signature` (`PAR-05`); sin mirar quién contestó
 (`PAR-13`); sin borrar las otras socias (`PAR-08`); todo como si fuera https (`PAR-07`, `PAR-14`);
-sin mirar qué maestra canjea (`PAR-16`).
+sin mirar qué maestra canjea (`PAR-16`); sin el control del mismo identificador en la maestra
+(`PAR-17`) o en la secundaria (`PAR-18`).
 
 **Las opciones se borran en el `set_up`.** Por el mismo motivo que las líneas de pedido del
 detector: en el `tear_down` van después del `DROP TABLE`, en una transacción que el `ROLLBACK` de

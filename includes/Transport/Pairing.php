@@ -173,6 +173,11 @@ final class Pairing {
 			return new \WP_Error( 'wss_pairing_invalid', __( 'Eso no es un código de emparejamiento.', 'woonderful-stock-sync-for-woocommerce' ) );
 		}
 
+		// Antes de salir a la red: la maestra lo rechazaría igual.
+		if ( Store::id() === $decoded['id'] ) {
+			return self::same_store();
+		}
+
 		if ( ! self::is_secure( (string) get_option( 'home' ) ) ) {
 			return self::insecure( __( 'Esta tienda no está en https: la huella se guardaría en http y pasar a https después suspendería la sincronización.', 'woonderful-stock-sync-for-woocommerce' ) );
 		}
@@ -238,6 +243,13 @@ final class Pairing {
 			if ( ! is_string( $body[ $field ] ?? null ) || ( 'label' !== $field && '' === $body[ $field ] ) ) {
 				return new \WP_Error( 'wss_bad_request', __( 'Faltan la url, el id o la etiqueta de la tienda.', 'woonderful-stock-sync-for-woocommerce' ), array( 'status' => 400 ) );
 			}
+		}
+
+		// Una copia de la base de esta tienda trae el mismo identificador. El callback pasaría
+		// —`health` dice la verdad—, esta tienda se guardaría a sí misma como socia y la huella
+		// nueva levantaría la suspensión del clon (ADR-002).
+		if ( Store::id() === $body['id'] ) {
+			return self::same_store();
 		}
 
 		if ( ! self::is_secure( (string) get_option( 'home' ) ) || ! self::is_secure( $body['url'] ) ) {
@@ -335,6 +347,17 @@ final class Pairing {
 		$health = json_decode( (string) wp_remote_retrieve_body( $response ), true );
 
 		return is_array( $health ) && ( $health['store'] ?? null ) === $store;
+	}
+
+	/**
+	 * Un rechazo porque la otra tienda es una copia de ésta.
+	 */
+	private static function same_store(): \WP_Error {
+		return new \WP_Error(
+			'wss_same_store',
+			__( 'La otra tienda tiene el mismo identificador que ésta: es una copia de esta base, no una segunda tienda. Instalá el plugin desde cero en la copia —borrando la opción wss_store_id— para que genere el suyo.', 'woonderful-stock-sync-for-woocommerce' ),
+			array( 'status' => 409 )
+		);
 	}
 
 	/**
