@@ -137,6 +137,9 @@ Revisado: 2026-09-30 — aprobado por Julián. §1 fija el emparejamiento en det
 y su vencimiento, cómo se firman `POST /pair` y el callback, HTTPS en los dos lados salvo en
 desarrollo, qué guarda cada tienda, que funciona aunque el sitio esté suspendido y los
 errores. Ver §1, "El emparejamiento, en detalle".
+Revisado: 2026-09-30 — corrige la anterior: la maestra no puede guardar sólo el hash del
+código, porque para verificar un HMAC hace falta la clave con que se firmó. Las dos tiendas
+guardan el código mismo, con su vencimiento. Ver §1, "El emparejamiento, en detalle".
 Temas: rest-api, api-externa, db-schema, opciones
 Cubre: includes/Transport/_.php, includes/Rest/_.php
 
@@ -338,8 +341,13 @@ curso**; fuera de esa ventana, el código no autentica nada.
 
 **Vence a los 15 minutos y vale para un solo canje exitoso.** Si el callback falla, el dueño
 puede reintentar con el mismo código mientras no venza; al primer canje que termina bien se
-invalida. La maestra guarda **sólo el hash** del código y su vencimiento, en `wss_pairing`:
-una copia de la base no se lleva un código usable.
+invalida. La maestra lo guarda con su vencimiento en `wss_pairing`.
+
+**Se guarda el código mismo, no su hash.** Para verificar una firma HMAC hace falta la clave
+con que se firmó: con el hash, la maestra no tendría con qué verificar el `POST /pair`, y si el
+hash fuera la clave, una copia de la base se lo llevaría igual. Lo que acota el riesgo es la
+vida corta —15 minutos, y se borra al primer canje exitoso—: una copia de la base sólo se lleva
+un código usable si se hace en esa ventana.
 
 **`POST /pair` se firma con el código.** La misma firma de seis líneas de "Qué entra en la
 firma", con el código en el lugar del secreto y `X-WSS-Store` con el identificador de la
@@ -356,9 +364,10 @@ La maestra responde, si todo sale bien:
 ```
 
 **El callback es un `GET /health` firmado con el código.** La secundaria lo acepta **sólo
-mientras está canjeando**: antes de mandar el `POST /pair` guarda el hash del código y el
+mientras está canjeando**: antes de mandar el `POST /pair` guarda el código y el
 identificador de la maestra en `wss_redeeming`, con un vencimiento de 2 minutos, y lo borra al
-terminar, salga bien o mal. Fuera de esa ventana, el código no autentica nada. La maestra
+terminar, salga bien o mal. Mientras dura, verifica con el código aunque ya tenga un secreto de
+esa maestra: si no, re-emparejar —que es también la rotación— no pasaría nunca el callback. Fuera de esa ventana, el código no autentica nada. La maestra
 comprueba que `health` responda y que su `store` sea el `id` del cuerpo.
 
 **HTTPS en los dos lados.** Cada tienda exige que su propia opción `home` sea `https` antes de
@@ -370,6 +379,9 @@ falta firmarla.
 **La excepción es desarrollo.** Con `wp_get_environment_type()` en `local` o `development` se
 acepta `http`: dos sitios locales no podrían emparejarse nunca, y ahí no hay nadie en el medio
 ni una migración a HTTPS que suspenda.
+
+**La secundaria exige también que la `url` de la maestra sea `https`**: el secreto vuelve en la
+respuesta del `POST /pair`, por esa dirección.
 
 **Qué guarda cada tienda al terminar**, en `wss_peers[<id de la otra>]`: su `rest_url`, el
 `secret`, su `label` y `paired_at`. Y su propia huella en `wss_site_fingerprint`, que es lo que
@@ -1260,6 +1272,9 @@ escriben los dos.
 ## ADR-003 — Desinstalación y borrado de datos
 
 Estado: Aprobada · 2026-09-20 · aprobada por Julián
+Revisado: 2026-09-30 — suma `wss_pairing` y `wss_redeeming`, el código de un emparejamiento en
+curso de cada lado (ADR-001 §1). Se borran **siempre**: son un código vivo, no un dato del
+dueño.
 Revisado: 2026-09-29 — aprobado por Julián. Suma `wss_pass_checked_at`, la hora del último
 control de que la pasada recurrente esté agendada, y se borra **siempre**: no es un dato del
 dueño. Y deja dicho que desactivar desagenda la pasada. Ver *Qué borra cada caso* y
@@ -1284,6 +1299,7 @@ Ajustes → [ ] Borrar todos los datos al desinstalar     ← desmarcada de fáb
 | Ajustes del plugin                        | queda              | se borra        |
 | Almacén de nonces                         | se borra           | se borra        |
 | Hora del último control de la pasada      | se borra           | se borra        |
+| Código de un emparejamiento en curso      | se borra           | se borra        |
 | **Secreto compartido con la otra tienda** | **se borra**       | **se borra**    |
 
 ### Por qué desmarcada por defecto
