@@ -116,6 +116,11 @@ re-emparejar no pasaría nunca el callback. Https en los dos lados, salvo en `lo
 `development`. Se registra antes de la guarda: re-emparejar es la forma de salir de la
 suspensión por un cambio de URL.
 
+**Mientras no hay pantalla, WP-CLI** (`Cli\Command`): `wp wss pairing-code` en la maestra y
+`wp wss pair <código>` en la secundaria. Se registra antes de la guarda, como `/pair`. Para
+PHPStan hay un stub propio de tres métodos en `tests/stubs/wp-cli.php`, en vez de la
+dependencia `php-stubs/wp-cli-stubs`: si el comando crece, conviene la dependencia, con su ADR.
+
 **`GET /health`** (`Rest\Health`, ADR-001 §4) responde `store`, `label`, `version`, `api` y
 `suspended` —`null`, `cloned_site` o `unhealthy_schema`—. Se registra **antes de la guarda**:
 un sitio suspendido responde igual, para que la otra tienda pueda explicar por qué no le

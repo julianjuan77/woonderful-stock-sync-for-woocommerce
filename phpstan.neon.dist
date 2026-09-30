@@ -12,6 +12,7 @@ parameters:
     scanFiles:
         - vendor/php-stubs/wordpress-stubs/wordpress-stubs.php
         - vendor/php-stubs/woocommerce-stubs/woocommerce-stubs.php
+        - tests/stubs/wp-cli.php
     ignoreErrors:
         # Las constantes de tiempo de WordPress no están en los stubs.
         - '#Constant (SECOND|MINUTE|HOUR|DAY|WEEK|MONTH|YEAR)_IN_SECONDS not found#'

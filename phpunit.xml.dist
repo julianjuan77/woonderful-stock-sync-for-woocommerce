@@ -9,7 +9,7 @@
 	stopOnFailure="false">
 	<testsuites>
 		<testsuite name="Woonderful Stock Sync">
-			<directory suffix=".php">tests/</directory>
+			<directory prefix="test-" suffix=".php">tests/</directory>
 			<exclude>tests/bootstrap.php</exclude>
 			<exclude>tests/wp-tests-config.php</exclude>
 		</testsuite>

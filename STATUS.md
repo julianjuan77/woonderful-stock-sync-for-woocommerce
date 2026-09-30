@@ -24,7 +24,7 @@ git show 2668a7a --stat      # qué archivos tocó y cuántas líneas
 git show 2668a7a             # el diff completo
 ```
 
-Y para correr sólo los tests de una pieza, en vez de los 210:
+Y para correr sólo los tests de una pieza, en vez de los 214:
 
 ```bash
 make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS="--filter Test_Ledger"
@@ -34,11 +34,10 @@ make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS=
 
 ## 🔄 En progreso
 
-**5.7, el emparejamiento.** Hecho el canje de los dos lados. Falta dispararlo desde WP-CLI
-—`wp wss pairing-code` y `wp wss pair <código>`— mientras no haya pantalla.
+**5.7, el emparejamiento.** Hechos el canje de los dos lados y los comandos
+—`wp wss pairing-code` y `wp wss pair <código>`—, con sus tests.
 
-Done cuando: los dos comandos emiten y canjean un código, tienen sus tests, y dos sitios del
-sandbox quedan emparejados de verdad.
+Done cuando: dos sitios de wp-restore quedan emparejados de verdad con esos comandos.
 
 ---
 
@@ -121,7 +120,7 @@ Verificado rompiéndolo: sin el `UPDATE` cae `LED-02`; registrando productos sin
 | 5.4 | El envío por lotes del lado emisor | ✅ | `b164978`, `4f2f842` | `SND-01`…`SND-10` |
 | 5.5 | La pasada recurrente de Action Scheduler | ✅ | `753f4eb` | `PAS-01`…`PAS-07`, `PLG-20`…`PLG-22`, `UNI-07` |
 | 5.6 | `GET /health` | ✅ | `02ce7dc`, `638df6f` | `HLT-01`…`HLT-07`, `PLG-23`, `PLG-24` |
-| 5.7 | El emparejamiento: `POST /pair` y el canje con su callback. Https en los dos lados, salvo en desarrollo. Falta disparar desde WP-CLI | 🔄 | `b972a51`, `10b245e` | `PAR-01`…`PAR-14`, `PLG-25`, `UNI-08` |
+| 5.7 | El emparejamiento: `POST /pair` y el canje con su callback. Https en los dos lados, salvo en desarrollo. Se dispara desde WP-CLI. Falta probarlo entre dos sitios de verdad | 🔄 | `b972a51`, `10b245e` | `PAR-01`…`PAR-14`, `CLI-01`…`CLI-04`, `PLG-25`, `UNI-08` |
 | 5.8 | `GET /products` | ⬜ | | |
 | 5.9 | **El envío al final del request de la venta**, con `fastcgi_finish_request()` como en woonderful-sync. Sólo lo escrito en ese request, con un timeout corto (≈5 s); sin PHP-FPM, queda para la pasada. Necesita revisar ADR-006 §4: el retardo de 10 s no hace falta para lo que se manda en el `shutdown`, porque el estampado ya corrió y la ráfaga del request sale junta | ⬜ | | |
 

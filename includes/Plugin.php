@@ -9,6 +9,7 @@ declare( strict_types = 1 );
 
 namespace Woonderful\StockSync;
 
+use Woonderful\StockSync\Cli\Command;
 use Woonderful\StockSync\Detector\Detector;
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Rest\Auth;
@@ -73,6 +74,10 @@ final class Plugin {
 		Health::register();
 		Pair::register();
 		Auth::register();
+
+		if ( defined( 'WP_CLI' ) && WP_CLI ) {
+			\WP_CLI::add_command( 'wss', Command::class );
+		}
 
 		if ( null !== self::suspension_reason() ) {
 			add_action( 'admin_notices', array( self::class, 'notice_suspended' ) );

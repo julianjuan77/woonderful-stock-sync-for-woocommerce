@@ -53,6 +53,7 @@ Prefijo por dominio, número correlativo, y **no se renumeran** aunque un caso s
 | `PAS-NN` | La pasada recurrente | [`tests/test-pass.php`](test-pass.php) |
 | `HLT-NN` | `GET /health` | [`tests/test-rest-health.php`](test-rest-health.php) |
 | `PAR-NN` | El emparejamiento | [`tests/test-pairing.php`](test-pairing.php) |
+| `CLI-NN` | Los comandos de WP-CLI | [`tests/test-cli.php`](test-cli.php) |
 
 Cada test lleva su ID en el docblock, así que se encuentra buscándolo:
 
@@ -490,6 +491,22 @@ el callback sin mirar el `store` (`PAR-06`); el canje sin cerrar la ventana (`PA
 detector: en el `tear_down` van después del `DROP TABLE`, en una transacción que el `ROLLBACK` de
 la suite deshace. `wss_peers` llegaba con entradas de otras clases, como el `purged_through` de
 la purga del libro.
+
+## [`tests/test-cli.php`](test-cli.php) — los comandos de WP-CLI
+
+WP-CLI no está cargado en los tests: `tests/fakes/class-wp-cli.php` hace de él, guarda lo que se
+imprime y convierte `error()` en una excepción. Que `boot()` registre el comando no se prueba: la
+constante `WP_CLI` no se puede definir en un test sin que quede para todos los demás.
+
+| ID | Caso | Resultado esperado |
+|---|---|---|
+| `CLI-01` | `wp wss pairing-code` | Imprime un código que se puede canjear |
+| `CLI-02` | `wp wss pairing-code` sin https | Termina con error, y el mensaje dice https |
+| `CLI-03` | `wp wss pair <código>` | Canjea y avisa que quedaron emparejadas |
+| `CLI-04` | `wp wss pair` con algo que no es un código | Termina con error y el código del error. Sin el `error()`, cae |
+
+**PHPUnit toma sólo `tests/test-*.php`.** Antes tomaba cualquier `.php` de `tests/`, y cargaba
+como test el stub de WP-CLI para PHPStan (`tests/stubs/`), que define la clase de verdad.
 
 ## [`tests/test-guard.php`](test-guard.php) — el guard anti-eco
 
