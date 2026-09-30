@@ -133,6 +133,10 @@ Revisado: 2026-09-29 — aprobado por Julián. §4 fija qué responde `GET /heal
 identidad, la etiqueta, la versión, la API y si está suspendida y por qué. Responde aunque la
 sincronización esté suspendida, y no anota el nonce: sólo lee. Ver §4, "Qué responde
 `GET /health`".
+Revisado: 2026-09-30 — aprobado por Julián. §1 fija el emparejamiento en detalle: el código
+y su vencimiento, cómo se firman `POST /pair` y el callback, HTTPS en los dos lados salvo en
+desarrollo, qué guarda cada tienda, que funciona aunque el sitio esté suspendido y los
+errores. Ver §1, "El emparejamiento, en detalle".
 Temas: rest-api, api-externa, db-schema, opciones
 Cubre: includes/Transport/_.php, includes/Rest/_.php
 
@@ -323,6 +327,70 @@ Con callback                     → falla en el momento del emparejamiento, con
 De paso prueba el canal en la dirección maestra → secundaria, que si no quedaría sin probar.
 La secundaria acepta un `GET /health` firmado con el código **sólo mientras tiene un canje en
 curso**; fuera de esa ventana, el código no autentica nada.
+
+#### El emparejamiento, en detalle
+
+**El código.** `wss_` seguido de un JSON en base64url con tres campos:
+
+```json
+{ "url": "https://maestra.com/wp-json/wss/v1", "id": "8f4e2a91-…", "c": "<256 bits en hex>" }
+```
+
+**Vence a los 15 minutos y vale para un solo canje exitoso.** Si el callback falla, el dueño
+puede reintentar con el mismo código mientras no venza; al primer canje que termina bien se
+invalida. La maestra guarda **sólo el hash** del código y su vencimiento, en `wss_pairing`:
+una copia de la base no se lleva un código usable.
+
+**`POST /pair` se firma con el código.** La misma firma de seis líneas de "Qué entra en la
+firma", con el código en el lugar del secreto y `X-WSS-Store` con el identificador de la
+secundaria. El cuerpo:
+
+```json
+{ "url": "https://secundaria.com/wp-json/wss/v1", "id": "b1b1…", "label": "Mayorista" }
+```
+
+La maestra responde, si todo sale bien:
+
+```json
+{ "secret": "<256 bits en hex>", "id": "8f4e2a91-…", "label": "Minorista" }
+```
+
+**El callback es un `GET /health` firmado con el código.** La secundaria lo acepta **sólo
+mientras está canjeando**: antes de mandar el `POST /pair` guarda el hash del código y el
+identificador de la maestra en `wss_redeeming`, con un vencimiento de 2 minutos, y lo borra al
+terminar, salga bien o mal. Fuera de esa ventana, el código no autentica nada. La maestra
+comprueba que `health` responda y que su `store` sea el `id` del cuerpo.
+
+**HTTPS en los dos lados.** Cada tienda exige que su propia opción `home` sea `https` antes de
+emitir o canjear un código —ADR-007: si no, la huella queda en `http` y pasar a HTTPS después
+la suspende—, y la maestra exige que la `url` de la secundaria sea `https`. Con HTTPS, la
+respuesta de `health`, que no va firmada, no se puede cambiar en el camino, así que no hace
+falta firmarla.
+
+**La excepción es desarrollo.** Con `wp_get_environment_type()` en `local` o `development` se
+acepta `http`: dos sitios locales no podrían emparejarse nunca, y ahí no hay nadie en el medio
+ni una migración a HTTPS que suspenda.
+
+**Qué guarda cada tienda al terminar**, en `wss_peers[<id de la otra>]`: su `rest_url`, el
+`secret`, su `label` y `paired_at`. Y su propia huella en `wss_site_fingerprint`, que es lo que
+levanta la suspensión de un sitio que cambió de URL. **Emparejar borra la `rest_url` y el
+secreto de cualquier otra entrada**: en v1 hay una sola socia. El `purged_through` se conserva.
+
+**Funciona aunque el sitio esté suspendido.** Re-emparejar es la forma de salir de la
+suspensión por un cambio de URL, y es un acto deliberado: el dueño copia el código de una
+tienda a la otra.
+
+**Los errores de `POST /pair`:**
+
+| Qué pasó | HTTP | Código |
+| --- | --- | --- |
+| El código no existe, venció, ya se usó, o la firma no coincide | 401 | `wss_pairing_invalid` |
+| Alguna de las dos no es `https` | 400 | `wss_insecure` |
+| El cuerpo no trae `url`, `id` o `label` | 400 | `wss_bad_request` |
+| El callback no respondió, o declaró otro identificador | 502 | `wss_callback_failed` |
+
+**Mientras no hay pantalla** (UC-05, tarea 8.1), el emparejamiento se dispara desde WP-CLI:
+`wp wss pairing-code` en la maestra y `wp wss pair <código>` en la secundaria.
 
 #### Detección de clon: la tienda que cambió de sitio se apaga sola
 
