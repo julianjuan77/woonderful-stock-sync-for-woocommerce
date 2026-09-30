@@ -34,12 +34,13 @@ make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS=
 
 ## 🔄 En progreso
 
-**E.1, dos tiendas locales que se hablan.** Hoy dos sitios de wp-restore no se pueden
-emparejar: corren como `production` sobre `http`, cada uno en su propia red de Docker —adentro
-de un contenedor, `localhost:<puerto>` es él mismo—, y no hay un segundo sitio en blanco.
+Nada. Lo siguiente es **5.8, `GET /products`**, o saltar a la vinculación (bloque 6), que es lo
+que falta para que dos tiendas se sincronicen sin armar el vínculo a mano.
 
-Done cuando: dos sitios en blanco de wp-restore, con el plugin montado, quedan emparejados con
-`wp wss pairing-code` y `wp wss pair`, y una venta en uno descuenta en el otro.
+**Para probar entre dos tiendas:** `sandbox` (8150) y `sandbox-b` (8170) están emparejadas y
+tienen la "Alpargata azul 38" vinculada. Con `DISABLE_WP_CRON` la pasada no corre sola: se
+dispara con `wp eval '\Woonderful\StockSync\Transport\Sender::run();'` pasados los 10 s del
+retardo. Ver el README de wp-restore, "Dos sitios que se hablan".
 
 ---
 
@@ -137,7 +138,7 @@ es lo normal: loguearlo en cada pasada sería ruido.
 
 | | Tarea | Estado |
 |---|---|---|
-| E.1 | Dos tiendas locales que se hablan: un segundo sitio en blanco, `WP_ENVIRONMENT_TYPE=local`, y que un contenedor alcance al otro por la URL que informa | 🔄 |
+| E.1 | Dos tiendas locales que se hablan: `sandbox` y `sandbox-b`, con `PEER_NETWORK=1` (wp-restore `019585b`). Emparejadas con `wp wss pairing-code` / `wp wss pair`; una venta en A descuenta en B y un ajuste en B descuenta en A, sin eco. El vínculo se armó a mano: la vinculación es 6.1 | ✅ |
 
 ### 6. La vinculación — `includes/Linking/`
 
@@ -215,4 +216,5 @@ seguridad y convenciones de código.
 | **Condición para publicar:** ninguna versión puede salir con 5.3 y sin 6.2 y 6.3. Una tienda con esa versión le confirmaría con ACK el bootstrap o el `unlink` de otra más nueva, lo descartaría, y el par no se crearía —o no se borraría— sin que nadie se entere | Revisión 2026-09-29 → 9.3 |
 | Un `reason` desconocido se guarda y su delta se aplica, que está bien para una etiqueta nueva. Pero si una versión futura suma un motivo con **significado especial**, como el `bootstrap`, la vieja lo aplicaría como un ajuste común. La sección *Compatibilidad entre versiones* de ADR-001 tiene que decir cómo se marca un movimiento que una versión vieja no debe aplicar | Revisión 2026-09-29 → ADR-001 |
 | **Un lote que siempre voltea al receptor arrastra a los otros 199.** Si el receptor muere con un error que `apply()` no puede atrapar —sin memoria, o el tiempo máximo de PHP—, las 200 filas reciben el mismo error, el mismo backoff, vuelven a salir juntas y a las 6 horas se abandonan todas. Un timeout de 30 s no tiene el problema: el receptor termina igual y el reintento deduplica. La mitigación posible es partir el lote a la mitad tras una falla del lote entero que no sea de red ni de autenticación. No se hace hasta ver el volumen real | Revisión 2026-09-29 → §6 del SPEC |
+| **En el sandbox faltaban `wp_wss_links` y `wp_wss_movements`** —sólo quedaba `wp_wss_nonces`— con `wss_schema_version` en 1: el sitio estaba suspendido por esquema, y `maybe_upgrade()` no lo arregla porque la versión está al día. No coincide con ninguno de los dos caminos de `uninstall.php`. Causa sin encontrar; se reparó reactivando el plugin. Si se repite, mirar quién hace `DROP TABLE` sobre el prefijo `wp_` | E.1, 2026-09-30 |
 | Infection sobre `Transport/`, que ya existe: necesita PCOV en la imagen de wp-restore | — |
