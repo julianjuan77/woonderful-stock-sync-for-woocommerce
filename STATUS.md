@@ -34,10 +34,12 @@ make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS=
 
 ## 🔄 En progreso
 
-**5.7, el emparejamiento.** Hechos el canje de los dos lados y los comandos
-—`wp wss pairing-code` y `wp wss pair <código>`—, con sus tests.
+**E.1, dos tiendas locales que se hablan.** Hoy dos sitios de wp-restore no se pueden
+emparejar: corren como `production` sobre `http`, cada uno en su propia red de Docker —adentro
+de un contenedor, `localhost:<puerto>` es él mismo—, y no hay un segundo sitio en blanco.
 
-Done cuando: dos sitios de wp-restore quedan emparejados de verdad con esos comandos.
+Done cuando: dos sitios en blanco de wp-restore, con el plugin montado, quedan emparejados con
+`wp wss pairing-code` y `wp wss pair`, y una venta en uno descuenta en el otro.
 
 ---
 
@@ -120,7 +122,7 @@ Verificado rompiéndolo: sin el `UPDATE` cae `LED-02`; registrando productos sin
 | 5.4 | El envío por lotes del lado emisor | ✅ | `b164978`, `4f2f842` | `SND-01`…`SND-10` |
 | 5.5 | La pasada recurrente de Action Scheduler | ✅ | `753f4eb` | `PAS-01`…`PAS-07`, `PLG-20`…`PLG-22`, `UNI-07` |
 | 5.6 | `GET /health` | ✅ | `02ce7dc`, `638df6f` | `HLT-01`…`HLT-07`, `PLG-23`, `PLG-24` |
-| 5.7 | El emparejamiento: `POST /pair` y el canje con su callback. Https en los dos lados, salvo en desarrollo. Se dispara desde WP-CLI. Falta probarlo entre dos sitios de verdad | 🔄 | `b972a51`, `10b245e` | `PAR-01`…`PAR-14`, `CLI-01`…`CLI-04`, `PLG-25`, `UNI-08` |
+| 5.7 | El emparejamiento: `POST /pair` y el canje con su callback. Https en los dos lados, salvo en desarrollo. Se dispara desde WP-CLI. La prueba entre dos sitios de verdad espera a E.1 | ✅ | `b972a51`, `10b245e`, `ae25584`, `ba6d266` | `PAR-01`…`PAR-14`, `CLI-01`…`CLI-04`, `PLG-25`, `UNI-08` |
 | 5.8 | `GET /products` | ⬜ | | |
 | 5.9 | **El envío al final del request de la venta**, con `fastcgi_finish_request()` como en woonderful-sync. Sólo lo escrito en ese request, con un timeout corto (≈5 s); sin PHP-FPM, queda para la pasada. Necesita revisar ADR-006 §4: el retardo de 10 s no hace falta para lo que se manda en el `shutdown`, porque el estampado ya corrió y la ráfaga del request sale junta | ⬜ | | |
 
@@ -130,6 +132,12 @@ línea de log de la pasada (ADR-001 §2), que todavía no se escribe. Antes de e
 es lo normal: loguearlo en cada pasada sería ruido.
 
 
+
+### E. El entorno — `../wp-restore`, otro repo
+
+| | Tarea | Estado |
+|---|---|---|
+| E.1 | Dos tiendas locales que se hablan: un segundo sitio en blanco, `WP_ENVIRONMENT_TYPE=local`, y que un contenedor alcance al otro por la URL que informa | 🔄 |
 
 ### 6. La vinculación — `includes/Linking/`
 
