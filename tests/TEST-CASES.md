@@ -475,17 +475,20 @@ tipo de entorno en una estática sin filtro.
 | `PAR-07` | Una secundaria en http, o esta tienda en http | `wss_insecure` |
 | `PAR-08` | Emparejar con una socia vieja en `wss_peers` | A la vieja le quedan sólo el `purged_through` |
 | `PAR-09` | **El canje completo, del lado de la secundaria** | El `POST /pair` va firmado con el código; **el callback pasa `health` mientras dura el canje**; se guardan la socia y la huella, y se cierra la ventana |
-| `PAR-10` | El callback después del canje | 401: el código ya no autentica nada |
+| `PAR-10` | El callback después de un canje **que terminó bien** | 401: el código ya no autentica nada |
 | `PAR-11` | **Re-emparejar con un secreto viejo de la maestra** | El callback firmado con el código pasa igual, y queda el secreto nuevo |
 | `PAR-12` | La maestra rechaza el canje | La secundaria recibe su código de error, no guarda nada, y cierra la ventana |
 | `PAR-13` | Contesta otra tienda | `wss_pairing_failed`, nada guardado |
 | `PAR-14` | Algo que no es un código, o una maestra en http | `wss_pairing_invalid` y `wss_insecure`, sin mandar nada |
+| `PAR-15` | Un cuerpo sin `id` | 400 `wss_bad_request`, y el código sigue valiendo |
+| `PAR-16` | **Mientras dura el canje, otra tienda firma un `health` con el mismo código** | 401: el código autentica sólo a la maestra que lo emitió |
 
 Verificado rompiéndolo, con nueve cambios: `health` sin la variante del canje (caen `PAR-09` y
 `PAR-11`) o que la usa sólo sin secreto (`PAR-11`); sin invalidar el código (`PAR-02`, `PAR-03`);
 el callback sin mirar el `store` (`PAR-06`); el canje sin cerrar la ventana (`PAR-09`, `PAR-10`,
 `PAR-12`); la firma mala como `wss_bad_signature` (`PAR-05`); sin mirar quién contestó
-(`PAR-13`); sin borrar las otras socias (`PAR-08`); todo como si fuera https (`PAR-07`, `PAR-14`).
+(`PAR-13`); sin borrar las otras socias (`PAR-08`); todo como si fuera https (`PAR-07`, `PAR-14`);
+sin mirar qué maestra canjea (`PAR-16`).
 
 **Las opciones se borran en el `set_up`.** Por el mismo motivo que las líneas de pedido del
 detector: en el `tear_down` van después del `DROP TABLE`, en una transacción que el `ROLLBACK` de

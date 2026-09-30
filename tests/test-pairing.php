@@ -447,7 +447,7 @@ class Test_Pairing extends WP_UnitTestCase {
 			)
 		);
 
-		Pairing::redeem( self::code_from_other( $code ) );
+		$this->assertTrue( Pairing::redeem( self::code_from_other( $code ) ), 'sin un canje que termine bien, el 401 no prueba nada' );
 
 		$this->assertSame( 401, $this->server->dispatch( $this->callback_request( $code ) )->get_status() );
 	}
@@ -490,7 +490,7 @@ class Test_Pairing extends WP_UnitTestCase {
 	 *
 	 * PAR-12
 	 */
-	public function test_a_rejected_redeem_keeps_the_masters_code(): void {
+	public function test_a_rejected_redeem_leaves_the_secondary_unpaired(): void {
 		$this->other = static fn () => self::reply(
 			401,
 			array(
@@ -547,5 +547,45 @@ class Test_Pairing extends WP_UnitTestCase {
 
 		$this->assertSame( 'wss_insecure', Pairing::redeem( $code )->get_error_code() );
 		$this->assertSame( array(), $this->sent, 'no sale nada' );
+	}
+
+	/**
+	 * PAR-15 — Un cuerpo sin `id` es `wss_bad_request`, y el código sigue valiendo.
+	 */
+	public function test_a_body_without_id_is_a_bad_request(): void {
+		$code = Pairing::decode( (string) Pairing::create_code() )['c'];
+
+		$response = $this->server->dispatch( $this->pair_request( $code, array( 'id' => '' ) ) );
+
+		$this->assertSame( 400, $response->get_status() );
+		$this->assertSame( 'wss_bad_request', $response->get_data()['code'] );
+		$this->assertSame( $code, Pairing::pending_code() );
+	}
+
+	/**
+	 * El código del canje autentica sólo a la maestra que lo emitió: otra tienda que firme
+	 * un `health` con ese mismo código, mientras dura el canje, no pasa.
+	 *
+	 * PAR-16
+	 */
+	public function test_the_redeeming_code_only_serves_that_master(): void {
+		$code    = str_repeat( 'c', 64 );
+		$health  = null;
+		$server  = $this->server;
+		$request = new WP_REST_Request( 'GET', '/wss/v1/health' );
+
+		foreach ( Signature::headers( 'c2c2c2c2-0000-4000-8000-000000000000', $code, 'GET', '/wss/v1/health', array(), '' ) as $name => $value ) {
+			$request->set_header( $name, $value );
+		}
+
+		$this->other = function () use ( &$health, $server, $request ) {
+			$health = $server->dispatch( $request );
+
+			return self::reply( 401, array( 'code' => 'wss_callback_failed' ) );
+		};
+
+		Pairing::redeem( self::code_from_other( $code ) );
+
+		$this->assertSame( 401, $health->get_status() );
 	}
 }
