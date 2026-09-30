@@ -237,4 +237,21 @@ class Test_Uninstall extends WP_UnitTestCase {
 
 		$this->assertFalse( get_option( 'wss_pass_checked_at', false ) );
 	}
+
+	/**
+	 * Un código de emparejamiento vivo, de cualquiera de los dos lados, se va siempre: es
+	 * una credencial, no un dato del dueño (ADR-003, revisado el 2026-09-30).
+	 *
+	 * UNI-08
+	 */
+	public function test_a_live_pairing_code_is_always_deleted(): void {
+		update_option( self::OPTION_DELETE_ALL, false );
+		update_option( 'wss_pairing', array( 'code' => 'x' ), false );
+		update_option( 'wss_redeeming', array( 'code' => 'y' ), false );
+
+		$this->run_uninstall();
+
+		$this->assertFalse( get_option( 'wss_pairing', false ) );
+		$this->assertFalse( get_option( 'wss_redeeming', false ) );
+	}
 }

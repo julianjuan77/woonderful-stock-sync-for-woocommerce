@@ -104,6 +104,18 @@ guarda por URL —Varnish, la de Nginx, "cache everything" de Cloudflare— le d
 de un request firmado a cualquiera que pida la misma URL, sin que la autenticación corra. Con
 `GET /products` eso sería el catálogo con el stock. Se engancha antes de la guarda.
 
+**`POST /pair`** (`Rest\Pair`, `Transport\Pairing`, ADR-001 §1) autentica con el código que
+emitió esta tienda, no con un secreto, y cualquier falla del código es `wss_pairing_invalid`.
+`Pairing::accept()` llama a `GET /health` de la secundaria firmado con el código y comprueba
+que su `store` sea el que dijo; recién ahí genera el secreto, guarda a la otra con
+`Peers::pair()` —que borra la URL y el secreto de cualquier otra entrada— y su propia huella
+con `Store::remember_fingerprint()`, y borra el código. Del otro lado, `Pairing::redeem()`
+guarda el código en `wss_redeeming` mientras dura el `POST /pair`, y **`health` verifica con
+el código mientras dura el canje**, aunque ya haya un secreto de esa maestra: si no,
+re-emparejar no pasaría nunca el callback. Https en los dos lados, salvo en `local` y
+`development`. Se registra antes de la guarda: re-emparejar es la forma de salir de la
+suspensión por un cambio de URL.
+
 **`GET /health`** (`Rest\Health`, ADR-001 §4) responde `store`, `label`, `version`, `api` y
 `suspended` —`null`, `cloned_site` o `unhealthy_schema`—. Se registra **antes de la guarda**:
 un sitio suspendido responde igual, para que la otra tienda pueda explicar por qué no le
@@ -172,6 +184,8 @@ compatible; quitar uno o cambiarle el significado es `wss/v2`.
 | `wss_schema_version` | Versión del esquema, para las migraciones. **Autocargada**: `maybe_upgrade()` la lee en cada request |
 | `wss_schema_healthy` | Si las tres tablas existen y admiten transacciones. **Autocargada**: la guarda de arranque la lee en cada request |
 | `wss_delete_data_on_uninstall` | La casilla de ADR-003. Desmarcada de fábrica |
+| `wss_pairing` | El código que emitió esta tienda y su vencimiento (15 min), del lado de la maestra. Se guarda entero: para verificar un HMAC hace falta la clave. Se borra al primer canje exitoso y siempre al desinstalar |
+| `wss_redeeming` | El código que esta tienda está canjeando, la maestra y el vencimiento (2 min), del lado de la secundaria. Se borra al terminar el canje y siempre al desinstalar |
 | `wss_pass_checked_at` | Cuándo se controló por última vez que la pasada esté agendada. **Autocargada**: se lee en cada request. Se borra siempre al desinstalar (ADR-003) |
 
 ### Hooks para terceros

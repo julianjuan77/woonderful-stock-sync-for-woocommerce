@@ -24,7 +24,7 @@ git show 2668a7a --stat      # qué archivos tocó y cuántas líneas
 git show 2668a7a             # el diff completo
 ```
 
-Y para correr sólo los tests de una pieza, en vez de los 194:
+Y para correr sólo los tests de una pieza, en vez de los 210:
 
 ```bash
 make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS="--filter Test_Ledger"
@@ -34,8 +34,11 @@ make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS=
 
 ## 🔄 En progreso
 
-Nada. Lo siguiente es **5.7, el emparejamiento**: `POST /pair`, el canje del código y su
-callback a `GET /health` firmado con el código. Es la tarea que escribe `wss_peers`.
+**5.7, el emparejamiento.** Hecho el canje de los dos lados. Falta dispararlo desde WP-CLI
+—`wp wss pairing-code` y `wp wss pair <código>`— mientras no haya pantalla.
+
+Done cuando: los dos comandos emiten y canjean un código, tienen sus tests, y dos sitios del
+sandbox quedan emparejados de verdad.
 
 ---
 
@@ -118,7 +121,7 @@ Verificado rompiéndolo: sin el `UPDATE` cae `LED-02`; registrando productos sin
 | 5.4 | El envío por lotes del lado emisor | ✅ | `b164978`, `4f2f842` | `SND-01`…`SND-10` |
 | 5.5 | La pasada recurrente de Action Scheduler | ✅ | `753f4eb` | `PAS-01`…`PAS-07`, `PLG-20`…`PLG-22`, `UNI-07` |
 | 5.6 | `GET /health` | ✅ | `02ce7dc`, `638df6f` | `HLT-01`…`HLT-07`, `PLG-23`, `PLG-24` |
-| 5.7 | El emparejamiento: `POST /pair` y el canje con su callback. **Tiene que elegir entre exigir HTTPS o firmar la respuesta de `health`**: el paso 4 le cree al `store` que declara, y por `http://` —los sitios locales de desarrollo— cualquiera en el medio lo cambia | ⬜ | | |
+| 5.7 | El emparejamiento: `POST /pair` y el canje con su callback. Https en los dos lados, salvo en desarrollo. Falta disparar desde WP-CLI | 🔄 | `b972a51`, `10b245e` | `PAR-01`…`PAR-14`, `PLG-25`, `UNI-08` |
 | 5.8 | `GET /products` | ⬜ | | |
 | 5.9 | **El envío al final del request de la venta**, con `fastcgi_finish_request()` como en woonderful-sync. Sólo lo escrito en ese request, con un timeout corto (≈5 s); sin PHP-FPM, queda para la pasada. Necesita revisar ADR-006 §4: el retardo de 10 s no hace falta para lo que se manda en el `shutdown`, porque el estampado ya corrió y la ráfaga del request sale junta | ⬜ | | |
 
@@ -127,11 +130,7 @@ el error del request si lo hubo —`no_peer` si no hay tienda emparejada—. Es 
 línea de log de la pasada (ADR-001 §2), que todavía no se escribe. Antes de emparejar, `no_peer`
 es lo normal: loguearlo en cada pasada sería ruido.
 
-**Para 5.7:** el emparejamiento guarda en `wss_peers[<uuid>]` la `rest_url` que informó la otra
-tienda y el `secret`. Es lo que leen `Peers::only()` y `Peers::secret()`. El callback del paso 4
-llama a `GET /health` firmado con el código, no con el secreto: `Rest\Auth` sólo conoce el
-secreto, así que la variante con el código es de 5.7. Y la respuesta de `health` no va firmada:
-ahí la maestra le cree a lo que declara `store`, y 5.7 decide si alcanza con HTTPS.
+
 
 ### 6. La vinculación — `includes/Linking/`
 
@@ -197,13 +196,12 @@ seguridad y convenciones de código.
 |---|---|
 | Preguntas abiertas de §6 sin cerrar: multisite y volumen real del catálogo | `docs/SPEC.md` |
 | El clon servido en la **misma URL por HTTPS** pasa la detección. Declarado, no resuelto | ADR-001 §1, ADR-007 |
-| El emparejamiento tiene que rechazar una tienda cuya opción `home` no sea `https` | ADR-007 → Transporte |
 | La reconciliación de cierre de una importación no tiene ADR | §6 del SPEC → tarea 1.9 |
 | El auditor de tests ya es un agente del entorno: `.claude/agents/test-auditor.md` | — |
 | `record()` escribiría movimientos con origen vacío si faltara el identificador. Hoy no puede pasar: `boot()` lo genera antes de todo | Auditoría 2026-09-26 |
 | `Links::for_remote_product()` devuelve la primera fila si hubiera dos vínculos con el mismo remoto. Con dos tiendas no ocurre en producción, pero **ya tropezó un test**: el fixture creaba dos | Auditoría 2026-09-26 |
 | La marca de purga se calcula con `max()` de lo purgado, y los reintentos desordenan las secuencias: el ADR de la reconciliación tiene que decir que cada tienda ofrece sus filas no confirmadas sin mirar la marca | Revisión 2026-09-27 → tarea 1.9 |
-| `remember_purged()` crea en `wss_peers` una entrada por cada tienda de la que purgó filas, aunque ya no esté emparejada: queda una entrada vieja sin URL ni secreto. `Peers::only()` ya no las cuenta (`SND-10`), así que no corta la entrega; lo que queda es basura en la opción. 5.7 decide si re-emparejar con otro UUID borra la entrada anterior | Revisión 2026-09-27 → tarea 5.7 |
+| `remember_purged()` crea en `wss_peers` una entrada por cada tienda de la que purgó filas, aunque ya no esté emparejada: queda una entrada vieja sin URL ni secreto. `Peers::only()` ya no las cuenta (`SND-10`), así que no corta la entrega; lo que queda es basura en la opción. Re-emparejar le deja a la entrada anterior sólo el `purged_through` (`PAR-08`) | Revisión 2026-09-27, decidido en 5.7 |
 | Un cambio ajeno al stock del mismo producto entre las dos lecturas del detector se cuenta dos veces. Declarado y aceptado: son milisegundos, y lo corrige la reconciliación | ADR-006 §1 → tarea 7.2 |
 | Editar las líneas de un pedido desde el admin deja el movimiento en `adjustment`, sin número de pedido: `wc_maybe_adjust_line_item_product_stock()` no dispara ningún hook que estampe | Sesión 2026-09-28 → ADR del log (UC-04) |
 | Si un hook de terceros escribe algo que no es stock adentro de la transacción de `apply()` y después falla, el `ROLLBACK` lo deshace pero su caché queda vieja. Sólo se limpia la del stock | Sesión 2026-09-28, declarado |

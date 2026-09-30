@@ -37,6 +37,39 @@ final class Peers {
 	}
 
 	/**
+	 * Guarda la tienda con la que se acaba de emparejar.
+	 *
+	 * **Borra la `rest_url` y el secreto de cualquier otra entrada**: en v1 hay una sola
+	 * socia (ADR-001 §1). El `purged_through` de cada una se conserva: lo usa la purga.
+	 *
+	 * @param string $store    Identificador de la otra tienda.
+	 * @param string $rest_url La base de su API.
+	 * @param string $secret   El secreto compartido.
+	 * @param string $label    Su etiqueta.
+	 */
+	public static function pair( string $store, string $rest_url, string $secret, string $label ): void {
+		$peers = array();
+
+		foreach ( (array) get_option( self::OPTION, array() ) as $key => $peer ) {
+			$peer = (array) $peer;
+			unset( $peer['rest_url'], $peer['secret'] );
+			$peers[ (string) $key ] = $peer;
+		}
+
+		$peers[ $store ] = array_merge(
+			$peers[ $store ] ?? array(),
+			array(
+				'rest_url'  => $rest_url,
+				'secret'    => $secret,
+				'label'     => $label,
+				'paired_at' => gmdate( 'Y-m-d H:i:s' ),
+			)
+		);
+
+		update_option( self::OPTION, $peers, false );
+	}
+
+	/**
 	 * La tienda a la que se le mandan los movimientos, o null si no hay una sola lista.
 	 *
 	 * El SPEC fija exactamente dos tiendas (§5), así que hay una sola a quien mandarle. Con

@@ -14,6 +14,7 @@ use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Rest\Auth;
 use Woonderful\StockSync\Rest\Health;
 use Woonderful\StockSync\Rest\Movements;
+use Woonderful\StockSync\Rest\Pair;
 use Woonderful\StockSync\Schema\Installer;
 use Woonderful\StockSync\Transport\Pass;
 
@@ -67,9 +68,10 @@ final class Plugin {
 
 		Installer::maybe_upgrade();
 
-		// Antes de la guarda, a propósito: ver Pass::register() y Health::register().
+		// Antes de la guarda, a propósito: ver el register() de cada uno.
 		Pass::register();
 		Health::register();
+		Pair::register();
 		Auth::register();
 
 		if ( null !== self::suspension_reason() ) {

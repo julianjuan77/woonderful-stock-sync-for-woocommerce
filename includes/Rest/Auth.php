@@ -76,13 +76,28 @@ final class Auth {
 	 * @return true|\WP_Error
 	 */
 	public static function authenticate( \WP_REST_Request $request, bool $claim_nonce ) {
-		$store  = (string) $request->get_header( 'X-WSS-Store' );
-		$secret = Peers::secret( $store );
+		$secret = Peers::secret( (string) $request->get_header( 'X-WSS-Store' ) );
 
 		if ( '' === $secret ) {
 			return self::reject( 'wss_unknown_store', __( 'La tienda no está emparejada.', 'woonderful-stock-sync-for-woocommerce' ) );
 		}
 
+		return self::verify_with( $request, $secret, $claim_nonce );
+	}
+
+	/**
+	 * Verifica timestamp, firma y nonce con una clave dada.
+	 *
+	 * La clave es el secreto compartido, o el código mientras dura un emparejamiento
+	 * (ADR-001 §1): quien llama decide cuál.
+	 *
+	 * @param \WP_REST_Request $request     El request.
+	 * @param string           $key         Con qué se firmó.
+	 * @param bool             $claim_nonce Si se anota el nonce.
+	 *
+	 * @return true|\WP_Error
+	 */
+	public static function verify_with( \WP_REST_Request $request, string $key, bool $claim_nonce ) {
 		$now       = time();
 		$timestamp = (string) $request->get_header( 'X-WSS-Timestamp' );
 
@@ -93,7 +108,7 @@ final class Auth {
 		$nonce = (string) $request->get_header( 'X-WSS-Nonce' );
 
 		$signed = Signature::verify(
-			$secret,
+			$key,
 			$request->get_method(),
 			$request->get_route(),
 			$request->get_query_params(),
@@ -116,12 +131,13 @@ final class Auth {
 	}
 
 	/**
-	 * Un rechazo de autenticación: siempre 401.
+	 * Un rechazo de autenticación: siempre 401. Público para las rutas que autentican a su
+	 * manera, como `POST /pair`.
 	 *
 	 * @param string $code    El código del contrato.
 	 * @param string $message Para quien lea el log del emisor.
 	 */
-	private static function reject( string $code, string $message ): \WP_Error {
+	public static function reject( string $code, string $message ): \WP_Error {
 		return new \WP_Error( $code, $message, array( 'status' => 401 ) );
 	}
 }

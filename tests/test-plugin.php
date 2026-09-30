@@ -13,6 +13,7 @@ use Woonderful\StockSync\Plugin;
 use Woonderful\StockSync\Rest\Auth;
 use Woonderful\StockSync\Rest\Health;
 use Woonderful\StockSync\Rest\Movements;
+use Woonderful\StockSync\Rest\Pair;
 use Woonderful\StockSync\Schema\Installer;
 use Woonderful\StockSync\Transport\Pass;
 
@@ -61,6 +62,7 @@ class Test_Plugin extends WP_UnitTestCase {
 		remove_action( 'action_scheduler_init', array( Pass::class, 'maybe_ensure_scheduled' ) );
 		remove_action( 'rest_api_init', array( Health::class, 'register_routes' ) );
 		remove_filter( 'rest_post_dispatch', array( Auth::class, 'no_cache' ), 10 );
+		remove_action( 'rest_api_init', array( Pair::class, 'register_routes' ) );
 
 		parent::tear_down();
 	}
@@ -469,5 +471,21 @@ class Test_Plugin extends WP_UnitTestCase {
 		Plugin::boot();
 
 		$this->assertNotFalse( has_filter( 'rest_post_dispatch', array( Auth::class, 'no_cache' ) ) );
+	}
+
+	/**
+	 * Re-emparejar es la forma de salir de la suspensión por un cambio de URL: un sitio
+	 * suspendido tiene que poder canjear.
+	 *
+	 * PLG-25
+	 */
+	public function test_a_suspended_site_still_hooks_pairing(): void {
+		update_option( Store::OPTION_FINGERPRINT, hash( 'sha256', 'https://otra.test' ) );
+
+		remove_action( 'rest_api_init', array( Pair::class, 'register_routes' ) );
+
+		Plugin::boot();
+
+		$this->assertNotFalse( has_action( 'rest_api_init', array( Pair::class, 'register_routes' ) ) );
 	}
 }

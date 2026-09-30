@@ -64,6 +64,16 @@ final class Store {
 	}
 
 	/**
+	 * Guarda la huella de este sitio. Al emparejar: es lo que levanta la suspensión de un
+	 * sitio que cambió de URL (ADR-001 §1).
+	 *
+	 * **Autocargada**: `is_cloned_site()` la lee en cada request.
+	 */
+	public static function remember_fingerprint(): void {
+		update_option( self::OPTION_FINGERPRINT, self::fingerprint(), true );
+	}
+
+	/**
 	 * Si el sitio no es aquel donde se emparejó, la sincronización queda suspendida.
 	 */
 	public static function is_cloned_site(): bool {

@@ -52,6 +52,7 @@ Prefijo por dominio, número correlativo, y **no se renumeran** aunque un caso s
 | `SND-NN` | El envío del lado emisor | [`tests/test-sender.php`](test-sender.php) |
 | `PAS-NN` | La pasada recurrente | [`tests/test-pass.php`](test-pass.php) |
 | `HLT-NN` | `GET /health` | [`tests/test-rest-health.php`](test-rest-health.php) |
+| `PAR-NN` | El emparejamiento | [`tests/test-pairing.php`](test-pairing.php) |
 
 Cada test lleva su ID en el docblock, así que se encuentra buscándolo:
 
@@ -127,6 +128,11 @@ mientras escribía la función.
 | Cada parte del request está firmada, la query incluida | ADR-001 §1 | `SIG-04` | [test-signature.php](test-signature.php) |
 | La firma no depende de los permalinks ni del orden de la query | ADR-001 §1 | `SIG-05`, `SIG-06` | [test-signature.php](test-signature.php) |
 | Ventana de ±5 minutos | ADR-001 §1 | `SIG-08` | [test-signature.php](test-signature.php) |
+| El código vale una vez, vence, y una firma con otro no lo gasta | ADR-001 §1 | `PAR-03`, `PAR-04`, `PAR-05` | [test-pairing.php](test-pairing.php) |
+| El callback va firmado con el código y tiene que declarar la tienda que dijo | ADR-001 §1 | `PAR-02`, `PAR-06` | [test-pairing.php](test-pairing.php) |
+| La secundaria acepta el callback sólo mientras canjea, aunque tenga un secreto viejo | ADR-001 §1 | `PAR-09`, `PAR-10`, `PAR-11` | [test-pairing.php](test-pairing.php) |
+| Sin https no se empareja | ADR-001 §1, ADR-007 | `PAR-07`, `PAR-14` | [test-pairing.php](test-pairing.php) |
+| Emparejar deja una sola socia | ADR-001 §1 | `PAR-08` | [test-pairing.php](test-pairing.php) |
 | Ninguna respuesta firmada se guarda en caché | ARCHITECTURE §5 | `HLT-06`, `HLT-07`, `PLG-24` | [test-rest-health.php](test-rest-health.php), [test-plugin.php](test-plugin.php) |
 | Sin secreto no hay firma válida | ADR-001 §1 | `SIG-11` | [test-signature.php](test-signature.php) |
 | Un nonce se acepta una sola vez | ADR-001 §1, ADR-004 §3 | `NON-02` | [test-nonces.php](test-nonces.php) |
@@ -229,6 +235,7 @@ mientras escribía la función.
 | `PLG-22` | El archivo principal | Engancha la desactivación |
 | `PLG-23` | `boot()` con el sitio suspendido | **Sí** engancha `GET /health` |
 | `PLG-24` | `boot()` con el sitio suspendido | **Sí** engancha los encabezados que prohíben la caché |
+| `PLG-25` | `boot()` con el sitio suspendido | **Sí** engancha `POST /pair`: re-emparejar es la forma de salir de la suspensión |
 
 ## [`tests/test-uninstall.php`](test-uninstall.php) — la desinstalación
 
@@ -245,6 +252,7 @@ varios tests sin chocar.
 | `UNI-05` | Casilla marcada | No queda ninguna de las siete opciones |
 | `UNI-06` | **Casilla nunca tocada** — el estado de fábrica | No se borra nada: es el caso del dueño que nunca abrió los ajustes |
 | `UNI-07` | Desinstalar conservando los datos | La hora del control de la pasada se va igual: no es un dato del dueño |
+| `UNI-08` | Desinstalar conservando los datos, con un código de emparejamiento vivo de cada lado | Los dos se van: son una credencial |
 
 ## [`tests/test-ledger.php`](test-ledger.php) — el libro
 
@@ -447,6 +455,41 @@ Verificado rompiéndolo: sin pasar el cuerpo a texto caen los cinco; anotando el
 ruta después de la guarda cae `PLG-23`; aplicando los encabezados a toda ruta cae `HLT-07`; sin
 ponerlos cae `HLT-06`; sin engancharlos en `boot()` cae `PLG-24`. Los tests aplican
 `rest_post_dispatch` a mano: `dispatch()` no lo aplica, lo hace `serve_request()`.
+
+## [`tests/test-pairing.php`](test-pairing.php) — el emparejamiento
+
+Una sola instalación hace de las dos tiendas por turno; la otra la hace `pre_http_request`. La
+opción `home` pasa a `https` en el `set_up`: el entorno de tests es `production`, y la excepción
+de `local` y `development` no se puede probar en el mismo proceso, porque WordPress guarda el
+tipo de entorno en una estática sin filtro.
+
+| ID | Caso | Resultado esperado |
+|---|---|---|
+| `PAR-01` | Emitir un código | Lleva la URL de la API, el identificador y 256 bits; se guarda con 15 minutos de vida |
+| `PAR-02` | **El canje completo, del lado de la maestra** | El callback va a `<url>/health` firmado con el código; se guardan la socia y la huella, y el código deja de valer |
+| `PAR-03` | El mismo código dos veces | La segunda, 401 `wss_pairing_invalid` |
+| `PAR-04` | Un código vencido | 401 `wss_pairing_invalid` |
+| `PAR-05` | Firmado con otro código | 401 `wss_pairing_invalid`, no `wss_bad_signature`; el código de verdad sigue valiendo |
+| `PAR-06` | El callback declara otra tienda | 502 `wss_callback_failed`, nada guardado, el código sigue valiendo |
+| `PAR-07` | Una secundaria en http, o esta tienda en http | `wss_insecure` |
+| `PAR-08` | Emparejar con una socia vieja en `wss_peers` | A la vieja le quedan sólo el `purged_through` |
+| `PAR-09` | **El canje completo, del lado de la secundaria** | El `POST /pair` va firmado con el código; **el callback pasa `health` mientras dura el canje**; se guardan la socia y la huella, y se cierra la ventana |
+| `PAR-10` | El callback después del canje | 401: el código ya no autentica nada |
+| `PAR-11` | **Re-emparejar con un secreto viejo de la maestra** | El callback firmado con el código pasa igual, y queda el secreto nuevo |
+| `PAR-12` | La maestra rechaza el canje | La secundaria recibe su código de error, no guarda nada, y cierra la ventana |
+| `PAR-13` | Contesta otra tienda | `wss_pairing_failed`, nada guardado |
+| `PAR-14` | Algo que no es un código, o una maestra en http | `wss_pairing_invalid` y `wss_insecure`, sin mandar nada |
+
+Verificado rompiéndolo, con nueve cambios: `health` sin la variante del canje (caen `PAR-09` y
+`PAR-11`) o que la usa sólo sin secreto (`PAR-11`); sin invalidar el código (`PAR-02`, `PAR-03`);
+el callback sin mirar el `store` (`PAR-06`); el canje sin cerrar la ventana (`PAR-09`, `PAR-10`,
+`PAR-12`); la firma mala como `wss_bad_signature` (`PAR-05`); sin mirar quién contestó
+(`PAR-13`); sin borrar las otras socias (`PAR-08`); todo como si fuera https (`PAR-07`, `PAR-14`).
+
+**Las opciones se borran en el `set_up`.** Por el mismo motivo que las líneas de pedido del
+detector: en el `tear_down` van después del `DROP TABLE`, en una transacción que el `ROLLBACK` de
+la suite deshace. `wss_peers` llegaba con entradas de otras clases, como el `purged_through` de
+la purga del libro.
 
 ## [`tests/test-guard.php`](test-guard.php) — el guard anti-eco
 
