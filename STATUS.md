@@ -142,13 +142,15 @@ es lo normal: loguearlo en cada pasada sería ruido.
 
 ### 6. La vinculación — `includes/Linking/`
 
-| | Tarea | Estado |
-|---|---|---|
-| 6.1 | ✅ `LNK-01`…`LNK-07`, `BOO-07`…`BOO-10` — Crear el vínculo y emitir el bootstrap, en el momento (ADR-008) |
-| 6.2 | ✅ `BOO-01`…`BOO-06` — Recibir un bootstrap y crear la fila del otro lado. **`apply()` tiene que atenderlo antes de buscar el vínculo**: hoy lo descartaría con ACK y el par no se crearía nunca (ADR-001 §3). **Y el endpoint también**: `Movements::receive_one()` le pasa a `apply()` siete campos fijos, y los extra del bootstrap se pierden ahí | ⬜ |
-| 6.3 | ✅ `LNK-08`, `BOO-04`, `BOO-05`, `BOO-11` — Desvincular y emitir el `unlink`. Mismo caso que 6.2: se atiende antes de buscar el vínculo, porque lo borra, y el endpoint tiene que pasarle sus campos | ⬜ |
-| 6.4 | El estado derivado: vinculado, suspendido, sin vincular | ⬜ |
-| 6.5 | `Links::for_product()` — escrito en 3.1, le falta el resto de la clase | 🔄 |
+| | Tarea | Estado | Commit | Tests |
+|---|---|---|---|---|
+| 6.1 | Crear el vínculo y mandar el bootstrap en el momento (ADR-008) | ✅ | `7e6b919`, `a855ea4`, `b37244d` | `LNK-01`…`LNK-07`, `BOO-07`…`BOO-10` |
+| 6.2 | Recibir el bootstrap: las revisiones, el par al revés y el stock de la maestra con el guard. Se atiende antes de buscar el vínculo | ✅ | `a855ea4` | `BOO-01`…`BOO-03`, `BOO-06` |
+| 6.3 | Desvincular: el `unlink` sale por la cola; la secundaria borra el par vigente y descarta el viejo o ajeno | ✅ | `a855ea4`, `b37244d` | `LNK-08`, `BOO-04`, `BOO-05`, `BOO-11` |
+| 6.4 | El estado derivado: vinculado, suspendido, sin vincular, **e incierto** (ADR-008 §5) | ⬜ | | |
+| 6.5 | `Links` | ✅ | `a855ea4` | — |
+| 6.6 | Los roles al emparejar: la maestra es la que emite el código (ADR-008 §2) | ✅ | `1f18fef` | `PAR-02`, `PAR-09`, `PAR-19` |
+| 6.7 | `wp wss link` y `wp wss unlink`, y la prueba entre `sandbox` y `sandbox-b` | 🔄 | | |
 
 ### 7. La reconciliación — `includes/Reconciliation/`
 
