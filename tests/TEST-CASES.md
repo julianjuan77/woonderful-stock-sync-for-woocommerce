@@ -55,6 +55,7 @@ Prefijo por dominio, número correlativo, y **no se renumeran** aunque un caso s
 | `PAR-NN` | El emparejamiento | [`tests/test-pairing.php`](test-pairing.php) |
 | `CLI-NN` | Los comandos de WP-CLI | [`tests/test-cli.php`](test-cli.php) |
 | `BOO-NN` | El bootstrap y el `unlink`, en el libro y en el receptor | [`tests/test-bootstrap.php`](test-bootstrap.php) |
+| `LNK-NN` | Vincular y desvincular, del lado de la maestra | [`tests/test-linker.php`](test-linker.php) |
 
 Cada test lleva su ID en el docblock, así que se encuentra buscándolo:
 
@@ -140,6 +141,9 @@ mientras escribía la función.
 | Una venta espera a su bootstrap | ADR-008 §1, §4 | `BOO-08`, `BOO-09` | [test-bootstrap.php](test-bootstrap.php) |
 | Un incierto se averigua recién pasado el tiempo de espera | ADR-008 §5 | `BOO-10` | [test-bootstrap.php](test-bootstrap.php) |
 | El `unlink` borra el par vigente y descarta el viejo o ajeno | ADR-005 §3, ADR-008 §3 | `BOO-04`, `BOO-05`, `BOO-11` | [test-bootstrap.php](test-bootstrap.php) |
+| La maestra revisa lo suyo antes de escribir y sin salir a la red | ADR-008 §3 | `LNK-02` | [test-linker.php](test-linker.php) |
+| Sin respuesta o con un 5xx queda incierto; un rechazo o un 4xx, fallido | ADR-008 §1 | `LNK-03`, `LNK-04`, `LNK-05` | [test-linker.php](test-linker.php) |
+| Un incierto se pregunta, no se reenvía | ADR-008 §5 | `LNK-06`, `LNK-07` | [test-linker.php](test-linker.php) |
 | Una copia de la base no se empareja consigo misma | ADR-002 §1, ADR-001 §1 | `PAR-17`, `PAR-18` | [test-pairing.php](test-pairing.php) |
 | Ninguna respuesta firmada se guarda en caché | ARCHITECTURE §5 | `HLT-06`, `HLT-07`, `PLG-24` | [test-rest-health.php](test-rest-health.php), [test-plugin.php](test-plugin.php) |
 | Sin secreto no hay firma válida | ADR-001 §1 | `SIG-11` | [test-signature.php](test-signature.php) |
@@ -547,6 +551,25 @@ Verificado rompiéndolo, con diez cambios, y cada uno hace caer al menos uno: si
 guard (`BOO-01`); sin revisar el stock (`BOO-02`, `BOO-06`) o la maestra (`BOO-02`); el `unlink`
 sin mirar la generación (`BOO-05`) o sin borrar el vínculo (`BOO-11`); el fallido sin borrar el
 vínculo (`BOO-09`); sin la espera (`BOO-10`); el rechazo tomado como recibido (`BOO-06`).
+
+## [`tests/test-linker.php`](test-linker.php) — vincular y desvincular
+
+Esta tienda hace de maestra; la otra la hace `pre_http_request`.
+
+| ID | Caso | Resultado esperado |
+|---|---|---|
+| `LNK-01` | **Vincular, y la otra dice que sí** | El bootstrap sale firmado a `<url>/movements` con sus campos, la secuencia como generación; queda `confirmed` y el par armado |
+| `LNK-02` | Stock distinto del visto, uno de los dos ya vinculado, sin stock gestionado, un producto que no existe, y desde la secundaria | Cada uno con su código, **sin salir a la red ni escribir nada** |
+| `LNK-03` | La otra lo rechaza con `stock_changed` | Ese código; el par se borra y el motivo queda en la fila |
+| `LNK-04` | **Sin respuesta** | `uncertain`, y el par se mantiene |
+| `LNK-05` | Un 500, y un 401 del lote entero | El 500 queda `uncertain`; el 401 es `bootstrap_failed`, con el detalle en el mensaje, y borra el par |
+| `LNK-06` | **Tres inciertos viejos: la otra dice `applied`, `unknown`, y uno no contesta** | El primero queda, el segundo se borra, el tercero sigue `uncertain`; la pregunta es un GET firmado |
+| `LNK-07` | Un incierto nuevo | No se pregunta |
+| `LNK-08` | Desvincular; otra vez sin vínculo; y desde la secundaria | El `unlink` a la cola; `not_linked`; `wss_not_master` |
+
+Verificado rompiéndolo, con seis cambios: sin revisar el stock propio (`LNK-02`) o la maestra
+(`LNK-02`); el timeout como fallido (`LNK-04`, `LNK-06`); el 5xx como fallido (`LNK-05`); el
+`unknown` como confirmado (`LNK-06`); sin la espera (`LNK-07`).
 
 ## [`tests/test-guard.php`](test-guard.php) — el guard anti-eco
 

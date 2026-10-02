@@ -133,6 +133,14 @@ vínculo juntos; `resolve_bootstrap()` anota cómo terminó y, si falló, borra 
 retiene todo movimiento cuya generación es un bootstrap en `syncing` o `uncertain`**, con la
 subconsulta envuelta en una tabla derivada por el error 1093 de MySQL.
 
+**`Linking\Linker`**, del lado de la maestra. `link()` revisa lo suyo sin salir a la red,
+escribe el bootstrap y su vínculo con `record_bootstrap()`, lo manda en el momento con
+`Sender::post()` y anota cómo terminó: `received` es `confirmed`; un rechazo o un 4xx del lote,
+`failed` con su motivo, y el vínculo se borra; sin respuesta, un 5xx o un 200 que no se entiende,
+`uncertain`. `resolve_uncertain()`, que corre en cada pasada, pregunta por los inciertos de más de
+10 minutos con un GET firmado: `applied` confirma; cualquier otra respuesta da por fallido; sin
+respuesta sigue incierto. `unlink()` escribe el `unlink`, que sale por la cola.
+
 **`GET /health`** (`Rest\Health`, ADR-001 §4) responde `store`, `label`, `version`, `api` y
 `suspended` —`null`, `cloned_site` o `unhealthy_schema`—. Se registra **antes de la guarda**:
 un sitio suspendido responde igual, para que la otra tienda pueda explicar por qué no le

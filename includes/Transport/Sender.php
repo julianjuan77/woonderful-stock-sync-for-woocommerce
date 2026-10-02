@@ -69,10 +69,35 @@ final class Sender {
 			return $summary;
 		}
 
-		$worker = (string) $rows[0]->claimed_by;
-		$body   = (string) wp_json_encode( array( 'movements' => array_map( array( self::class, 'movement_of' ), $rows ) ) );
+		$worker   = (string) $rows[0]->claimed_by;
+		$response = self::post( $peer, array_map( array( self::class, 'movement_of' ), $rows ) );
 
-		$response = wp_remote_post(
+		$results = self::results_for( $rows, $response );
+
+		Ledger::ack( $worker, $results );
+
+		$summary['sent']      = count( $rows );
+		$summary['confirmed'] = count( array_filter( $results, static fn ( $result ) => true === $result ) );
+		$summary['failed']    = $summary['sent'] - $summary['confirmed'];
+		$summary['error']     = self::request_error( $response );
+
+		return $summary;
+	}
+
+	/**
+	 * Manda un lote firmado a `POST /movements` de la otra tienda.
+	 *
+	 * Lo usan la pasada y el bootstrap, que se manda en el momento (ADR-008 §1).
+	 *
+	 * @param array{store: string, rest_url: string, secret: string, role: string} $peer      La otra tienda.
+	 * @param array<int, array<string, mixed>>                                     $movements Los movimientos, como viajan.
+	 *
+	 * @return array<string, mixed>|\WP_Error Lo que devolvió `wp_remote_post()`.
+	 */
+	public static function post( array $peer, array $movements ) {
+		$body = (string) wp_json_encode( array( 'movements' => $movements ) );
+
+		return wp_remote_post(
 			untrailingslashit( $peer['rest_url'] ) . '/movements',
 			array(
 				'headers'     => array_merge(
@@ -85,17 +110,6 @@ final class Sender {
 				'redirection' => 0,
 			)
 		);
-
-		$results = self::results_for( $rows, $response );
-
-		Ledger::ack( $worker, $results );
-
-		$summary['sent']      = count( $rows );
-		$summary['confirmed'] = count( array_filter( $results, static fn ( $result ) => true === $result ) );
-		$summary['failed']    = $summary['sent'] - $summary['confirmed'];
-		$summary['error']     = self::request_error( $response );
-
-		return $summary;
 	}
 
 	/**

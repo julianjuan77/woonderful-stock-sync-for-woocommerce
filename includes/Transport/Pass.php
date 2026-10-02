@@ -9,6 +9,7 @@ declare( strict_types = 1 );
 
 namespace Woonderful\StockSync\Transport;
 
+use Woonderful\StockSync\Linking\Linker;
 use Woonderful\StockSync\Plugin;
 
 defined( 'ABSPATH' ) || exit;
@@ -94,7 +95,8 @@ final class Pass {
 	}
 
 	/**
-	 * Una pasada: vacía un lote hacia la otra tienda y purga los nonces viejos.
+	 * Una pasada: vacía un lote hacia la otra tienda, pregunta por los bootstraps sin
+	 * respuesta (ADR-008 §5) y purga los nonces viejos.
 	 */
 	public static function run(): void {
 		if ( null !== Plugin::suspension_reason() ) {
@@ -102,6 +104,7 @@ final class Pass {
 		}
 
 		Sender::run();
+		Linker::resolve_uncertain();
 		Nonces::purge( time() );
 	}
 
