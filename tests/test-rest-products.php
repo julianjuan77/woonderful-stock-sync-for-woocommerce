@@ -201,30 +201,45 @@ class Test_Rest_Products extends WP_UnitTestCase {
 	}
 
 	/**
-	 * Páginas en orden de ID, con el total: recorrerlas dos veces da lo mismo.
+	 * Recorrer el catálogo de a dos por página: en orden de ID, sin repetidos, con los tres de
+	 * este test, y el total coincide con lo recorrido. Los productos de los tests anteriores
+	 * siguen en la base, así que se recorre todo.
 	 *
 	 * PRD-04
 	 */
 	public function test_pages_are_ordered_by_id_with_the_total(): void {
 		$ids = array( $this->simple( 1, 'P1' ), $this->simple( 2, 'P2' ), $this->simple( 3, 'P3' ) );
 
-		// Sólo estos tres: los productos de los tests anteriores siguen en la base.
-		$page = fn ( string $page ) => $this->server->dispatch(
-			$this->request(
-				array(
-					'include'  => implode( ',', $ids ),
-					'per_page' => '2',
-					'page'     => $page,
+		$seen  = array();
+		$total = null;
+
+		for ( $page = 1; $page < 200; $page++ ) {
+			$data = $this->server->dispatch(
+				$this->request(
+					array(
+						'per_page' => '2',
+						'page'     => (string) $page,
+					)
 				)
-			)
-		)->get_data();
+			)->get_data();
 
-		$first  = $page( '1' );
-		$second = $page( '2' );
+			// De la primera: una página más allá del final no trae el total.
+			$total = $total ?? $data['total'];
 
-		$this->assertSame( array_slice( $ids, 0, 2 ), array_column( $first['products'], 'id' ) );
-		$this->assertSame( array( $ids[2] ), array_column( $second['products'], 'id' ) );
-		$this->assertSame( 3, $first['total'] );
+			if ( array() === $data['products'] ) {
+				break;
+			}
+
+			$seen = array_merge( $seen, array_column( $data['products'], 'id' ) );
+		}
+
+		$sorted = $seen;
+		sort( $sorted );
+
+		$this->assertSame( $sorted, $seen, 'en orden de ID' );
+		$this->assertSame( array_values( array_unique( $seen ) ), $seen, 'sin repetidos' );
+		$this->assertSame( $ids, array_values( array_intersect( $seen, $ids ) ) );
+		$this->assertSame( count( $seen ), $total );
 	}
 
 	/**
@@ -267,8 +282,8 @@ class Test_Rest_Products extends WP_UnitTestCase {
 	 * PRD-07
 	 */
 	public function test_the_client_request_is_answered_by_the_endpoint(): void {
-		$wanted = $this->simple( 9, 'A' . __LINE__ );
-		$this->simple( 9, 'B' . __LINE__ );
+		$wanted = array( $this->simple( 9, 'A' . __LINE__ ), $this->simple( 8, 'B' . __LINE__ ) );
+		$this->simple( 9, 'C' . __LINE__ );
 
 		$server = $this->server;
 
@@ -304,9 +319,200 @@ class Test_Rest_Products extends WP_UnitTestCase {
 			3
 		);
 
-		$result = Catalog::fetch( 1, 100, array( $wanted ) );
+		// Dos: la coma viaja como %2C y se decodifica del otro lado antes de verificar.
+		$result = Catalog::fetch( 1, 100, $wanted );
 
-		$this->assertSame( array( $wanted ), array_column( $result['products'], 'id' ) );
-		$this->assertSame( 1, $result['total'] );
+		$this->assertSame( $wanted, array_column( $result['products'], 'id' ) );
+		$this->assertSame( 2, $result['total'] );
+	}
+
+	/**
+	 * Con `include` vuelve cada producto pedido, de cualquier tipo y estado: uno agrupado, y
+	 * uno con un estado que registró otro plugin. Si no volvieran, la otra tienda los daría
+	 * por borrados.
+	 *
+	 * PRD-08
+	 */
+	public function test_include_returns_any_type_and_status(): void {
+		register_post_status( 'wss-archivado', array( 'label' => 'Archivado' ) );
+
+		$grouped = ( new WC_Product_Grouped() )->save();
+		$custom  = $this->simple( 9, 'X' . __LINE__ );
+		wp_update_post(
+			array(
+				'ID'          => $custom,
+				'post_status' => 'wss-archivado',
+			)
+		);
+
+		$products = $this->products( array( 'include' => $grouped . ',' . $custom ) );
+
+		$this->assertSame( array( $grouped, $custom ), array_keys( $products ) );
+		$this->assertSame( 'wss-archivado', $products[ $custom ]['status'] );
+	}
+
+	/**
+	 * PRD-09 — Más de 100 IDs por request es un `wss_bad_request`.
+	 */
+	public function test_more_than_100_ids_is_a_bad_request(): void {
+		$response = $this->server->dispatch( $this->request( array( 'include' => implode( ',', range( 1, 101 ) ) ) ) );
+
+		$this->assertSame( 400, $response->get_status() );
+		$this->assertSame( 'wss_bad_request', $response->get_data()['code'] );
+	}
+
+	/**
+	 * PRD-10 — Con `include` no hay páginas: vuelven todos los pedidos, aunque se pida otra.
+	 */
+	public function test_include_ignores_the_page(): void {
+		$wanted = array( $this->simple( 9, 'A' . __LINE__ ), $this->simple( 9, 'B' . __LINE__ ) );
+
+		$products = $this->products(
+			array(
+				'include'  => implode( ',', $wanted ),
+				'page'     => '2',
+				'per_page' => '1',
+			)
+		);
+
+		$this->assertSame( $wanted, array_keys( $products ) );
+	}
+
+	/**
+	 * El stock viene de la base, no de la caché: con una caché desactualizada, el dueño
+	 * copiaría un número viejo, el bootstrap fallaría con `stock_changed`, y al volver a mirar
+	 * vería el mismo número.
+	 *
+	 * PRD-11
+	 */
+	public function test_the_stock_comes_from_the_database(): void {
+		global $wpdb;
+
+		$id = $this->simple( 9, 'S' . __LINE__ );
+		wc_get_product( $id )->get_stock_quantity();
+
+		// Otro proceso lo cambió en la base; la caché de este sigue diciendo 9.
+		$wpdb->update( // phpcs:ignore WordPress.DB
+			$wpdb->postmeta,
+			array( 'meta_value' => '5' ), // phpcs:ignore WordPress.DB.SlowDBQuery
+			array(
+				'post_id'  => $id,
+				'meta_key' => '_stock', // phpcs:ignore WordPress.DB.SlowDBQuery
+			)
+		);
+
+		$this->assertSame( 5, $this->products( array( 'include' => (string) $id ) )[ $id ]['stock'] );
+	}
+
+	/**
+	 * Hace de la otra tienda: contesta cada request con los IDs que pidió, o con lo que se le
+	 * pase.
+	 *
+	 * @param callable|null $products Arma los productos de la respuesta a partir de los IDs.
+	 *
+	 * @return \ArrayObject<int, string> Las URLs que se pidieron, que el filtro va llenando.
+	 */
+	private function fake_catalog( ?callable $products = null ): \ArrayObject {
+		$urls     = new \ArrayObject();
+		$products = $products ?? static fn ( array $ids ) => array_map(
+			static fn ( int $id ) => array(
+				'id'     => $id,
+				'sku'    => '',
+				'name'   => 'P',
+				'stock'  => 1,
+				'status' => 'publish',
+				'linked' => false,
+			),
+			$ids
+		);
+
+		add_filter(
+			'pre_http_request',
+			static function ( $preempt, $args, $url ) use ( $urls, $products ) {
+				$urls[] = $url;
+
+				wp_parse_str( (string) wp_parse_url( $url, PHP_URL_QUERY ), $query );
+				$ids = array_map( 'intval', explode( ',', (string) ( $query['include'] ?? '' ) ) );
+
+				return array(
+					'headers'  => array(),
+					'body'     => (string) wp_json_encode(
+						array(
+							'products' => $products( $ids ),
+							'total'    => count( $ids ),
+						)
+					),
+					'response' => array(
+						'code'    => 200,
+						'message' => '',
+					),
+					'cookies'  => array(),
+				);
+			},
+			10,
+			3
+		);
+
+		return $urls;
+	}
+
+	/**
+	 * Una lista vacía no pide nada: el endpoint la tomaría como "no se pidió" y devolvería el
+	 * catálogo entero. Es lo que pasa cuando no hay ningún vínculo.
+	 *
+	 * PRD-12
+	 */
+	public function test_an_empty_list_asks_for_nothing(): void {
+		$urls = $this->fake_catalog();
+
+		$this->assertSame(
+			array(
+				'products' => array(),
+				'total'    => 0,
+			),
+			Catalog::fetch( 1, 100, array() )
+		);
+		$this->assertCount( 0, $urls );
+	}
+
+	/**
+	 * PRD-13 — Más de 100 IDs se piden de a 100, y vuelven todos juntos.
+	 */
+	public function test_more_than_100_ids_go_in_batches(): void {
+		$urls = $this->fake_catalog();
+
+		$result = Catalog::fetch( 1, 100, range( 1, 150 ) );
+
+		$this->assertCount( 2, $urls );
+		$this->assertSame( range( 1, 150 ), array_column( $result['products'], 'id' ) );
+	}
+
+	/**
+	 * PRD-14 — Una entrada mal armada se descarta: quien use la lista no desconfía de cada campo.
+	 */
+	public function test_malformed_entries_are_dropped(): void {
+		$this->fake_catalog(
+			static fn () => array(
+				array(
+					'id'     => 7,
+					'sku'    => 'A',
+					'name'   => 'Bien',
+					'stock'  => null,
+					'status' => 'publish',
+					'linked' => true,
+				),
+				array(
+					'id'     => '8',
+					'sku'    => 'B',
+					'name'   => 'Mal: id como texto',
+					'stock'  => 1,
+					'status' => 'publish',
+					'linked' => false,
+				),
+				'no es un producto',
+			)
+		);
+
+		$this->assertSame( array( 7 ), array_column( Catalog::fetch( 1, 100, array( 7, 8 ) )['products'], 'id' ) );
 	}
 }

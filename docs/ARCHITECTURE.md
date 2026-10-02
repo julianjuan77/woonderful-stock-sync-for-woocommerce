@@ -151,11 +151,13 @@ respuesta sigue incierto. `unlink()` escribe el `unlink`, que sale por la cola.
 
 **`GET /products`** (`Rest\Products`, ADR-005 §5) devuelve simples, variaciones y padres
 variables, la papelera incluida, de a 100 por página como mucho y ordenados por ID, con `id`,
-`sku`, `name`, `stock` —`null` si el producto no gestiona su propio stock—, `status` y `linked`.
-`include=1,2,3` pide productos puntuales: uno que no vuelve ya no existe. No anota el nonce. Se
-registra después de la guarda. `linked` sale de una sola consulta por página
-(`Links::linked_among()`). Del otro lado, `Transport\Catalog::fetch()` lo llama con la query en
-texto, que es la misma que firma.
+`sku`, `name`, `stock` —`null` si el producto no gestiona su propio stock, y **leído de la base**,
+que es contra lo que compara el bootstrap—, `status` y `linked`. **Con `include=1,2,3` vuelve cada
+producto pedido, de cualquier tipo y estado, sin páginas**: se buscan los posts por ID, no por tipo
+de WooCommerce, así que uno que no vuelve ya no existe. Hasta 100 IDs por request. No anota el
+nonce. Se registra después de la guarda. `linked` y el stock salen de una consulta por página.
+Del otro lado, `Transport\Catalog::fetch()` lo llama con la query en texto —la misma que firma—,
+reparte `include` de a 100, no pide nada con una lista vacía y descarta las entradas mal armadas.
 
 **`GET /health`** (`Rest\Health`, ADR-001 §4) responde `store`, `label`, `version`, `api` y
 `suspended` —`null`, `cloned_site` o `unhealthy_schema`—. Se registra **antes de la guarda**:

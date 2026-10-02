@@ -24,30 +24,65 @@ final class Catalog {
 	public const ROUTE = '/wss/v1/products';
 
 	/**
+	 * Hasta cuántos productos se piden por request con `include`.
+	 */
+	public const MAX_INCLUDE = 100;
+
+	/**
 	 * Una página del catálogo de la otra tienda, o sólo esos productos.
 	 *
-	 * @param int        $page     La página.
-	 * @param int        $per_page Cuántos, hasta 100.
-	 * @param int[]|null $include  Sólo estos IDs, o null para todos.
+	 * Con `include`, vuelve cada producto pedido que exista, de a 100 por request: uno que no
+	 * vuelve ya no existe (ADR-005 §5). Una lista vacía no pide nada: el endpoint la tomaría
+	 * como "no se pidió" y devolvería el catálogo entero.
+	 *
+	 * @param int        $page     La página, si se recorre el catálogo.
+	 * @param int        $per_page Cuántos, hasta 100, si se recorre el catálogo.
+	 * @param int[]|null $include  Sólo estos IDs, o null para recorrer el catálogo.
 	 *
 	 * @return array{products: array<int, array<string, mixed>>, total: int}|\WP_Error
 	 */
 	public static function fetch( int $page = 1, int $per_page = 100, ?array $include = null ) {
+		if ( null === $include ) {
+			return self::request(
+				array(
+					'page'     => (string) $page,
+					'per_page' => (string) $per_page,
+				)
+			);
+		}
+
+		$products = array();
+
+		foreach ( array_chunk( array_values( array_unique( array_map( 'intval', $include ) ) ), self::MAX_INCLUDE ) as $batch ) {
+			$result = self::request( array( 'include' => implode( ',', $batch ) ) );
+
+			if ( is_wp_error( $result ) ) {
+				return $result;
+			}
+
+			$products = array_merge( $products, $result['products'] );
+		}
+
+		return array(
+			'products' => $products,
+			'total'    => count( $products ),
+		);
+	}
+
+	/**
+	 * Un request firmado a `GET /products`.
+	 *
+	 * @param array<string, string> $query Los parámetros, en texto: la firma no admite listas
+	 *                                     ni booleanos (ADR-001 §1), y es la misma query que
+	 *                                     viaja.
+	 *
+	 * @return array{products: array<int, array<string, mixed>>, total: int}|\WP_Error
+	 */
+	private static function request( array $query ) {
 		$peer = Peers::only();
 
 		if ( null === $peer ) {
 			return new \WP_Error( 'wss_not_paired', __( 'Esta tienda no está emparejada con otra.', 'woonderful-stock-sync-for-woocommerce' ) );
-		}
-
-		// En texto: la firma no admite listas ni booleanos (ADR-001 §1). La query que se firma
-		// es la misma que viaja.
-		$query = array(
-			'page'     => (string) $page,
-			'per_page' => (string) $per_page,
-		);
-
-		if ( null !== $include ) {
-			$query['include'] = implode( ',', array_map( 'intval', $include ) );
 		}
 
 		$response = wp_remote_get(
@@ -73,8 +108,24 @@ final class Catalog {
 		}
 
 		return array(
-			'products' => array_values( $payload['products'] ),
+			'products' => array_values( array_filter( $payload['products'], array( self::class, 'is_well_formed' ) ) ),
 			'total'    => (int) ( $payload['total'] ?? 0 ),
 		);
+	}
+
+	/**
+	 * Si una entrada trae lo que dice ADR-005 §5. Las que no, se descartan: quien la use no
+	 * tiene que desconfiar de cada campo.
+	 *
+	 * @param mixed $product Lo que vino.
+	 */
+	private static function is_well_formed( $product ): bool {
+		return is_array( $product )
+			&& is_int( $product['id'] ?? null ) && $product['id'] > 0
+			&& is_string( $product['sku'] ?? null )
+			&& is_string( $product['name'] ?? null )
+			&& ( null === ( $product['stock'] ?? null ) || is_int( $product['stock'] ) )
+			&& is_string( $product['status'] ?? null )
+			&& is_bool( $product['linked'] ?? null );
 	}
 }

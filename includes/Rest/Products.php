@@ -67,55 +67,139 @@ final class Products {
 	}
 
 	/**
-	 * Una página del catálogo, ordenada por ID.
+	 * Una página del catálogo, o los productos pedidos con `include`.
 	 *
 	 * @param \WP_REST_Request $request El request, ya autenticado.
+	 *
+	 * @return \WP_REST_Response|\WP_Error
 	 */
-	public static function respond( \WP_REST_Request $request ): \WP_REST_Response {
-		$page     = max( 1, (int) ( $request->get_param( 'page' ) ?? 1 ) );
-		$per_page = min( self::MAX_PER_PAGE, max( 1, (int) ( $request->get_param( 'per_page' ) ?? self::MAX_PER_PAGE ) ) );
-		$include  = self::ids( (string) ( $request->get_param( 'include' ) ?? '' ) );
+	public static function respond( \WP_REST_Request $request ) {
+		$include = self::ids( (string) ( $request->get_param( 'include' ) ?? '' ) );
 
-		$args = array(
-			'type'     => self::TYPES,
-			'status'   => self::STATUSES,
-			'limit'    => $per_page,
-			'page'     => $page,
-			'orderby'  => 'ID',
-			'order'    => 'ASC',
-			'paginate' => true,
-		);
-
-		if ( null !== $include ) {
-			// Ninguno que valga: sin esto, un `include` vacío devolvería todo el catálogo.
-			$args['include'] = array() === $include ? array( 0 ) : $include;
+		if ( null !== $include && count( $include ) > self::MAX_PER_PAGE ) {
+			return new \WP_Error( 'wss_bad_request', __( 'Se piden hasta 100 productos por vez.', 'woonderful-stock-sync-for-woocommerce' ), array( 'status' => 400 ) );
 		}
 
-		$found    = wc_get_products( $args );
-		$products = is_object( $found ) && isset( $found->products ) ? (array) $found->products : array();
-		$linked   = Links::linked_among( array_map( static fn ( $product ) => (int) $product->get_id(), $products ) );
+		if ( null !== $include ) {
+			$products = self::requested( $include );
+			$total    = count( $products );
+		} else {
+			$found    = wc_get_products(
+				array(
+					'type'     => self::TYPES,
+					'status'   => self::STATUSES,
+					'limit'    => min( self::MAX_PER_PAGE, max( 1, (int) ( $request->get_param( 'per_page' ) ?? self::MAX_PER_PAGE ) ) ),
+					'page'     => max( 1, (int) ( $request->get_param( 'page' ) ?? 1 ) ),
+					'orderby'  => 'ID',
+					'order'    => 'ASC',
+					'paginate' => true,
+				)
+			);
+			$products = is_object( $found ) && isset( $found->products ) ? (array) $found->products : array();
+			$total    = is_object( $found ) && isset( $found->total ) ? (int) $found->total : 0;
+		}
+
+		$ids    = array_map( static fn ( $product ) => (int) $product->get_id(), $products );
+		$linked = Links::linked_among( $ids );
+		$stocks = self::stocks_in_db( $ids );
 
 		return new \WP_REST_Response(
 			array(
 				'products' => array_map(
-					static fn ( \WC_Product $product ) => self::shape( $product, $linked ),
+					static fn ( \WC_Product $product ) => self::shape( $product, $linked, $stocks ),
 					$products
 				),
-				'total'    => is_object( $found ) && isset( $found->total ) ? (int) $found->total : 0,
+				'total'    => $total,
 			),
 			200
 		);
 	}
 
 	/**
+	 * Los productos pedidos, de cualquier tipo y estado, en orden de ID.
+	 *
+	 * Por ID y no por tipo de WooCommerce: se puede vincular una suscripción, un producto con
+	 * un estado de otro plugin, o uno cuyo tipo ya no está registrado. Si no volviera, la otra
+	 * tienda lo daría por borrado (ADR-005 §5).
+	 *
+	 * @param int[] $ids Los IDs pedidos.
+	 *
+	 * @return \WC_Product[]
+	 */
+	private static function requested( array $ids ): array {
+		if ( array() === $ids ) {
+			return array();
+		}
+
+		$posts = get_posts(
+			array(
+				'post_type'        => array( 'product', 'product_variation' ),
+				'post__in'         => $ids,
+				'post_status'      => array_keys( get_post_stati() ),
+				'numberposts'      => -1,
+				'orderby'          => 'ID',
+				'order'            => 'ASC',
+				'fields'           => 'ids',
+				'suppress_filters' => true,
+			)
+		);
+
+		$products = array();
+
+		foreach ( $posts as $post_id ) {
+			$product = wc_get_product( (int) $post_id );
+
+			if ( $product instanceof \WC_Product ) {
+				$products[] = $product;
+			}
+		}
+
+		return $products;
+	}
+
+	/**
+	 * El `_stock` de esos productos, leído de la base. Una consulta para toda la página.
+	 *
+	 * De la base y no del objeto: es el número que el dueño copia en el bootstrap, y la
+	 * secundaria lo compara contra la base (ADR-008 §3). Con una caché desactualizada, el
+	 * dueño vería un número viejo, recibiría `stock_changed`, y volvería a ver el mismo.
+	 *
+	 * @param int[] $ids Los productos.
+	 *
+	 * @return array<int, int>
+	 */
+	private static function stocks_in_db( array $ids ): array {
+		global $wpdb;
+
+		if ( array() === $ids ) {
+			return array();
+		}
+
+		$placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT post_id, meta_value FROM {$wpdb->postmeta} WHERE meta_key = '_stock' AND post_id IN ( {$placeholders} )", ...$ids ) );
+		// phpcs:enable
+
+		$stocks = array();
+
+		foreach ( (array) $rows as $row ) {
+			$stocks[ (int) $row->post_id ] = (int) wc_stock_amount( (float) $row->meta_value );
+		}
+
+		return $stocks;
+	}
+
+	/**
 	 * Un producto como viaja.
 	 *
-	 * @param \WC_Product $product El producto.
-	 * @param int[]       $linked  Los IDs de los productos vinculados de esta página.
+	 * @param \WC_Product     $product El producto.
+	 * @param int[]           $linked  Los IDs de los productos vinculados de esta página.
+	 * @param array<int, int> $stocks  El `_stock` de la base, por producto.
 	 *
 	 * @return array<string, mixed>
 	 */
-	private static function shape( \WC_Product $product, array $linked ): array {
+	private static function shape( \WC_Product $product, array $linked, array $stocks ): array {
 		$id = (int) $product->get_id();
 
 		// Sólo el que gestiona su propio stock: una variación que lo toma del padre mostraría
@@ -126,7 +210,7 @@ final class Products {
 			'id'     => $id,
 			'sku'    => (string) $product->get_sku( 'edit' ),
 			'name'   => (string) $product->get_name( 'edit' ),
-			'stock'  => $own_stock ? (int) wc_stock_amount( (float) ( $product->get_stock_quantity( 'edit' ) ?? 0 ) ) : null,
+			'stock'  => $own_stock ? ( $stocks[ $id ] ?? 0 ) : null,
 			'status' => (string) $product->get_status( 'edit' ),
 			'linked' => in_array( $id, $linked, true ),
 		);

@@ -600,17 +600,27 @@ Verificado rompiéndolo, con seis cambios: sin revisar el stock propio (`LNK-02`
 | `PRD-01` | **Un simple vinculado, uno sin stock gestionado, uno en la papelera, un padre variable que gestiona el stock y su variación** | Los seis campos; `stock: null` sin stock gestionado y en la variación que toma el del padre; el padre con su número; `trash`; `linked` |
 | `PRD-02` | `include` con uno que existe y uno borrado | Vuelve sólo el que existe: el borrado no aparece, y así se sabe |
 | `PRD-03` | `include` sin IDs válidos | Nada, y no el catálogo entero |
-| `PRD-04` | Tres productos de a dos por página | En orden de ID, con el total |
+| `PRD-04` | Recorrer todo el catálogo de a dos por página | En orden de ID, sin repetidos, con los tres del test, y el total coincide con lo recorrido |
 | `PRD-05` | `per_page=500` con 101 productos | Vuelven 100 |
 | `PRD-06` | Sin firma, y con firma | 401; y con firma, ningún nonce anotado |
-| `PRD-07` | **Lo que pide `Catalog::fetch()`, del lado del endpoint** | Pasa la autenticación con la query firmada y trae lo pedido |
+| `PRD-07` | **Lo que pide `Catalog::fetch()`, del lado del endpoint**, con dos IDs | Pasa la autenticación con la query firmada —la coma viaja como `%2C`— y trae lo pedido |
+| `PRD-08` | **`include` con un producto agrupado y uno con un estado de otro plugin** | Vuelven los dos: con `include` no se filtra por tipo ni por estado |
+| `PRD-09` | `include` con 101 IDs | 400 `wss_bad_request` |
+| `PRD-10` | `include` con `page=2` y `per_page=1` | Vuelven todos los pedidos: con `include` no hay páginas |
+| `PRD-11` | **El stock cambió en la base y la caché sigue con el viejo** | Vuelve el de la base, que es contra lo que compara el bootstrap |
+| `PRD-12` | `fetch()` con una lista vacía | No pide nada: el endpoint devolvería el catálogo entero |
+| `PRD-13` | `fetch()` con 150 IDs | Dos requests, y vuelven los 150 juntos |
+| `PRD-14` | `fetch()` recibe una entrada con el `id` como texto, y algo que no es un producto | Se descartan |
 
-Los SKU llevan un sufijo por corrida y `PRD-04` pagina con `include`: el `CREATE TABLE` del
-`set_up` confirma la transacción, y los productos de un test quedan para el siguiente.
+Los SKU llevan un sufijo por corrida y `PRD-04` recorre el catálogo entero: el `CREATE TABLE`
+del `set_up` confirma la transacción, y los productos de un test quedan para el siguiente.
 
 Verificado rompiéndolo, con seis cambios: sin la papelera (`PRD-01`); el `include` vacío que
 devuelve todo (`PRD-03`); sin el tope (`PRD-05`); el stock del padre en la variación (`PRD-01`); el
-cliente firmando sin la query (`PRD-07`); anotando el nonce (`PRD-06`).
+cliente firmando sin la query (`PRD-07`); anotando el nonce (`PRD-06`). Y con otros seis, después
+de la revisión: `include` filtrando por tipo y estado (`PRD-08`); sin el tope de IDs (`PRD-09`);
+el stock del objeto (`PRD-11`); la lista vacía que pide (`PRD-12`); sin tandas (`PRD-13`); sin
+validar (`PRD-14`).
 
 ## [`tests/test-guard.php`](test-guard.php) — el guard anti-eco
 
