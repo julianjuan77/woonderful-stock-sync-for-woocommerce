@@ -24,7 +24,7 @@ git show 2668a7a --stat      # qué archivos tocó y cuántas líneas
 git show 2668a7a             # el diff completo
 ```
 
-Y para correr sólo los tests de una pieza, en vez de los 249:
+Y para correr sólo los tests de una pieza, en vez de los 250:
 
 ```bash
 make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS="--filter Test_Ledger"
@@ -222,4 +222,9 @@ seguridad y convenciones de código.
 | **Un lote que siempre voltea al receptor arrastra a los otros 199.** Si el receptor muere con un error que `apply()` no puede atrapar —sin memoria, o el tiempo máximo de PHP—, las 200 filas reciben el mismo error, el mismo backoff, vuelven a salir juntas y a las 6 horas se abandonan todas. Un timeout de 30 s no tiene el problema: el receptor termina igual y el reintento deduplica. La mitigación posible es partir el lote a la mitad tras una falla del lote entero que no sea de red ni de autenticación. No se hace hasta ver el volumen real | Revisión 2026-09-29 → §6 del SPEC |
 | **En el sandbox faltaban `wp_wss_links` y `wp_wss_movements`** —sólo quedaba `wp_wss_nonces`— con `wss_schema_version` en 1: el sitio estaba suspendido por esquema, y `maybe_upgrade()` no lo arregla porque la versión está al día. No coincide con ninguno de los dos caminos de `uninstall.php`. Causa sin encontrar; se reparó reactivando el plugin. Si se repite, mirar quién hace `DROP TABLE` sobre el prefijo `wp_` | E.1, 2026-09-30 |
 | Las dos tiendas del sandbox tienen todavía el vínculo armado a mano en E.1 ("Alpargata azul 38"), con generación 1: no corresponde a ningún bootstrap. Si molesta, borrarlo de `wss_links` en las dos | E.1, 2026-09-30 |
+| **Un bootstrap incierto que nunca recibe respuesta** —por ejemplo, un 401 después de re-emparejar— retiene las ventas de ese producto para siempre, sin avisarle a nadie. No se pierden, pero nadie se entera; y el dueño ve `already_linked` si intenta revincular. Lo tiene que avisar el log (UC-08) | Revisión 2026-10-02 → ADR del log |
+| `wp wss link` sale con código 0 cuando el resultado queda incierto: un script no lo distingue de un éxito | Revisión 2026-10-02 |
+| `GET /movements/<origen>/<secuencia>` no exige que el origen consultado sea el de quien firma. Con dos tiendas no expone nada, pero conviene acotarlo | Revisión 2026-10-02 |
+| Los bootstraps `failed` no se purgan nunca: `purge()` sólo mira lo confirmado | Revisión 2026-10-02 → 7.x |
+| `claim()` ignora si el `UPDATE` devuelve false: un error de la base cortaría la entrega sin aviso. Ya no puede ser el 1093, pero cualquier otro sí | Revisión 2026-10-02 → ADR del log |
 | Infection sobre `Transport/`, que ya existe: necesita PCOV en la imagen de wp-restore | — |

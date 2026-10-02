@@ -398,4 +398,16 @@ class Test_Linker extends WP_UnitTestCase {
 
 		$this->assertSame( 'wss_not_paired', Linker::link( $this->product( 10 ), 900, 10, 7 )->get_error_code() );
 	}
+
+	/**
+	 * Un bootstrap que llegue tarde no puede aplicarse después de la pregunta: para cuando se
+	 * pregunta, ya pasó la ventana de la firma y el receptor lo rechazaría por viejo. Si alguien
+	 * acortara la espera por debajo de la ventana, la pregunta podría decir "nunca llegó" y el
+	 * bootstrap aplicarse igual después, dejando el par de un solo lado.
+	 *
+	 * LNK-11
+	 */
+	public function test_the_query_waits_longer_than_the_signature_window(): void {
+		$this->assertGreaterThan( Signature::WINDOW, Linker::QUERY_AFTER );
+	}
 }
