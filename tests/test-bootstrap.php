@@ -119,6 +119,22 @@ class Test_Bootstrap extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Los campos de un bootstrap propio, hacia ese producto de la otra tienda.
+	 *
+	 * @param int $target El producto de la otra tienda.
+	 *
+	 * @return array<string, int>
+	 */
+	private function details( int $target ): array {
+		return array(
+			'target_product'        => $target,
+			'base_stock'            => 10,
+			'origin_previous_stock' => 10,
+			'target_previous_stock' => 7,
+		);
+	}
+
+	/**
 	 * Las filas del libro.
 	 *
 	 * @return \stdClass[]
@@ -332,7 +348,12 @@ class Test_Bootstrap extends WP_UnitTestCase {
 		$this->assertSame( 'stock_changed', $results[1]['reason'] );
 		$this->assertSame( 'invalid_bootstrap', $results[2]['reason'] );
 
-		foreach ( array( $good['seq'] => 'applied', $changed['seq'] => 'unknown' ) as $seq => $expected ) {
+		$expected_states = array(
+			$good['seq']    => 'applied',
+			$changed['seq'] => 'unknown',
+		);
+
+		foreach ( $expected_states as $seq => $expected ) {
 			$route = '/wss/v1/movements/' . self::OTHER . '/' . $seq;
 			$get   = new WP_REST_Request( 'GET', $route );
 			foreach ( Signature::headers( self::OTHER, self::SECRET, 'GET', $route, array(), '' ) as $name => $value ) {
@@ -381,7 +402,7 @@ class Test_Bootstrap extends WP_UnitTestCase {
 	 */
 	public function test_a_sale_waits_for_its_bootstrap(): void {
 		$product = $this->product( 10 );
-		$id      = Ledger::record_bootstrap( $product, self::OTHER, array( 'target_product' => 900, 'base_stock' => 10, 'origin_previous_stock' => 10, 'target_previous_stock' => 7 ), null );
+		$id      = Ledger::record_bootstrap( $product, self::OTHER, $this->details( 900 ), null );
 
 		$sale = (int) Ledger::record( $product, -1, 'sale' );
 		$this->make_due( $sale );
@@ -403,7 +424,7 @@ class Test_Bootstrap extends WP_UnitTestCase {
 	 */
 	public function test_a_failed_bootstrap_deletes_the_link_and_frees_the_sale(): void {
 		$product = $this->product( 10 );
-		$id      = Ledger::record_bootstrap( $product, self::OTHER, array( 'target_product' => 900, 'base_stock' => 10, 'origin_previous_stock' => 10, 'target_previous_stock' => 7 ), null );
+		$id      = Ledger::record_bootstrap( $product, self::OTHER, $this->details( 900 ), null );
 		$sale    = (int) Ledger::record( $product, -1, 'sale' );
 		$this->make_due( $sale );
 
@@ -423,12 +444,9 @@ class Test_Bootstrap extends WP_UnitTestCase {
 	public function test_unresolved_bootstraps_wait_their_age(): void {
 		global $wpdb;
 
-		$details = array( 'target_product' => 900, 'base_stock' => 10, 'origin_previous_stock' => 10, 'target_previous_stock' => 7 );
-		$old     = Ledger::record_bootstrap( $this->product( 10 ), self::OTHER, $details, null );
-		$details['target_product'] = 901;
-		$young   = Ledger::record_bootstrap( $this->product( 10 ), self::OTHER, $details, null );
-		$details['target_product'] = 902;
-		$done    = Ledger::record_bootstrap( $this->product( 10 ), self::OTHER, $details, null );
+		$old   = Ledger::record_bootstrap( $this->product( 10 ), self::OTHER, $this->details( 900 ), null );
+		$young = Ledger::record_bootstrap( $this->product( 10 ), self::OTHER, $this->details( 901 ), null );
+		$done  = Ledger::record_bootstrap( $this->product( 10 ), self::OTHER, $this->details( 902 ), null );
 
 		$table = Installer::table( 'movements' );
 		$wpdb->query( $wpdb->prepare( "UPDATE {$table} SET created_at = %s WHERE id IN ( %d, %d )", gmdate( 'Y-m-d H:i:s', time() - 700 ), $old, $done ) ); // phpcs:ignore WordPress.DB
