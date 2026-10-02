@@ -49,8 +49,17 @@ class Test_Cli extends WP_UnitTestCase {
 	}
 
 	public function tear_down(): void {
+		global $wpdb;
+
 		remove_all_filters( 'pre_http_request' );
 		update_option( 'home', $this->original_home );
+
+		// CLI-05 vincula y desvincula de verdad: sin esto, sus filas pasaban a la corrida
+		// siguiente, y la primera clase de la suite encontraba movimientos ajenos.
+		foreach ( array( 'movements', 'links', 'nonces' ) as $name ) {
+			$table = Installer::table( $name );
+			$wpdb->query( "DROP TABLE IF EXISTS {$table}" ); // phpcs:ignore WordPress.DB
+		}
 
 		parent::tear_down();
 	}

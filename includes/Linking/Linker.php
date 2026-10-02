@@ -12,6 +12,7 @@ namespace Woonderful\StockSync\Linking;
 use Woonderful\StockSync\Detector\Detector;
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Ledger\Ledger;
+use Woonderful\StockSync\Plugin;
 use Woonderful\StockSync\Transport\Peers;
 use Woonderful\StockSync\Transport\Sender;
 use Woonderful\StockSync\Transport\Signature;
@@ -45,10 +46,11 @@ final class Linker {
 	 * @return string|\WP_Error `confirmed`, `uncertain`, o por qué no se vinculó.
 	 */
 	public static function link( int $local, int $remote, int $seen, int $remote_seen, ?string $reference = null ) {
-		$peer = Peers::only();
+		$peer    = Peers::only();
+		$refusal = self::refusal( $peer );
 
-		if ( null === $peer || ! Peers::this_is_master() ) {
-			return new \WP_Error( 'wss_not_master', __( 'Vincular se hace desde la tienda maestra: la que generó el código de emparejamiento.', 'woonderful-stock-sync-for-woocommerce' ) );
+		if ( null !== $refusal || null === $peer ) {
+			return $refusal ?? new \WP_Error( 'wss_not_paired', '' );
 		}
 
 		$product = wc_get_product( $local );
@@ -121,8 +123,10 @@ final class Linker {
 	 * @return true|\WP_Error
 	 */
 	public static function unlink( int $local ) {
-		if ( ! Peers::this_is_master() ) {
-			return new \WP_Error( 'wss_not_master', __( 'Desvincular se hace desde la tienda maestra: la que generó el código de emparejamiento.', 'woonderful-stock-sync-for-woocommerce' ) );
+		$refusal = self::refusal( Peers::only() );
+
+		if ( null !== $refusal ) {
+			return $refusal;
 		}
 
 		if ( null === Links::for_product( $local ) ) {
@@ -167,6 +171,33 @@ final class Linker {
 				Ledger::resolve_bootstrap( (int) $row->id, 'failed', 'not_applied: ' . $state );
 			}
 		}
+	}
+
+	/**
+	 * Por qué esta tienda no puede vincular ni desvincular ahora, o null si puede.
+	 *
+	 * **Una copia de la tienda no vincula.** Trae el identificador y el secreto de la real, así
+	 * que la otra tienda le aceptaría el bootstrap: pisaría su stock de verdad, dejaría el par
+	 * armado de un solo lado, y el número del bootstrap chocaría con el de la próxima venta de
+	 * la tienda real, que la otra daría por recibida y no aplicaría nunca. Los comandos se
+	 * registran antes de la guarda —por el emparejamiento—, así que la guarda va acá.
+	 *
+	 * @param array{store: string, rest_url: string, secret: string, role: string}|null $peer La otra tienda.
+	 */
+	private static function refusal( ?array $peer ): ?\WP_Error {
+		if ( null !== Plugin::suspension_reason() ) {
+			return new \WP_Error( 'wss_suspended', __( 'La sincronización está suspendida en esta tienda: no se vincula ni se desvincula.', 'woonderful-stock-sync-for-woocommerce' ) );
+		}
+
+		if ( null === $peer ) {
+			return new \WP_Error( 'wss_not_paired', __( 'Esta tienda no está emparejada con otra.', 'woonderful-stock-sync-for-woocommerce' ) );
+		}
+
+		if ( ! Peers::this_is_master() ) {
+			return new \WP_Error( 'wss_not_master', __( 'Vincular y desvincular se hace desde la tienda maestra: la que generó el código de emparejamiento.', 'woonderful-stock-sync-for-woocommerce' ) );
+		}
+
+		return null;
 	}
 
 	/**

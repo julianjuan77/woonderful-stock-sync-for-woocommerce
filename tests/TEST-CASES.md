@@ -568,6 +568,8 @@ Esta tienda hace de maestra; la otra la hace `pre_http_request`.
 | `LNK-06` | **Tres inciertos viejos: la otra dice `applied`, `unknown`, y uno no contesta** | El primero queda, el segundo se borra, el tercero sigue `uncertain`; la pregunta es un GET firmado |
 | `LNK-07` | Un incierto nuevo | No se pregunta |
 | `LNK-08` | Desvincular; otra vez sin vínculo; y desde la secundaria | El `unlink` a la cola; `not_linked`; `wss_not_master` |
+| `LNK-09` | **Una copia de la tienda, suspendida, vincula y desvincula** | `wss_suspended` las dos, sin salir a la red ni escribir nada. Sin la guarda, cae |
+| `LNK-10` | Vincular sin emparejar | `wss_not_paired` |
 
 Verificado rompiéndolo, con seis cambios: sin revisar el stock propio (`LNK-02`) o la maestra
 (`LNK-02`); el timeout como fallido (`LNK-04`, `LNK-06`); el 5xx como fallido (`LNK-05`); el

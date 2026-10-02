@@ -55,6 +55,7 @@ class Test_Linker extends WP_UnitTestCase {
 
 		// La otra canjeó el código: esta tienda es la maestra.
 		Peers::pair( self::OTHER, self::REST_URL, self::SECRET, 'Mayorista', Peers::SECONDARY );
+		update_option( Store::OPTION_FINGERPRINT, Store::fingerprint() );
 
 		add_filter( 'pre_http_request', array( $this, 'intercept' ), 10, 3 );
 	}
@@ -367,5 +368,34 @@ class Test_Linker extends WP_UnitTestCase {
 		Peers::pair( self::OTHER, self::REST_URL, self::SECRET, 'Mayorista', Peers::MASTER );
 
 		$this->assertSame( 'wss_not_master', Linker::unlink( $local )->get_error_code() );
+	}
+
+	/**
+	 * Una copia de la tienda —la base restaurada en otro sitio— trae el identificador y el
+	 * secreto de la real. No vincula ni desvincula, y no sale nada a la red.
+	 *
+	 * LNK-09
+	 */
+	public function test_a_suspended_copy_neither_links_nor_unlinks(): void {
+		$local  = $this->product( 10 );
+		$linked = $this->product( 10 );
+		Links::create( $linked, self::OTHER, 901, 77, 10 );
+
+		update_option( Store::OPTION_FINGERPRINT, hash( 'sha256', 'https://la-tienda-real.test' ) );
+
+		$this->assertSame( 'wss_suspended', Linker::link( $local, 900, 10, 7 )->get_error_code() );
+		$this->assertSame( 'wss_suspended', Linker::unlink( $linked )->get_error_code() );
+		$this->assertSame( array(), $this->sent );
+		$this->assertNull( $this->row() );
+		$this->assertNotNull( Links::for_product( $linked ) );
+	}
+
+	/**
+	 * LNK-10 — Sin emparejar, el motivo es ése, no "no es la maestra".
+	 */
+	public function test_without_a_peer_the_reason_is_not_paired(): void {
+		delete_option( Peers::OPTION );
+
+		$this->assertSame( 'wss_not_paired', Linker::link( $this->product( 10 ), 900, 10, 7 )->get_error_code() );
 	}
 }
