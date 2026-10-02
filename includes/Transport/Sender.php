@@ -42,10 +42,13 @@ final class Sender {
 	/**
 	 * Hace una pasada.
 	 *
+	 * @param int[]|null $only    Sólo estos movimientos, aunque no les toque todavía (ADR-006 §5).
+	 * @param int        $timeout Cuánto se espera la respuesta.
+	 *
 	 * @return array{sent: int, confirmed: int, failed: int, error: string|null} Lo que pasó,
 	 *         para el log de la pasada.
 	 */
-	public static function run(): array {
+	public static function run( ?array $only = null, int $timeout = self::TIMEOUT ): array {
 		$summary = array(
 			'sent'      => 0,
 			'confirmed' => 0,
@@ -63,14 +66,14 @@ final class Sender {
 			return $summary;
 		}
 
-		$rows = Ledger::claim( Ledger::MAX_BATCH );
+		$rows = Ledger::claim( Ledger::MAX_BATCH, $only );
 
 		if ( array() === $rows ) {
 			return $summary;
 		}
 
 		$worker   = (string) $rows[0]->claimed_by;
-		$response = self::post( $peer, array_map( array( self::class, 'movement_of' ), $rows ) );
+		$response = self::post( $peer, array_map( array( self::class, 'movement_of' ), $rows ), $timeout );
 
 		$results = self::results_for( $rows, $response );
 
@@ -91,10 +94,11 @@ final class Sender {
 	 *
 	 * @param array{store: string, rest_url: string, secret: string, role: string} $peer      La otra tienda.
 	 * @param array<int, array<string, mixed>>                                     $movements Los movimientos, como viajan.
+	 * @param int                                                                  $timeout   Cuánto se espera la respuesta.
 	 *
 	 * @return array<string, mixed>|\WP_Error Lo que devolvió `wp_remote_post()`.
 	 */
-	public static function post( array $peer, array $movements ) {
+	public static function post( array $peer, array $movements, int $timeout = self::TIMEOUT ) {
 		$body = (string) wp_json_encode( array( 'movements' => $movements ) );
 
 		return wp_remote_post(
@@ -105,7 +109,7 @@ final class Sender {
 					Signature::headers( Store::id(), $peer['secret'], 'POST', self::ROUTE, array(), $body )
 				),
 				'body'        => $body,
-				'timeout'     => self::TIMEOUT,
+				'timeout'     => $timeout,
 				// Un POST redirigido llega como GET, o no llega: mejor que falle y se vea.
 				'redirection' => 0,
 			)

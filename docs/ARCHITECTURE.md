@@ -207,6 +207,14 @@ un POST redirigido llega como GET. Empareja los resultados por posición, y uno 
 `seq` de otra fila no confirma. Si falla el request entero, cada fila guarda el mismo motivo
 —el mensaje de la red o `HTTP <estado> <código>`— en `last_error`.
 
+**Lo de un pedido sale al final de su request** (`Transport\Express`, ADR-006 §5). Cuando el
+detector estampa un movimiento con su pedido, lo anota. En `shutdown`, con `PHP_INT_MAX`, si hay
+PHP-FPM, se cierra la conexión del cliente con `fastcgi_finish_request()` y se llama a
+`Sender::run()` con esos IDs y 5 segundos de timeout: `claim()` se lleva sólo esas filas, sin
+mirar `next_attempt_at`, y con la misma retención de los bootstraps. Sin PHP-FPM no se manda nada
+y lo lleva la pasada. Los ajustes a mano y las importaciones no se anotan: esperan la pasada,
+para que la ráfaga se agrupe.
+
 **El lote, la curva de backoff, las 6 horas y los 5 minutos del claim son constantes**, no
 opciones (ADR-001, revisado el 2026-09-29).
 

@@ -12,6 +12,7 @@ use Woonderful\StockSync\Detector\Guard;
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Ledger\Ledger;
 use Woonderful\StockSync\Schema\Installer;
+use Woonderful\StockSync\Transport\Express;
 
 /**
  * Cada cambio de stock de un producto vinculado es un movimiento, con el delta leído de la
@@ -56,6 +57,7 @@ class Test_Detector extends WP_UnitTestCase {
 
 		Detector::forget_all();
 		Guard::forget_all();
+		Express::forget_all();
 
 		foreach ( array( 'movements', 'links', 'nonces' ) as $name ) {
 			$table = Installer::table( $name );
@@ -368,6 +370,36 @@ class Test_Detector extends WP_UnitTestCase {
 
 		$this->assertSame( array( array( $product_id, -2 ) ), $this->movements() );
 		$this->assertSame( array( array( 'sale', 'pedido #' . $order->get_order_number() ) ), $this->stamps() );
+	}
+
+	/**
+	 * DET-17 — Lo que estampa un pedido queda anotado para salir al final del request, y con
+	 * la prioridad más baja de `shutdown` (ADR-006 §5).
+	 */
+	public function test_an_order_queues_its_movement_for_the_end_of_the_request(): void {
+		global $wpdb;
+
+		$product_id = $this->create_product( 10 );
+		$order      = $this->create_order( $product_id, 2 );
+
+		wc_reduce_stock_levels( $order->get_id() );
+
+		$table = Installer::table( 'movements' );
+
+		$this->assertSame( array( (int) $wpdb->get_var( "SELECT id FROM {$table}" ) ), Express::queued() ); // phpcs:ignore WordPress.DB
+		$this->assertSame( PHP_INT_MAX, has_action( 'shutdown', array( Express::class, 'on_shutdown' ) ) );
+	}
+
+	/**
+	 * DET-18 — Un cambio sin pedido no se anota: espera la pasada, para que una importación
+	 * se agrupe.
+	 */
+	public function test_a_change_without_an_order_is_not_queued(): void {
+		$product_id = $this->create_product( 10 );
+
+		wc_update_product_stock( $product_id, 2, 'decrease' );
+
+		$this->assertSame( array(), Express::queued() );
 	}
 
 	/**

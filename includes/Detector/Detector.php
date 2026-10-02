@@ -10,6 +10,7 @@ declare( strict_types = 1 );
 namespace Woonderful\StockSync\Detector;
 
 use Woonderful\StockSync\Ledger\Ledger;
+use Woonderful\StockSync\Transport\Express;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -168,6 +169,7 @@ final class Detector {
 		}
 
 		Ledger::stamp( self::$recorded[ $product_id ], $reason, 'pedido #' . $order->get_order_number() );
+		Express::queue( self::$recorded[ $product_id ] );
 
 		unset( self::$recorded[ $product_id ] );
 	}

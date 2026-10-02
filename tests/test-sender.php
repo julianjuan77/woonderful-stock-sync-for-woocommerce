@@ -11,6 +11,7 @@ use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Ledger\Ledger;
 use Woonderful\StockSync\Rest\Movements;
 use Woonderful\StockSync\Schema\Installer;
+use Woonderful\StockSync\Transport\Express;
 use Woonderful\StockSync\Transport\Peers;
 use Woonderful\StockSync\Transport\Sender;
 
@@ -65,6 +66,8 @@ class Test_Sender extends WP_UnitTestCase {
 		global $wpdb;
 
 		remove_filter( 'pre_http_request', array( $this, 'intercept' ), 10 );
+
+		Express::forget_all();
 
 		foreach ( array( 'movements', 'links', 'nonces' ) as $name ) {
 			$table = Installer::table( $name );
@@ -453,5 +456,123 @@ class Test_Sender extends WP_UnitTestCase {
 
 		$this->assertSame( array(), $this->sent );
 		$this->assertNull( $summary['error'], 'no tener nada que mandar no es un error' );
+	}
+
+	/**
+	 * Un movimiento recién escrito: todavía le faltan los 10 segundos de la espera.
+	 *
+	 * @param int $delta Unidades.
+	 */
+	private function fresh_movement( int $delta ): int {
+		global $wpdb;
+
+		$movement_id = $this->pending_movement( $delta );
+
+		$wpdb->update( Installer::table( 'movements' ), array( 'next_attempt_at' => gmdate( 'Y-m-d H:i:s', time() + Ledger::DELIVERY_DELAY ) ), array( 'id' => $movement_id ) ); // phpcs:ignore WordPress.DB
+
+		return $movement_id;
+	}
+
+	/**
+	 * SND-11 — Al final del request sale lo anotado, sin esperar los 10 segundos, y sólo eso:
+	 * lo demás pendiente queda para la pasada (ADR-006 §5).
+	 */
+	public function test_the_end_of_the_request_sends_only_what_was_queued(): void {
+		$queued = $this->fresh_movement( -2 );
+		$other  = $this->pending_movement( -1 );
+
+		Express::queue( $queued );
+		$summary = Express::send();
+
+		$this->assertCount( 1, $this->sent );
+		$this->assertSame( array( $queued ), array_column( json_decode( (string) $this->sent[0]['args']['body'], true )['movements'], 'seq' ) );
+		$this->assertSame( 'confirmed', $this->column_of( $queued, 'delivery' ) );
+		$this->assertSame( 'pending', $this->column_of( $other, 'delivery' ) );
+		$this->assertSame( 1, $summary['confirmed'] );
+		$this->assertSame( array(), Express::queued(), 'lo anotado sale una vez' );
+	}
+
+	/**
+	 * SND-12 — Espera la respuesta 5 segundos, no 30; y si no llega, la fila vuelve a la cola.
+	 */
+	public function test_the_end_of_the_request_waits_little_and_falls_back_to_the_queue(): void {
+		$queued       = $this->fresh_movement( -2 );
+		$this->answer = static fn () => new WP_Error( 'http_request_failed', 'cURL error 28: timeout' );
+
+		Express::queue( $queued );
+		Express::send();
+
+		$this->assertSame( Express::TIMEOUT, $this->sent[0]['args']['timeout'] );
+		$this->assertSame( 'pending', $this->column_of( $queued, 'delivery' ) );
+		$this->assertSame( '1', $this->column_of( $queued, 'attempts' ) );
+	}
+
+	/**
+	 * SND-13 — Lo que una pasada ya se llevó no sale dos veces.
+	 */
+	public function test_the_end_of_the_request_skips_what_a_pass_took(): void {
+		global $wpdb;
+
+		$queued = $this->fresh_movement( -2 );
+		$wpdb->update( // phpcs:ignore WordPress.DB
+			Installer::table( 'movements' ),
+			array(
+				'delivery'   => 'in_flight',
+				'claimed_by' => wp_generate_uuid4(),
+				'claimed_at' => gmdate( 'Y-m-d H:i:s' ),
+			),
+			array( 'id' => $queued )
+		);
+
+		Express::queue( $queued );
+		Express::send();
+
+		$this->assertSame( array(), $this->sent );
+	}
+
+	/**
+	 * SND-14 — Lo retenido por un bootstrap sin resolver tampoco sale (ADR-008 §4).
+	 */
+	public function test_the_end_of_the_request_respects_an_unresolved_bootstrap(): void {
+		global $wpdb;
+
+		$queued = $this->fresh_movement( -2 );
+		$table  = Installer::table( 'movements' );
+
+		$wpdb->insert(
+			$table,
+			array(
+				'origin_store'   => Store::id(),
+				'origin_seq'     => 999999,
+				'delta'          => 0,
+				'reason'         => Ledger::BOOTSTRAP,
+				'created_at'     => gmdate( 'Y-m-d H:i:s' ),
+				'link_id'        => (int) $this->column_of( $queued, 'link_id' ),
+				'origin_product' => 1,
+				'delivery'       => Ledger::SYNCING,
+			)
+		); // phpcs:ignore WordPress.DB
+
+		Express::queue( $queued );
+		Express::send();
+
+		$this->assertSame( array(), $this->sent );
+		$this->assertSame( 'pending', $this->column_of( $queued, 'delivery' ) );
+	}
+
+	/**
+	 * SND-15 — Sin PHP-FPM no se manda: el cliente esperaría el envío. Lo lleva la pasada.
+	 */
+	public function test_without_fpm_the_end_of_the_request_sends_nothing(): void {
+		$this->assertFalse( function_exists( 'fastcgi_finish_request' ), 'los tests corren por CLI' );
+
+		$queued = $this->fresh_movement( -2 );
+
+		Express::queue( $queued );
+		Express::on_shutdown();
+
+		$this->assertSame( array(), $this->sent );
+		$this->assertSame( array(), Express::queued() );
+		$this->assertSame( 'pending', $this->column_of( $queued, 'delivery' ) );
 	}
 }

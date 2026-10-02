@@ -362,12 +362,20 @@ final class Ledger {
 	 * de 200 y los ACK caerían sobre filas ajenas—, que es justo lo que el claim evita.
 	 * Cada fila devuelta trae su `claimed_by`.
 	 *
-	 * @param int $limit Tope de movimientos por lote.
+	 * Con `$only`, reclama sólo esas filas y sin mirar `next_attempt_at`: es el envío al
+	 * final del request de un pedido, que no necesita la espera (ADR-006 §5).
+	 *
+	 * @param int        $limit Tope de movimientos por lote.
+	 * @param int[]|null $only  Sólo estos movimientos.
 	 *
 	 * @return \stdClass[] Las filas reclamadas en esta llamada, de `get_results()`.
 	 */
-	public static function claim( int $limit = self::MAX_BATCH ): array {
+	public static function claim( int $limit = self::MAX_BATCH, ?array $only = null ): array {
 		global $wpdb;
+
+		if ( array() === $only ) {
+			return array();
+		}
 
 		$worker = wp_generate_uuid4();
 
@@ -429,6 +437,7 @@ final class Ledger {
 		$held       = array_map( 'intval', (array) $unresolved );
 
 		$not_held = array() === $held ? '' : ' AND ( link_id IS NULL OR link_id NOT IN ( ' . implode( ',', $held ) . ' ) )';
+		$due      = null === $only ? 'next_attempt_at <= UTC_TIMESTAMP()' : 'id IN ( ' . implode( ',', array_map( 'intval', $only ) ) . ' )';
 
 		//
 		// El intento se cuenta acá y no al anotar el resultado: si el worker muere, nadie
@@ -443,7 +452,7 @@ final class Ledger {
 				        attempts = attempts + 1,
 				        first_attempt_at = COALESCE( first_attempt_at, UTC_TIMESTAMP() )
 				  WHERE delivery = 'pending'
-				    AND next_attempt_at <= UTC_TIMESTAMP()" . $not_held . '
+				    AND " . $due . $not_held . '
 				  ORDER BY next_attempt_at, id
 				  LIMIT %d',
 				$worker,

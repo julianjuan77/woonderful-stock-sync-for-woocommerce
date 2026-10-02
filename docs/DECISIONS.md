@@ -1948,6 +1948,8 @@ daría 0 y el cambio no se emitiría nunca. Ver §1.
 Revisado: 2026-09-28 — aprobado por Julián. El agujero declarado del guard estaba mal
 descrito: entre el `expect()` y el `set` sí corre código de terceros. La conclusión no cambia;
 ahora dice qué se pierde. Ver §3.
+Revisado: 2026-10-02 — aprobado por Julián. Lo que causó un pedido sale al terminar el
+request de ese pedido, sin esperar los 10 segundos ni la pasada. Ver §5.
 Temas: hooks-publicos, db-schema
 Cubre: includes/Detector/_.php
 
@@ -1960,6 +1962,8 @@ Cubre: includes/Detector/_.php
 3. El **guard anti-eco es específico**: anota el producto, de un solo uso.
 4. Un movimiento **no se entrega hasta unos segundos después de creado**, lo que cierra la
    carrera del estampado y agrupa las ráfagas sin modo especial.
+5. **Lo que causó un pedido sale al terminar ese request**, con la conexión del cliente ya
+   cerrada. Lo demás sigue esperando la pasada.
 
 ---
 
@@ -2221,7 +2225,50 @@ apurado. El tope de 200 por lote de ADR-001 sigue mandando.
 
 **Costo:** una venta tarda esos segundos de más en llegar a la otra tienda. §5 del SPEC no
 promete un plazo máximo de propagación, justamente porque depende del volumen y del servidor,
-pero es tiempo en el que la otra tienda puede sobrevender.
+pero es tiempo en el que la otra tienda puede sobrevender. §5 lo achica para las ventas.
+
+---
+
+### 5. Lo que causó un pedido sale al terminar el request
+
+Hoy una venta tarda en llegar a la otra tienda entre 10 y 70 segundos: los 10 de §4 más lo
+que falte para la pasada, que corre cada 60 y **sólo si alguien visita el sitio**, porque la
+dispara WP-Cron. En una tienda con poco tráfico puede ser bastante más. Es tiempo en el que la
+otra tienda vende algo que ya no hay.
+
+**La decisión:** los movimientos que un pedido estampó en este request —`sale` o `refund`— se
+mandan al final del mismo request, después de cerrarle la conexión al cliente con
+`fastcgi_finish_request()`.
+
+```
+14:00:00.000  el cliente paga → se descuenta el stock → la fila nace → se le estampa `sale`
+14:00:00.300  WordPress terminó la página → se cierra la conexión: el cliente ya la ve
+14:00:00.301  se manda el movimiento a la otra tienda                              ← nuevo
+```
+
+**Por qué acá no hace falta la espera de §4.** Las dos cosas que la espera resuelve ya están
+resueltas al final del request: el estampado corrió —es parte del mismo request—, y lo de ese
+pedido sale junto, en un solo lote.
+
+**Por qué sólo lo de un pedido, y no todo lo del request.** El problema es la sobreventa, y ésa
+viene de los pedidos. Un ajuste a mano o una importación siguen esperando la pasada: una
+importación por tandas manda un request por tanda, y si cada una saliera sola se perdería el
+agrupamiento que §4 vino a dar.
+
+**Las reglas:**
+
+| Regla | Por qué |
+| --- | --- |
+| Sólo si existe `fastcgi_finish_request()` (PHP-FPM) | Sin ella —Apache con mod_php— el cliente esperaría el envío. Ahí lo lleva la pasada, como hoy |
+| Se reclama como en la pasada, pero sólo esas filas y sin mirar `next_attempt_at` | El mismo `UPDATE` condicional: si una pasada corre a la vez, una sola se las lleva. Y se respeta lo retenido por un bootstrap sin resolver (ADR-008 §4) |
+| Un solo lote, de 200 como mucho | El tope de ADR-001. Si hay más, el resto lo lleva la pasada |
+| Espera la respuesta 5 segundos, no 30 | Corre dentro de un proceso de PHP-FPM que no atiende a nadie más mientras tanto. Si no contesta a tiempo, las filas vuelven a la cola como cualquier envío fallido. Si en realidad llegaron, la otra tienda las reconoce por su `seq` y no descuenta dos veces |
+| Engancha en `shutdown` con la prioridad más baja | Otros plugins imprimen en `shutdown` —Query Monitor, por ejemplo—; cerrar la conexión antes les cortaría la salida |
+| Nada si la sincronización está suspendida | Ya lo da el detector: no se engancha cuando está suspendida |
+
+**Costo:** un proceso de PHP-FPM queda ocupado hasta 5 segundos más después de cada pedido, y
+un envío que falla gasta un intento contra el techo de 6 horas —uno de muchos: el primer
+reintento es al minuto—.
 
 ---
 
@@ -2231,6 +2278,7 @@ pero es tiempo en el que la otra tienda puede sobrevender.
 | --- | --- | --- |
 | El movimiento existe primero y la atribución se le estampa encima | **Source document reference** | El campo `origin` de `stock.move` en Odoo; el `referenceDocumentUri` de cada ajuste en Shopify |
 | Esperar antes de enviar para que la ráfaga se agrupe sola | **Debounce** | Cualquier cosa que agrupe eventos en lote |
+| Cerrar la respuesta y seguir trabajando en el mismo proceso | `fastcgi_finish_request()` | woonderful-sync, para mandar a MercadoLibre la cola del request |
 | Cortar el eco de una réplica | **Loop prevention** | Lo estándar es marcar el origen (`server_id` en MySQL); acá la etiqueta no puede viajar con el evento, ver §3 |
 
 ### Alcance

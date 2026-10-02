@@ -425,11 +425,18 @@ necesita, sin salir a ningún lado.
 | `SND-08` | Falta un resultado, y otro trae en su posición el `seq` de otra fila | Ninguno de los dos confirma: `missing_result` y `result_mismatch` |
 | `SND-09` | Nada venció su retardo | No sale nada, y el resumen no trae error |
 | `SND-10` | **Una entrada vieja en `wss_peers`, sin URL ni secreto**, junto a la tienda emparejada | Se manda igual: la entrada que dejó la purga de un UUID anterior no corta la entrega |
+| `SND-11` | Al final del request, **uno anotado sin cumplir los 10 segundos** y otro pendiente sin anotar | Sale sólo el anotado, y se confirma; el otro queda para la pasada (ADR-006 §5) |
+| `SND-12` | Al final del request, la otra tienda no contesta | Se esperó 5 segundos, y la fila vuelve a `pending` con un intento contado |
+| `SND-13` | Al final del request, el anotado ya lo tiene una pasada | No sale dos veces |
+| `SND-14` | Al final del request, el anotado cuelga de un bootstrap sin resolver | No sale: lo retiene, como en la pasada |
+| `SND-15` | Sin `fastcgi_finish_request()` | No sale nada, y lo anotado se descarta: lo lleva la pasada |
 
 Verificado rompiéndolo: reclamando antes de mirar si hay tienda cae `SND-01`; sin el control
 del `seq` o tomando un resultado faltante como confirmado cae `SND-08`; ignorando el error del
 request caen `SND-06` y `SND-07`; firmando otra ruta cae `SND-04`; contando todas las entradas
-de `wss_peers` cae `SND-10`; sin el `no_peer` cae `SND-01`.
+de `wss_peers` cae `SND-10`; sin el `no_peer` cae `SND-01`. Del final del request: reclamando sin
+filtrar por los anotados, o mirando la espera, caen `SND-11` y `SND-12`; sin retener lo de un
+bootstrap cae `SND-14`; con el timeout de 30 cae `SND-12`; mandando sin PHP-FPM cae `SND-15`.
 
 ## [`tests/test-pass.php`](test-pass.php) — la pasada recurrente
 
@@ -685,10 +692,13 @@ nuestro callback (ADR-006 §3).
 | `DET-14` | Un reembolso que repone una unidad | `refund` de +1 |
 | `DET-15` | **El cambio del pedido lo tapó el guard**, con un ajuste anterior del mismo producto | El ajuste sigue siendo `adjustment`: el estampado no cae sobre una fila ajena |
 | `DET-16` | El pedido de una variación que toma el stock del padre | Se estampa la fila del padre |
+| `DET-17` | Un pedido descuenta stock | Su movimiento queda anotado para el final del request, enganchado con `PHP_INT_MAX` en `shutdown` (ADR-006 §5) |
+| `DET-18` | Un cambio sin pedido | No se anota: espera la pasada |
 
 Verificado rompiéndolo: leyendo el objeto en el `before` en vez de la base caen `DET-02` y
 `DET-03`; sin borrar el movimiento recordado en cada `set` cae `DET-15`; estampando por el ID de
-la línea y no por el que lleva el stock cae `DET-16`.
+la línea y no por el que lleva el stock cae `DET-16`; sin anotar lo estampado, o enganchando con
+la prioridad por omisión, cae `DET-17`.
 
 **Las líneas de pedido se limpian en el `set_up`.** La suite recrea las tablas de WordPress en
 cada corrida pero no las de WooCommerce, y las líneas quedan confirmadas: la transacción de
