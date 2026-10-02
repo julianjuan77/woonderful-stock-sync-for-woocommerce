@@ -2,7 +2,7 @@
 
 > Plugin: `woonderful-stock-sync-for-woocommerce` | WP 6.5+ | PHP 8.1+ | WooCommerce 9.1+
 > Repo: [woonderful-stock-sync-for-woocommerce](https://github.com/julianjuan77/woonderful-stock-sync-for-woocommerce)
-> Creado: 2026-09-20 · Última sesión: 2026-10-01 — la vinculación (bloque 6, ADR-008), probada entre `sandbox` y `sandbox-b`
+> Creado: 2026-09-20 · Última sesión: 2026-10-02 — los arreglos de la revisión del bloque 6: la copia que no vincula, el stock bloqueado al revisar, el vínculo viejo que se reemplaza
 
 Sincroniza el stock entre dos tiendas WooCommerce propias que despachan del mismo depósito.
 Pool único, sin reparto: lo que se vende en una descuenta en las dos.
@@ -42,6 +42,8 @@ necesita para sugerir pares.
 emparejadas con rol. Con `DISABLE_WP_CRON` la pasada no corre sola: se dispara con
 `wp eval '\Woonderful\StockSync\Transport\Pass::run();'` pasados los 10 s del retardo. Para
 vincular: `wp wss link <acá> <allá> --stock=<acá> --remote-stock=<allá>` en la maestra.
+Quedaron vinculadas la "Alpargata verde 39" (A 15 ↔ B 13); la "roja 40" se desvinculó, y la
+"azul 38" es el vínculo armado a mano de E.1.
 
 ---
 
@@ -145,9 +147,9 @@ es lo normal: loguearlo en cada pasada sería ruido.
 
 | | Tarea | Estado | Commit | Tests |
 |---|---|---|---|---|
-| 6.1 | Crear el vínculo y mandar el bootstrap en el momento (ADR-008) | ✅ | `7e6b919`, `a855ea4`, `b37244d` | `LNK-01`…`LNK-07`, `BOO-07`…`BOO-10` |
-| 6.2 | Recibir el bootstrap: las revisiones, el par al revés y el stock de la maestra con el guard. Se atiende antes de buscar el vínculo | ✅ | `a855ea4` | `BOO-01`…`BOO-03`, `BOO-06` |
-| 6.3 | Desvincular: el `unlink` sale por la cola; la secundaria borra el par vigente y descarta el viejo o ajeno | ✅ | `a855ea4`, `b37244d` | `LNK-08`, `BOO-04`, `BOO-05`, `BOO-11` |
+| 6.1 | Crear el vínculo y mandar el bootstrap en el momento (ADR-008). Una copia suspendida no vincula; el stock se revisa con la fila bloqueada; el bootstrap se identifica por su vínculo | ✅ | `7e6b919`, `a855ea4`, `b37244d`, `ce80b76`, `46e2f49`, `34949cb`, `fc0e529` | `LNK-01`…`LNK-11`, `BOO-07`…`BOO-10`, `BOO-12`…`BOO-14`, `BOO-16` |
+| 6.2 | Recibir el bootstrap: las revisiones, el par al revés y el stock de la maestra con el guard. Se atiende antes de buscar el vínculo. El stock se revisa con la fila bloqueada, y un vínculo viejo se reemplaza (ADR-008, revisado) | ✅ | `a855ea4`, `34949cb`, `0879fdb` | `BOO-01`…`BOO-03`, `BOO-06`, `BOO-15`, `BOO-17`, `BOO-18` |
+| 6.3 | Desvincular: el `unlink` sale por la cola; la secundaria borra el par vigente y descarta el viejo o ajeno. Si el `unlink` no llega, el próximo bootstrap reemplaza el vínculo que quedó | ✅ | `a855ea4`, `b37244d`, `0879fdb` | `LNK-08`, `LNK-09`, `BOO-04`, `BOO-05`, `BOO-11` |
 | 6.4 | El estado derivado: vinculado, suspendido, sin vincular, **e incierto** (ADR-008 §5) | ⬜ | | |
 | 6.5 | `Links` | ✅ | `a855ea4` | — |
 | 6.6 | Los roles al emparejar: la maestra es la que emite el código (ADR-008 §2) | ✅ | `1f18fef` | `PAR-02`, `PAR-09`, `PAR-19` |
