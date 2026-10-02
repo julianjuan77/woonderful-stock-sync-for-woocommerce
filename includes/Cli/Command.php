@@ -10,6 +10,7 @@ declare( strict_types = 1 );
 namespace Woonderful\StockSync\Cli;
 
 use Woonderful\StockSync\Linking\Linker;
+use Woonderful\StockSync\Linking\State;
 use Woonderful\StockSync\Ledger\Ledger;
 use Woonderful\StockSync\Transport\Pairing;
 
@@ -145,5 +146,32 @@ final class Command {
 		}
 
 		\WP_CLI::success( __( 'Desvinculado. La otra tienda se entera en la próxima pasada.', 'woonderful-stock-sync-for-woocommerce' ) );
+	}
+
+	/**
+	 * Muestra el estado de sincronización de productos de esta tienda.
+	 *
+	 * ## OPTIONS
+	 *
+	 * <local>...
+	 * : Los IDs de los productos de esta tienda.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp wss status 123 124
+	 *
+	 * @param array<int, string>    $args       Los productos.
+	 * @param array<string, string> $assoc_args No lleva.
+	 */
+	public function status( array $args, array $assoc_args ): void {
+		$result = State::of( array_map( 'intval', $args ) );
+
+		foreach ( $result['states'] as $product => $state ) {
+			\WP_CLI::line( $product . ': ' . $state['state'] . ( null === $state['reason'] ? '' : ' (' . $state['reason'] . ')' ) );
+		}
+
+		if ( ! $result['remote_reachable'] ) {
+			\WP_CLI::line( __( 'La otra tienda no respondió: los vinculados figuran como vinculados, pero no se pudo ver si su producto sigue existiendo.', 'woonderful-stock-sync-for-woocommerce' ) );
+		}
 	}
 }

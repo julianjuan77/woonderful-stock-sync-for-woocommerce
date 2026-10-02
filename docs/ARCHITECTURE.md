@@ -159,6 +159,15 @@ nonce. Se registra después de la guarda. `linked` y el stock salen de una consu
 Del otro lado, `Transport\Catalog::fetch()` lo llama con la query en texto —la misma que firma—,
 reparte `include` de a 100, no pide nada con una lista vacía y descarta las entradas mal armadas.
 
+**El estado de sincronización** (`Linking\State::of()`, ADR-005 §1) se calcula al mostrarlo,
+nunca se guarda: `unlinked` sin fila; `uncertain` si el bootstrap del vínculo sigue sin
+resolver; `suspended` si el producto de allá está en la papelera o ya no existe
+—`remote_trashed`, `remote_missing`— o si el de acá —`local_trashed`, `local_missing`—; y
+`linked` el resto. A la otra tienda se le pregunta **una vez** por todos los vinculados, con
+`Catalog::fetch()` e `include`. **Si no responde, los vinculados siguen vinculados**: la caída no
+es suspensión, y el resultado lo avisa una vez con `remote_reachable`. `wp wss status <ids>` lo
+muestra.
+
 **`GET /health`** (`Rest\Health`, ADR-001 §4) responde `store`, `label`, `version`, `api` y
 `suspended` —`null`, `cloned_site` o `unhealthy_schema`—. Se registra **antes de la guarda**:
 un sitio suspendido responde igual, para que la otra tienda pueda explicar por qué no le

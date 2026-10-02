@@ -24,7 +24,7 @@ git show 2668a7a --stat      # qué archivos tocó y cuántas líneas
 git show 2668a7a             # el diff completo
 ```
 
-Y para correr sólo los tests de una pieza, en vez de los 264:
+Y para correr sólo los tests de una pieza, en vez de los 269:
 
 ```bash
 make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS="--filter Test_Ledger"
@@ -34,9 +34,9 @@ make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS=
 
 ## 🔄 En progreso
 
-Nada. Lo siguiente es **6.4, el estado derivado** —vinculado, suspendido, sin vincular e
-incierto—. Ya tiene lo que necesitaba: `Catalog::fetch()` con `include` dice si el producto del
-otro lado está en la papelera o ya no existe.
+Nada. El bloque 6 está completo. Lo que no está bloqueado: **5.9, el envío al final del request
+de la venta**, que necesita revisar ADR-006 §4. Lo demás espera un ADR: la reconciliación
+(1.9), el log y los avisos (1.10) y la interfaz (1.11).
 
 **Para probar entre dos tiendas:** `sandbox` (8150, maestra) y `sandbox-b` (8170) están
 emparejadas con rol. Con `DISABLE_WP_CRON` la pasada no corre sola: se dispara con
@@ -150,7 +150,7 @@ es lo normal: loguearlo en cada pasada sería ruido.
 | 6.1 | Crear el vínculo y mandar el bootstrap en el momento (ADR-008). Una copia suspendida no vincula; el stock se revisa con la fila bloqueada; el bootstrap se identifica por su vínculo | ✅ | `7e6b919`, `a855ea4`, `b37244d`, `ce80b76`, `46e2f49`, `34949cb`, `fc0e529` | `LNK-01`…`LNK-11`, `BOO-07`…`BOO-10`, `BOO-12`…`BOO-14`, `BOO-16` |
 | 6.2 | Recibir el bootstrap: las revisiones, el par al revés y el stock de la maestra con el guard. Se atiende antes de buscar el vínculo. El stock se revisa con la fila bloqueada, y un vínculo viejo se reemplaza (ADR-008, revisado) | ✅ | `a855ea4`, `34949cb`, `0879fdb` | `BOO-01`…`BOO-03`, `BOO-06`, `BOO-15`, `BOO-17`, `BOO-18` |
 | 6.3 | Desvincular: el `unlink` sale por la cola; la secundaria borra el par vigente y descarta el viejo o ajeno. Si el `unlink` no llega, el próximo bootstrap reemplaza el vínculo que quedó | ✅ | `a855ea4`, `b37244d`, `0879fdb` | `LNK-08`, `LNK-09`, `BOO-04`, `BOO-05`, `BOO-11` |
-| 6.4 | El estado derivado: vinculado, suspendido, sin vincular, **e incierto** (ADR-008 §5) | ⬜ | | |
+| 6.4 | El estado derivado: vinculado, suspendido —por el producto de allá o el de acá—, sin vincular e incierto. La caída de la otra tienda no suspende. `wp wss status` | ✅ | | `STA-01`…`STA-05` |
 | 6.5 | `Links` | ✅ | `a855ea4` | — |
 | 6.6 | Los roles al emparejar: la maestra es la que emite el código (ADR-008 §2) | ✅ | `1f18fef` | `PAR-02`, `PAR-09`, `PAR-19` |
 | 6.7 | `wp wss link` y `wp wss unlink`, y la prueba entre `sandbox` y `sandbox-b`: rechazo por stock cambiado, vínculo con el stock de la maestra, una venta que llega, el `unlink` y el rechazo desde la secundaria | ✅ | `ff66beb` | `CLI-05`, `CLI-06` |

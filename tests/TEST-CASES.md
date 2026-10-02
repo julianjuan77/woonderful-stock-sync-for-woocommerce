@@ -57,6 +57,7 @@ Prefijo por dominio, número correlativo, y **no se renumeran** aunque un caso s
 | `BOO-NN` | El bootstrap y el `unlink`, en el libro y en el receptor | [`tests/test-bootstrap.php`](test-bootstrap.php) |
 | `LNK-NN` | Vincular y desvincular, del lado de la maestra | [`tests/test-linker.php`](test-linker.php) |
 | `PRD-NN` | `GET /products` y su cliente | [`tests/test-rest-products.php`](test-rest-products.php) |
+| `STA-NN` | El estado de sincronización | [`tests/test-state.php`](test-state.php) |
 
 Cada test lleva su ID en el docblock, así que se encuentra buscándolo:
 
@@ -147,6 +148,7 @@ mientras escribía la función.
 | Un incierto se pregunta, no se reenvía | ADR-008 §5 | `LNK-06`, `LNK-07` | [test-linker.php](test-linker.php) |
 | El catálogo incluye la papelera, y un producto borrado no vuelve | ADR-005 §5 | `PRD-01`, `PRD-02` | [test-rest-products.php](test-rest-products.php) |
 | Lo que pide el cliente, con su query firmada, lo responde el endpoint | ADR-001 §1, ADR-005 §5 | `PRD-07` | [test-rest-products.php](test-rest-products.php) |
+| El estado es una vista; la caída de la otra tienda no suspende | ADR-005 §1, UC-03 | `STA-01`, `STA-02`, `STA-05` | [test-state.php](test-state.php) |
 | Una copia de la base no se empareja consigo misma | ADR-002 §1, ADR-001 §1 | `PAR-17`, `PAR-18` | [test-pairing.php](test-pairing.php) |
 | Ninguna respuesta firmada se guarda en caché | ARCHITECTURE §5 | `HLT-06`, `HLT-07`, `PLG-24` | [test-rest-health.php](test-rest-health.php), [test-plugin.php](test-plugin.php) |
 | Sin secreto no hay firma válida | ADR-001 §1 | `SIG-11` | [test-signature.php](test-signature.php) |
@@ -621,6 +623,20 @@ cliente firmando sin la query (`PRD-07`); anotando el nonce (`PRD-06`). Y con ot
 de la revisión: `include` filtrando por tipo y estado (`PRD-08`); sin el tope de IDs (`PRD-09`);
 el stock del objeto (`PRD-11`); la lista vacía que pide (`PRD-12`); sin tandas (`PRD-13`); sin
 validar (`PRD-14`).
+
+## [`tests/test-state.php`](test-state.php) — el estado de sincronización
+
+| ID | Caso | Resultado esperado |
+|---|---|---|
+| `STA-01` | **Uno sin vincular, uno vinculado, uno con el de allá en la papelera, uno con el de allá borrado y uno con el de acá en la papelera** | `unlinked`, `linked`, `suspended` con `remote_trashed`, `remote_missing` y `local_trashed`; **una sola pregunta** a la otra tienda |
+| `STA-02` | **La otra tienda no responde** | El vinculado sigue `linked`, y el resultado avisa una vez que no se la pudo consultar |
+| `STA-03` | Un vínculo con el bootstrap incierto | `uncertain`, sin preguntarle a la otra tienda |
+| `STA-04` | Sin ningún vínculo | No se pregunta nada |
+| `STA-05` | El de allá en la papelera, y después restaurado | `suspended`, y después `linked` solo: no hay nada que reanudar |
+
+Verificado rompiéndolo, con seis cambios: la caída como suspensión (`STA-02`); sin el incierto
+(`STA-03`); el que no vuelve como vinculado (`STA-01`); sin mirar la papelera de allá (`STA-01`,
+`STA-05`) o la de acá (`STA-01`); preguntar sin vínculos (`STA-03`, `STA-04`).
 
 ## [`tests/test-guard.php`](test-guard.php) — el guard anti-eco
 
