@@ -127,7 +127,7 @@ Verificado rompiéndolo: sin el `UPDATE` cae `LED-02`; registrando productos sin
 | 5.6 | `GET /health` | ✅ | `02ce7dc`, `638df6f` | `HLT-01`…`HLT-07`, `PLG-23`, `PLG-24` |
 | 5.7 | El emparejamiento: `POST /pair` y el canje con su callback. Https en los dos lados, salvo en desarrollo. Se dispara desde WP-CLI. La prueba entre dos sitios de verdad espera a E.1 | ✅ | `b972a51`, `10b245e`, `ae25584`, `ba6d266` | `PAR-01`…`PAR-18`, `CLI-01`…`CLI-04`, `PLG-25`, `UNI-08` |
 | 5.8 | `GET /products`, y su cliente `Transport\Catalog` | ✅ | `80f40ab`, `daa8b16` | `PRD-01`…`PRD-14` |
-| 5.9 | **El envío al final del request de un pedido** (`Transport\Express`), con `fastcgi_finish_request()` y 5 s de timeout; sin PHP-FPM, queda para la pasada. ADR-006 §5 | ✅ | | `SND-11`…`SND-15`, `DET-17`, `DET-18` |
+| 5.9 | **El envío al final del request de un pedido** (`Transport\Express`), con `fastcgi_finish_request()` y 5 s de timeout; sin PHP-FPM, queda para la pasada. ADR-006 §5 | ✅ | `4711ba2` | `SND-11`…`SND-15`, `DET-17`, `DET-18` |
 
 **Para el ADR del log (1.10):** `Sender::run()` devuelve cuántos mandó, confirmó y fallaron, y
 el error del request si lo hubo —`no_peer` si no hay tienda emparejada—. Es lo que necesita la
