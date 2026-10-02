@@ -457,6 +457,76 @@ final class Ledger {
 			$state = self::APPLIED;
 		}
 
+		$guarded = self::APPLIED === $state && $local instanceof \WC_Product ? (int) $local->get_stock_managed_by_id() : 0;
+
+		return self::applying(
+			static function () use ( $wpdb, $origin, $seq, $movement, $delta, $link, $product, $state, $local, $guarded ): array {
+				// La fila primero: es el registro que deduplica. Si se cambiara el stock y el
+				// proceso muriera antes de escribirla, el movimiento se reentregaría y se
+				// aplicaría de nuevo.
+				$inserted = $wpdb->insert(
+					Installer::table( 'movements' ),
+					array(
+						'origin_store'   => $origin,
+						'origin_seq'     => $seq,
+						'generation'     => (int) ( $movement['generation'] ?? 0 ),
+						'delta'          => $delta,
+						'reason'         => (string) ( $movement['reason'] ?? 'adjustment' ),
+						'reference'      => $movement['reference'] ?? null,
+						'created_at'     => gmdate( 'Y-m-d H:i:s' ),
+						'link_id'        => null === $link ? null : (int) $link->id,
+						'origin_product' => $product,
+						'application'    => $state,
+						'applied_at'     => self::APPLIED === $state ? gmdate( 'Y-m-d H:i:s' ) : null,
+					)
+				);
+
+				if ( false === $inserted ) {
+					return array( false, null );
+				}
+
+				if ( 0 !== $guarded && $local instanceof \WC_Product ) {
+					// El cambio de stock lo provoca el plugin: sin esto el detector lo vería
+					// como una venta y lo emitiría de vuelta (ADR-006 §3).
+					//
+					// Se anota el que **lleva** el stock, no el que se pidió: en una variación
+					// que lo toma del padre, quien cambia es el padre, y es su ID el que va a
+					// llegar al hook.
+					Guard::expect( $guarded );
+
+					wc_update_product_stock( $local, abs( $delta ), $delta < 0 ? 'decrease' : 'increase' );
+				}
+
+				return array( true, $state );
+			},
+			$guarded,
+			$origin,
+			$seq
+		);
+	}
+
+	/**
+	 * Corre una aplicación adentro de una transacción, y no deja nada a medias.
+	 *
+	 * La comparten el `apply()` de siempre, el bootstrap y el `unlink` recibidos. `$work`
+	 * devuelve si confirmar y con qué estado. Si el INSERT de la fila falló, no confirma: si
+	 * otro request lo escribió en el medio, el UNIQUE lo rechazó y el movimiento **está**
+	 * guardado, así que se responde su estado; si falló por otra cosa —un error de la base—
+	 * no hay nada guardado, y devolver null es lo que impide un ACK que lo perdería.
+	 *
+	 * Una excepción de un hook de terceros dejaría la transacción abierta, y el siguiente
+	 * `START TRANSACTION` del lote confirmaría la mitad hecha. `\Throwable` y no
+	 * `\Exception`: un `TypeError` no es una `Exception`.
+	 *
+	 * @param callable $work    Lo que se aplica. Devuelve `array( bool $commit, ?string $state )`.
+	 * @param int      $guarded El producto que el guard anotó, o 0: si la falla cae antes de
+	 *                          que el `set` la consuma, la anotación taparía su próximo cambio.
+	 * @param string   $origin  Tienda que lo emitió.
+	 * @param int      $seq     Su número en esa tienda.
+	 */
+	private static function applying( callable $work, int $guarded, string $origin, int $seq ): ?string {
+		global $wpdb;
+
 		$wpdb->query( 'START TRANSACTION' ); // phpcs:ignore WordPress.DB
 
 		self::$in_transaction = true;
@@ -467,54 +537,13 @@ final class Ledger {
 		add_action( 'woocommerce_product_before_set_stock', array( self::class, 'note_touched' ), PHP_INT_MIN );
 		add_action( 'woocommerce_variation_before_set_stock', array( self::class, 'note_touched' ), PHP_INT_MIN );
 
-		// Todo lo que sigue corre adentro de la transacción. Una excepción de un hook de
-		// terceros la dejaría abierta, y el siguiente `START TRANSACTION` del lote
-		// confirmaría la mitad hecha: la fila quedaría `applied` sin haber cambiado el
-		// stock. `\Throwable` y no `\Exception`: un `TypeError` no es una `Exception`.
 		try {
-			// La fila primero: es el registro que deduplica. Si se cambiara el stock y el
-			// proceso muriera antes de escribirla, el movimiento se reentregaría y se
-			// aplicaría de nuevo.
-			$inserted = $wpdb->insert(
-				Installer::table( 'movements' ),
-				array(
-					'origin_store'   => $origin,
-					'origin_seq'     => $seq,
-					'generation'     => (int) ( $movement['generation'] ?? 0 ),
-					'delta'          => $delta,
-					'reason'         => (string) ( $movement['reason'] ?? 'adjustment' ),
-					'reference'      => $movement['reference'] ?? null,
-					'created_at'     => gmdate( 'Y-m-d H:i:s' ),
-					'link_id'        => null === $link ? null : (int) $link->id,
-					'origin_product' => $product,
-					'application'    => $state,
-					'applied_at'     => self::APPLIED === $state ? gmdate( 'Y-m-d H:i:s' ) : null,
-				)
-			);
+			list( $commit, $state ) = $work();
 
-			if ( false === $inserted ) {
+			if ( ! $commit ) {
 				$wpdb->query( 'ROLLBACK' ); // phpcs:ignore WordPress.DB
 
-				// Si otro request lo escribió entre la consulta y el INSERT, el UNIQUE lo
-				// rechazó y el movimiento **está** guardado: se puede confirmar.
-				//
-				// Si falló por otra cosa —un error de la base, un campo más largo que su
-				// columna— no hay nada guardado, y confirmarlo haría que el emisor deje de
-				// reintentar: el movimiento se perdería en las dos tiendas. Devolver null es
-				// lo que impide ese ACK.
 				return self::application_state_of( $origin, $seq );
-			}
-
-			if ( self::APPLIED === $state && $local instanceof \WC_Product ) {
-				// El cambio de stock lo provoca el plugin: sin esto el detector lo vería como
-				// una venta y lo emitiría de vuelta (ADR-006 §3).
-				//
-				// Se anota el que **lleva** el stock, no el que se pidió: en una variación que
-				// lo toma del padre, quien cambia es el padre, y es su ID el que va a llegar
-				// al hook.
-				Guard::expect( (int) $local->get_stock_managed_by_id() );
-
-				wc_update_product_stock( $local, abs( $delta ), $delta < 0 ? 'decrease' : 'increase' );
 			}
 
 			$wpdb->query( 'COMMIT' ); // phpcs:ignore WordPress.DB
@@ -523,10 +552,8 @@ final class Ledger {
 		} catch ( \Throwable $e ) {
 			$wpdb->query( 'ROLLBACK' ); // phpcs:ignore WordPress.DB
 
-			if ( self::APPLIED === $state && $local instanceof \WC_Product ) {
-				// Si el `set` no llegó a consumirla, taparía el próximo cambio de este
-				// producto.
-				Guard::consume( (int) $local->get_stock_managed_by_id() );
+			if ( 0 !== $guarded ) {
+				Guard::consume( $guarded );
 			}
 
 			foreach ( self::take_touched() as $product_id ) {
