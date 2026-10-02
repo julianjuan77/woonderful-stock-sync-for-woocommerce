@@ -9,10 +9,12 @@ declare( strict_types = 1 );
 
 namespace Woonderful\StockSync\Ledger;
 
+use Woonderful\StockSync\Detector\Detector;
 use Woonderful\StockSync\Detector\Guard;
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Linking\Links;
 use Woonderful\StockSync\Schema\Installer;
+use Woonderful\StockSync\Transport\Peers;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -151,6 +153,32 @@ final class Ledger {
 			);
 		}
 	}
+
+	/**
+	 * El movimiento que fija un par y su stock inicial (ADR-005 §2, ADR-008).
+	 */
+	public const BOOTSTRAP = 'bootstrap';
+
+	/**
+	 * Un bootstrap propio en camino: se mandó y se espera la respuesta (ADR-008 §1).
+	 */
+	public const SYNCING = 'syncing';
+
+	/**
+	 * Un bootstrap propio sin respuesta: hay que preguntar (ADR-008 §5).
+	 */
+	public const UNCERTAIN = 'uncertain';
+
+	/**
+	 * El movimiento que deshace un par (ADR-005 §3).
+	 */
+	public const UNLINK = 'unlink';
+
+	/**
+	 * Los motivos con que la secundaria rechaza un bootstrap (ADR-008 §3). No se reintentan:
+	 * es el fallo "ahora" de UC-07, y el dueño vuelve a confirmar mirando los números nuevos.
+	 */
+	public const BOOTSTRAP_REJECTIONS = array( 'not_master', 'target_missing', 'target_not_managing_stock', 'target_already_linked', 'stock_changed' );
 
 	/**
 	 * Se aplicó al stock local.
@@ -376,7 +404,13 @@ final class Ledger {
 			    AND first_attempt_at < UTC_TIMESTAMP() - INTERVAL " . self::DELIVERY_CEILING
 		);
 
-		// Paso 3 — reclamar el lote. El intento se cuenta acá y no al anotar el resultado: si el worker muere, nadie
+		// Paso 3 — reclamar el lote, sin lo que cuelga de un bootstrap sin resolver. Una
+		// venta de esos segundos sale con la generación nueva (ADR-008 §4): entregada antes
+		// de que la otra tienda arme su vínculo, la descartaría con ACK y se perdería. Cuando
+		// el bootstrap se resuelve sale sola. La tabla derivada es porque MySQL no deja leer
+		// en una subconsulta la tabla que el UPDATE está cambiando (error 1093).
+		//
+		// El intento se cuenta acá y no al anotar el resultado: si el worker muere, nadie
 		// llega a anotarlo y el techo de 6 horas no avanzaría nunca (ADR-001 §2). Un lote
 		// que siempre supera el tiempo de PHP se reintentaría para siempre.
 		$wpdb->query(
@@ -389,6 +423,14 @@ final class Ledger {
 				        first_attempt_at = COALESCE( first_attempt_at, UTC_TIMESTAMP() )
 				  WHERE delivery = 'pending'
 				    AND next_attempt_at <= UTC_TIMESTAMP()
+				    AND generation NOT IN (
+				        SELECT g FROM (
+				            SELECT origin_seq AS g FROM {$table}
+				             WHERE reason = 'bootstrap'
+				               AND delivery IN ( 'syncing', 'uncertain' )
+				               AND origin_seq IS NOT NULL
+				        ) AS unresolved
+				    )
 				  ORDER BY next_attempt_at, id
 				  LIMIT %d",
 				$worker,
@@ -435,6 +477,19 @@ final class Ledger {
 
 		if ( null !== $known ) {
 			return $known;
+		}
+
+		// Antes de buscar el vínculo: el bootstrap lo crea y el unlink lo borra. Con la
+		// búsqueda de siempre, el bootstrap se descartaría por no tener vínculo, se
+		// confirmaría con ACK, y el par no se crearía nunca (ADR-001 §3).
+		$reason = (string) ( $movement['reason'] ?? '' );
+
+		if ( self::BOOTSTRAP === $reason ) {
+			return self::apply_bootstrap( $movement );
+		}
+
+		if ( self::UNLINK === $reason ) {
+			return self::apply_unlink( $movement );
 		}
 
 		$link       = Links::for_remote_product( $origin, $product );
@@ -503,6 +558,169 @@ final class Ledger {
 			$origin,
 			$seq
 		);
+	}
+
+	/**
+	 * Aplica un bootstrap recibido: revisa, y si todo está bien fija el par y el stock.
+	 *
+	 * Las revisiones de ADR-008 §3, en orden. Si alguna falla no se escribe nada —ni la
+	 * fila— y se devuelve el motivo, que vuelve como `error`: el bootstrap es sincrónico y
+	 * hay alguien mirando.
+	 *
+	 * Si pasan, en una sola transacción: la fila recibida con los campos del bootstrap en
+	 * `details`, el vínculo con el par al revés, y el stock de la maestra. Esa escritura la
+	 * anota el guard: sin él, el detector la emitiría de vuelta como un ajuste.
+	 *
+	 * @param array<string, mixed> $movement El bootstrap, con sus campos en `details`.
+	 *
+	 * @return string|null `applied`, un motivo de rechazo, o null si no se pudo guardar.
+	 */
+	private static function apply_bootstrap( array $movement ): ?string {
+		global $wpdb;
+
+		$origin  = (string) ( $movement['origin'] ?? '' );
+		$seq     = (int) ( $movement['seq'] ?? 0 );
+		$details = (array) ( $movement['details'] ?? array() );
+		$target  = (int) ( $details['target_product'] ?? 0 );
+		$base    = (int) ( $details['base_stock'] ?? 0 );
+		$local   = wc_get_product( $target );
+
+		if ( ! Peers::is_master( $origin ) ) {
+			return 'not_master';
+		}
+
+		if ( ! $local instanceof \WC_Product || 'trash' === $local->get_status() ) {
+			return 'target_missing';
+		}
+
+		// Que gestione el stock él mismo: en una variación que lo toma del padre, el número
+		// que se fijaría es el del padre, y el par sería otro.
+		if ( ! $local->managing_stock() || (int) $local->get_stock_managed_by_id() !== $target ) {
+			return 'target_not_managing_stock';
+		}
+
+		if ( null !== Links::for_product( $target ) ) {
+			return 'target_already_linked';
+		}
+
+		// De la base y no del objeto: el objeto puede venir de antes (ADR-006 §1).
+		if ( Detector::stock_in_db( $target ) !== (int) ( $details['target_previous_stock'] ?? PHP_INT_MIN ) ) {
+			return 'stock_changed';
+		}
+
+		return self::applying(
+			static function () use ( $wpdb, $origin, $seq, $movement, $details, $target, $base, $local ): array {
+				$inserted = $wpdb->insert(
+					Installer::table( 'movements' ),
+					array(
+						'origin_store'   => $origin,
+						'origin_seq'     => $seq,
+						'generation'     => $seq,
+						'delta'          => 0,
+						'reason'         => self::BOOTSTRAP,
+						'reference'      => $movement['reference'] ?? null,
+						'details'        => wp_json_encode( $details ),
+						'created_at'     => gmdate( 'Y-m-d H:i:s' ),
+						'origin_product' => (int) ( $movement['product'] ?? 0 ),
+						'application'    => self::APPLIED,
+						'applied_at'     => gmdate( 'Y-m-d H:i:s' ),
+					)
+				);
+
+				if ( false === $inserted ) {
+					return array( false, null );
+				}
+
+				$movement_id = (int) $wpdb->insert_id;
+
+				// El par al revés: el local es el `target_product` que vino (ADR-005 §2), y
+				// la generación, la secuencia del bootstrap (ADR-005 §4).
+				$link_id = Links::create( $target, $origin, (int) ( $movement['product'] ?? 0 ), $seq, $base );
+
+				if ( null === $link_id ) {
+					return array( false, null );
+				}
+
+				$wpdb->update( Installer::table( 'movements' ), array( 'link_id' => $link_id ), array( 'id' => $movement_id ) );
+
+				Guard::expect( $target );
+				wc_update_product_stock( $local, $base, 'set' );
+
+				return array( true, self::APPLIED );
+			},
+			$target,
+			$origin,
+			$seq
+		);
+	}
+
+	/**
+	 * Aplica un `unlink` recibido: borra el par, si es de la generación vigente.
+	 *
+	 * Uno que no viene de la maestra, o de una generación que ya no corre, se guarda
+	 * `discarded` y se confirma: va por la cola, y un `error` se reintentaría 6 horas sin
+	 * que reintentar lo arregle nunca (ADR-008 §3).
+	 *
+	 * @param array<string, mixed> $movement El unlink.
+	 */
+	private static function apply_unlink( array $movement ): ?string {
+		global $wpdb;
+
+		$origin     = (string) ( $movement['origin'] ?? '' );
+		$seq        = (int) ( $movement['seq'] ?? 0 );
+		$product    = (int) ( $movement['product'] ?? 0 );
+		$generation = (int) ( $movement['generation'] ?? 0 );
+		$link       = Links::for_remote_product( $origin, $product );
+		$current    = null !== $link && (int) $link->generation === $generation && Peers::is_master( $origin );
+		$state      = $current ? self::APPLIED : self::DISCARDED;
+
+		return self::applying(
+			static function () use ( $wpdb, $origin, $seq, $generation, $product, $link, $current, $state ): array {
+				$inserted = $wpdb->insert(
+					Installer::table( 'movements' ),
+					array(
+						'origin_store'   => $origin,
+						'origin_seq'     => $seq,
+						'generation'     => $generation,
+						'delta'          => 0,
+						'reason'         => self::UNLINK,
+						'created_at'     => gmdate( 'Y-m-d H:i:s' ),
+						'link_id'        => null === $link ? null : (int) $link->id,
+						'origin_product' => $product,
+						'application'    => $state,
+						'applied_at'     => $current ? gmdate( 'Y-m-d H:i:s' ) : null,
+					)
+				);
+
+				if ( false === $inserted ) {
+					return array( false, null );
+				}
+
+				if ( $current && null !== $link && ! Links::delete( (int) $link->id ) ) {
+					return array( false, null );
+				}
+
+				return array( true, $state );
+			},
+			0,
+			$origin,
+			$seq
+		);
+	}
+
+	/**
+	 * El estado de aplicación de un movimiento recibido, para quien pregunta por él.
+	 *
+	 * Es lo que responde `GET /movements/<origen>/<secuencia>`: preguntar no escribe nada
+	 * (ADR-008 §5).
+	 *
+	 * @param string $origin Tienda que lo emitió.
+	 * @param int    $seq    Su número en esa tienda.
+	 *
+	 * @return string `applied`, `held`, `discarded`, o `unknown` si nunca llegó.
+	 */
+	public static function state_of( string $origin, int $seq ): string {
+		return self::application_state_of( $origin, $seq ) ?? 'unknown';
 	}
 
 	/**
@@ -648,6 +866,201 @@ final class Ledger {
 				'delivery'     => 'pending',
 			)
 		);
+	}
+
+	/**
+	 * Escribe un bootstrap propio y su vínculo, juntos. Del lado de la maestra (ADR-008 §4).
+	 *
+	 * El vínculo se arma **antes** de mandar el bootstrap, para que una venta de esos
+	 * segundos se registre con la generación nueva; `claim()` la retiene hasta que el
+	 * bootstrap se resuelva. La fila nace `syncing`, que la cola no reclama: el bootstrap se
+	 * manda en el momento, no por la cola (ADR-008 §1).
+	 *
+	 * @param int                $product   Producto de esta tienda.
+	 * @param string             $remote    La otra tienda.
+	 * @param array<string, int> $details   `target_product`, `base_stock`,
+	 *                                      `origin_previous_stock`, `target_previous_stock`.
+	 * @param string|null        $reference Quién lo vinculó.
+	 *
+	 * @return int|null ID del movimiento —que es también la generación del par—, o null.
+	 */
+	public static function record_bootstrap( int $product, string $remote, array $details, ?string $reference ): ?int {
+		global $wpdb;
+
+		$table = Installer::table( 'movements' );
+		$now   = gmdate( 'Y-m-d H:i:s' );
+
+		self::begin();
+
+		$inserted = $wpdb->insert(
+			$table,
+			array(
+				'origin_store'    => Store::id(),
+				'delta'           => 0,
+				'reason'          => self::BOOTSTRAP,
+				'reference'       => $reference,
+				'details'         => wp_json_encode( $details ),
+				'created_at'      => $now,
+				'origin_product'  => $product,
+				'delivery'        => self::SYNCING,
+				'next_attempt_at' => $now,
+				'first_attempt_at' => $now,
+				'attempts'        => 1,
+			)
+		);
+
+		if ( false === $inserted ) {
+			self::rollback();
+
+			return null;
+		}
+
+		$movement_id = (int) $wpdb->insert_id;
+		$link_id     = Links::create( $product, $remote, (int) $details['target_product'], $movement_id, (int) $details['base_stock'] );
+
+		$updated = null === $link_id ? false : $wpdb->update(
+			$table,
+			array(
+				'origin_seq' => $movement_id,
+				'generation' => $movement_id,
+				'link_id'    => $link_id,
+			),
+			array( 'id' => $movement_id )
+		);
+
+		if ( false === $updated ) {
+			self::rollback();
+
+			return null;
+		}
+
+		self::commit();
+
+		return $movement_id;
+	}
+
+	/**
+	 * Anota cómo terminó un bootstrap propio. Si falló, borra el vínculo (ADR-008 §1).
+	 *
+	 * @param int         $movement_id El bootstrap.
+	 * @param string      $delivery    `confirmed`, `failed` o `uncertain`.
+	 * @param string|null $error       El motivo, si falló.
+	 */
+	public static function resolve_bootstrap( int $movement_id, string $delivery, ?string $error = null ): void {
+		global $wpdb;
+
+		$fields = array( 'delivery' => $delivery );
+
+		if ( 'confirmed' === $delivery ) {
+			$fields['confirmed_at'] = gmdate( 'Y-m-d H:i:s' );
+		}
+
+		if ( null !== $error ) {
+			$fields['last_error'] = mb_substr( $error, 0, 255 );
+		}
+
+		$wpdb->update( Installer::table( 'movements' ), $fields, array( 'id' => $movement_id ) ); // phpcs:ignore WordPress.DB
+
+		if ( 'failed' === $delivery ) {
+			$link = Links::for_generation( $movement_id );
+
+			if ( null !== $link ) {
+				Links::delete( (int) $link->id );
+			}
+		}
+	}
+
+	/**
+	 * Los bootstraps propios que hay que averiguar: `uncertain`, o `syncing` de un proceso
+	 * que murió (ADR-008 §5). Sólo los que tienen más de `$age` segundos: uno que la otra
+	 * tienda todavía esté procesando no se toma por perdido.
+	 *
+	 * @param int $age Segundos desde el envío.
+	 *
+	 * @return \stdClass[]
+	 */
+	public static function unresolved_bootstraps( int $age ): array {
+		global $wpdb;
+
+		$table = Installer::table( 'movements' );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT * FROM {$table}
+				  WHERE reason = %s
+				    AND delivery IN ( %s, %s )
+				    AND created_at < %s
+				  ORDER BY id",
+				self::BOOTSTRAP,
+				self::SYNCING,
+				self::UNCERTAIN,
+				gmdate( 'Y-m-d H:i:s', time() - $age )
+			)
+		);
+		// phpcs:enable
+
+		return (array) $rows;
+	}
+
+	/**
+	 * Escribe un `unlink` propio y borra el vínculo, juntos (ADR-005 §3, ADR-008 §6).
+	 *
+	 * Primero el movimiento, con la generación del vínculo, y después el borrado: al revés
+	 * que ADR-005 §3, porque el movimiento necesita el vínculo para saber su generación. Va
+	 * por la cola: una venta anterior tiene que llegar antes que la baja.
+	 *
+	 * @param int $product Producto de esta tienda.
+	 *
+	 * @return int|null ID del movimiento, o null si no había vínculo o no se pudo escribir.
+	 */
+	public static function record_unlink( int $product ): ?int {
+		global $wpdb;
+
+		$link = Links::for_product( $product );
+
+		if ( null === $link ) {
+			return null;
+		}
+
+		$table = Installer::table( 'movements' );
+		$now   = time();
+
+		self::begin();
+
+		$inserted = $wpdb->insert(
+			$table,
+			array(
+				'origin_store'    => Store::id(),
+				'generation'      => (int) $link->generation,
+				'delta'           => 0,
+				'reason'          => self::UNLINK,
+				'created_at'      => gmdate( 'Y-m-d H:i:s', $now ),
+				'link_id'         => (int) $link->id,
+				'origin_product'  => $product,
+				'delivery'        => 'pending',
+				'next_attempt_at' => gmdate( 'Y-m-d H:i:s', $now + self::DELIVERY_DELAY ),
+			)
+		);
+
+		if ( false === $inserted ) {
+			self::rollback();
+
+			return null;
+		}
+
+		$movement_id = (int) $wpdb->insert_id;
+		$updated     = $wpdb->update( $table, array( 'origin_seq' => $movement_id ), array( 'id' => $movement_id ) );
+
+		if ( false === $updated || ! Links::delete( (int) $link->id ) ) {
+			self::rollback();
+
+			return null;
+		}
+
+		self::commit();
+
+		return $movement_id;
 	}
 
 	/**

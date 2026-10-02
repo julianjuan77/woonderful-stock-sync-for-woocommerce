@@ -121,6 +121,18 @@ suspensión por un cambio de URL.
 PHPStan hay un stub propio de tres métodos en `tests/stubs/wp-cli.php`, en vez de la
 dependencia `php-stubs/wp-cli-stubs`: si el comando crece, conviene la dependencia, con su ADR.
 
+**El bootstrap y el `unlink`** (ADR-005, ADR-008). Del lado de la secundaria, `Ledger::apply()`
+los atiende **antes** de buscar el vínculo, porque uno lo crea y el otro lo borra. El bootstrap
+pasa las revisiones de ADR-008 §3 sin escribir nada —si una falla, vuelve su motivo como
+`error`— y después, en una transacción de `Ledger::applying()`, guarda la fila con los campos en
+`details`, crea el par al revés y fija el stock con el guard. Un `unlink` viejo o ajeno se guarda
+`discarded`. `GET /movements/<origen>/<secuencia>` responde `Ledger::state_of()`, sin anotar el
+nonce. Del lado de la maestra, `Ledger::record_bootstrap()` escribe la fila `syncing` y el
+vínculo juntos; `resolve_bootstrap()` anota cómo terminó y, si falló, borra el vínculo;
+`record_unlink()` escribe el `unlink` con la generación del vínculo y lo borra. **`claim()`
+retiene todo movimiento cuya generación es un bootstrap en `syncing` o `uncertain`**, con la
+subconsulta envuelta en una tabla derivada por el error 1093 de MySQL.
+
 **`GET /health`** (`Rest\Health`, ADR-001 §4) responde `store`, `label`, `version`, `api` y
 `suspended` —`null`, `cloned_site` o `unhealthy_schema`—. Se registra **antes de la guarda**:
 un sitio suspendido responde igual, para que la otra tienda pueda explicar por qué no le

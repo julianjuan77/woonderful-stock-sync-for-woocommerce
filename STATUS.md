@@ -24,7 +24,7 @@ git show 2668a7a --stat      # qué archivos tocó y cuántas líneas
 git show 2668a7a             # el diff completo
 ```
 
-Y para correr sólo los tests de una pieza, en vez de los 219:
+Y para correr sólo los tests de una pieza, en vez de los 230:
 
 ```bash
 make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS="--filter Test_Ledger"
@@ -145,7 +145,7 @@ es lo normal: loguearlo en cada pasada sería ruido.
 | | Tarea | Estado |
 |---|---|---|
 | 6.1 | Crear el vínculo y emitir el bootstrap | ⬜ |
-| 6.2 | Recibir un bootstrap y crear la fila del otro lado. **`apply()` tiene que atenderlo antes de buscar el vínculo**: hoy lo descartaría con ACK y el par no se crearía nunca (ADR-001 §3). **Y el endpoint también**: `Movements::receive_one()` le pasa a `apply()` siete campos fijos, y los extra del bootstrap se pierden ahí | ⬜ |
+| 6.2 | ✅ `BOO-01`…`BOO-06` — Recibir un bootstrap y crear la fila del otro lado. **`apply()` tiene que atenderlo antes de buscar el vínculo**: hoy lo descartaría con ACK y el par no se crearía nunca (ADR-001 §3). **Y el endpoint también**: `Movements::receive_one()` le pasa a `apply()` siete campos fijos, y los extra del bootstrap se pierden ahí | ⬜ |
 | 6.3 | Desvincular y emitir el `unlink`. Mismo caso que 6.2: se atiende antes de buscar el vínculo, porque lo borra, y el endpoint tiene que pasarle sus campos | ⬜ |
 | 6.4 | El estado derivado: vinculado, suspendido, sin vincular | ⬜ |
 | 6.5 | `Links::for_product()` — escrito en 3.1, le falta el resto de la clase | 🔄 |

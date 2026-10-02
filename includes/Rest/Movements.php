@@ -43,6 +43,46 @@ final class Movements {
 				'permission_callback' => array( self::class, 'authenticate' ),
 			)
 		);
+
+		register_rest_route(
+			self::NAMESPACE,
+			'/movements/(?P<origin>[0-9a-f-]{36})/(?P<seq>[0-9]+)',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( self::class, 'state' ),
+				'permission_callback' => array( self::class, 'authenticate_query' ),
+			)
+		);
+	}
+
+	/**
+	 * Autentica una consulta: sin anotar el nonce, porque sólo lee (como `GET /health`).
+	 *
+	 * @param \WP_REST_Request $request El request.
+	 *
+	 * @return true|\WP_Error
+	 */
+	public static function authenticate_query( \WP_REST_Request $request ) {
+		return Auth::authenticate( $request, false );
+	}
+
+	/**
+	 * Qué tiene esta tienda de un movimiento: preguntar no escribe nada (ADR-008 §5).
+	 *
+	 * @param \WP_REST_Request $request El request, ya autenticado.
+	 */
+	public static function state( \WP_REST_Request $request ): \WP_REST_Response {
+		$origin = (string) $request['origin'];
+		$seq    = (int) $request['seq'];
+
+		return new \WP_REST_Response(
+			array(
+				'origin' => $origin,
+				'seq'    => $seq,
+				'state'  => Ledger::state_of( $origin, $seq ),
+			),
+			200
+		);
 	}
 
 	/**
@@ -118,12 +158,18 @@ final class Movements {
 				// mandar un motivo que ésta no conoce, y rechazarlo perdería el delta.
 				'reason'     => is_string( $movement['reason'] ?? null ) && '' !== $movement['reason'] ? mb_substr( $movement['reason'], 0, 20 ) : 'adjustment',
 				'reference'  => is_string( $movement['reference'] ?? null ) ? mb_substr( $movement['reference'], 0, 100 ) : null,
+				'details'    => self::bootstrap_details( $movement ),
 			)
 		);
 
 		// Sin fila no hay nada que confirmar: el emisor tiene que reintentar.
 		if ( null === $state ) {
 			return self::error( $origin, $seq, 'not_stored' );
+		}
+
+		// Un bootstrap rechazado vuelve con su motivo (ADR-008 §3).
+		if ( ! in_array( $state, array( Ledger::APPLIED, Ledger::HELD, Ledger::DISCARDED ), true ) ) {
+			return self::error( $origin, $seq, $state );
 		}
 
 		return array(
@@ -168,7 +214,40 @@ final class Movements {
 			}
 		}
 
+		if ( Ledger::BOOTSTRAP === ( $movement['reason'] ?? null ) && null === self::bootstrap_details( $movement ) ) {
+			return 'invalid_bootstrap';
+		}
+
 		return null;
+	}
+
+	/**
+	 * Los campos que sólo trae un bootstrap (ADR-005 §2), o null si no es uno o le falta
+	 * alguno.
+	 *
+	 * @param array<mixed, mixed> $movement El movimiento.
+	 *
+	 * @return array<string, int>|null
+	 */
+	private static function bootstrap_details( array $movement ): ?array {
+		if ( Ledger::BOOTSTRAP !== ( $movement['reason'] ?? null ) ) {
+			return null;
+		}
+
+		$details = array();
+
+		foreach ( array( 'target_product', 'base_stock', 'origin_previous_stock', 'target_previous_stock' ) as $field ) {
+			$value = $movement[ $field ] ?? null;
+
+			// El rango del stock es el de `wc_stock_amount()` entero; el producto, positivo.
+			if ( ! is_int( $value ) || ( 'target_product' === $field && $value < 1 ) || abs( $value ) > 2147483647 ) {
+				return null;
+			}
+
+			$details[ $field ] = $value;
+		}
+
+		return $details;
 	}
 
 	/**

@@ -54,6 +54,7 @@ Prefijo por dominio, número correlativo, y **no se renumeran** aunque un caso s
 | `HLT-NN` | `GET /health` | [`tests/test-rest-health.php`](test-rest-health.php) |
 | `PAR-NN` | El emparejamiento | [`tests/test-pairing.php`](test-pairing.php) |
 | `CLI-NN` | Los comandos de WP-CLI | [`tests/test-cli.php`](test-cli.php) |
+| `BOO-NN` | El bootstrap y el `unlink`, en el libro y en el receptor | [`tests/test-bootstrap.php`](test-bootstrap.php) |
 
 Cada test lleva su ID en el docblock, así que se encuentra buscándolo:
 
@@ -134,6 +135,11 @@ mientras escribía la función.
 | La secundaria acepta el callback sólo mientras canjea, aunque tenga un secreto viejo | ADR-001 §1 | `PAR-09`, `PAR-10`, `PAR-11` | [test-pairing.php](test-pairing.php) |
 | Sin https no se empareja | ADR-001 §1, ADR-007 | `PAR-07`, `PAR-14` | [test-pairing.php](test-pairing.php) |
 | Emparejar deja una sola socia | ADR-001 §1 | `PAR-08` | [test-pairing.php](test-pairing.php) |
+| La secundaria fija el par y el stock de la maestra, sin eco | ADR-005 §2, ADR-008 §3 | `BOO-01` | [test-bootstrap.php](test-bootstrap.php) |
+| Cada revisión rechaza sin escribir nada | ADR-008 §3 | `BOO-02`, `BOO-06` | [test-bootstrap.php](test-bootstrap.php) |
+| Una venta espera a su bootstrap | ADR-008 §1, §4 | `BOO-08`, `BOO-09` | [test-bootstrap.php](test-bootstrap.php) |
+| Un incierto se averigua recién pasado el tiempo de espera | ADR-008 §5 | `BOO-10` | [test-bootstrap.php](test-bootstrap.php) |
+| El `unlink` borra el par vigente y descarta el viejo o ajeno | ADR-005 §3, ADR-008 §3 | `BOO-04`, `BOO-05`, `BOO-11` | [test-bootstrap.php](test-bootstrap.php) |
 | Una copia de la base no se empareja consigo misma | ADR-002 §1, ADR-001 §1 | `PAR-17`, `PAR-18` | [test-pairing.php](test-pairing.php) |
 | Ninguna respuesta firmada se guarda en caché | ARCHITECTURE §5 | `HLT-06`, `HLT-07`, `PLG-24` | [test-rest-health.php](test-rest-health.php), [test-plugin.php](test-plugin.php) |
 | Sin secreto no hay firma válida | ADR-001 §1 | `SIG-11` | [test-signature.php](test-signature.php) |
@@ -519,6 +525,28 @@ sitios (E.1), no un test: el nombre del argumento va sin tildes.
 
 **PHPUnit toma sólo `tests/test-*.php`.** Antes tomaba cualquier `.php` de `tests/`, y cargaba
 como test el stub de WP-CLI para PHPStan (`tests/stubs/`), que define la clase de verdad.
+
+## [`tests/test-bootstrap.php`](test-bootstrap.php) — el bootstrap y el `unlink`
+
+| ID | Caso | Resultado esperado |
+|---|---|---|
+| `BOO-01` | **La secundaria recibe un bootstrap** de 10 sobre un producto con 7 | Stock en 10, par al revés con la secuencia como generación, los campos en `details`, y **ningún movimiento propio**: el guard cubre la escritura |
+| `BOO-02` | Stock distinto del visto, producto en la papelera, sin stock gestionado, ya vinculado, y que no viene de la maestra | Cada uno con su motivo, y **nada escrito**: ni fila, ni par, ni stock |
+| `BOO-03` | El mismo bootstrap reenviado, después de una venta | `applied`, y el stock no se vuelve a fijar: la venta queda |
+| `BOO-04` | Un `unlink` de la maestra, de la generación vigente | Borra el par |
+| `BOO-05` | Un `unlink` de una generación vieja, o que no viene de la maestra | `discarded` y el par sigue |
+| `BOO-06` | Por el endpoint: uno bueno, uno con el stock cambiado, uno sin `base_stock`; y la consulta | `received`, `stock_changed`, `invalid_bootstrap`; la consulta responde `applied` y `unknown` |
+| `BOO-07` | **La maestra escribe el bootstrap** | Fila y vínculo juntos, la secuencia como generación, la fila `syncing`, y la cola no se la lleva |
+| `BOO-08` | **Una venta mientras el bootstrap está en camino, y después incierto** | No sale; con `confirmed`, sale |
+| `BOO-09` | El bootstrap falla | Se borra el vínculo, queda el motivo, y la venta que esperaba sale |
+| `BOO-10` | Un incierto viejo, uno nuevo y uno confirmado | Se averigua sólo el viejo |
+| `BOO-11` | **La maestra desvincula** | El `unlink` va a la cola con la generación del vínculo, y el vínculo se borra |
+
+Verificado rompiéndolo, con diez cambios, y cada uno hace caer al menos uno: sin retener la venta
+(`BOO-08`); el bootstrap por el camino de siempre (`BOO-01`, `BOO-02`, `BOO-03`, `BOO-06`); sin el
+guard (`BOO-01`); sin revisar el stock (`BOO-02`, `BOO-06`) o la maestra (`BOO-02`); el `unlink`
+sin mirar la generación (`BOO-05`) o sin borrar el vínculo (`BOO-11`); el fallido sin borrar el
+vínculo (`BOO-09`); sin la espera (`BOO-10`); el rechazo tomado como recibido (`BOO-06`).
 
 ## [`tests/test-guard.php`](test-guard.php) — el guard anti-eco
 

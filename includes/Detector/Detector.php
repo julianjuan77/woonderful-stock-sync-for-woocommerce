@@ -180,7 +180,7 @@ final class Detector {
 	 *
 	 * @param int $product_id Producto.
 	 */
-	private static function stock_in_db( int $product_id ): int {
+	public static function stock_in_db( int $product_id ): int {
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching

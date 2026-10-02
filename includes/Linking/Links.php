@@ -14,7 +14,7 @@ use Woonderful\StockSync\Schema\Installer;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Lectura de `wss_links` (ADR-005).
+ * `wss_links`: el par, su generación y su stock base (ADR-005).
  */
 final class Links {
 
@@ -63,6 +63,63 @@ final class Links {
 		$row = $wpdb->get_row(
 			$wpdb->prepare( "SELECT * FROM {$table} WHERE local_product = %d", $product_id )
 		);
+		// phpcs:enable
+
+		return $row instanceof \stdClass ? $row : null;
+	}
+
+	/**
+	 * Crea un vínculo.
+	 *
+	 * @param int    $local_product  Producto de esta tienda.
+	 * @param string $remote_store   La otra tienda.
+	 * @param int    $remote_product Producto de la otra tienda.
+	 * @param int    $generation     La secuencia del bootstrap que lo abre (ADR-005 §4).
+	 * @param int    $base_stock     Con cuánto arranca el pool.
+	 *
+	 * @return int|null El ID del vínculo, o null si no se pudo escribir.
+	 */
+	public static function create( int $local_product, string $remote_store, int $remote_product, int $generation, int $base_stock ): ?int {
+		global $wpdb;
+
+		$inserted = $wpdb->insert( // phpcs:ignore WordPress.DB
+			Installer::table( 'links' ),
+			array(
+				'local_product'  => $local_product,
+				'remote_store'   => $remote_store,
+				'remote_product' => $remote_product,
+				'generation'     => $generation,
+				'base_stock'     => $base_stock,
+				'base_set_at'    => gmdate( 'Y-m-d H:i:s' ),
+			)
+		);
+
+		return false === $inserted ? null : (int) $wpdb->insert_id;
+	}
+
+	/**
+	 * Borra un vínculo. No hay baja lógica (ADR-005).
+	 *
+	 * @param int $link_id ID del vínculo.
+	 */
+	public static function delete( int $link_id ): bool {
+		global $wpdb;
+
+		return false !== $wpdb->delete( Installer::table( 'links' ), array( 'id' => $link_id ) ); // phpcs:ignore WordPress.DB
+	}
+
+	/**
+	 * El vínculo que abrió un bootstrap, por su generación, o null.
+	 *
+	 * @param int $generation La secuencia del bootstrap.
+	 */
+	public static function for_generation( int $generation ): ?\stdClass {
+		global $wpdb;
+
+		$table = Installer::table( 'links' );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE generation = %d", $generation ) );
 		// phpcs:enable
 
 		return $row instanceof \stdClass ? $row : null;
