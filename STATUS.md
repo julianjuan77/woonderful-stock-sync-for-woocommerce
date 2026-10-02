@@ -127,7 +127,7 @@ Verificado rompiéndolo: sin el `UPDATE` cae `LED-02`; registrando productos sin
 | 5.5 | La pasada recurrente de Action Scheduler | ✅ | `753f4eb` | `PAS-01`…`PAS-07`, `PLG-20`…`PLG-22`, `UNI-07` |
 | 5.6 | `GET /health` | ✅ | `02ce7dc`, `638df6f` | `HLT-01`…`HLT-07`, `PLG-23`, `PLG-24` |
 | 5.7 | El emparejamiento: `POST /pair` y el canje con su callback. Https en los dos lados, salvo en desarrollo. Se dispara desde WP-CLI. La prueba entre dos sitios de verdad espera a E.1 | ✅ | `b972a51`, `10b245e`, `ae25584`, `ba6d266` | `PAR-01`…`PAR-18`, `CLI-01`…`CLI-04`, `PLG-25`, `UNI-08` |
-| 5.8 | `GET /products`, y su cliente `Transport\Catalog` | ✅ | `80f40ab` | `PRD-01`…`PRD-07` |
+| 5.8 | `GET /products`, y su cliente `Transport\Catalog` | ✅ | `80f40ab`, `daa8b16` | `PRD-01`…`PRD-07` |
 | 5.9 | **El envío al final del request de la venta**, con `fastcgi_finish_request()` como en woonderful-sync. Sólo lo escrito en ese request, con un timeout corto (≈5 s); sin PHP-FPM, queda para la pasada. Necesita revisar ADR-006 §4: el retardo de 10 s no hace falta para lo que se manda en el `shutdown`, porque el estampado ya corrió y la ráfaga del request sale junta | ⬜ | | |
 
 **Para el ADR del log (1.10):** `Sender::run()` devuelve cuántos mandó, confirmó y fallaron, y
