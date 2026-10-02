@@ -1686,6 +1686,9 @@ Estado: Aprobada · 2026-09-21 · aprobada por Julián
 Revisado: 2026-10-02 — aprobado por Julián. §5 fija qué devuelve `GET /products`: qué tipos de
 producto, que incluye la papelera, que se pueden pedir productos puntuales con `include`, el
 tope de 100 por página y el orden, y que no anota el nonce. Ver §5, "Los detalles".
+Revisado: 2026-10-02 — aprobado por Julián. Con `include` vuelve **cada producto pedido, de
+cualquier tipo y estado**, sin páginas y hasta 100 IDs por request: así, que uno no vuelva
+quiere decir que no existe. Ver §5, "Los detalles".
 Temas: db-schema, rest-api
 Cubre: includes/Linking/_.php
 
@@ -1837,8 +1840,9 @@ Firmado con HMAC como todo el resto, y **de sólo lectura**: no modifica nada de
 | **Qué productos** | Simples, variaciones y padres variables: lo que se puede vincular, y el padre que gestiona el stock de sus variaciones |
 | **Sin stock gestionado** | Aparece igual, con `"stock": null`: la pantalla dice "no gestiona stock" en vez de que el producto desaparezca |
 | **La papelera** | Se incluye, con `"status": "trash"`: es lo que deja decir "suspendido: el producto de la otra tienda está en la papelera" (UC-03) |
-| **Productos puntuales** | `?include=456,457,458`, como texto separado por comas porque la firma no admite listas (ADR-001 §1). Un ID pedido que no vuelve es un producto que ya no existe |
-| **Páginas** | `per_page` hasta 100, ordenados por ID: una página no le hace timeout a la otra tienda, y recorrerlas dos veces da el mismo orden |
+| **Productos puntuales** | `?include=456,457,458`, como texto separado por comas porque la firma no admite listas (ADR-001 §1). Vuelve **cada producto pedido, de cualquier tipo y estado**: los filtros de tipo y estado son para recorrer el catálogo, no para preguntar por productos vinculados —se puede vincular una suscripción, o un producto con un estado de otro plugin—. **Sin páginas**: vuelven todos los pedidos, hasta 100 IDs por request; con más, `wss_bad_request`, y el cliente los reparte de a 100. Así, **un ID pedido que no vuelve es un producto que ya no existe** |
+| **Páginas** | Para recorrer el catálogo: `per_page` hasta 100, ordenados por ID. Una página no le hace timeout a la otra tienda, y recorrerlas dos veces da el mismo orden |
+| **El stock** | Leído de la base, no del objeto: es el número que el dueño copia en el bootstrap, y la secundaria lo compara contra la base (ADR-008 §3). Con una caché desactualizada, el dueño vería un número viejo y no podría vincular nunca |
 | **El nonce** | No se anota, como en `GET /health`: sólo lee |
 
 **Por qué en vivo y no un espejo local.** Un espejo resolvería la sugerencia masiva en una
