@@ -179,4 +179,19 @@ final class Links {
 
 		return array_map( 'intval', (array) $linked );
 	}
+
+	/**
+	 * Si el producto gestiona **su propio** stock: el único que se puede vincular y al que se
+	 * le aplica un movimiento.
+	 *
+	 * `managing_stock()` solo no alcanza. Una variación que deja de gestionar el suyo,
+	 * mientras el padre sí lo gestiona, devuelve `'parent'`, que cuenta como verdadero; y
+	 * `wc_update_product_stock()` le descontaría **al padre**, que es otro producto con otro
+	 * stock. Lo usan todos los que lo revisan, para que no vuelvan a separarse.
+	 *
+	 * @param \WC_Product $product El producto.
+	 */
+	public static function holds_own_stock( \WC_Product $product ): bool {
+		return $product->managing_stock() && (int) $product->get_stock_managed_by_id() === (int) $product->get_id();
+	}
 }

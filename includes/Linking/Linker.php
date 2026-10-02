@@ -58,7 +58,7 @@ final class Linker {
 			return new \WP_Error( 'product_missing', __( 'Ese producto no existe en esta tienda.', 'woonderful-stock-sync-for-woocommerce' ) );
 		}
 
-		if ( ! $product->managing_stock() || (int) $product->get_stock_managed_by_id() !== $local ) {
+		if ( ! Links::holds_own_stock( $product ) ) {
 			return new \WP_Error( 'product_not_managing_stock', __( 'Ese producto no gestiona su propio stock.', 'woonderful-stock-sync-for-woocommerce' ) );
 		}
 

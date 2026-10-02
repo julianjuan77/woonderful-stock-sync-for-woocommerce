@@ -204,7 +204,7 @@ final class Products {
 
 		// Sólo el que gestiona su propio stock: una variación que lo toma del padre mostraría
 		// el número del padre, y ése no es el suyo para vincular.
-		$own_stock = $product->managing_stock() && (int) $product->get_stock_managed_by_id() === $id;
+		$own_stock = Links::holds_own_stock( $product );
 
 		return array(
 			'id'     => $id,

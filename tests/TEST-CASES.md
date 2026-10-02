@@ -295,7 +295,6 @@ varios tests sin chocar.
 | `LED-18` | Un movimiento de +2 | Suma: una devolución no descuenta |
 | `LED-19` | El `INSERT` de la fila falla | Devuelve `null`: sin fila no hay nada que confirmar, y el emisor reintenta |
 | `LED-20` | El producto local en la papelera | `held`, y el stock no se toca |
-| `LED-21` | Una variación que toma el stock del padre | El guard anota el **padre**, que es quien cambia |
 | `LED-22` | Dos movimientos pendientes | Los reclama los dos y quedan `in_flight` con el worker anotado |
 | `LED-23` | Un movimiento con el reintento en el futuro | No se reclama |
 | `LED-24` | Tres pendientes, dos pasadas de a dos | Ninguna fila cae en las dos: el token lo genera `claim()` |
@@ -333,6 +332,7 @@ varios tests sin chocar.
 | `LED-57` | Un hook cambia el stock de otro producto vinculado adentro de `apply()`, y después falla | Se deshace todo junto: la fila recibida, el movimiento del tercero y su stock, **también en la caché** |
 | `LED-58` | El mismo cambio anidado, sin falla | El movimiento del tercero se confirma con `apply()` |
 | `LED-59` | El `record()` anidado falla | Deshace sólo lo suyo: la fila recibida y el stock aplicado quedan |
+| `LED-60` | **Una variación vinculada que pasó a tomar el stock del padre** | `held`, y el stock del padre no se toca. Reemplaza a `LED-21`, que probaba lo contrario: que se le descontara al padre |
 | `LED-55` | Estampar una referencia de 150 caracteres | Se guardan 100 y el motivo. Sin el recorte, el `UPDATE` falla entero y la fila queda `adjustment` |
 
 

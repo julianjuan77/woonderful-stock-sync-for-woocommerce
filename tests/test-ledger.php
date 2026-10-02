@@ -351,39 +351,6 @@ class Test_Ledger extends WP_UnitTestCase {
 	}
 
 	/**
-	 * En una variación que toma el stock del padre, quien cambia es el padre: el guard
-	 * tiene que anotar ese ID o el detector va a ver el cambio como una venta.
-	 *
-	 * LED-21
-	 */
-	public function test_the_guard_notes_the_product_that_holds_the_stock(): void {
-		$parent = new WC_Product_Variable();
-		$parent->set_manage_stock( true );
-		$parent->set_stock_quantity( 10 );
-		$parent_id = (int) $parent->save();
-
-		$variation = new WC_Product_Variation();
-		$variation->set_parent_id( $parent_id );
-		$variation_id = (int) $variation->save();
-
-		$this->link_product( $variation_id, 789, 77 );
-
-		$armed = null;
-
-		$spy = static function ( $product ) use ( &$armed ): void {
-			$armed = Guard::consume( $product->get_id() );
-		};
-
-		add_action( 'woocommerce_product_set_stock', $spy );
-		add_action( 'woocommerce_variation_set_stock', $spy );
-		Ledger::apply( $this->incoming( 789, -2 ) );
-		remove_action( 'woocommerce_product_set_stock', $spy );
-		remove_action( 'woocommerce_variation_set_stock', $spy );
-
-		$this->assertTrue( $armed, 'el guard tiene que anotar el producto que lleva el stock' );
-	}
-
-	/**
 	 * Escribe un movimiento propio ya entregable, saltándose la espera de `record()`.
 	 *
 	 * @param array<string, mixed> $overrides Columnas a pisar.
@@ -1426,5 +1393,29 @@ class Test_Ledger extends WP_UnitTestCase {
 		$this->assertSame( 'applied', $state );
 		$this->assertSame( 1, $this->count_movements(), 'queda la fila recibida, sin el movimiento del tercero' );
 		$this->assertSame( 8, $this->stock_of( $applied ) );
+	}
+
+	/**
+	 * Una variación vinculada que dejó de gestionar su propio stock, mientras el padre sí lo
+	 * gestiona: `managing_stock()` dice que sí —devuelve 'parent'—, pero el stock que
+	 * cambiaría es el del padre, que es otro producto. El movimiento se retiene, y el padre
+	 * no se toca.
+	 *
+	 * LED-60
+	 */
+	public function test_a_variation_that_takes_the_parent_stock_is_held(): void {
+		$parent = new WC_Product_Variable();
+		$parent->set_manage_stock( true );
+		$parent->set_stock_quantity( 10 );
+		$parent_id = (int) $parent->save();
+
+		$variation = new WC_Product_Variation();
+		$variation->set_parent_id( $parent_id );
+		$variation_id = (int) $variation->save();
+
+		$this->link_product( $variation_id, 789, 77 );
+
+		$this->assertSame( Ledger::HELD, Ledger::apply( $this->incoming( 789, -2 ) ) );
+		$this->assertSame( 10, $this->stock_of( $parent_id ), 'el padre no se toca' );
 	}
 }

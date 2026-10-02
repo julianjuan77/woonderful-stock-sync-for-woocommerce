@@ -514,7 +514,7 @@ final class Ledger {
 			// Sin vínculo no hay a qué producto aplicarlo; de una generación vieja, no se
 			// va a aplicar nunca (ADR-005 §4).
 			$state = self::DISCARDED;
-		} elseif ( ! $local instanceof \WC_Product || 'trash' === $local->get_status() || ! $local->managing_stock() ) {
+		} elseif ( ! $local instanceof \WC_Product || 'trash' === $local->get_status() || ! Links::holds_own_stock( $local ) ) {
 			// Guardado y reintentable: descartarlo perdería stock en silencio (UC-03).
 			//
 			// La papelera cuenta como ausente: `wc_get_product()` devuelve el producto
@@ -608,7 +608,7 @@ final class Ledger {
 
 		// Que gestione el stock él mismo: en una variación que lo toma del padre, el número
 		// que se fijaría es el del padre, y el par sería otro.
-		if ( ! $local->managing_stock() || (int) $local->get_stock_managed_by_id() !== $target ) {
+		if ( ! Links::holds_own_stock( $local ) ) {
 			return 'target_not_managing_stock';
 		}
 
