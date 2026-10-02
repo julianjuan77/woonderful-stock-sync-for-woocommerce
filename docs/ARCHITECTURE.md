@@ -149,6 +149,14 @@ escribe el bootstrap y su vínculo con `record_bootstrap()`, lo manda en el mome
 10 minutos con un GET firmado: `applied` confirma; cualquier otra respuesta da por fallido; sin
 respuesta sigue incierto. `unlink()` escribe el `unlink`, que sale por la cola.
 
+**`GET /products`** (`Rest\Products`, ADR-005 §5) devuelve simples, variaciones y padres
+variables, la papelera incluida, de a 100 por página como mucho y ordenados por ID, con `id`,
+`sku`, `name`, `stock` —`null` si el producto no gestiona su propio stock—, `status` y `linked`.
+`include=1,2,3` pide productos puntuales: uno que no vuelve ya no existe. No anota el nonce. Se
+registra después de la guarda. `linked` sale de una sola consulta por página
+(`Links::linked_among()`). Del otro lado, `Transport\Catalog::fetch()` lo llama con la query en
+texto, que es la misma que firma.
+
 **`GET /health`** (`Rest\Health`, ADR-001 §4) responde `store`, `label`, `version`, `api` y
 `suspended` —`null`, `cloned_site` o `unhealthy_schema`—. Se registra **antes de la guarda**:
 un sitio suspendido responde igual, para que la otra tienda pueda explicar por qué no le

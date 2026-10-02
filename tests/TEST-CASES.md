@@ -56,6 +56,7 @@ Prefijo por dominio, número correlativo, y **no se renumeran** aunque un caso s
 | `CLI-NN` | Los comandos de WP-CLI | [`tests/test-cli.php`](test-cli.php) |
 | `BOO-NN` | El bootstrap y el `unlink`, en el libro y en el receptor | [`tests/test-bootstrap.php`](test-bootstrap.php) |
 | `LNK-NN` | Vincular y desvincular, del lado de la maestra | [`tests/test-linker.php`](test-linker.php) |
+| `PRD-NN` | `GET /products` y su cliente | [`tests/test-rest-products.php`](test-rest-products.php) |
 
 Cada test lleva su ID en el docblock, así que se encuentra buscándolo:
 
@@ -144,6 +145,8 @@ mientras escribía la función.
 | La maestra revisa lo suyo antes de escribir y sin salir a la red | ADR-008 §3 | `LNK-02` | [test-linker.php](test-linker.php) |
 | Sin respuesta o con un 5xx queda incierto; un rechazo o un 4xx, fallido | ADR-008 §1 | `LNK-03`, `LNK-04`, `LNK-05` | [test-linker.php](test-linker.php) |
 | Un incierto se pregunta, no se reenvía | ADR-008 §5 | `LNK-06`, `LNK-07` | [test-linker.php](test-linker.php) |
+| El catálogo incluye la papelera, y un producto borrado no vuelve | ADR-005 §5 | `PRD-01`, `PRD-02` | [test-rest-products.php](test-rest-products.php) |
+| Lo que pide el cliente, con su query firmada, lo responde el endpoint | ADR-001 §1, ADR-005 §5 | `PRD-07` | [test-rest-products.php](test-rest-products.php) |
 | Una copia de la base no se empareja consigo misma | ADR-002 §1, ADR-001 §1 | `PAR-17`, `PAR-18` | [test-pairing.php](test-pairing.php) |
 | Ninguna respuesta firmada se guarda en caché | ARCHITECTURE §5 | `HLT-06`, `HLT-07`, `PLG-24` | [test-rest-health.php](test-rest-health.php), [test-plugin.php](test-plugin.php) |
 | Sin secreto no hay firma válida | ADR-001 §1 | `SIG-11` | [test-signature.php](test-signature.php) |
@@ -589,6 +592,25 @@ Esta tienda hace de maestra; la otra la hace `pre_http_request`.
 Verificado rompiéndolo, con seis cambios: sin revisar el stock propio (`LNK-02`) o la maestra
 (`LNK-02`); el timeout como fallido (`LNK-04`, `LNK-06`); el 5xx como fallido (`LNK-05`); el
 `unknown` como confirmado (`LNK-06`); sin la espera (`LNK-07`).
+
+## [`tests/test-rest-products.php`](test-rest-products.php) — `GET /products`
+
+| ID | Caso | Resultado esperado |
+|---|---|---|
+| `PRD-01` | **Un simple vinculado, uno sin stock gestionado, uno en la papelera, un padre variable que gestiona el stock y su variación** | Los seis campos; `stock: null` sin stock gestionado y en la variación que toma el del padre; el padre con su número; `trash`; `linked` |
+| `PRD-02` | `include` con uno que existe y uno borrado | Vuelve sólo el que existe: el borrado no aparece, y así se sabe |
+| `PRD-03` | `include` sin IDs válidos | Nada, y no el catálogo entero |
+| `PRD-04` | Tres productos de a dos por página | En orden de ID, con el total |
+| `PRD-05` | `per_page=500` con 101 productos | Vuelven 100 |
+| `PRD-06` | Sin firma, y con firma | 401; y con firma, ningún nonce anotado |
+| `PRD-07` | **Lo que pide `Catalog::fetch()`, del lado del endpoint** | Pasa la autenticación con la query firmada y trae lo pedido |
+
+Los SKU llevan un sufijo por corrida y `PRD-04` pagina con `include`: el `CREATE TABLE` del
+`set_up` confirma la transacción, y los productos de un test quedan para el siguiente.
+
+Verificado rompiéndolo, con seis cambios: sin la papelera (`PRD-01`); el `include` vacío que
+devuelve todo (`PRD-03`); sin el tope (`PRD-05`); el stock del padre en la variación (`PRD-01`); el
+cliente firmando sin la query (`PRD-07`); anotando el nonce (`PRD-06`).
 
 ## [`tests/test-guard.php`](test-guard.php) — el guard anti-eco
 

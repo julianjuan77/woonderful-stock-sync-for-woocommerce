@@ -16,6 +16,7 @@ use Woonderful\StockSync\Rest\Auth;
 use Woonderful\StockSync\Rest\Health;
 use Woonderful\StockSync\Rest\Movements;
 use Woonderful\StockSync\Rest\Pair;
+use Woonderful\StockSync\Rest\Products;
 use Woonderful\StockSync\Schema\Installer;
 use Woonderful\StockSync\Transport\Pass;
 
@@ -89,6 +90,7 @@ final class Plugin {
 		// movimientos. Falta la reconciliación.
 		Detector::register();
 		Movements::register();
+		Products::register();
 		Pass::register_scheduling();
 	}
 

@@ -153,4 +153,30 @@ final class Links {
 
 		return false === $deleted ? false : (int) $deleted;
 	}
+
+	/**
+	 * Cuáles de esos productos de acá están vinculados. Una consulta, no una por producto.
+	 *
+	 * @param int[] $product_ids Productos de esta tienda.
+	 *
+	 * @return int[]
+	 */
+	public static function linked_among( array $product_ids ): array {
+		global $wpdb;
+
+		$product_ids = array_values( array_filter( array_map( 'intval', $product_ids ) ) );
+
+		if ( array() === $product_ids ) {
+			return array();
+		}
+
+		$table        = Installer::table( 'links' );
+		$placeholders = implode( ',', array_fill( 0, count( $product_ids ), '%d' ) );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+		$linked = $wpdb->get_col( $wpdb->prepare( "SELECT local_product FROM {$table} WHERE local_product IN ( {$placeholders} )", ...$product_ids ) );
+		// phpcs:enable
+
+		return array_map( 'intval', (array) $linked );
+	}
 }
