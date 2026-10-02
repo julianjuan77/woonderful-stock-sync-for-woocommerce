@@ -547,6 +547,12 @@ como test el stub de WP-CLI para PHPStan (`tests/stubs/`), que define la clase d
 | `BOO-09` | El bootstrap falla | Se borra el vínculo, queda el motivo, y la venta que esperaba sale |
 | `BOO-10` | Un incierto viejo, uno nuevo y uno confirmado | Se averigua sólo el viejo |
 | `BOO-11` | **La maestra desvincula** | El `unlink` va a la cola con la generación del vínculo, y el vínculo se borra |
+| `BOO-12` | **Un bootstrap falla, y hay un vínculo recibido con la misma generación** —pasa después de invertir los roles— | Se borra el suyo, no el ajeno |
+| `BOO-13` | El mismo gemelo, con una venta de cada uno | Espera sólo la del bootstrap |
+| `BOO-14` | Un bootstrap `confirmed`, resuelto después como `uncertain` y como `failed` | Sigue `confirmed`, con su vínculo |
+
+`BOO-12` a `BOO-14` se corrieron contra el `Ledger` anterior: caen los tres. El gemelo se crea
+**antes** que el bootstrap, para que buscar por generación lo encuentre primero.
 
 Verificado rompiéndolo, con diez cambios, y cada uno hace caer al menos uno: sin retener la venta
 (`BOO-08`); el bootstrap por el camino de siempre (`BOO-01`, `BOO-02`, `BOO-03`, `BOO-06`); sin el

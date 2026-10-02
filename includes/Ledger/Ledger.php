@@ -405,10 +405,32 @@ final class Ledger {
 		);
 
 		// Paso 3 — reclamar el lote, sin lo que cuelga de un bootstrap sin resolver. Una
-		// venta de esos segundos sale con la generación nueva (ADR-008 §4): entregada antes
-		// de que la otra tienda arme su vínculo, la descartaría con ACK y se perdería. Cuando
-		// el bootstrap se resuelve sale sola. La tabla derivada es porque MySQL no deja leer
-		// en una subconsulta la tabla que el UPDATE está cambiando (error 1093).
+		// venta de esos segundos sale con el vínculo nuevo (ADR-008 §4): entregada antes de
+		// que la otra tienda arme el suyo, la descartaría con ACK y se perdería. Cuando el
+		// bootstrap se resuelve sale sola.
+		//
+		// Por vínculo y no por generación: después de invertir los roles, la generación de un
+		// vínculo que esta tienda recibió puede coincidir con la secuencia de un bootstrap
+		// propio. Y en una consulta aparte, no como subconsulta del UPDATE: MySQL no deja
+		// leer ahí la tabla que se está cambiando (error 1093), y envolverla en una tabla
+		// derivada depende de que el optimizador no la funda, que según la versión lo hace.
+		$unresolved = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT link_id FROM {$table}
+				  WHERE origin_store = %s
+				    AND reason = %s
+				    AND delivery IN ( %s, %s )
+				    AND link_id IS NOT NULL",
+				Store::id(),
+				self::BOOTSTRAP,
+				self::SYNCING,
+				self::UNCERTAIN
+			)
+		);
+		$held       = array_map( 'intval', (array) $unresolved );
+
+		$not_held = array() === $held ? '' : ' AND ( link_id IS NULL OR link_id NOT IN ( ' . implode( ',', $held ) . ' ) )';
+
 		//
 		// El intento se cuenta acá y no al anotar el resultado: si el worker muere, nadie
 		// llega a anotarlo y el techo de 6 horas no avanzaría nunca (ADR-001 §2). Un lote
@@ -422,17 +444,9 @@ final class Ledger {
 				        attempts = attempts + 1,
 				        first_attempt_at = COALESCE( first_attempt_at, UTC_TIMESTAMP() )
 				  WHERE delivery = 'pending'
-				    AND next_attempt_at <= UTC_TIMESTAMP()
-				    AND generation NOT IN (
-				        SELECT g FROM (
-				            SELECT origin_seq AS g FROM {$table}
-				             WHERE reason = 'bootstrap'
-				               AND delivery IN ( 'syncing', 'uncertain' )
-				               AND origin_seq IS NOT NULL
-				        ) AS unresolved
-				    )
+				    AND next_attempt_at <= UTC_TIMESTAMP()" . $not_held . '
 				  ORDER BY next_attempt_at, id
-				  LIMIT %d",
+				  LIMIT %d',
 				$worker,
 				max( 1, min( $limit, self::MAX_BATCH ) )
 			)
@@ -949,6 +963,7 @@ final class Ledger {
 	public static function resolve_bootstrap( int $movement_id, string $delivery, ?string $error = null ): void {
 		global $wpdb;
 
+		$table  = Installer::table( 'movements' );
 		$fields = array( 'delivery' => $delivery );
 
 		if ( 'confirmed' === $delivery ) {
@@ -959,15 +974,33 @@ final class Ledger {
 			$fields['last_error'] = mb_substr( $error, 0, 255 );
 		}
 
-		$wpdb->update( Installer::table( 'movements' ), $fields, array( 'id' => $movement_id ) ); // phpcs:ignore WordPress.DB
+		self::begin();
 
-		if ( 'failed' === $delivery ) {
-			$link = Links::for_generation( $movement_id );
+		// Sólo uno que sigue sin resolver: dos pasadas a la vez podrían pisar un `confirmed`
+		// con un `uncertain`.
+		$sets   = implode( ', ', array_map( static fn ( string $column ) => "{$column} = %s", array_keys( $fields ) ) );
+		$values = array_merge( array_values( $fields ), array( $movement_id, self::SYNCING, self::UNCERTAIN ) );
 
-			if ( null !== $link ) {
-				Links::delete( (int) $link->id );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+		$updated = $wpdb->query( $wpdb->prepare( "UPDATE {$table} SET {$sets} WHERE id = %d AND delivery IN ( %s, %s )", ...$values ) );
+		// phpcs:enable
+
+		if ( 1 === $updated && 'failed' === $delivery ) {
+			// Por el `link_id` de la fila y no por la generación: después de invertir los
+			// roles, un vínculo que esta tienda recibió puede tener la generación igual a la
+			// secuencia de este bootstrap.
+			$link_id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT link_id FROM {$table} WHERE id = %d", $movement_id ) ); // phpcs:ignore WordPress.DB
+
+			if ( 0 !== $link_id && ! Links::delete( $link_id ) ) {
+				self::rollback();
+
+				return;
 			}
 		}
+
+		// En la misma transacción: si el proceso muriera entre marcar `failed` y borrar el
+		// vínculo, la maestra se quedaría con un par sin pareja.
+		self::commit();
 	}
 
 	/**

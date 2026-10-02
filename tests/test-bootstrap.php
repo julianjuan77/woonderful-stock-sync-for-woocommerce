@@ -477,4 +477,76 @@ class Test_Bootstrap extends WP_UnitTestCase {
 		$this->assertSame( $id, (int) $row->origin_seq );
 		$this->assertNull( Links::for_product( $product ) );
 	}
+
+	/**
+	 * Un vínculo que esta tienda recibió cuando era secundaria —su generación es la secuencia
+	 * de la otra—, con el mismo número que un bootstrap propio. Escribe uno y su "gemelo".
+	 *
+	 * El gemelo se crea **antes**, así tiene el ID más bajo: buscar por generación lo
+	 * encontraría primero.
+	 *
+	 * @return array{0: int, 1: int, 2: int} El bootstrap, el producto propio y el del gemelo.
+	 */
+	private function bootstrap_with_a_twin(): array {
+		global $wpdb;
+
+		$twin    = $this->product( 10 );
+		$twin_id = (int) Links::create( $twin, self::OTHER, 950, 0, 10 );
+		$product = $this->product( 10 );
+		$id      = (int) Ledger::record_bootstrap( $product, self::OTHER, $this->details( 900 ), null );
+
+		$wpdb->update( Installer::table( 'links' ), array( 'generation' => $id ), array( 'id' => $twin_id ) ); // phpcs:ignore WordPress.DB
+
+		return array( $id, $product, $twin );
+	}
+
+	/**
+	 * Si el bootstrap falla, se borra **su** vínculo y no el gemelo con la misma generación.
+	 *
+	 * BOO-12
+	 */
+	public function test_a_failed_bootstrap_deletes_only_its_own_link(): void {
+		list( $id, $product, $twin ) = $this->bootstrap_with_a_twin();
+
+		Ledger::resolve_bootstrap( $id, 'failed', 'stock_changed' );
+
+		$this->assertNull( Links::for_product( $product ) );
+		$this->assertNotNull( Links::for_product( $twin ), 'el vínculo ajeno sigue' );
+	}
+
+	/**
+	 * Lo que retiene `claim()` es lo que cuelga de **ese** vínculo: una venta del gemelo, con
+	 * la misma generación, sale.
+	 *
+	 * BOO-13
+	 */
+	public function test_only_sales_of_that_link_wait(): void {
+		list( , $product, $twin ) = $this->bootstrap_with_a_twin();
+
+		$own  = (int) Ledger::record( $product, -1, 'sale' );
+		$alien = (int) Ledger::record( $twin, -1, 'sale' );
+		$this->make_due( $own );
+		$this->make_due( $alien );
+
+		$this->assertFalse( $this->claimable( $own ), 'la del bootstrap espera' );
+		$this->assertTrue( $this->claimable( $alien ), 'la del gemelo sale' );
+	}
+
+	/**
+	 * Un bootstrap ya resuelto no se vuelve a resolver: dos pasadas a la vez no pisan un
+	 * `confirmed` con un `uncertain`, ni uno `failed` le borra el vínculo a uno confirmado.
+	 *
+	 * BOO-14
+	 */
+	public function test_a_resolved_bootstrap_stays_resolved(): void {
+		$product = $this->product( 10 );
+		$id      = (int) Ledger::record_bootstrap( $product, self::OTHER, $this->details( 900 ), null );
+
+		Ledger::resolve_bootstrap( $id, 'confirmed' );
+		Ledger::resolve_bootstrap( $id, Ledger::UNCERTAIN );
+		Ledger::resolve_bootstrap( $id, 'failed', 'tarde' );
+
+		$this->assertSame( 'confirmed', $this->rows()[0]->delivery );
+		$this->assertNotNull( Links::for_product( $product ) );
+	}
 }

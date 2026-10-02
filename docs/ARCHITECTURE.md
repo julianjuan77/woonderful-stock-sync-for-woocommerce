@@ -130,8 +130,13 @@ pasa las revisiones de ADR-008 §3 sin escribir nada —si una falla, vuelve su 
 nonce. Del lado de la maestra, `Ledger::record_bootstrap()` escribe la fila `syncing` y el
 vínculo juntos; `resolve_bootstrap()` anota cómo terminó y, si falló, borra el vínculo;
 `record_unlink()` escribe el `unlink` con la generación del vínculo y lo borra. **`claim()`
-retiene todo movimiento cuya generación es un bootstrap en `syncing` o `uncertain`**, con la
-subconsulta envuelta en una tabla derivada por el error 1093 de MySQL.
+retiene todo movimiento del vínculo de un bootstrap en `syncing` o `uncertain`**: por `link_id` y
+no por generación, porque después de invertir los roles la generación de un vínculo recibido
+puede coincidir con la secuencia de un bootstrap propio. Los `link_id` se leen en una consulta
+aparte, no en una subconsulta del `UPDATE`, que MySQL rechaza con el error 1093 —y envolverla en
+una tabla derivada depende de que el optimizador no la funda—. `resolve_bootstrap()` es
+condicional —sólo toca uno que siga sin resolver— y va en una transacción, también por el
+`link_id`.
 
 **`Linking\Linker`**, del lado de la maestra. `link()` revisa lo suyo sin salir a la red,
 escribe el bootstrap y su vínculo con `record_bootstrap()`, lo manda en el momento con
