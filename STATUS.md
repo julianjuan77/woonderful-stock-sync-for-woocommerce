@@ -189,6 +189,7 @@ La fuente es `docs/DECISIONS.md`. Acá sólo el índice de las aprobadas.
 | ADR-005 | El vínculo, su generación, el bootstrap y el `unlink` | 2026-09-21 |
 | ADR-006 | Los hooks del detector, el estampado y el guard anti-eco. Revisado el 2026-09-28: el delta sale de la base, y el agujero del guard bien descrito | 2026-09-24 |
 | ADR-007 | La huella hashea la opción `home` cruda, con esquema | 2026-09-26 |
+| ADR-008 | El bootstrap se manda en el momento; sólo vincula la maestra; se revisa que nada haya cambiado; un incierto se pregunta | 2026-10-01 |
 
 El 2026-09-28 el SPEC §5 subió el mínimo de WooCommerce de 8.2 a 9.1: es la versión que trae
 el hook que estampa las cancelaciones (ADR-006 §2).

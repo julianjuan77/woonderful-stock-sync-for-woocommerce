@@ -2313,3 +2313,183 @@ filtro `home_url`, que es el problema que muerde siempre.
 el core con `WP_HOME`—, la huella vuelve a variar. La salida sería leer la fila de
 `wp_options` directo con `$wpdb`, que ignora todo filtro, y que a cambio también ignora
 `WP_HOME`, así que habría que leer la constante aparte.
+
+---
+
+## ADR-008 — Cómo se vincula un producto
+
+Estado: Aprobada · 2026-10-01 · aprobada por Julián
+Temas: rest-api, opciones, modulos
+Cubre: includes/Linking/_.php, includes/Ledger/Ledger.php, includes/Rest/Movements.php, includes/Transport/Pairing.php, includes/Transport/Peers.php, includes/Cli/Command.php
+
+**De qué se trata.** Vincular es decir "este producto de la maestra y este de la secundaria son
+el mismo, y arrancan con el stock de la maestra". A ese momento lo llamamos **bootstrap**. Este
+ADR dice cómo se hace, quién puede hacerlo y qué pasa si algo sale mal.
+
+**La decisión, en seis puntos:**
+
+1. El bootstrap **se manda en el momento y se espera la respuesta**. No va a la cola.
+2. **Sólo vincula la maestra**, que es la tienda que generó el código de emparejamiento.
+3. **Antes de vincular se revisa que nada haya cambiado** desde que el dueño miró los números.
+4. **La maestra arma su vínculo antes de mandar**, para no perder una venta de esos segundos.
+5. **Si no llega respuesta, el vínculo queda "incierto"**, y el plugin le pregunta a la otra
+   tienda qué pasó. Preguntar no cambia nada.
+6. **Desvincular sí va por la cola**, como el resto de los movimientos.
+
+---
+
+### 1. El bootstrap se manda en el momento
+
+El SPEC (UC-07) pide que **si una vinculación falla, no se reintente sola**: si se reintentara
+horas después, fijaría un stock que nadie está mirando. ADR-005 §2 decía que el bootstrap iba por
+la cola, que reintenta durante 6 horas. Este ADR lo corrige.
+
+**Decisión:** la maestra anota el bootstrap en su libro, lo manda en el momento y espera:
+
+| Qué pasa | Cómo queda |
+| --- | --- |
+| La otra tienda dice que sí | Vinculado |
+| La otra tienda dice que no, y por qué (ver §3) | No vinculado. Queda anotado el motivo |
+| No llega respuesta (se cortó la red, tardó demasiado) | **Incierto** (ver §5) |
+
+En los tres casos el intento queda anotado en el libro, para poder revisarlo después.
+
+**Opción descartada — mandarlo por la cola y esperar unos segundos.** Si la respuesta no llegaba,
+la cola lo seguía reintentando 6 horas sin nadie mirando. Es justo lo que el SPEC prohíbe.
+
+**Un cuidado: las ventas de ese producto esperan al bootstrap.** Mientras el bootstrap está en
+camino, o incierto, una venta de ese producto **no sale todavía**:
+
+```
+10:00:00  la maestra manda el bootstrap
+10:00:01  se vende 1 → queda en espera
+10:00:04  la otra tienda vincula → recién ahí sale la venta   ✅
+```
+
+Si la venta saliera antes, llegaría a una tienda que todavía no sabe que el producto está
+vinculado, la descartaría, y la venta se perdería. Cuando el bootstrap se resuelve, la venta sale
+sola: si se vinculó, se aplica; si no, la otra tienda la descarta sin problema.
+
+### 2. Sólo vincula la maestra
+
+El SPEC dice que hay una **tienda maestra**: la única que vincula y la que pone el stock inicial.
+Las dos tiendas tienen que estar de acuerdo en cuál es; si las dos se creyeran maestra, las dos
+podrían pisar el stock del mismo producto.
+
+**Decisión:** **la maestra es la tienda que generó el código de emparejamiento.** Al emparejarse,
+cada tienda anota quién es la otra. Si la secundaria recibe un bootstrap que no viene de su
+maestra, lo rechaza.
+
+Para cambiar de maestra, se vuelve a emparejar generando el código desde la otra tienda.
+
+**Opción descartada — un ajuste aparte "esta tienda es la maestra".** Habría que avisarle a la
+otra tienda, y si el aviso se pierde pueden quedar dos maestras o ninguna. Es mucho riesgo para
+algo que casi nunca cambia.
+
+**Las tiendas que ya estaban emparejadas** antes de este ADR no saben quién es la maestra: tienen
+que volver a emparejarse para poder vincular.
+
+### 3. Antes de vincular se revisa que nada haya cambiado
+
+El dueño vincula mirando dos números: el stock de cada tienda. Si mientras tanto alguien vendió o
+cambió algo, vincular igual pisaría ese cambio sin que nadie se entere.
+
+**Decisión:** el bootstrap lleva los dos números que vio el dueño, y cada tienda revisa lo suyo:
+
+| Qué se revisa | Si falla |
+| --- | --- |
+| El stock sigue siendo el que vio el dueño | `stock_changed` |
+| El producto de la otra tienda existe y no está en la papelera | `target_missing` |
+| El producto gestiona stock | `target_not_managing_stock` |
+| No está vinculado ya con otro | `target_already_linked` |
+| El bootstrap viene de la maestra | `not_master` |
+
+Si algo falla, no se vincula nada y el dueño vuelve a intentar con los números nuevos.
+
+Si todo está bien, la secundaria hace todo junto, o no hace nada: anota el bootstrap, arma su
+vínculo y pone el stock de la maestra. Esa escritura de stock no se manda de vuelta como si fuera
+un cambio (es el mismo cuidado de ADR-006 §3).
+
+**Un desvincular que no viene de la maestra** se descarta en silencio. Como va por la cola, si se
+rechazara se reintentaría 6 horas para nada.
+
+### 4. La maestra arma su vínculo antes de mandar
+
+Si la maestra armara su vínculo recién al recibir el "sí", una venta en esos segundos no se
+anotaría —para el plugin, el producto todavía no estaba vinculado— y las dos tiendas arrancarían
+con números distintos.
+
+**Decisión:** la maestra arma su vínculo y anota el bootstrap a la vez, y recién después lo manda.
+Si al final no se vincula, borra su vínculo.
+
+**Opción descartada — armar el vínculo al recibir el "sí".** Es más simple, pero pierde las
+ventas de esos segundos.
+
+### 5. Si no llega respuesta, se pregunta
+
+Si la red se corta, la maestra no sabe si la otra tienda vinculó o no. Las dos cosas piden lo
+opuesto: si no vinculó, hay que volver a intentar; si vinculó, volver a intentar lo duplica. Por
+eso el vínculo queda **incierto** y se averigua.
+
+**Decisión:** la otra tienda tiene una dirección nueva donde sólo se puede **preguntar**, no
+cambiar nada: "¿recibiste el movimiento A-77?". Contesta lo que tiene: lo aplicó, o nunca le llegó.
+
+Cada minuto la pasada revisa los inciertos que tengan **más de 10 minutos**, y pregunta:
+
+| Respuesta | Cómo queda |
+| --- | --- |
+| Lo aplicó | Vinculado |
+| Nunca le llegó, o le llegó y no lo pudo aplicar | No vinculado. El dueño vuelve a vincular si quiere |
+| No contesta | Sigue incierto, y se pregunta en la próxima |
+
+Se esperan 10 minutos para no preguntar mientras la otra tienda todavía lo está procesando.
+
+Si la maestra se cae a mitad del envío y no llega a anotar nada, a los 10 minutos ese envío se
+trata como incierto y también se pregunta.
+
+**Opción descartada — volver a mandar el bootstrap y ver qué contesta.** Si ya lo había aplicado,
+no pasa nada. Pero si nunca le había llegado, **lo aplica**: sería un reintento, que es lo que el
+SPEC prohíbe.
+
+### 6. Desvincular va por la cola
+
+Acá el orden importa: una venta anterior tiene que llegar antes que el desvincular. Por eso va por
+la cola, como dice ADR-005 §3.
+
+La maestra anota el desvincular y después borra su vínculo. ADR-005 lo decía al revés; se cambia
+porque el desvincular necesita leer datos del vínculo para anotarse. La otra tienda borra el suyo
+al recibirlo.
+
+### 7. Mientras no hay pantalla, por comandos
+
+```
+wp wss link <producto de acá> <producto de allá> --stock=<el de acá> --remote-stock=<el de allá>
+wp wss unlink <producto de acá>
+```
+
+Los dos stocks se escriben a mano porque son los que vio el dueño, y eso es lo que se revisa (§3).
+
+---
+
+### Qué cambia en otros ADRs
+
+| ADR | Qué cambia |
+| --- | --- |
+| ADR-005 | El bootstrap ya no va por la cola (§1). El desvincular se anota antes de borrar (§6) |
+| ADR-001 | Suma la dirección para preguntar (§5), los motivos de rechazo (§3), el rol de cada tienda al emparejar (§2) y los estados "en camino", "incierto" y "fallido" |
+| ADR-004 | Nada: los estados nuevos entran en la columna que ya existe |
+
+### Lo que queda más difícil, y el riesgo
+
+**Más difícil:** un movimiento propio puede salir por dos caminos —la cola o el envío del
+bootstrap—, y la cola tiene que saber cuáles esperar.
+
+**El riesgo que queda:** si la otra tienda tardara más de 10 minutos en procesar un bootstrap, la
+pregunta diría "nunca llegó", la maestra borraría su vínculo, y la otra tienda lo armaría igual al
+terminar. El producto quedaría vinculado de un solo lado. Lo detectaría la reconciliación
+nocturna; si pasara, habría que esperar más antes de preguntar.
+
+### En qué se parece a otras cosas
+
+Revisar que el número siga siendo el que se vio antes de escribir es **control de concurrencia
+optimista** (*compare-and-set*): se escribe sólo si nadie cambió el dato en el medio.
