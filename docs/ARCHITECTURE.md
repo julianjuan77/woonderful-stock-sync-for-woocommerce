@@ -161,12 +161,13 @@ reparte `include` de a 100, no pide nada con una lista vacía y descarta las ent
 
 **El estado de sincronización** (`Linking\State::of()`, ADR-005 §1) se calcula al mostrarlo,
 nunca se guarda: `unlinked` sin fila; `uncertain` si el bootstrap del vínculo sigue sin
-resolver; `suspended` si el producto de allá está en la papelera o ya no existe
-—`remote_trashed`, `remote_missing`— o si el de acá —`local_trashed`, `local_missing`—; y
-`linked` el resto. A la otra tienda se le pregunta **una vez** por todos los vinculados, con
-`Catalog::fetch()` e `include`. **Si no responde, los vinculados siguen vinculados**: la caída no
-es suspensión, y el resultado lo avisa una vez con `remote_reachable`. `wp wss status <ids>` lo
-muestra.
+resolver; `suspended` con el mismo criterio con que `apply()` retiene —los motivos de ADR-005 §1:
+el producto de allá o el de acá en la papelera, borrado o sin su propio stock, o un vínculo con
+una tienda que ya no es la socia—; y `linked` el resto. "Gestiona su propio stock" es una sola
+función, `Links::holds_own_stock()`, que usan `apply()`, el bootstrap, `Linker`, el catálogo y el
+estado. Los vínculos salen de una consulta, y al catálogo se le pregunta de a 100: **si no
+responde, o no hay socia, los vinculados siguen vinculados**, y `remote_error` dice por qué. Una
+tanda que falla deja sin saber sólo a los suyos. `wp wss status <ids>` lo muestra.
 
 **`GET /health`** (`Rest\Health`, ADR-001 §4) responde `store`, `label`, `version`, `api` y
 `suspended` —`null`, `cloned_site` o `unhealthy_schema`—. Se registra **antes de la guarda**:

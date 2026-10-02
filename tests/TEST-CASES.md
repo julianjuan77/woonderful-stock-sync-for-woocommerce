@@ -529,6 +529,7 @@ constante `WP_CLI` no se puede definir en un test sin que quede para todos los d
 | `CLI-04` | `wp wss pair` con algo que no es un código | Termina con error y el código del error. Sin el `error()`, cae |
 | `CLI-05` | `wp wss link` y `wp wss unlink` en la maestra | Vincula y desvincula, con su aviso |
 | `CLI-06` | `wp wss link` en la secundaria | Termina con error: `wss_not_master` |
+| `CLI-07` | `wp wss status 12 abc` | Termina con error, y no muestra un `0: unlinked` |
 
 **Lo que el WP-CLI falso no ve: el docblock.** El de verdad arma los argumentos a partir de él,
 y con `<código>` rechazaba el código como argumento de más. Lo encontró la prueba entre dos
@@ -633,10 +634,18 @@ validar (`PRD-14`).
 | `STA-03` | Un vínculo con el bootstrap incierto | `uncertain`, sin preguntarle a la otra tienda |
 | `STA-04` | Sin ningún vínculo | No se pregunta nada |
 | `STA-05` | El de allá en la papelera, y después restaurado | `suspended`, y después `linked` solo: no hay nada que reanudar |
+| `STA-06` | **El de acá dejó de gestionar su stock**, y una variación que pasó a tomar el del padre | `suspended` con `local_not_managing_stock`: `apply()` les retiene los movimientos |
+| `STA-07` | El de allá vuelve con `stock: null` | `suspended` con `remote_not_managing_stock` |
+| `STA-08` | **Un vínculo con una tienda que ya no es la socia** | `suspended` con `peer_changed`, y no se le pregunta a la nueva |
+| `STA-09` | Sin socia | `linked`, con `remote_error: wss_not_paired`, y sin preguntar nada |
+| `STA-10` | 101 vinculados, y falla la segunda tanda | Los de la primera, con lo que respondió; el de la segunda, `linked`; y el error en `remote_error` |
 
 Verificado rompiéndolo, con seis cambios: la caída como suspensión (`STA-02`); sin el incierto
 (`STA-03`); el que no vuelve como vinculado (`STA-01`); sin mirar la papelera de allá (`STA-01`,
-`STA-05`) o la de acá (`STA-01`); preguntar sin vínculos (`STA-03`, `STA-04`).
+`STA-05`) o la de acá (`STA-01`); preguntar sin vínculos (`STA-03`, `STA-04`). Y con otros seis,
+después de la revisión: sin mirar el stock propio de acá (`STA-06`) o el de allá (`STA-07`); sin
+`peer_changed` (`STA-08`); sin el motivo de la falta de socia (`STA-09`); una tanda que falla y
+marca a todos (`STA-10`); el comando sin validar los IDs (`CLI-07`).
 
 ## [`tests/test-guard.php`](test-guard.php) — el guard anti-eco
 

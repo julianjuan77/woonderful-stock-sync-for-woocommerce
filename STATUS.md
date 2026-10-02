@@ -24,7 +24,7 @@ git show 2668a7a --stat      # qué archivos tocó y cuántas líneas
 git show 2668a7a             # el diff completo
 ```
 
-Y para correr sólo los tests de una pieza, en vez de los 269:
+Y para correr sólo los tests de una pieza, en vez de los 275:
 
 ```bash
 make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS="--filter Test_Ledger"
@@ -150,7 +150,7 @@ es lo normal: loguearlo en cada pasada sería ruido.
 | 6.1 | Crear el vínculo y mandar el bootstrap en el momento (ADR-008). Una copia suspendida no vincula; el stock se revisa con la fila bloqueada; el bootstrap se identifica por su vínculo | ✅ | `7e6b919`, `a855ea4`, `b37244d`, `ce80b76`, `46e2f49`, `34949cb`, `fc0e529` | `LNK-01`…`LNK-11`, `BOO-07`…`BOO-10`, `BOO-12`…`BOO-14`, `BOO-16` |
 | 6.2 | Recibir el bootstrap: las revisiones, el par al revés y el stock de la maestra con el guard. Se atiende antes de buscar el vínculo. El stock se revisa con la fila bloqueada, y un vínculo viejo se reemplaza (ADR-008, revisado) | ✅ | `a855ea4`, `34949cb`, `0879fdb` | `BOO-01`…`BOO-03`, `BOO-06`, `BOO-15`, `BOO-17`, `BOO-18` |
 | 6.3 | Desvincular: el `unlink` sale por la cola; la secundaria borra el par vigente y descarta el viejo o ajeno. Si el `unlink` no llega, el próximo bootstrap reemplaza el vínculo que quedó | ✅ | `a855ea4`, `b37244d`, `0879fdb` | `LNK-08`, `LNK-09`, `BOO-04`, `BOO-05`, `BOO-11` |
-| 6.4 | El estado derivado: vinculado, suspendido —por el producto de allá o el de acá—, sin vincular e incierto. La caída de la otra tienda no suspende. `wp wss status` | ✅ | `dd3cc0f` | `STA-01`…`STA-05` |
+| 6.4 | El estado derivado: vinculado, suspendido —por el producto de allá o el de acá—, sin vincular e incierto. La caída de la otra tienda no suspende. `wp wss status` | ✅ | `dd3cc0f` | `STA-01`…`STA-10`, `LED-60` |
 | 6.5 | `Links` | ✅ | `a855ea4` | — |
 | 6.6 | Los roles al emparejar: la maestra es la que emite el código (ADR-008 §2) | ✅ | `1f18fef` | `PAR-02`, `PAR-09`, `PAR-19` |
 | 6.7 | `wp wss link` y `wp wss unlink`, y la prueba entre `sandbox` y `sandbox-b`: rechazo por stock cambiado, vínculo con el stock de la maestra, una venta que llega, el `unlink` y el rechazo desde la secundaria | ✅ | `ff66beb` | `CLI-05`, `CLI-06` |
@@ -230,4 +230,6 @@ seguridad y convenciones de código.
 | Los bootstraps `failed` no se purgan nunca: `purge()` sólo mira lo confirmado | Revisión 2026-10-02 → 7.x |
 | `claim()` ignora si el `UPDATE` devuelve false: un error de la base cortaría la entrega sin aviso. Ya no puede ser el 1093, pero cualquier otro sí | Revisión 2026-10-02 → ADR del log |
 | La paginación de `GET /products` es por número de página: si se borra un producto definitivamente mientras se recorre el catálogo, todo se corre un lugar y uno de la página siguiente no aparece. Para sugerir pares por SKU es poco grave; si importa, se pagina por "los que vienen después del ID X" | Revisión 2026-10-02 → ADR de interfaz |
+| La pantalla tiene que decir "esperando respuesta" para un `uncertain` que todavía está en `syncing`, y "no se sabe" recién cuando ya es `uncertain`: hoy `State` los junta en uno | Revisión 2026-10-02 → ADR de interfaz |
+| El vínculo armado de un solo lado —el catálogo de allá dice `linked: false`— no es un motivo de suspendido: lo encuentra y repara la reconciliación (ADR-005 §1, revisado) | Revisión 2026-10-02 → tarea 1.9 |
 | Infection sobre `Transport/`, que ya existe: necesita PCOV en la imagen de wp-restore | — |

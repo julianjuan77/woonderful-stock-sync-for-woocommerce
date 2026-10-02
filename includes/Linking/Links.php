@@ -194,4 +194,36 @@ final class Links {
 	public static function holds_own_stock( \WC_Product $product ): bool {
 		return $product->managing_stock() && (int) $product->get_stock_managed_by_id() === (int) $product->get_id();
 	}
+
+	/**
+	 * Los vínculos de esos productos de acá, por producto. Una consulta, no una por producto.
+	 *
+	 * @param int[] $product_ids Productos de esta tienda.
+	 *
+	 * @return array<int, \stdClass>
+	 */
+	public static function for_products( array $product_ids ): array {
+		global $wpdb;
+
+		$product_ids = array_values( array_filter( array_map( 'intval', $product_ids ) ) );
+
+		if ( array() === $product_ids ) {
+			return array();
+		}
+
+		$table        = Installer::table( 'links' );
+		$placeholders = implode( ',', array_fill( 0, count( $product_ids ), '%d' ) );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$table} WHERE local_product IN ( {$placeholders} )", ...$product_ids ) );
+		// phpcs:enable
+
+		$links = array();
+
+		foreach ( (array) $rows as $row ) {
+			$links[ (int) $row->local_product ] = $row;
+		}
+
+		return $links;
+	}
 }

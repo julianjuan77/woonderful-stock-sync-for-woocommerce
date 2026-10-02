@@ -29,6 +29,13 @@ class Test_State extends WP_UnitTestCase {
 	private ?array $remote = array();
 
 	/**
+	 * Un ID cuya tanda falla, o null.
+	 *
+	 * @var int|null
+	 */
+	private ?int $failing = null;
+
+	/**
 	 * Cuántos requests salieron.
 	 *
 	 * @var int
@@ -79,6 +86,11 @@ class Test_State extends WP_UnitTestCase {
 	public function catalog( $preempt, array $args, string $url ) {
 		++$this->requests;
 
+		// Una tanda que falla: la que pide ese ID.
+		if ( null !== $this->failing && false !== strpos( $url, (string) $this->failing ) ) {
+			return new WP_Error( 'http_request_failed', 'cURL error 28: Operation timed out' );
+		}
+
 		if ( null === $this->remote ) {
 			return new WP_Error( 'http_request_failed', 'cURL error 28: Operation timed out' );
 		}
@@ -93,8 +105,8 @@ class Test_State extends WP_UnitTestCase {
 					'id'     => $id,
 					'sku'    => '',
 					'name'   => 'Remoto',
-					'stock'  => 5,
-					'status' => $this->remote[ $id ],
+					'stock'  => 'no-stock' === $this->remote[ $id ] ? null : 5,
+					'status' => 'no-stock' === $this->remote[ $id ] ? 'publish' : $this->remote[ $id ],
 					'linked' => true,
 				);
 			}
@@ -249,5 +261,109 @@ class Test_State extends WP_UnitTestCase {
 		$this->remote = array( 900 => 'publish' );
 
 		$this->assertSame( State::LINKED, State::of( array( $linked ) )['states'][ $linked ]['state'] );
+	}
+
+	/**
+	 * Un producto de acá que dejó de gestionar su propio stock —se lo apagaron, o una
+	 * variación pasó a tomar el del padre— está suspendido: `apply()` le retiene los
+	 * movimientos, y la pantalla tiene que decirlo.
+	 *
+	 * STA-06
+	 */
+	public function test_a_local_product_without_its_own_stock_is_suspended(): void {
+		$unmanaged = $this->linked( 900 );
+		$product   = wc_get_product( $unmanaged );
+		$product->set_manage_stock( false );
+		$product->save();
+
+		$parent = new WC_Product_Variable();
+		$parent->set_manage_stock( true );
+		$parent->set_stock_quantity( 10 );
+		$parent_id = (int) $parent->save();
+
+		$variation = new WC_Product_Variation();
+		$variation->set_parent_id( $parent_id );
+		$variation_id = (int) $variation->save();
+		Links::create( $variation_id, self::OTHER, 901, 78, 5 );
+
+		$this->remote = array(
+			900 => 'publish',
+			901 => 'publish',
+		);
+
+		$result = State::of( array( $unmanaged, $variation_id ) );
+
+		$this->assertSame( array( State::SUSPENDED, 'local_not_managing_stock' ), self::state( $result, $unmanaged ) );
+		$this->assertSame( array( State::SUSPENDED, 'local_not_managing_stock' ), self::state( $result, $variation_id ) );
+	}
+
+	/**
+	 * STA-07 — Lo mismo con el de allá: el catálogo lo trae con `stock: null`.
+	 */
+	public function test_a_remote_product_without_its_own_stock_is_suspended(): void {
+		$linked       = $this->linked( 900 );
+		$this->remote = array( 900 => 'no-stock' );
+
+		$this->assertSame( array( State::SUSPENDED, 'remote_not_managing_stock' ), self::state( State::of( array( $linked ) ), $linked ) );
+	}
+
+	/**
+	 * Un vínculo de una tienda que ya no es la socia —se re-emparejó con otra— está suspendido,
+	 * y al catálogo de la nueva no se le pregunta por él: un ID igual sería otro producto.
+	 *
+	 * STA-08
+	 */
+	public function test_a_link_with_a_former_peer_is_suspended_and_not_asked(): void {
+		$product = new WC_Product_Simple();
+		$product->set_manage_stock( true );
+		$product->set_stock_quantity( 5 );
+		$id = (int) $product->save();
+		Links::create( $id, 'c2c2c2c2-0000-4000-8000-000000000000', 900, 77, 5 );
+
+		$this->remote = array( 900 => 'publish' );
+
+		$this->assertSame( array( State::SUSPENDED, 'peer_changed' ), self::state( State::of( array( $id ) ), $id ) );
+		$this->assertSame( 0, $this->requests );
+	}
+
+	/**
+	 * Sin socia no es una caída: el resultado lo dice con su motivo, y no se pregunta nada.
+	 *
+	 * STA-09
+	 */
+	public function test_without_a_peer_the_error_says_so(): void {
+		$linked = $this->linked( 900 );
+		delete_option( Peers::OPTION );
+
+		$result = State::of( array( $linked ) );
+
+		$this->assertSame( array( State::LINKED, null ), self::state( $result, $linked ) );
+		$this->assertSame( 'wss_not_paired', $result['remote_error'] );
+		$this->assertSame( 0, $this->requests );
+	}
+
+	/**
+	 * Una tanda del catálogo que falla deja sin saber sólo a los suyos: los de la otra tanda
+	 * usan lo que respondió.
+	 *
+	 * STA-10
+	 */
+	public function test_a_failing_batch_only_affects_its_own_products(): void {
+		$first  = array();
+		$remote = array();
+
+		for ( $i = 0; $i < 101; $i++ ) {
+			$first[]               = $this->linked( 2000 + $i );
+			$remote[ 2000 + $i ] = 'trash';
+		}
+
+		$this->remote  = $remote;
+		$this->failing = 2100;
+
+		$result = State::of( $first );
+
+		$this->assertSame( array( State::SUSPENDED, 'remote_trashed' ), self::state( $result, $first[0] ), 'la tanda que respondió' );
+		$this->assertSame( array( State::LINKED, null ), self::state( $result, $first[100] ), 'la que falló' );
+		$this->assertSame( 'http_request_failed', $result['remote_error'] );
 	}
 }

@@ -164,13 +164,22 @@ final class Command {
 	 * @param array<string, string> $assoc_args No lleva.
 	 */
 	public function status( array $args, array $assoc_args ): void {
+		foreach ( $args as $arg ) {
+			if ( ! ctype_digit( $arg ) || '0' === $arg ) {
+				/* translators: %s: lo que se pasó en lugar de un ID. */
+				\WP_CLI::error( sprintf( __( '"%s" no es el ID de un producto.', 'woonderful-stock-sync-for-woocommerce' ), $arg ) );
+			}
+		}
+
 		$result = State::of( array_map( 'intval', $args ) );
 
 		foreach ( $result['states'] as $product => $state ) {
 			\WP_CLI::line( $product . ': ' . $state['state'] . ( null === $state['reason'] ? '' : ' (' . $state['reason'] . ')' ) );
 		}
 
-		if ( ! $result['remote_reachable'] ) {
+		if ( 'wss_not_paired' === $result['remote_error'] ) {
+			\WP_CLI::line( __( 'Esta tienda no está emparejada: no se puede ver el producto de la otra.', 'woonderful-stock-sync-for-woocommerce' ) );
+		} elseif ( null !== $result['remote_error'] ) {
 			\WP_CLI::line( __( 'La otra tienda no respondió: los vinculados figuran como vinculados, pero no se pudo ver si su producto sigue existiendo.', 'woonderful-stock-sync-for-woocommerce' ) );
 		}
 	}

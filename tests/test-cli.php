@@ -220,4 +220,15 @@ class Test_Cli extends WP_UnitTestCase {
 			)
 		);
 	}
+
+	/**
+	 * CLI-07 — `wp wss status` con algo que no es un ID termina con error, y no muestra un
+	 * "0: unlinked".
+	 */
+	public function test_status_rejects_what_is_not_an_id(): void {
+		$this->expectException( RuntimeException::class );
+		$this->expectExceptionMessage( 'abc' );
+
+		( new Command() )->status( array( '12', 'abc' ), array() );
+	}
 }
