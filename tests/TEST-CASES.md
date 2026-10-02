@@ -522,6 +522,8 @@ constante `WP_CLI` no se puede definir en un test sin que quede para todos los d
 | `CLI-02` | `wp wss pairing-code` sin https | Termina con error, y el mensaje dice https |
 | `CLI-03` | `wp wss pair <código>` | Canjea y avisa que quedaron emparejadas |
 | `CLI-04` | `wp wss pair` con algo que no es un código | Termina con error y el código del error. Sin el `error()`, cae |
+| `CLI-05` | `wp wss link` y `wp wss unlink` en la maestra | Vincula y desvincula, con su aviso |
+| `CLI-06` | `wp wss link` en la secundaria | Termina con error: `wss_not_master` |
 
 **Lo que el WP-CLI falso no ve: el docblock.** El de verdad arma los argumentos a partir de él,
 y con `<código>` rechazaba el código como argumento de más. Lo encontró la prueba entre dos

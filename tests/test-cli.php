@@ -9,6 +9,7 @@ declare( strict_types = 1 );
 
 use Woonderful\StockSync\Cli\Command;
 use Woonderful\StockSync\Identity\Store;
+use Woonderful\StockSync\Linking\Links;
 use Woonderful\StockSync\Schema\Installer;
 use Woonderful\StockSync\Transport\Pairing;
 use Woonderful\StockSync\Transport\Peers;
@@ -125,5 +126,89 @@ class Test_Cli extends WP_UnitTestCase {
 		$this->expectExceptionMessage( 'wss_pairing_invalid' );
 
 		( new Command() )->pair( array( 'no es un código' ), array() );
+	}
+
+	/**
+	 * Un producto que gestiona stock.
+	 *
+	 * @param int $stock Con cuánto arranca.
+	 */
+	private function product( int $stock ): int {
+		$product = new WC_Product_Simple();
+		$product->set_manage_stock( true );
+		$product->set_stock_quantity( $stock );
+
+		return (int) $product->save();
+	}
+
+	/**
+	 * CLI-05 — `link` vincula y avisa; `unlink` desvincula.
+	 */
+	public function test_link_and_unlink(): void {
+		Peers::pair( 'b1b1b1b1-0000-4000-8000-000000000000', 'https://otra.test/wp-json/wss/v1', 'secreto', 'Mayorista', Peers::SECONDARY );
+		$local = $this->product( 10 );
+
+		add_filter(
+			'pre_http_request',
+			static function ( $preempt, $args ) {
+				$movement = json_decode( (string) $args['body'], true )['movements'][0];
+
+				return array(
+					'headers'  => array(),
+					'body'     => (string) wp_json_encode(
+						array(
+							'results' => array(
+								array(
+									'origin' => $movement['origin'],
+									'seq'    => $movement['seq'],
+									'status' => 'received',
+								),
+							),
+						)
+					),
+					'response' => array(
+						'code'    => 200,
+						'message' => '',
+					),
+					'cookies'  => array(),
+				);
+			},
+			10,
+			2
+		);
+
+		( new Command() )->link(
+			array( (string) $local, '900' ),
+			array(
+				'stock'        => '10',
+				'remote-stock' => '7',
+			)
+		);
+
+		$this->assertStringStartsWith( 'Success:', WP_CLI::$out[0] );
+		$this->assertNotNull( Links::for_product( $local ) );
+
+		( new Command() )->unlink( array( (string) $local ), array() );
+
+		$this->assertStringStartsWith( 'Success:', WP_CLI::$out[1] );
+		$this->assertNull( Links::for_product( $local ) );
+	}
+
+	/**
+	 * CLI-06 — En la secundaria, `link` termina con error y dice que se hace desde la maestra.
+	 */
+	public function test_link_from_the_secondary_fails(): void {
+		Peers::pair( 'b1b1b1b1-0000-4000-8000-000000000000', 'https://otra.test/wp-json/wss/v1', 'secreto', 'Minorista', Peers::MASTER );
+
+		$this->expectException( RuntimeException::class );
+		$this->expectExceptionMessage( 'wss_not_master' );
+
+		( new Command() )->link(
+			array( (string) $this->product( 10 ), '900' ),
+			array(
+				'stock'        => '10',
+				'remote-stock' => '7',
+			)
+		);
 	}
 }
