@@ -136,7 +136,9 @@ puede coincidir con la secuencia de un bootstrap propio. Los `link_id` se leen e
 aparte, no en una subconsulta del `UPDATE`, que MySQL rechaza con el error 1093 —y envolverla en
 una tabla derivada depende de que el optimizador no la funda—. `resolve_bootstrap()` es
 condicional —sólo toca uno que siga sin resolver— y va en una transacción, también por el
-`link_id`.
+`link_id`. **Revisar el stock y escribir van en el mismo paso**, en las dos puntas: adentro de la
+transacción, `SELECT … FOR UPDATE` sobre `_stock`, comparar y recién ahí escribir. Una venta que
+llegue en ese momento espera el `COMMIT`, encuentra el vínculo armado y viaja después.
 
 **`Linking\Linker`**, del lado de la maestra. `link()` revisa lo suyo sin salir a la red,
 escribe el bootstrap y su vínculo con `record_bootstrap()`, lo manda en el momento con

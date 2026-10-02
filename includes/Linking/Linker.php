@@ -9,7 +9,6 @@ declare( strict_types = 1 );
 
 namespace Woonderful\StockSync\Linking;
 
-use Woonderful\StockSync\Detector\Detector;
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Ledger\Ledger;
 use Woonderful\StockSync\Plugin;
@@ -67,10 +66,6 @@ final class Linker {
 			return new \WP_Error( 'already_linked', __( 'Alguno de los dos productos ya está vinculado.', 'woonderful-stock-sync-for-woocommerce' ) );
 		}
 
-		if ( Detector::stock_in_db( $local ) !== $seen ) {
-			return new \WP_Error( 'stock_changed', __( 'El stock de esta tienda cambió desde que lo miraste. Volvé a mirarlo.', 'woonderful-stock-sync-for-woocommerce' ) );
-		}
-
 		// El stock de arranque es el de la maestra (UC-07).
 		$details = array(
 			'target_product'        => $remote,
@@ -79,9 +74,14 @@ final class Linker {
 			'target_previous_stock' => $remote_seen,
 		);
 
+		// El stock propio se revisa adentro, con la fila bloqueada (ADR-008 §3).
 		$movement_id = Ledger::record_bootstrap( $local, $peer['store'], $details, $reference );
 
-		if ( null === $movement_id ) {
+		if ( 'stock_changed' === $movement_id ) {
+			return new \WP_Error( 'stock_changed', __( 'El stock de esta tienda cambió desde que lo miraste. Volvé a mirarlo.', 'woonderful-stock-sync-for-woocommerce' ) );
+		}
+
+		if ( ! is_int( $movement_id ) ) {
 			return new \WP_Error( 'not_stored', __( 'No se pudo escribir el bootstrap.', 'woonderful-stock-sync-for-woocommerce' ) );
 		}
 

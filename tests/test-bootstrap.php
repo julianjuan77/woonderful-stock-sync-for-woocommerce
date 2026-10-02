@@ -549,4 +549,78 @@ class Test_Bootstrap extends WP_UnitTestCase {
 		$this->assertSame( 'confirmed', $this->rows()[0]->delivery );
 		$this->assertNotNull( Links::for_product( $product ) );
 	}
+
+	/**
+	 * Las consultas que corren mientras se ejecuta algo, en orden.
+	 *
+	 * @param callable $run Lo que se observa.
+	 *
+	 * @return string[]
+	 */
+	private static function queries_during( callable $run ): array {
+		$queries = array();
+		$spy     = static function ( string $query ) use ( &$queries ): string {
+			$queries[] = $query;
+
+			return $query;
+		};
+
+		add_filter( 'query', $spy );
+		$run();
+		remove_filter( 'query', $spy );
+
+		return $queries;
+	}
+
+	/**
+	 * La posición de la primera consulta que contiene ese texto, o -1.
+	 *
+	 * @param string[] $queries Las consultas.
+	 * @param string   $needle  El texto.
+	 */
+	private static function position_of( array $queries, string $needle ): int {
+		foreach ( $queries as $position => $query ) {
+			if ( false !== stripos( $query, $needle ) ) {
+				return $position;
+			}
+		}
+
+		return -1;
+	}
+
+	/**
+	 * Revisar el stock y escribir van en el mismo paso: el `FOR UPDATE` sale adentro de la
+	 * transacción y antes de escribir. Una venta concurrente no se puede reproducir en un test
+	 * de un solo proceso; se mira el mecanismo, como en `LED-10`.
+	 *
+	 * BOO-15
+	 */
+	public function test_the_secondary_locks_the_stock_inside_the_transaction(): void {
+		$target  = $this->product( 7 );
+		$queries = self::queries_during( fn () => Ledger::apply( $this->bootstrap( $target, 10, 7 ) ) );
+
+		$begin  = self::position_of( $queries, 'START TRANSACTION' );
+		$lock   = self::position_of( $queries, 'FOR UPDATE' );
+		$insert = self::position_of( $queries, 'INSERT INTO `' . Installer::table( 'movements' ) );
+
+		$this->assertGreaterThan( -1, $lock, 'el stock se lee con FOR UPDATE' );
+		$this->assertGreaterThan( $begin, $lock, 'adentro de la transacción' );
+		$this->assertLessThan( $insert, $lock, 'antes de escribir' );
+	}
+
+	/**
+	 * BOO-16 — Lo mismo del lado de la maestra.
+	 */
+	public function test_the_master_locks_the_stock_inside_the_transaction(): void {
+		$product = $this->product( 10 );
+		$queries = self::queries_during( fn () => Ledger::record_bootstrap( $product, self::OTHER, $this->details( 900 ), null ) );
+
+		$begin  = self::position_of( $queries, 'START TRANSACTION' );
+		$lock   = self::position_of( $queries, 'FOR UPDATE' );
+		$insert = self::position_of( $queries, 'INSERT INTO `' . Installer::table( 'movements' ) );
+
+		$this->assertGreaterThan( -1, $lock );
+		$this->assertGreaterThan( $begin, $lock );
+		$this->assertLessThan( $insert, $lock );
+	}
 }

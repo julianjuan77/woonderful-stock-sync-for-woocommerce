@@ -9,7 +9,6 @@ declare( strict_types = 1 );
 
 namespace Woonderful\StockSync\Ledger;
 
-use Woonderful\StockSync\Detector\Detector;
 use Woonderful\StockSync\Detector\Guard;
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Linking\Links;
@@ -617,13 +616,16 @@ final class Ledger {
 			return 'target_already_linked';
 		}
 
-		// De la base y no del objeto: el objeto puede venir de antes (ADR-006 §1).
-		if ( Detector::stock_in_db( $target ) !== (int) ( $details['target_previous_stock'] ?? PHP_INT_MIN ) ) {
-			return 'stock_changed';
-		}
-
 		return self::applying(
 			static function () use ( $wpdb, $origin, $seq, $movement, $details, $target, $base, $local ): array {
+				// Revisar y escribir en el mismo paso (ADR-008 §3): con la fila bloqueada, una
+				// venta que llegue ahora espera el COMMIT, encuentra el vínculo y viaja.
+				// Revisada antes de la transacción, en el medio podía entrar una venta que el
+				// `set` de después pisaba sin dejar rastro.
+				if ( self::locked_stock( $target ) !== (int) ( $details['target_previous_stock'] ?? PHP_INT_MIN ) ) {
+					return array( false, 'stock_changed' );
+				}
+
 				$inserted = $wpdb->insert(
 					Installer::table( 'movements' ),
 					array(
@@ -750,7 +752,8 @@ final class Ledger {
 	 * `START TRANSACTION` del lote confirmaría la mitad hecha. `\Throwable` y no
 	 * `\Exception`: un `TypeError` no es una `Exception`.
 	 *
-	 * @param callable $work    Lo que se aplica. Devuelve `array( bool $commit, ?string $state )`.
+	 * @param callable $work    Lo que se aplica. Devuelve `array( bool $commit, ?string $state )`;
+	 *                          sin confirmar y con estado, es un rechazo con ese motivo.
 	 * @param int      $guarded El producto que el guard anotó, o 0: si la falla cae antes de
 	 *                          que el `set` la consuma, la anotación taparía su próximo cambio.
 	 * @param string   $origin  Tienda que lo emitió.
@@ -775,7 +778,8 @@ final class Ledger {
 			if ( ! $commit ) {
 				$wpdb->query( 'ROLLBACK' ); // phpcs:ignore WordPress.DB
 
-				return self::application_state_of( $origin, $seq );
+				// Un rechazo trae su motivo; un INSERT que falló, no.
+				return $state ?? self::application_state_of( $origin, $seq );
 			}
 
 			$wpdb->query( 'COMMIT' ); // phpcs:ignore WordPress.DB
@@ -896,15 +900,26 @@ final class Ledger {
 	 *                                      `origin_previous_stock`, `target_previous_stock`.
 	 * @param string|null        $reference Quién lo vinculó.
 	 *
-	 * @return int|null ID del movimiento —que es también la generación del par—, o null.
+	 * @return int|string|null ID del movimiento —que es también la generación del par—,
+	 *                         `stock_changed` si el stock ya no es el que vio el dueño, o null.
 	 */
-	public static function record_bootstrap( int $product, string $remote, array $details, ?string $reference ): ?int {
+	public static function record_bootstrap( int $product, string $remote, array $details, ?string $reference ) {
 		global $wpdb;
 
 		$table = Installer::table( 'movements' );
 		$now   = gmdate( 'Y-m-d H:i:s' );
 
 		self::begin();
+
+		// Revisar y escribir en el mismo paso (ADR-008 §3): con la fila bloqueada, una venta
+		// que llegue ahora espera el COMMIT, encuentra el vínculo y se registra. Revisada
+		// antes, en el medio podía entrar una venta sin vínculo, que no se registraba, y la
+		// secundaria arrancaba con el número de antes.
+		if ( self::locked_stock( $product ) !== (int) $details['origin_previous_stock'] ) {
+			self::rollback();
+
+			return 'stock_changed';
+		}
 
 		$inserted = $wpdb->insert(
 			$table,
@@ -951,6 +966,26 @@ final class Ledger {
 		self::commit();
 
 		return $movement_id;
+	}
+
+	/**
+	 * El stock de un producto, leído de la base y con la fila bloqueada hasta el COMMIT.
+	 *
+	 * @param int $product_id Producto.
+	 */
+	private static function locked_stock( int $product_id ): int {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$value = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT meta_value FROM {$wpdb->postmeta} WHERE post_id = %d AND meta_key = '_stock' FOR UPDATE",
+				$product_id
+			)
+		);
+		// phpcs:enable
+
+		return (int) wc_stock_amount( $value );
 	}
 
 	/**

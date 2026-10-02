@@ -551,6 +551,12 @@ como test el stub de WP-CLI para PHPStan (`tests/stubs/`), que define la clase d
 | `BOO-13` | El mismo gemelo, con una venta de cada uno | Espera sólo la del bootstrap |
 | `BOO-14` | Un bootstrap `confirmed`, resuelto después como `uncertain` y como `failed` | Sigue `confirmed`, con su vínculo |
 
+| `BOO-15` | **La secundaria aplica un bootstrap** | El stock se lee con `FOR UPDATE`, adentro de la transacción y antes de escribir |
+| `BOO-16` | La maestra escribe un bootstrap | Lo mismo |
+
+`BOO-15` y `BOO-16` miran el mecanismo, como `LED-10`: una venta concurrente no se puede
+reproducir en un test de un solo proceso. Con el código de antes caen los dos.
+
 `BOO-12` a `BOO-14` se corrieron contra el `Ledger` anterior: caen los tres. El gemelo se crea
 **antes** que el bootstrap, para que buscar por generación lo encuentre primero.
 
