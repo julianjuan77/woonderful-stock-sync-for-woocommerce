@@ -282,7 +282,6 @@ final class Linker {
 			'stock_changed'             => __( 'El stock de la otra tienda cambió desde que lo miraste. Volvé a mirarlo.', 'woonderful-stock-sync-for-woocommerce' ),
 			'target_missing'            => __( 'El producto de la otra tienda no existe o está en la papelera.', 'woonderful-stock-sync-for-woocommerce' ),
 			'target_not_managing_stock' => __( 'El producto de la otra tienda no gestiona su propio stock.', 'woonderful-stock-sync-for-woocommerce' ),
-			'target_already_linked'     => __( 'El producto de la otra tienda ya está vinculado con otro.', 'woonderful-stock-sync-for-woocommerce' ),
 			'not_master'                => __( 'La otra tienda no reconoce a ésta como su maestra: volvé a emparejarlas.', 'woonderful-stock-sync-for-woocommerce' ),
 		);
 

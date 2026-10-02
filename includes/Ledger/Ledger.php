@@ -177,7 +177,7 @@ final class Ledger {
 	 * Los motivos con que la secundaria rechaza un bootstrap (ADR-008 §3). No se reintentan:
 	 * es el fallo "ahora" de UC-07, y el dueño vuelve a confirmar mirando los números nuevos.
 	 */
-	public const BOOTSTRAP_REJECTIONS = array( 'not_master', 'target_missing', 'target_not_managing_stock', 'target_already_linked', 'stock_changed' );
+	public const BOOTSTRAP_REJECTIONS = array( 'not_master', 'target_missing', 'target_not_managing_stock', 'stock_changed' );
 
 	/**
 	 * Se aplicó al stock local.
@@ -612,10 +612,6 @@ final class Ledger {
 			return 'target_not_managing_stock';
 		}
 
-		if ( null !== Links::for_product( $target ) ) {
-			return 'target_already_linked';
-		}
-
 		return self::applying(
 			static function () use ( $wpdb, $origin, $seq, $movement, $details, $target, $base, $local ): array {
 				// Revisar y escribir en el mismo paso (ADR-008 §3): con la fila bloqueada, una
@@ -624,6 +620,14 @@ final class Ledger {
 				// `set` de después pisaba sin dejar rastro.
 				if ( self::locked_stock( $target ) !== (int) ( $details['target_previous_stock'] ?? PHP_INT_MIN ) ) {
 					return array( false, 'stock_changed' );
+				}
+
+				// Un vínculo que choque —con este producto o con el de la maestra— es un resto de
+				// un desvincular que no llegó: la maestra revisó que en su lado los dos estén
+				// libres, y es la única que vincula. Se reemplaza en vez de rechazarse, o ese
+				// producto no se podría volver a vincular nunca (ADR-008 §3).
+				if ( false === Links::delete_conflicting( $target, $origin, (int) ( $movement['product'] ?? 0 ) ) ) {
+					return array( false, null );
 				}
 
 				$inserted = $wpdb->insert(

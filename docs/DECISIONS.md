@@ -2319,6 +2319,9 @@ el core con `WP_HOME`—, la huella vuelve a variar. La salida sería leer la fi
 ## ADR-008 — Cómo se vincula un producto
 
 Estado: Aprobada · 2026-10-01 · aprobada por Julián
+Revisado: 2026-10-02 — aprobado por Julián. El bootstrap de la maestra **reemplaza** un vínculo
+viejo de la secundaria en vez de rechazarse con `target_already_linked`: ese vínculo es un resto
+de un desvincular que no llegó. Ver §3, "Un vínculo viejo en la secundaria".
 Temas: rest-api, opciones, modulos
 Cubre: includes/Linking/_.php, includes/Ledger/Ledger.php, includes/Rest/Movements.php, includes/Transport/Pairing.php, includes/Transport/Peers.php, includes/Cli/Command.php
 
@@ -2401,7 +2404,6 @@ cambió algo, vincular igual pisaría ese cambio sin que nadie se entere.
 | El stock sigue siendo el que vio el dueño | `stock_changed` |
 | El producto de la otra tienda existe y no está en la papelera | `target_missing` |
 | El producto gestiona stock | `target_not_managing_stock` |
-| No está vinculado ya con otro | `target_already_linked` |
 | El bootstrap viene de la maestra | `not_master` |
 
 Si algo falla, no se vincula nada y el dueño vuelve a intentar con los números nuevos.
@@ -2409,6 +2411,20 @@ Si algo falla, no se vincula nada y el dueño vuelve a intentar con los números
 Si todo está bien, la secundaria hace todo junto, o no hace nada: anota el bootstrap, arma su
 vínculo y pone el stock de la maestra. Esa escritura de stock no se manda de vuelta como si fuera
 un cambio (es el mismo cuidado de ADR-006 §3).
+
+**Un vínculo viejo en la secundaria se reemplaza, no se rechaza.** Puede quedar uno si un
+desvincular no llegó —se abandonó a las 6 horas, o llegó a una tienda que después dejó de
+considerar maestra a la otra—. Si la secundaria rechazara el bootstrap por eso, ese producto no se
+podría volver a vincular nunca, y desde la secundaria tampoco se puede desvincular.
+
+La maestra es la única que vincula, y antes de mandar revisa que **en su lado** los dos productos
+estén libres. Así que un vínculo de la secundaria que choque —con su producto o con el de la
+maestra— es, por definición, un resto. La secundaria lo borra y arma el nuevo, en la misma
+transacción.
+
+**Opción descartada — rechazar, y un comando en la secundaria para soltar el vínculo huérfano.**
+No borra nada sin que el dueño lo pida, pero el dueño tiene que darse cuenta de que quedó
+huérfano y saber qué comando correr; mientras tanto, ese producto no se puede volver a vincular.
 
 **Un desvincular que no viene de la maestra** se descarta en silencio. Como va por la cola, si se
 rechazara se reintentaría 6 horas para nada.

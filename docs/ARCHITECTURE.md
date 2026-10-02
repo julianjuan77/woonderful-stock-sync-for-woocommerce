@@ -125,7 +125,8 @@ dependencia `php-stubs/wp-cli-stubs`: si el comando crece, conviene la dependenc
 los atiende **antes** de buscar el vínculo, porque uno lo crea y el otro lo borra. El bootstrap
 pasa las revisiones de ADR-008 §3 sin escribir nada —si una falla, vuelve su motivo como
 `error`— y después, en una transacción de `Ledger::applying()`, guarda la fila con los campos en
-`details`, crea el par al revés y fija el stock con el guard. Un `unlink` viejo o ajeno se guarda
+`details`, **borra cualquier vínculo en conflicto** —un resto de un desvincular que no llegó—,
+crea el par al revés y fija el stock con el guard. Un `unlink` viejo o ajeno se guarda
 `discarded`. `GET /movements/<origen>/<secuencia>` responde `Ledger::state_of()`, sin anotar el
 nonce. Del lado de la maestra, `Ledger::record_bootstrap()` escribe la fila `syncing` y el
 vínculo juntos; `resolve_bootstrap()` anota cómo terminó y, si falló, borra el vínculo;

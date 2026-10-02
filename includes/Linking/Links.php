@@ -124,4 +124,33 @@ final class Links {
 
 		return $row instanceof \stdClass ? $row : null;
 	}
+
+	/**
+	 * Borra los vínculos que chocarían con un par nuevo: el del producto de acá, y el que
+	 * apunte al mismo producto de la otra tienda.
+	 *
+	 * @param int    $local_product  Producto de esta tienda.
+	 * @param string $remote_store   La otra tienda.
+	 * @param int    $remote_product Producto de la otra tienda.
+	 *
+	 * @return int|false Cuántos borró, o false si falló.
+	 */
+	public static function delete_conflicting( int $local_product, string $remote_store, int $remote_product ) {
+		global $wpdb;
+
+		$table = Installer::table( 'links' );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$deleted = $wpdb->query(
+			$wpdb->prepare(
+				"DELETE FROM {$table} WHERE local_product = %d OR ( remote_store = %s AND remote_product = %d )",
+				$local_product,
+				$remote_store,
+				$remote_product
+			)
+		);
+		// phpcs:enable
+
+		return false === $deleted ? false : (int) $deleted;
+	}
 }

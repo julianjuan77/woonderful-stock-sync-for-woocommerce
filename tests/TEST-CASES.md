@@ -537,7 +537,7 @@ como test el stub de WP-CLI para PHPStan (`tests/stubs/`), que define la clase d
 | ID | Caso | Resultado esperado |
 |---|---|---|
 | `BOO-01` | **La secundaria recibe un bootstrap** de 10 sobre un producto con 7 | Stock en 10, par al revés con la secuencia como generación, los campos en `details`, y **ningún movimiento propio**: el guard cubre la escritura |
-| `BOO-02` | Stock distinto del visto, producto en la papelera, sin stock gestionado, ya vinculado, y que no viene de la maestra | Cada uno con su motivo, y **nada escrito**: ni fila, ni par, ni stock |
+| `BOO-02` | Stock distinto del visto, producto en la papelera, sin stock gestionado, y que no viene de la maestra | Cada uno con su motivo, y **nada escrito**: ni fila, ni par, ni stock |
 | `BOO-03` | El mismo bootstrap reenviado, después de una venta | `applied`, y el stock no se vuelve a fijar: la venta queda |
 | `BOO-04` | Un `unlink` de la maestra, de la generación vigente | Borra el par |
 | `BOO-05` | Un `unlink` de una generación vieja, o que no viene de la maestra | `discarded` y el par sigue |
@@ -553,6 +553,8 @@ como test el stub de WP-CLI para PHPStan (`tests/stubs/`), que define la clase d
 
 | `BOO-15` | **La secundaria aplica un bootstrap** | El stock se lee con `FOR UPDATE`, adentro de la transacción y antes de escribir |
 | `BOO-16` | La maestra escribe un bootstrap | Lo mismo |
+| `BOO-17` | **Un vínculo viejo del producto de acá**, de un desvincular que no llegó | Se reemplaza: el bootstrap entra y queda el nuevo. Sin el reemplazo, cae |
+| `BOO-18` | Un vínculo viejo que apunta al producto de la maestra desde otro de acá | También se reemplaza, y queda un solo vínculo con ese remoto |
 
 `BOO-15` y `BOO-16` miran el mecanismo, como `LED-10`: una venta concurrente no se puede
 reproducir en un test de un solo proceso. Con el código de antes caen los dos.

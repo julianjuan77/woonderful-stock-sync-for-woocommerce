@@ -210,19 +210,16 @@ class Test_Bootstrap extends WP_UnitTestCase {
 		$free     = $this->product( 7 );
 		$trashed  = $this->product( 7 );
 		$unmanage = $this->product( 7 );
-		$linked   = $this->product( 7 );
 
 		wp_trash_post( $trashed );
 		$product = wc_get_product( $unmanage );
 		$product->set_manage_stock( false );
 		$product->save();
-		Links::create( $linked, self::OTHER, 901, 1, 7 );
 
 		$cases = array(
 			'stock_changed'             => $this->bootstrap( $free, 10, 6 ),
 			'target_missing'            => $this->bootstrap( $trashed, 10, 7 ),
 			'target_not_managing_stock' => $this->bootstrap( $unmanage, 10, 7 ),
-			'target_already_linked'     => $this->bootstrap( $linked, 10, 7 ),
 		);
 
 		foreach ( $cases as $reason => $bootstrap ) {
@@ -622,5 +619,44 @@ class Test_Bootstrap extends WP_UnitTestCase {
 		$this->assertGreaterThan( -1, $lock );
 		$this->assertGreaterThan( $begin, $lock );
 		$this->assertLessThan( $insert, $lock );
+	}
+
+	/**
+	 * Un vínculo viejo del producto de acá —un desvincular que no llegó— se reemplaza: el
+	 * bootstrap entra, y queda un solo vínculo, el nuevo.
+	 *
+	 * BOO-17
+	 */
+	public function test_a_stale_link_of_the_target_is_replaced(): void {
+		$target = $this->product( 7 );
+		Links::create( $target, self::OTHER, 800, 3, 7 );
+
+		$bootstrap = $this->bootstrap( $target, 10, 7 );
+
+		$this->assertSame( Ledger::APPLIED, Ledger::apply( $bootstrap ) );
+		$this->assertSame( 900, (int) Links::for_product( $target )->remote_product );
+		$this->assertSame( $bootstrap['seq'], (int) Links::for_product( $target )->generation );
+		$this->assertSame( 10, Detector::stock_in_db( $target ) );
+	}
+
+	/**
+	 * Lo mismo con un vínculo viejo que apunta al producto de la maestra desde otro producto
+	 * de acá: también se reemplaza, y no quedan dos vínculos con el mismo remoto.
+	 *
+	 * BOO-18
+	 */
+	public function test_a_stale_link_to_the_masters_product_is_replaced(): void {
+		global $wpdb;
+
+		$old    = $this->product( 7 );
+		$target = $this->product( 7 );
+		Links::create( $old, self::OTHER, 900, 3, 7 );
+
+		$this->assertSame( Ledger::APPLIED, Ledger::apply( $this->bootstrap( $target, 10, 7 ) ) );
+
+		$table = Installer::table( 'links' );
+
+		$this->assertNull( Links::for_product( $old ) );
+		$this->assertSame( 1, (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE remote_store = %s AND remote_product = %d", self::OTHER, 900 ) ) ); // phpcs:ignore WordPress.DB
 	}
 }
