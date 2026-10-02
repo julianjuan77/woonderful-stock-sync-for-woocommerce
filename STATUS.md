@@ -24,7 +24,7 @@ git show 2668a7a --stat      # qué archivos tocó y cuántas líneas
 git show 2668a7a             # el diff completo
 ```
 
-Y para correr sólo los tests de una pieza, en vez de los 282:
+Y para correr sólo los tests de una pieza, en vez de los 286:
 
 ```bash
 make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS="--filter Test_Ledger"
@@ -127,7 +127,7 @@ Verificado rompiéndolo: sin el `UPDATE` cae `LED-02`; registrando productos sin
 | 5.6 | `GET /health` | ✅ | `02ce7dc`, `638df6f` | `HLT-01`…`HLT-07`, `PLG-23`, `PLG-24` |
 | 5.7 | El emparejamiento: `POST /pair` y el canje con su callback. Https en los dos lados, salvo en desarrollo. Se dispara desde WP-CLI. La prueba entre dos sitios de verdad espera a E.1 | ✅ | `b972a51`, `10b245e`, `ae25584`, `ba6d266` | `PAR-01`…`PAR-18`, `CLI-01`…`CLI-04`, `PLG-25`, `UNI-08` |
 | 5.8 | `GET /products`, y su cliente `Transport\Catalog` | ✅ | `80f40ab`, `daa8b16` | `PRD-01`…`PRD-14` |
-| 5.9 | **El envío al final del request de un pedido** (`Transport\Express`), con `fastcgi_finish_request()` y 5 s de timeout; sin PHP-FPM, queda para la pasada. ADR-006 §5 | ✅ | `4711ba2` | `SND-11`…`SND-15`, `DET-17`, `DET-18` |
+| 5.9 | **El envío al final del request de un pedido** (`Transport\Express`), con `fastcgi_finish_request()` o `litespeed_finish_request()` y 5 s de timeout; sin ellas, o con un envío fallido hace menos de un minuto, queda para la pasada. ADR-006 §5 | ✅ | `4711ba2` | `SND-11`…`SND-18`, `DET-17`, `DET-18`, `UNI-09` |
 
 **Para el ADR del log (1.10):** `Sender::run()` devuelve cuántos mandó, confirmó y fallaron, y
 el error del request si lo hubo —`no_peer` si no hay tienda emparejada—. Es lo que necesita la
@@ -191,7 +191,7 @@ La fuente es `docs/DECISIONS.md`. Acá sólo el índice de las aprobadas.
 | ADR-003 | Qué se borra al desinstalar; el secreto siempre. Revisado el 2026-09-29: la hora del control de la pasada también, y desactivar la desagenda | 2026-09-20 |
 | ADR-004 | Tres tablas InnoDB, tres índices, la retención | 2026-09-20 |
 | ADR-005 | El vínculo, su generación, el bootstrap y el `unlink` | 2026-09-21 |
-| ADR-006 | Los hooks del detector, el estampado y el guard anti-eco. Revisado el 2026-09-28: el delta sale de la base, y el agujero del guard bien descrito. Revisado el 2026-10-02: lo de un pedido sale al final de su request | 2026-09-24 |
+| ADR-006 | Los hooks del detector, el estampado y el guard anti-eco. Revisado el 2026-09-28: el delta sale de la base, y el agujero del guard bien descrito. Revisado el 2026-10-02: lo de un pedido sale al final de su request, salvo después de un fallo | 2026-09-24 |
 | ADR-007 | La huella hashea la opción `home` cruda, con esquema | 2026-09-26 |
 | ADR-008 | El bootstrap se manda en el momento; sólo vincula la maestra; se revisa que nada haya cambiado; un incierto se pregunta. Revisado el 2026-10-02: el bootstrap reemplaza un vínculo viejo de la secundaria | 2026-10-01 |
 
@@ -231,5 +231,5 @@ seguridad y convenciones de código.
 | La paginación de `GET /products` es por número de página: si se borra un producto definitivamente mientras se recorre el catálogo, todo se corre un lugar y uno de la página siguiente no aparece. Para sugerir pares por SKU es poco grave; si importa, se pagina por "los que vienen después del ID X" | Revisión 2026-10-02 → ADR de interfaz |
 | La pantalla tiene que decir "esperando respuesta" para un `uncertain` que todavía está en `syncing`, y "no se sabe" recién cuando ya es `uncertain`: hoy `State` los junta en uno | Revisión 2026-10-02 → ADR de interfaz |
 | El vínculo armado de un solo lado —el catálogo de allá dice `linked: false`— no es un motivo de suspendido: lo encuentra y repara la reconciliación (ADR-005 §1, revisado) | Revisión 2026-10-02 → tarea 1.9 |
-| El envío al final del request no se probó con PHP-FPM de verdad: los sitios de wp-restore corren Apache con mod_php, y ahí `Express` no manda. Los tests cubren la lógica; falta ver un pedido real salir en el `shutdown` | 5.9 → con un sitio en PHP-FPM |
+| El envío al final del request no se probó con PHP-FPM de verdad: los sitios de wp-restore corren Apache con mod_php, y ahí `Express` no manda. Los tests cubren la lógica; falta ver un pedido real salir en el `shutdown`. Y averiguar qué corren los servidores de las dos tiendas: con Apache y mod_php no se dispara nunca | 5.9 → con un sitio en PHP-FPM |
 | Infection sobre `Transport/`, que ya existe: necesita PCOV en la imagen de wp-restore | — |

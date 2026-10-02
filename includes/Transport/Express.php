@@ -52,25 +52,53 @@ final class Express {
 	 * pasada, como antes.
 	 */
 	public static function on_shutdown(): void {
-		if ( ! function_exists( 'fastcgi_finish_request' ) ) {
+		$finish = self::finisher();
+
+		if ( null === $finish || ! is_callable( $finish ) ) {
 			self::$queued = array();
 
 			return;
 		}
 
-		fastcgi_finish_request();
+		$finish();
 
 		self::send();
 	}
 
 	/**
+	 * La función que cierra la conexión del cliente, o null si este servidor no tiene.
+	 *
+	 * LiteSpeed tuvo `fastcgi_finish_request()` como alias y la sacó: la suya es la otra.
+	 *
+	 * @param callable(string): bool|null $exists Cómo se pregunta si existe. Para los tests.
+	 */
+	public static function finisher( ?callable $exists = null ): ?string {
+		$exists = $exists ?? 'function_exists';
+
+		foreach ( array( 'fastcgi_finish_request', 'litespeed_finish_request' ) as $function ) {
+			if ( $exists( $function ) ) {
+				return $function;
+			}
+		}
+
+		return null;
+	}
+
+	/**
 	 * Manda lo anotado, en un lote.
 	 *
-	 * @return array{sent: int, confirmed: int, failed: int, error: string|null}
+	 * Si un envío falló hace menos de una pasada, no: lo lleva la pasada (ADR-006 §5).
+	 *
+	 * @return array{sent: int, confirmed: int, failed: int, error: string|null}|null Lo que
+	 *         pasó, o null si no se intentó.
 	 */
-	public static function send(): array {
+	public static function send(): ?array {
 		$ids          = array_keys( self::$queued );
 		self::$queued = array();
+
+		if ( false !== get_transient( Sender::FAILED ) ) {
+			return null;
+		}
 
 		return Sender::run( $ids, self::TIMEOUT );
 	}

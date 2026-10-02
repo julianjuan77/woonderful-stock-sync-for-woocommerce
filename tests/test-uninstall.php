@@ -254,4 +254,19 @@ class Test_Uninstall extends WP_UnitTestCase {
 		$this->assertFalse( get_option( 'wss_pairing', false ) );
 		$this->assertFalse( get_option( 'wss_redeeming', false ) );
 	}
+
+	/**
+	 * La hora del último envío fallido es estado de la entrega: se va siempre (ADR-003,
+	 * revisado el 2026-10-02).
+	 *
+	 * UNI-09
+	 */
+	public function test_the_last_failed_send_is_always_deleted(): void {
+		update_option( self::OPTION_DELETE_ALL, false );
+		set_transient( 'wss_send_failed', time(), 60 );
+
+		$this->run_uninstall();
+
+		$this->assertFalse( get_transient( 'wss_send_failed' ) );
+	}
 }

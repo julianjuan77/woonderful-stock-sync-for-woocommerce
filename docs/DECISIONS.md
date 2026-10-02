@@ -1285,6 +1285,9 @@ escriben los dos.
 ## ADR-003 — Desinstalación y borrado de datos
 
 Estado: Aprobada · 2026-09-20 · aprobada por Julián
+Revisado: 2026-10-02 — aprobado por Julián. Suma el transient `wss_send_failed`, que frena el
+envío al final del request después de un fallo (ADR-006 §5). Se borra **siempre**: es estado de
+la entrega, no un dato del dueño.
 Revisado: 2026-09-30 — suma `wss_pairing` y `wss_redeeming`, el código de un emparejamiento en
 curso de cada lado (ADR-001 §1). Se borran **siempre**: son un código vivo, no un dato del
 dueño.
@@ -1312,6 +1315,7 @@ Ajustes → [ ] Borrar todos los datos al desinstalar     ← desmarcada de fáb
 | Ajustes del plugin                        | queda              | se borra        |
 | Almacén de nonces                         | se borra           | se borra        |
 | Hora del último control de la pasada      | se borra           | se borra        |
+| Último envío fallido (`wss_send_failed`)  | se borra           | se borra        |
 | Código de un emparejamiento en curso      | se borra           | se borra        |
 | **Secreto compartido con la otra tienda** | **se borra**       | **se borra**    |
 
@@ -1950,6 +1954,8 @@ descrito: entre el `expect()` y el `set` sí corre código de terceros. La concl
 ahora dice qué se pierde. Ver §3.
 Revisado: 2026-10-02 — aprobado por Julián. Lo que causó un pedido sale al terminar el
 request de ese pedido, sin esperar los 10 segundos ni la pasada. Ver §5.
+Revisado: 2026-10-02 — aprobado por Julián. Después de un envío fallido, un minuto sin mandar al
+final del request; también con LiteSpeed; y qué pasa si el proceso muere a mitad. Ver §5.
 Temas: hooks-publicos, db-schema
 Cubre: includes/Detector/_.php
 
@@ -2238,7 +2244,7 @@ otra tienda vende algo que ya no hay.
 
 **La decisión:** los movimientos que un pedido estampó en este request —`sale` o `refund`— se
 mandan al final del mismo request, después de cerrarle la conexión al cliente con
-`fastcgi_finish_request()`.
+`fastcgi_finish_request()` o `litespeed_finish_request()`.
 
 ```
 14:00:00.000  el cliente paga → se descuenta el stock → la fila nace → se le estampa `sale`
@@ -2259,7 +2265,8 @@ agrupamiento que §4 vino a dar.
 
 | Regla | Por qué |
 | --- | --- |
-| Sólo si existe `fastcgi_finish_request()` (PHP-FPM) | Sin ella —Apache con mod_php— el cliente esperaría el envío. Ahí lo lleva la pasada, como hoy |
+| Sólo si existe `fastcgi_finish_request()` (PHP-FPM) o `litespeed_finish_request()` (LiteSpeed) | Sin ninguna —Apache con mod_php— el cliente esperaría el envío. Ahí lo lleva la pasada, como hoy. LiteSpeed tuvo la primera como alias y la sacó; la suya es la segunda |
+| **Si un envío falló hace menos de un minuto, no se manda** | Con la otra tienda colgada, cada pedido ocuparía un proceso los 5 segundos enteros: una tanda de pedidos llenaría el pool de PHP-FPM y frenaría a esta tienda, que no tiene nada roto. El fallo lo anota el emisor —el de la pasada también cuenta— en el transient `wss_send_failed`, de 60 segundos, el intervalo de la pasada; un envío que sale bien lo borra |
 | Se reclama como en la pasada, pero sólo esas filas y sin mirar `next_attempt_at` | El mismo `UPDATE` condicional: si una pasada corre a la vez, una sola se las lleva. Y se respeta lo retenido por un bootstrap sin resolver (ADR-008 §4) |
 | Un solo lote, de 200 como mucho | El tope de ADR-001. Si hay más, el resto lo lleva la pasada |
 | Espera la respuesta 5 segundos, no 30 | Corre dentro de un proceso de PHP-FPM que no atiende a nadie más mientras tanto. Si no contesta a tiempo, las filas vuelven a la cola como cualquier envío fallido. Si en realidad llegaron, la otra tienda las reconoce por su `seq` y no descuenta dos veces |
@@ -2269,6 +2276,11 @@ agrupamiento que §4 vino a dar.
 **Costo:** un proceso de PHP-FPM queda ocupado hasta 5 segundos más después de cada pedido, y
 un envío que falla gasta un intento contra el techo de 6 horas —uno de muchos: el primer
 reintento es al minuto—.
+
+**Si el proceso muere a mitad del envío** —entre el claim y el ACK, por ejemplo porque PHP-FPM lo
+corta con `request_terminate_timeout` un request que ya venía lento—, las filas quedan en vuelo
+hasta que vence el claim, a los 5 minutos, y recién ahí las toma la pasada. No se pierde nada,
+pero esa venta llega más tarde que sin este envío. Con 5 segundos de timeout es raro.
 
 ---
 

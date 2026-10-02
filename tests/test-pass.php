@@ -13,6 +13,7 @@ use Woonderful\StockSync\Plugin;
 use Woonderful\StockSync\Schema\Installer;
 use Woonderful\StockSync\Transport\Nonces;
 use Woonderful\StockSync\Transport\Pass;
+use Woonderful\StockSync\Transport\Sender;
 use Woonderful\StockSync\Transport\Peers;
 
 /**
@@ -34,6 +35,9 @@ class Test_Pass extends WP_UnitTestCase {
 
 		remove_filter( 'query', array( $this, '_create_temporary_tables' ) );
 		remove_filter( 'query', array( $this, '_drop_temporary_tables' ) );
+
+		// El DROP TABLE del tear_down confirma lo escrito: un fallo de otro test lo dejaría.
+		delete_transient( Sender::FAILED );
 
 		Installer::install();
 		Store::ensure_identity();

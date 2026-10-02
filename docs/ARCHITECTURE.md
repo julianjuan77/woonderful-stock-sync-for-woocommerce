@@ -209,10 +209,12 @@ un POST redirigido llega como GET. Empareja los resultados por posición, y uno 
 
 **Lo de un pedido sale al final de su request** (`Transport\Express`, ADR-006 §5). Cuando el
 detector estampa un movimiento con su pedido, lo anota. En `shutdown`, con `PHP_INT_MAX`, si hay
-PHP-FPM, se cierra la conexión del cliente con `fastcgi_finish_request()` y se llama a
-`Sender::run()` con esos IDs y 5 segundos de timeout: `claim()` se lleva sólo esas filas, sin
-mirar `next_attempt_at`, y con la misma retención de los bootstraps. Sin PHP-FPM no se manda nada
-y lo lleva la pasada. Los ajustes a mano y las importaciones no se anotan: esperan la pasada,
+PHP-FPM o LiteSpeed, se cierra la conexión del cliente con `fastcgi_finish_request()` o
+`litespeed_finish_request()` y se llama a `Sender::run()` con esos IDs y 5 segundos de timeout:
+`claim()` se lleva sólo esas filas, sin mirar `next_attempt_at`, y con la misma retención de los
+bootstraps. Sin ninguna de las dos no se manda nada y lo lleva la pasada. Tampoco si un envío
+falló entero hace menos de una pasada: `Sender::run()` lo anota en el transient
+`wss_send_failed`, de 60 segundos, y lo borra el primero que sale bien. Los ajustes a mano y las importaciones no se anotan: esperan la pasada,
 para que la ráfaga se agrupe.
 
 **El lote, la curva de backoff, las 6 horas y los 5 minutos del claim son constantes**, no
@@ -248,6 +250,7 @@ compatible; quitar uno o cambiarle el significado es `wss/v2`.
 | `wss_pairing` | El código que emitió esta tienda y su vencimiento (15 min), del lado de la maestra. Se guarda entero: para verificar un HMAC hace falta la clave. Se borra al primer canje exitoso y siempre al desinstalar |
 | `wss_redeeming` | El código que esta tienda está canjeando, la maestra y el vencimiento (2 min), del lado de la secundaria. Se borra al terminar el canje y siempre al desinstalar |
 | `wss_pass_checked_at` | Cuándo se controló por última vez que la pasada esté agendada. **Autocargada**: se lee en cada request. Se borra siempre al desinstalar (ADR-003) |
+| `wss_send_failed` | Transient de 60 segundos: cuándo falló entero el último envío. Mientras exista, el final del request no manda (ADR-006 §5). Se borra siempre al desinstalar (ADR-003) |
 
 ### Hooks para terceros
 

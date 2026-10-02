@@ -32,9 +32,10 @@ if ( is_array( $wss_peers ) ) {
 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- no hay API de WordPress para borrar una tabla, y el nombre sale de $wpdb->prefix, no de una entrada.
 $wpdb->query( "DROP TABLE IF EXISTS {$wss_prefix}nonces" );
 
-// Ni la hora del control de la pasada ni un código de emparejamiento vivo son datos del
-// dueño (ADR-003).
+// Ni la hora del control de la pasada, ni la del último envío fallido, ni un código de
+// emparejamiento vivo son datos del dueño (ADR-003).
 delete_option( 'wss_pass_checked_at' );
+delete_transient( 'wss_send_failed' );
 delete_option( 'wss_pairing' );
 delete_option( 'wss_redeeming' );
 

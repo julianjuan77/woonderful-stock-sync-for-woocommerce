@@ -40,6 +40,14 @@ final class Sender {
 	public const TIMEOUT = 30;
 
 	/**
+	 * El transient con la hora del último envío que falló entero.
+	 *
+	 * Mientras exista, el final del request no manda: con la otra tienda colgada, cada pedido
+	 * ocuparía un proceso los 5 segundos enteros (ADR-006 §5). Dura una pasada.
+	 */
+	public const FAILED = 'wss_send_failed';
+
+	/**
 	 * Hace una pasada.
 	 *
 	 * @param int[]|null $only    Sólo estos movimientos, aunque no les toque todavía (ADR-006 §5).
@@ -83,6 +91,12 @@ final class Sender {
 		$summary['confirmed'] = count( array_filter( $results, static fn ( $result ) => true === $result ) );
 		$summary['failed']    = $summary['sent'] - $summary['confirmed'];
 		$summary['error']     = self::request_error( $response );
+
+		if ( null === $summary['error'] ) {
+			delete_transient( self::FAILED );
+		} else {
+			set_transient( self::FAILED, time(), Pass::INTERVAL );
+		}
 
 		return $summary;
 	}

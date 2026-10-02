@@ -53,6 +53,9 @@ class Test_Sender extends WP_UnitTestCase {
 		remove_filter( 'query', array( $this, '_create_temporary_tables' ) );
 		remove_filter( 'query', array( $this, '_drop_temporary_tables' ) );
 
+		// El DROP TABLE del tear_down confirma lo escrito: un fallo de otro test lo dejaría.
+		delete_transient( Sender::FAILED );
+
 		Installer::install();
 		Store::ensure_identity();
 		wss_unhook_detector();
@@ -564,7 +567,7 @@ class Test_Sender extends WP_UnitTestCase {
 	 * SND-15 — Sin PHP-FPM no se manda: el cliente esperaría el envío. Lo lleva la pasada.
 	 */
 	public function test_without_fpm_the_end_of_the_request_sends_nothing(): void {
-		$this->assertFalse( function_exists( 'fastcgi_finish_request' ), 'los tests corren por CLI' );
+		$this->assertNull( Express::finisher(), 'los tests corren por CLI' );
 
 		$queued = $this->fresh_movement( -2 );
 
@@ -574,5 +577,54 @@ class Test_Sender extends WP_UnitTestCase {
 		$this->assertSame( array(), $this->sent );
 		$this->assertSame( array(), Express::queued() );
 		$this->assertSame( 'pending', $this->column_of( $queued, 'delivery' ) );
+	}
+
+	/**
+	 * SND-16 — Un envío que falla entero lo anota por una pasada; uno que sale bien lo borra.
+	 */
+	public function test_a_failed_send_is_remembered_until_one_succeeds(): void {
+		$this->pending_movement( -2 );
+		$this->answer = static fn () => array( 503, array() );
+
+		Sender::run();
+
+		$this->assertNotFalse( get_transient( Sender::FAILED ) );
+
+		$this->answer = null;
+		$this->pending_movement( -1 );
+		$this->pending_movement( -1 );
+
+		Sender::run();
+
+		$this->assertFalse( get_transient( Sender::FAILED ) );
+	}
+
+	/**
+	 * SND-17 — Con un fallo reciente, el final del request no manda ni gasta un intento: con
+	 * la otra tienda colgada, cada pedido ocuparía un proceso 5 segundos (ADR-006 §5).
+	 */
+	public function test_after_a_recent_failure_the_end_of_the_request_waits_for_the_pass(): void {
+		set_transient( Sender::FAILED, time(), 60 );
+		$queued = $this->fresh_movement( -2 );
+
+		Express::queue( $queued );
+
+		$this->assertNull( Express::send() );
+		$this->assertSame( array(), $this->sent );
+		$this->assertSame( array(), Express::queued() );
+		$this->assertSame( 'pending', $this->column_of( $queued, 'delivery' ) );
+		$this->assertSame( '0', $this->column_of( $queued, 'attempts' ) );
+	}
+
+	/**
+	 * SND-18 — La conexión se cierra con la función de PHP-FPM o con la de LiteSpeed, la que
+	 * haya; sin ninguna, no hay con qué.
+	 */
+	public function test_the_connection_closes_with_fpm_or_litespeed(): void {
+		$only = static fn ( string $available ) => static fn ( string $name ) => $name === $available;
+
+		$this->assertSame( 'fastcgi_finish_request', Express::finisher( $only( 'fastcgi_finish_request' ) ) );
+		$this->assertSame( 'litespeed_finish_request', Express::finisher( $only( 'litespeed_finish_request' ) ) );
+		$this->assertNull( Express::finisher( $only( 'otra' ) ) );
 	}
 }

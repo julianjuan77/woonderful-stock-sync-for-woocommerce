@@ -270,6 +270,7 @@ varios tests sin chocar.
 | `UNI-06` | **Casilla nunca tocada** — el estado de fábrica | No se borra nada: es el caso del dueño que nunca abrió los ajustes |
 | `UNI-07` | Desinstalar conservando los datos | La hora del control de la pasada se va igual: no es un dato del dueño |
 | `UNI-08` | Desinstalar conservando los datos, con un código de emparejamiento vivo de cada lado | Los dos se van: son una credencial |
+| `UNI-09` | Desinstalar conservando los datos, con un envío fallido anotado | `wss_send_failed` se borra igual (ADR-003, revisado el 2026-10-02) |
 
 ## [`tests/test-ledger.php`](test-ledger.php) — el libro
 
@@ -430,13 +431,18 @@ necesita, sin salir a ningún lado.
 | `SND-13` | Al final del request, el anotado ya lo tiene una pasada | No sale dos veces |
 | `SND-14` | Al final del request, el anotado cuelga de un bootstrap sin resolver | No sale: lo retiene, como en la pasada |
 | `SND-15` | Sin `fastcgi_finish_request()` | No sale nada, y lo anotado se descarta: lo lleva la pasada |
+| `SND-16` | Un envío falla entero, y después uno sale bien | El primero anota `wss_send_failed`; el segundo lo borra |
+| `SND-17` | **Al final del request, con un fallo de hace menos de un minuto** | No sale nada ni se cuenta un intento: lo lleva la pasada (ADR-006 §5) |
+| `SND-18` | Con la función de PHP-FPM, con la de LiteSpeed, sin ninguna | Elige la que hay, o ninguna |
 
 Verificado rompiéndolo: reclamando antes de mirar si hay tienda cae `SND-01`; sin el control
 del `seq` o tomando un resultado faltante como confirmado cae `SND-08`; ignorando el error del
 request caen `SND-06` y `SND-07`; firmando otra ruta cae `SND-04`; contando todas las entradas
 de `wss_peers` cae `SND-10`; sin el `no_peer` cae `SND-01`. Del final del request: reclamando sin
 filtrar por los anotados, o mirando la espera, caen `SND-11` y `SND-12`; sin retener lo de un
-bootstrap cae `SND-14`; con el timeout de 30 cae `SND-12`; mandando sin PHP-FPM cae `SND-15`.
+bootstrap cae `SND-14`; con el timeout de 30 cae `SND-12`; mandando sin PHP-FPM cae `SND-15`; sin
+anotar o sin borrar el fallo cae `SND-16`; sin mirarlo al final del request cae `SND-17`; sin
+LiteSpeed cae `SND-18`.
 
 ## [`tests/test-pass.php`](test-pass.php) — la pasada recurrente
 
