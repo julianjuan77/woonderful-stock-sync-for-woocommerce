@@ -2,7 +2,7 @@
 
 > Plugin: `woonderful-stock-sync-for-woocommerce` | WP 6.5+ | PHP 8.1+ | WooCommerce 9.1+
 > Repo: [woonderful-stock-sync-for-woocommerce](https://github.com/julianjuan77/woonderful-stock-sync-for-woocommerce)
-> Creado: 2026-09-20 · Última sesión: 2026-09-29 — el transporte: firma (5.1), nonces (5.2), `POST /movements` (5.3) y el envío (5.4)
+> Creado: 2026-09-20 · Última sesión: 2026-10-01 — la vinculación (bloque 6, ADR-008), probada entre `sandbox` y `sandbox-b`
 
 Sincroniza el stock entre dos tiendas WooCommerce propias que despachan del mismo depósito.
 Pool único, sin reparto: lo que se vende en una descuenta en las dos.
@@ -34,13 +34,14 @@ make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS=
 
 ## 🔄 En progreso
 
-Nada. Lo siguiente es **5.8, `GET /products`**, o saltar a la vinculación (bloque 6), que es lo
-que falta para que dos tiendas se sincronicen sin armar el vínculo a mano.
+Nada. Lo siguiente es **6.4, el estado derivado** —vinculado, suspendido, sin vincular e
+incierto—, que es lo que va a mostrar la pantalla. O **5.8, `GET /products`**, que la pantalla
+necesita para sugerir pares.
 
-**Para probar entre dos tiendas:** `sandbox` (8150) y `sandbox-b` (8170) están emparejadas y
-tienen la "Alpargata azul 38" vinculada. Con `DISABLE_WP_CRON` la pasada no corre sola: se
-dispara con `wp eval '\Woonderful\StockSync\Transport\Sender::run();'` pasados los 10 s del
-retardo. Ver el README de wp-restore, "Dos sitios que se hablan".
+**Para probar entre dos tiendas:** `sandbox` (8150, maestra) y `sandbox-b` (8170) están
+emparejadas con rol. Con `DISABLE_WP_CRON` la pasada no corre sola: se dispara con
+`wp eval '\Woonderful\StockSync\Transport\Pass::run();'` pasados los 10 s del retardo. Para
+vincular: `wp wss link <acá> <allá> --stock=<acá> --remote-stock=<allá>` en la maestra.
 
 ---
 
@@ -111,7 +112,7 @@ Verificado rompiéndolo: sin el `UPDATE` cae `LED-02`; registrando productos sin
 | 4.1 | Los cuatro hooks de stock y el cálculo del delta, leído de la base | ✅ | `a3db571`, `25984d3` | `DET-01`…`DET-10`, `PLG-16`, `PLG-17` |
 | 4.2 | El guard anti-eco | ✅ | `1feb126` | `GRD-01`…`GRD-07` |
 | 4.3 | El estampado del motivo desde los hooks de pedido | ✅ | `3173cc4`, `c2da67f` | `DET-11`…`DET-16`, `LED-52`…`LED-55` |
-| 4.4 | Qué se ignora: sin stock gestionado y sin vincular ya van en 4.1; falta el bootstrap, que depende de 6.1 | ⬜ | | |
+| 4.4 | Qué se ignora: sin stock gestionado y sin vincular, en 4.1; la escritura del bootstrap la cubre el guard | ✅ | `a855ea4` | `BOO-01` |
 
 ### 5. El transporte — `includes/Transport/` y `includes/Rest/`
 
@@ -150,7 +151,7 @@ es lo normal: loguearlo en cada pasada sería ruido.
 | 6.4 | El estado derivado: vinculado, suspendido, sin vincular, **e incierto** (ADR-008 §5) | ⬜ | | |
 | 6.5 | `Links` | ✅ | `a855ea4` | — |
 | 6.6 | Los roles al emparejar: la maestra es la que emite el código (ADR-008 §2) | ✅ | `1f18fef` | `PAR-02`, `PAR-09`, `PAR-19` |
-| 6.7 | `wp wss link` y `wp wss unlink`, y la prueba entre `sandbox` y `sandbox-b` | 🔄 | | |
+| 6.7 | `wp wss link` y `wp wss unlink`, y la prueba entre `sandbox` y `sandbox-b`: rechazo por stock cambiado, vínculo con el stock de la maestra, una venta que llega, el `unlink` y el rechazo desde la secundaria | ✅ | `ff66beb` | `CLI-05`, `CLI-06` |
 
 ### 7. La reconciliación — `includes/Reconciliation/`
 
@@ -220,4 +221,5 @@ seguridad y convenciones de código.
 | Un `reason` desconocido se guarda y su delta se aplica, que está bien para una etiqueta nueva. Pero si una versión futura suma un motivo con **significado especial**, como el `bootstrap`, la vieja lo aplicaría como un ajuste común. La sección *Compatibilidad entre versiones* de ADR-001 tiene que decir cómo se marca un movimiento que una versión vieja no debe aplicar | Revisión 2026-09-29 → ADR-001 |
 | **Un lote que siempre voltea al receptor arrastra a los otros 199.** Si el receptor muere con un error que `apply()` no puede atrapar —sin memoria, o el tiempo máximo de PHP—, las 200 filas reciben el mismo error, el mismo backoff, vuelven a salir juntas y a las 6 horas se abandonan todas. Un timeout de 30 s no tiene el problema: el receptor termina igual y el reintento deduplica. La mitigación posible es partir el lote a la mitad tras una falla del lote entero que no sea de red ni de autenticación. No se hace hasta ver el volumen real | Revisión 2026-09-29 → §6 del SPEC |
 | **En el sandbox faltaban `wp_wss_links` y `wp_wss_movements`** —sólo quedaba `wp_wss_nonces`— con `wss_schema_version` en 1: el sitio estaba suspendido por esquema, y `maybe_upgrade()` no lo arregla porque la versión está al día. No coincide con ninguno de los dos caminos de `uninstall.php`. Causa sin encontrar; se reparó reactivando el plugin. Si se repite, mirar quién hace `DROP TABLE` sobre el prefijo `wp_` | E.1, 2026-09-30 |
+| Las dos tiendas del sandbox tienen todavía el vínculo armado a mano en E.1 ("Alpargata azul 38"), con generación 1: no corresponde a ningún bootstrap. Si molesta, borrarlo de `wss_links` en las dos | E.1, 2026-09-30 |
 | Infection sobre `Transport/`, que ya existe: necesita PCOV en la imagen de wp-restore | — |
