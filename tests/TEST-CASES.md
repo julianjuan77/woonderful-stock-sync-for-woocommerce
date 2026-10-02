@@ -468,7 +468,7 @@ tipo de entorno en una estática sin filtro.
 | ID | Caso | Resultado esperado |
 |---|---|---|
 | `PAR-01` | Emitir un código | Lleva la URL de la API, el identificador y 256 bits; se guarda con 15 minutos de vida |
-| `PAR-02` | **El canje completo, del lado de la maestra** | El callback va a `<url>/health` firmado con el código; se guardan la socia y la huella, y el código deja de valer |
+| `PAR-02` | **El canje completo, del lado de la maestra** | El callback va a `<url>/health` firmado con el código; se guardan la socia —con `role: secondary`— y la huella, el código deja de valer, y esta tienda queda maestra |
 | `PAR-03` | El mismo código dos veces | La segunda, 401 `wss_pairing_invalid` |
 | `PAR-04` | Un código vencido | 401 `wss_pairing_invalid` |
 | `PAR-05` | Firmado con otro código | 401 `wss_pairing_invalid`, no `wss_bad_signature`; el código de verdad sigue valiendo |
@@ -485,6 +485,7 @@ tipo de entorno en una estática sin filtro.
 | `PAR-16` | **Mientras dura el canje, otra tienda firma un `health` con el mismo código** | 401: el código autentica sólo a la maestra que lo emitió |
 | `PAR-17` | **Una copia de la base de la maestra canjea su código** | 409 `wss_same_store`: ni se guarda a sí misma ni borra a la socia real, no guarda la huella, no hace el callback, y el código sigue valiendo |
 | `PAR-18` | La secundaria canjea un código con su propio identificador | `wss_same_store` sin salir a la red |
+| `PAR-19` | Un emparejamiento anterior a ADR-008, sin rol | No es maestra ninguna de las dos |
 
 Verificado rompiéndolo, con nueve cambios: `health` sin la variante del canje (caen `PAR-09` y
 `PAR-11`) o que la usa sólo sin secreto (`PAR-11`); sin invalidar el código (`PAR-02`, `PAR-03`);

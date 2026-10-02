@@ -185,7 +185,7 @@ compatible; quitar uno o cambiarle el significado es `wss/v2`.
 | `wss_store_id` | UUID v4 de `wp_generate_uuid4()`. Inmutable (ADR-002). **Autocargada** |
 | `wss_store_label` | Etiqueta legible, editable |
 | `wss_site_fingerprint` | `sha256( get_option( 'home' ) )` al emparejar, con esquema. Detecta el clon (ADR-001, ADR-007) |
-| `wss_peers` | Por tienda remota: URL, identificador, secreto, fecha del emparejamiento y **hasta qué secuencia suya purgamos** (ADR-004) |
+| `wss_peers` | Por tienda remota: URL, identificador, secreto, etiqueta, **su rol** —`master` o `secondary`, ADR-008 §2—, fecha del emparejamiento y **hasta qué secuencia suya purgamos** (ADR-004) |
 | `wss_schema_version` | Versión del esquema, para las migraciones. **Autocargada**: `maybe_upgrade()` la lee en cada request |
 | `wss_schema_healthy` | Si las tres tablas existen y admiten transacciones. **Autocargada**: la guarda de arranque la lee en cada request |
 | `wss_delete_data_on_uninstall` | La casilla de ADR-003. Desmarcada de fábrica |

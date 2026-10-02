@@ -224,7 +224,8 @@ final class Pairing {
 			return new \WP_Error( 'wss_pairing_failed', __( 'La respuesta de la otra tienda no es la esperada.', 'woonderful-stock-sync-for-woocommerce' ) );
 		}
 
-		Peers::pair( $decoded['id'], $decoded['url'], $secret, is_string( $payload['label'] ?? null ) ? $payload['label'] : '' );
+		// La otra emitió el código: es la maestra (ADR-008 §2).
+		Peers::pair( $decoded['id'], $decoded['url'], $secret, is_string( $payload['label'] ?? null ) ? $payload['label'] : '', Peers::MASTER );
 		Store::remember_fingerprint();
 
 		return true;
@@ -264,7 +265,8 @@ final class Pairing {
 
 		$secret = bin2hex( random_bytes( 32 ) );
 
-		Peers::pair( $body['id'], $body['url'], $secret, $body['label'] );
+		// La otra canjeó el código: esta tienda es la maestra (ADR-008 §2).
+		Peers::pair( $body['id'], $body['url'], $secret, $body['label'], Peers::SECONDARY );
 		Store::remember_fingerprint();
 
 		// El código vale para un solo canje exitoso.

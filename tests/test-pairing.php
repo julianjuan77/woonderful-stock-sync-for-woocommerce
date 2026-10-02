@@ -275,6 +275,8 @@ class Test_Pairing extends WP_UnitTestCase {
 		$this->assertSame( self::OTHER_URL, $peer['rest_url'] );
 		$this->assertSame( $data['secret'], $peer['secret'] );
 		$this->assertSame( 'Mayorista', $peer['label'] );
+		$this->assertSame( Peers::SECONDARY, $peer['role'], 'la que canjeó es la secundaria' );
+		$this->assertTrue( Peers::this_is_master(), 'la que emitió el código es la maestra' );
 		$this->assertSame( Store::fingerprint(), get_option( Store::OPTION_FINGERPRINT ) );
 		$this->assertSame( '', Pairing::pending_code(), 'el código vale para un solo canje exitoso' );
 	}
@@ -385,7 +387,7 @@ class Test_Pairing extends WP_UnitTestCase {
 			false
 		);
 
-		Peers::pair( self::OTHER, self::OTHER_URL, str_repeat( 'b', 64 ), 'Mayorista' );
+		Peers::pair( self::OTHER, self::OTHER_URL, str_repeat( 'b', 64 ), 'Mayorista', Peers::SECONDARY );
 
 		$peers = get_option( Peers::OPTION );
 
@@ -429,6 +431,8 @@ class Test_Pairing extends WP_UnitTestCase {
 		$this->assertSame( Store::id(), $health->get_data()['store'] );
 		$this->assertSame( $secret, Peers::secret( self::OTHER ) );
 		$this->assertSame( self::OTHER_URL, Peers::only()['rest_url'] );
+		$this->assertTrue( Peers::is_master( self::OTHER ), 'la que emitió el código es la maestra' );
+		$this->assertFalse( Peers::this_is_master() );
 		$this->assertSame( Store::fingerprint(), get_option( Store::OPTION_FINGERPRINT ) );
 		$this->assertFalse( get_option( Pairing::OPTION_REDEEMING, false ) );
 	}
@@ -459,7 +463,7 @@ class Test_Pairing extends WP_UnitTestCase {
 	 * PAR-11
 	 */
 	public function test_re_pairing_passes_the_callback_with_an_old_secret(): void {
-		Peers::pair( self::OTHER, self::OTHER_URL, str_repeat( 'e', 64 ), 'Minorista' );
+		Peers::pair( self::OTHER, self::OTHER_URL, str_repeat( 'e', 64 ), 'Minorista', Peers::MASTER );
 
 		$code    = str_repeat( 'c', 64 );
 		$health  = null;
@@ -597,7 +601,7 @@ class Test_Pairing extends WP_UnitTestCase {
 	 * PAR-17
 	 */
 	public function test_the_master_rejects_its_own_copy(): void {
-		Peers::pair( self::OTHER, self::OTHER_URL, str_repeat( 'e', 64 ), 'Mayorista' );
+		Peers::pair( self::OTHER, self::OTHER_URL, str_repeat( 'e', 64 ), 'Mayorista', Peers::SECONDARY );
 		$peers = get_option( Peers::OPTION );
 
 		$code = Pairing::decode( (string) Pairing::create_code() )['c'];
@@ -633,5 +637,27 @@ class Test_Pairing extends WP_UnitTestCase {
 		$this->assertSame( 'wss_same_store', $result->get_error_code() );
 		$this->assertSame( array(), $this->sent );
 		$this->assertFalse( get_option( Peers::OPTION, false ) );
+	}
+
+	/**
+	 * Un emparejamiento anterior a ADR-008 no tiene rol: no es maestra ninguna de las dos, y
+	 * no se vincula hasta re-emparejar.
+	 *
+	 * PAR-19
+	 */
+	public function test_a_pairing_without_role_has_no_master(): void {
+		update_option(
+			Peers::OPTION,
+			array(
+				self::OTHER => array(
+					'rest_url' => self::OTHER_URL,
+					'secret'   => str_repeat( 'e', 64 ),
+				),
+			),
+			false
+		);
+
+		$this->assertFalse( Peers::this_is_master() );
+		$this->assertFalse( Peers::is_master( self::OTHER ) );
 	}
 }
