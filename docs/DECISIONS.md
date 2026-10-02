@@ -1686,6 +1686,9 @@ Estado: Aprobada · 2026-09-21 · aprobada por Julián
 Revisado: 2026-10-02 — aprobado por Julián. §5 fija qué devuelve `GET /products`: qué tipos de
 producto, que incluye la papelera, que se pueden pedir productos puntuales con `include`, el
 tope de 100 por página y el orden, y que no anota el nonce. Ver §5, "Los detalles".
+Revisado: 2026-10-02 — aprobado por Julián. §1 dice **todo lo que deja un par suspendido**, con
+su motivo: también el producto de acá, uno que dejó de gestionar su propio stock, y un vínculo
+de una tienda que ya no es la socia. Ver §1, "Los motivos de suspendido".
 Revisado: 2026-10-02 — aprobado por Julián. Con `include` vuelve **cada producto pedido, de
 cualquier tipo y estado**, sin páginas y hasta 100 IDs por request: así, que uno no vuelva
 quiere decir que no existe. Ver §5, "Los detalles".
@@ -1717,6 +1720,26 @@ Se deriva al mostrar:    vinculado · suspendido · sin vincular
 ¿Existe el producto del otro lado?  no  →  suspendido
 sí a las dos                            →  vinculado
 ```
+
+#### Los motivos de suspendido
+
+Un par está suspendido cuando un movimiento no se le podría aplicar: es la misma condición con
+que `apply()` lo retiene (`held`), así que la pantalla dice lo que está pasando con el stock.
+
+| Motivo | Qué pasó |
+| --- | --- |
+| `remote_trashed` · `remote_missing` | El producto de la otra tienda está en la papelera, o ya no existe |
+| `local_trashed` · `local_missing` | Lo mismo con el producto de acá |
+| `remote_not_managing_stock` · `local_not_managing_stock` | Uno de los dos dejó de gestionar **su propio** stock: se le apagó, se apagó la gestión de stock de toda la tienda, o una variación pasó a tomar el del padre |
+| `peer_changed` | El vínculo es de una tienda que ya no es la socia —se re-emparejó con otra—. Al catálogo de la nueva no se le pregunta por él: un ID igual sería otro producto |
+
+**Si la otra tienda no responde, o no hay con quién emparejarse, no se suspende nada**: los
+motivos de allá no se pueden saber, y la pantalla avisa una vez por qué no.
+
+**El vínculo armado de un solo lado** —el catálogo de allá dice `linked: false` para un par que
+acá está vinculado— no es un motivo: en la secundaria pasa por un momento mientras un `unlink`
+está en la cola, y `linked` dice que el producto está vinculado con algo, no con qué. Lo
+encuentra y lo repara la reconciliación (tarea 1.9).
 
 **Por qué derivado y no guardado.** Nada en el plugin observa la papelera de WooCommerce. Con
 una columna de estado, mandar el producto del otro lado a la papelera obliga a escribir
