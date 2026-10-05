@@ -36,6 +36,11 @@ final class Reconcile {
 	public const MINE = 'mine';
 
 	/**
+	 * "Estos son mis vínculos": la maestra se los pasa a la secundaria (ADR-009 §8).
+	 */
+	public const LINKS = 'links';
+
+	/**
 	 * Engancha el registro de la ruta.
 	 */
 	public static function register(): void {
@@ -84,6 +89,8 @@ final class Reconcile {
 				return self::theirs( $payload, $store );
 			case self::MINE:
 				return self::mine( $payload, $store );
+			case self::LINKS:
+				return self::links( $payload, $store );
 		}
 
 		return self::bad_request();
@@ -158,6 +165,55 @@ final class Reconcile {
 		self::remember( $session, $store, $done );
 
 		return new \WP_REST_Response( $done, 200 );
+	}
+
+	/**
+	 * Los vínculos de la maestra: esta tienda —la secundaria— compara los suyos, borra los que
+	 * no tienen respaldo e informa el resto.
+	 *
+	 * Sólo si quien pregunta es la maestra: borrar vínculos porque lo pide la secundaria
+	 * dejaría a cualquiera de las dos desarmar a la otra.
+	 *
+	 * @param array<mixed, mixed> $payload El cuerpo.
+	 * @param string              $store   La tienda que pregunta.
+	 *
+	 * @return \WP_REST_Response|\WP_Error
+	 */
+	private static function links( array $payload, string $store ) {
+		if ( ! Peers::is_master( $store ) ) {
+			return new \WP_Error( 'wss_not_master', __( 'Los vínculos los compara la tienda maestra.', 'woonderful-stock-sync-for-woocommerce' ), array( 'status' => 403 ) );
+		}
+
+		$links   = $payload['links'] ?? null;
+		$ceiling = $payload['ceiling'] ?? null;
+
+		if ( ! is_int( $ceiling ) || $ceiling < 0 || ! is_array( $links ) || ! array_is_list( $links ) ) {
+			return self::bad_request();
+		}
+
+		$theirs = array();
+
+		foreach ( $links as $link ) {
+			if ( ! is_array( $link ) ) {
+				return self::bad_request();
+			}
+
+			$local      = $link['local'] ?? null;
+			$remote     = $link['remote'] ?? null;
+			$generation = $link['generation'] ?? null;
+
+			if ( ! is_int( $local ) || ! is_int( $remote ) || ! is_int( $generation ) || $local < 1 || $remote < 1 || $generation < 0 || $generation > $ceiling ) {
+				return self::bad_request();
+			}
+
+			$theirs[] = array(
+				'local'      => $local,
+				'remote'     => $remote,
+				'generation' => $generation,
+			);
+		}
+
+		return new \WP_REST_Response( Books::compare_links( $store, $theirs, $ceiling ), 200 );
 	}
 
 	/**

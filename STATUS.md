@@ -24,7 +24,7 @@ git show 2668a7a --stat      # qué archivos tocó y cuántas líneas
 git show 2668a7a             # el diff completo
 ```
 
-Y para correr sólo los tests de una pieza, en vez de los 356:
+Y para correr sólo los tests de una pieza, en vez de los 376:
 
 ```bash
 make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS="--filter Test_Ledger"
@@ -161,7 +161,7 @@ es lo normal: loguearlo en cada pasada sería ruido.
 | 7.1 | El candado (ADR-009 §4) y el resultado guardado (§7) | ✅ | `8c8886c` | `REC-01`…`REC-10`, `UNI-10` |
 | 7.2 | Fase 1: las dos preguntas de `POST /reconcile/digest`, por tandas, y qué se reencola o se confirma (ADR-009 §1–§3) | ✅ | `979803b` | `BOK-01`…`BOK-10`, `RCN-01`…`RCN-07`, `RCL-01`…`RCL-10`, `PLG-26`, `PLG-27` |
 | 7.3 | Quién la lanza: la noche en la maestra, `wp wss reconcile`, y el cierre de una importación (ADR-009 §5) | ✅ | `34d8773` | `SCD-01`…`SCD-13`, `CLI-08`…`CLI-11`, `PAS-08`, `PLG-28` |
-| 7.4 | Los vínculos armados de un solo lado (ADR-009 §8) | ⬜ | | |
+| 7.4 | Los vínculos armados de un solo lado (ADR-009 §8) | ✅ | | `BOK-11`…`BOK-18`, `RCN-08`…`RCN-10`, `RCL-11`…`RCL-14`, `CLI-12` |
 | 7.5 | Fase 2: la cuenta, la confirmación a los 2 minutos y las cuatro columnas (ADR-010 §1–§5) | ⬜ | | |
 | 7.6 | La tercera pregunta, y `wp wss discrepancies`, `accept` y `restore` (ADR-010 §6–§7) | ⬜ | | |
 | 7.7 | La purga nocturna: `Ledger::purge()` existe y nada la llama (ADR-004 §4) | ⬜ | | |
@@ -236,7 +236,7 @@ seguridad y convenciones de código.
 | `claim()` ignora si el `UPDATE` devuelve false: un error de la base cortaría la entrega sin aviso. Ya no puede ser el 1093, pero cualquier otro sí | Revisión 2026-10-02 → ADR del log |
 | La paginación de `GET /products` es por número de página: si se borra un producto definitivamente mientras se recorre el catálogo, todo se corre un lugar y uno de la página siguiente no aparece. Para sugerir pares por SKU es poco grave; si importa, se pagina por "los que vienen después del ID X" | Revisión 2026-10-02 → ADR de interfaz |
 | La pantalla tiene que decir "esperando respuesta" para un `uncertain` que todavía está en `syncing`, y "no se sabe" recién cuando ya es `uncertain`: hoy `State` los junta en uno | Revisión 2026-10-02 → ADR de interfaz |
-| El vínculo armado de un solo lado —el catálogo de allá dice `linked: false`— no es un motivo de suspendido: lo encuentra y repara la reconciliación (ADR-005 §1, revisado) | Revisión 2026-10-02 → tarea 1.9 |
+| El vínculo armado de un solo lado —el catálogo de allá dice `linked: false`— no es un motivo de suspendido: lo encuentra y repara la reconciliación (ADR-005 §1, revisado) | Resuelto en 7.4 (ADR-009 §8) |
 | El envío al final del request no se probó con PHP-FPM de verdad: los sitios de wp-restore corren Apache con mod_php, y ahí `Express` no manda. Los tests cubren la lógica; falta ver un pedido real salir en el `shutdown`. Y averiguar qué corren los servidores de las dos tiendas: con Apache y mod_php no se dispara nunca | 5.9 → con un sitio en PHP-FPM |
 | `Ledger::purge()` existe y tiene tests, pero nada la llama: ADR-004 dice que corre cada noche, y hoy no corre nunca. El libro crece sin techo | Sesión 2026-10-05 → tarea 7.7 |
 | Infection sobre `Transport/`, que ya existe: necesita PCOV en la imagen de wp-restore | — |

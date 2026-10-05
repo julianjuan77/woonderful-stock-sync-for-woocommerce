@@ -388,4 +388,125 @@ class Test_Rest_Reconcile extends WP_UnitTestCase {
 
 		$this->assertSame( 401, $this->server->dispatch( $request )->get_status() );
 	}
+
+	/**
+	 * Empareja con la otra tienda como maestra.
+	 */
+	private function master_peer(): void {
+		update_option(
+			Peers::OPTION,
+			array(
+				self::REMOTE_STORE => array(
+					'rest_url' => 'https://otra.test/wp-json/wss/v1',
+					'secret'   => self::SECRET,
+					'role'     => Peers::MASTER,
+				),
+			),
+			false
+		);
+	}
+
+	/**
+	 * RCN-08 — "Estos son mis vínculos", de la maestra: esta tienda borra el suyo sin respaldo
+	 * e informa lo que falta.
+	 */
+	public function test_links_from_the_master_are_compared(): void {
+		global $wpdb;
+
+		$this->master_peer();
+		$wpdb->insert( // phpcs:ignore WordPress.DB
+			Installer::table( 'links' ),
+			array(
+				'local_product'  => 10,
+				'remote_store'   => self::REMOTE_STORE,
+				'remote_product' => 110,
+				'generation'     => 4,
+				'base_stock'     => 10,
+				'base_set_at'    => gmdate( 'Y-m-d H:i:s' ),
+			)
+		);
+
+		$response = $this->ask(
+			array(
+				'step'    => Reconcile::LINKS,
+				'ceiling' => 9,
+				'links'   => array(
+					array(
+						'local'      => 120,
+						'remote'     => 20,
+						'generation' => 6,
+					),
+				),
+			)
+		);
+
+		$this->assertSame( 200, $response->get_status() );
+		$this->assertSame(
+			array(
+				'deleted'    => array( 10 ),
+				'missing'    => array( 6 ),
+				'mismatched' => array(),
+			),
+			$response->get_data()
+		);
+	}
+
+	/**
+	 * RCN-09 — **Si los manda la secundaria, no se compara nada**: borrar vínculos porque lo
+	 * pide ella dejaría a cualquiera desarmar a la otra.
+	 */
+	public function test_links_from_the_secondary_are_refused(): void {
+		$response = $this->ask(
+			array(
+				'step'    => Reconcile::LINKS,
+				'ceiling' => 9,
+				'links'   => array(),
+			)
+		);
+
+		$this->assertSame( 403, $response->get_status() );
+		$this->assertSame( 'wss_not_master', $response->get_data()['code'] ?? null );
+	}
+
+	/**
+	 * RCN-10 — Una lista de vínculos mal armada se rechaza, sin tocar nada.
+	 *
+	 * @dataProvider malformed_links
+	 *
+	 * @param mixed $links Lo que viene en `links`.
+	 */
+	public function test_malformed_links_are_rejected( $links ): void {
+		$this->master_peer();
+
+		$response = $this->ask(
+			array(
+				'step'    => Reconcile::LINKS,
+				'ceiling' => 9,
+				'links'   => $links,
+			)
+		);
+
+		$this->assertSame( 400, $response->get_status() );
+	}
+
+	/**
+	 * Listas mal armadas.
+	 *
+	 * @return array<string, array{0: mixed}>
+	 */
+	public function malformed_links(): array {
+		$good = array(
+			'local'      => 1,
+			'remote'     => 2,
+			'generation' => 3,
+		);
+
+		return array(
+			'no es lista'          => array( 'x' ),
+			'vínculo que no es'    => array( array( 'x' ) ),
+			'producto en texto'    => array( array( array_merge( $good, array( 'local' => '1' ) ) ) ),
+			'producto cero'        => array( array( array_merge( $good, array( 'remote' => 0 ) ) ) ),
+			'pasado del techo'     => array( array( array_merge( $good, array( 'generation' => 10 ) ) ) ),
+		);
+	}
 }

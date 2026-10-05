@@ -326,4 +326,41 @@ class Test_Cli extends WP_UnitTestCase {
 
 		( new Command() )->reconcile( array(), array() );
 	}
+
+	/**
+	 * CLI-12 — Si la otra borró vínculos sin respaldo, o falta alguno, lo dice.
+	 */
+	public function test_reconcile_reports_one_sided_links(): void {
+		Peers::pair( 'b1b1b1b1-0000-4000-8000-000000000000', 'https://otra.test/wp-json/wss/v1', 'secreto', 'Mayorista', Peers::SECONDARY );
+
+		$answer = function ( $preempt, array $args ): array {
+			$body = json_decode( (string) $args['body'], true );
+
+			if ( Reconcile::LINKS !== $body['step'] ) {
+				return $this->empty_store( $preempt, $args );
+			}
+
+			return array(
+				'headers'  => array(),
+				'body'     => (string) wp_json_encode(
+					array(
+						'deleted'    => array( 130 ),
+						'missing'    => array(),
+						'mismatched' => array(),
+					)
+				),
+				'response' => array(
+					'code'    => 200,
+					'message' => '',
+				),
+				'cookies'  => array(),
+			);
+		};
+
+		add_filter( 'pre_http_request', $answer, 10, 2 );
+
+		( new Command() )->reconcile( array(), array() );
+
+		$this->assertContains( 'La otra tienda tenía vínculos que acá no existen, y los borró: sus productos 130.', WP_CLI::$out );
+	}
 }

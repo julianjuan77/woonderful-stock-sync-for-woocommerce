@@ -238,6 +238,21 @@ final class Command {
 				(int) ( $details['peer_confirmed'] ?? 0 )
 			)
 		);
+		$one_sided = array(
+			/* translators: %s: IDs de productos de la otra tienda. */
+			'peer_unlinked'   => __( 'La otra tienda tenía vínculos que acá no existen, y los borró: sus productos %s.', 'woonderful-stock-sync-for-woocommerce' ),
+			/* translators: %s: IDs de productos de esta tienda. */
+			'peer_missing'    => __( 'Estos productos están vinculados acá pero no en la otra tienda; volvé a vincularlos: %s.', 'woonderful-stock-sync-for-woocommerce' ),
+			/* translators: %s: IDs de productos de la otra tienda. */
+			'peer_mismatched' => __( 'La otra tienda tiene estos productos vinculados con otra generación; volvé a vincularlos: sus productos %s.', 'woonderful-stock-sync-for-woocommerce' ),
+		);
+
+		foreach ( $one_sided as $key => $message ) {
+			if ( array() !== ( $details[ $key ] ?? array() ) ) {
+				\WP_CLI::line( sprintf( $message, implode( ', ', array_map( 'intval', (array) $details[ $key ] ) ) ) );
+			}
+		}
+
 		\WP_CLI::success( __( 'Reconciliadas.', 'woonderful-stock-sync-for-woocommerce' ) );
 	}
 }

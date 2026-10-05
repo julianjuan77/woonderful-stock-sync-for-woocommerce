@@ -228,6 +228,12 @@ hace a la otra tienda dos preguntas por `POST /reconcile/digest` (`Rest\Reconcil
 2. `step: mine` — "esto tengo de lo tuyo", hasta el techo de la otra, con la marca propia. La
    otra hace lo mismo con lo suyo, y suma lo que hizo en su resultado (`peer`, por `session`).
 
+3. `step: links` — sólo si lanza la maestra: sus vínculos hasta su techo. La secundaria
+   (`Books::compare_links()`) **borra** el suyo que la maestra no tiene y no comparte ningún
+   producto con uno de ella; **informa** el mismo par con otra generación y el que le falta. Si
+   lo pide la secundaria, `403 wss_not_master`. La maestra guarda en el resultado los productos:
+   `peer_unlinked`, `peer_missing` —sin los de un bootstrap sin resolver— y `peer_mismatched`.
+
 Si esta tienda tiene el candado tomado, contesta `409 wss_reconciling`. Si la otra no responde
 en la primera pregunta, no se toca nada; si se corta después, lo comparado queda.
 

@@ -552,6 +552,7 @@ constante `WP_CLI` no se puede definir en un test sin que quede para todos los d
 | `CLI-09` | `wp wss reconcile` en la maestra | Reconcilia, dice qué hizo de cada lado, y queda el resultado `manual` |
 | `CLI-10` | `wp wss reconcile` con la otra caída | **Termina con error, y dice que no se pudo mirar**: no es lo mismo que no haber nada |
 | `CLI-11` | `wp wss reconcile` con otra en curso | Termina con error, sin lanzar otra |
+| `CLI-12` | `wp wss reconcile` y la otra borró un vínculo sin respaldo | Lo dice, con el producto de allá |
 
 **Lo que el WP-CLI falso no ve: el docblock.** El de verdad arma los argumentos a partir de él,
 y con `<código>` rechazaba el código como argumento de más. Lo encontró la prueba entre dos
@@ -766,10 +767,20 @@ ilegible tomado como vigente cae `REC-08`; autocargado cae `REC-01`; otro vencim
 | `BOK-08` | Tres abandonados, uno por tramo | Sólo se toca el del tramo |
 | `BOK-09` | **La pasada se lleva la fila entre la lectura y el `UPDATE`** | No se la confirma encima |
 | `BOK-10` | El techo | La última secuencia propia; lo recibido no cuenta |
+| `BOK-11` | Vínculos con dos tiendas, uno por encima del techo | Sólo los de esa tienda, hasta el techo |
+| `BOK-12` | Los mismos vínculos de los dos lados | Nada que hacer |
+| `BOK-13` | **Uno de acá que la maestra no tiene, sin productos en común** | Se borra (ADR-009 §8) |
+| `BOK-14` | El mismo par con otra generación | Se informa como `mismatched`, no se toca, y no se informa también como faltante |
+| `BOK-15` | Uno de la maestra que acá no está | Se informa por su generación |
+| `BOK-16` | **Uno de acá armado después del techo de la maestra** | No se borra: la foto de ella no lo tenía |
+| `BOK-17` | Bootstraps propios `syncing`, `uncertain` y `confirmed` | Las generaciones de los dos primeros |
+| `BOK-18` | La misma generación con otros productos | No es el mismo vínculo: se borra el de acá y falta el de allá |
 
 Verificado rompiéndolo: sin la marca cae `BOK-04`; con el bootstrap adentro cae `BOK-07`; sin
 el tramo cae `BOK-08`; un `UPDATE` sin el estado esperado cae `BOK-09`; sin resetear el primer
-intento cae `BOK-03`.
+intento cae `BOK-03`. De los vínculos: sin el techo caen `BOK-11` y `BOK-16`; borrando el mismo
+par con otra generación cae `BOK-14`; sin borrar caen `BOK-13` y `RCN-08`; comparando sólo por
+generación cae `BOK-18`; informándolo dos veces cae `BOK-14`.
 
 ## [`tests/test-rest-reconcile.php`](test-rest-reconcile.php) — `POST /reconcile/digest`
 
@@ -782,9 +793,13 @@ intento cae `BOK-03`.
 | `RCN-05` | Con el candado propio tomado | `409 wss_reconciling`, sin tocar nada |
 | `RCN-06` | Once preguntas mal armadas | `400 wss_bad_request`, sin tocar nada |
 | `RCN-07` | Sin firma | `401` |
+| `RCN-08` | "Estos son mis vínculos", de la maestra | Borra el de acá sin respaldo, e informa el que falta |
+| `RCN-09` | **Los mismos, de la secundaria** | `403 wss_not_master`: no se compara nada |
+| `RCN-10` | Cinco listas mal armadas, una con una generación por encima del techo | `400` |
 
 Verificado rompiéndolo: leyendo la marca antes que la lista cae `RCN-02`; sin mirar el candado
-cae `RCN-05`; sin validar las secuencias cae `RCN-06`; sin sumar las tandas cae `RCN-04`.
+cae `RCN-05`; sin validar las secuencias cae `RCN-06`; sin sumar las tandas cae `RCN-04`; sin
+mirar quién manda los vínculos cae `RCN-09`; sin el techo cae `RCN-10`.
 
 ## [`tests/test-reconciler.php`](test-reconciler.php) — la tienda que lanza
 
@@ -802,10 +817,16 @@ La otra tienda es un doble que contesta por HTTP interceptado.
 | `RCL-08` | Sin socia | `unreachable` con `wss_not_paired`, sin preguntar |
 | `RCL-09` | 5.001 recibidos de la otra | La segunda pregunta va en dos tandas, cada una con su tramo |
 | `RCL-10` | La marca de purga propia | Viaja en la segunda pregunta |
+| `RCL-11` | **La maestra con un vínculo por encima de su techo** | Manda sólo los de hasta el techo |
+| `RCL-12` | Lanza la secundaria | No manda vínculos |
+| `RCL-13` | La otra informa vínculos borrados, faltantes y con otra generación | Quedan en el resultado; los faltantes, como productos de acá, y sin los de un bootstrap sin resolver |
+| `RCL-14` | Falla la comparación de vínculos | `unreachable` en `links`, y lo de los movimientos queda |
 
 Verificado rompiéndolo: con la marca de la primera tanda para todas cae `RCL-02`; sin soltar el
 candado cuando falla caen `RCL-03` y `RCL-05`; guardando el `busy` cae `RCL-05`; con el techo
-propio en la segunda pregunta caen `RCL-01` y `RCL-09`.
+propio en la segunda pregunta caen `RCL-01` y `RCL-09`; la secundaria mandando vínculos cae
+`RCL-12`; informando los inciertos cae `RCL-13`; siguiendo cuando fallan los vínculos cae
+`RCL-14`.
 
 ## [`tests/test-schedule.php`](test-schedule.php) — quién lanza la reconciliación
 

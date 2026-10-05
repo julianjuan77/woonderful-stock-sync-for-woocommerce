@@ -11,6 +11,7 @@ namespace Woonderful\StockSync\Reconciliation;
 
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Ledger\Ledger;
+use Woonderful\StockSync\Linking\Links;
 use Woonderful\StockSync\Schema\Installer;
 
 defined( 'ABSPATH' ) || exit;
@@ -197,5 +198,145 @@ final class Books {
 			'reopened'  => $reopened,
 			'confirmed' => $confirmed,
 		);
+	}
+
+	/**
+	 * Los vínculos con esa tienda hasta un techo, como viajan en la reconciliación.
+	 *
+	 * @param string $store   La otra tienda.
+	 * @param int    $ceiling Sólo los de generación hasta acá: los armados después de que
+	 *                        arrancó la pasada quedan para la siguiente (ADR-009 §8).
+	 *
+	 * @return array<int, array{local: int, remote: int, generation: int}>
+	 */
+	public static function links_with( string $store, int $ceiling ): array {
+		global $wpdb;
+
+		$table = Installer::table( 'links' );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$rows = (array) $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT local_product, remote_product, generation FROM {$table}
+				  WHERE remote_store = %s AND generation <= %d
+				  ORDER BY generation",
+				$store,
+				$ceiling
+			)
+		);
+		// phpcs:enable
+
+		return array_map(
+			static fn ( $row ) => array(
+				'local'      => (int) $row->local_product,
+				'remote'     => (int) $row->remote_product,
+				'generation' => (int) $row->generation,
+			),
+			$rows
+		);
+	}
+
+	/**
+	 * Compara los vínculos de esta tienda —la secundaria— con los de la maestra (ADR-009 §8).
+	 *
+	 * Un vínculo es el mismo si tiene la misma generación y los mismos productos, al revés.
+	 * Sólo se miran los de esta tienda hasta el techo de la maestra.
+	 *
+	 * - Uno de acá que la maestra no tiene, y que no comparte ningún producto con uno de
+	 *   ella, **se borra**: sólo vincula la maestra, así que no tiene respaldo.
+	 * - Uno de acá que comparte un producto con otro de la maestra es el mismo par con otra
+	 *   generación: **se informa**, no se toca.
+	 * - Uno de la maestra que acá no está, **se informa**: arreglarlo sería un bootstrap, y lo
+	 *   decide el dueño.
+	 *
+	 * @param string                                                      $master  La maestra.
+	 * @param array<int, array{local: int, remote: int, generation: int}> $theirs  Sus vínculos, como los ve ella.
+	 * @param int                                                         $ceiling Su techo.
+	 *
+	 * @return array{deleted: int[], missing: int[], mismatched: int[]} Los productos de acá
+	 *         cuyo vínculo se borró, las generaciones de allá que acá faltan, y los productos
+	 *         de acá vinculados con otra generación.
+	 */
+	public static function compare_links( string $master, array $theirs, int $ceiling ): array {
+		$ours = self::links_with( $master, $ceiling );
+
+		$theirs_by_generation = array();
+		$their_locals         = array();
+		$their_remotes        = array();
+
+		foreach ( $theirs as $link ) {
+			$theirs_by_generation[ $link['generation'] ] = $link;
+			$their_locals[ $link['local'] ]              = true;
+			$their_remotes[ $link['remote'] ]            = true;
+		}
+
+		$deleted    = array();
+		$mismatched = array();
+		$matched    = array();
+
+		foreach ( $ours as $link ) {
+			$same = $theirs_by_generation[ $link['generation'] ] ?? null;
+
+			if ( null !== $same && $same['local'] === $link['remote'] && $same['remote'] === $link['local'] ) {
+				$matched[ $link['generation'] ] = true;
+
+				continue;
+			}
+
+			if ( isset( $their_locals[ $link['remote'] ] ) || isset( $their_remotes[ $link['local'] ] ) ) {
+				$mismatched[] = $link['local'];
+
+				continue;
+			}
+
+			$row = Links::for_product( $link['local'] );
+
+			if ( null !== $row && (int) $row->generation === $link['generation'] && Links::delete( (int) $row->id ) ) {
+				$deleted[] = $link['local'];
+			}
+		}
+
+		// Uno de allá cuyo producto está vinculado acá con otra generación ya se informó.
+		$our_remotes = array_flip( array_column( $ours, 'remote' ) );
+		$missing     = array();
+
+		foreach ( $theirs_by_generation as $generation => $link ) {
+			if ( ! isset( $matched[ $generation ] ) && ! isset( $our_remotes[ $link['local'] ] ) ) {
+				$missing[] = (int) $generation;
+			}
+		}
+
+		return array(
+			'deleted'    => $deleted,
+			'missing'    => $missing,
+			'mismatched' => $mismatched,
+		);
+	}
+
+	/**
+	 * Las generaciones de los bootstraps propios que siguen sin resolver: sus vínculos todavía
+	 * no se sabe si existen del otro lado (ADR-008 §5).
+	 *
+	 * @return int[]
+	 */
+	public static function unresolved_generations(): array {
+		global $wpdb;
+
+		$table = Installer::table( 'movements' );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$seqs = (array) $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT origin_seq FROM {$table}
+				  WHERE origin_store = %s AND reason = %s AND delivery IN ( %s, %s )",
+				Store::id(),
+				Ledger::BOOTSTRAP,
+				Ledger::SYNCING,
+				Ledger::UNCERTAIN
+			)
+		);
+		// phpcs:enable
+
+		return array_map( 'intval', $seqs );
 	}
 }

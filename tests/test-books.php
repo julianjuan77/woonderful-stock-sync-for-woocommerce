@@ -296,4 +296,160 @@ class Test_Books extends WP_UnitTestCase {
 
 		$this->assertSame( $last, Books::ceiling() );
 	}
+
+	/**
+	 * Un vínculo de esta tienda.
+	 *
+	 * @param int    $local      Producto de acá.
+	 * @param int    $remote     Producto de allá.
+	 * @param int    $generation Generación.
+	 * @param string $store      La otra tienda.
+	 */
+	private function link( int $local, int $remote, int $generation, string $store = self::REMOTE_STORE ): void {
+		global $wpdb;
+
+		$wpdb->insert( // phpcs:ignore WordPress.DB
+			Installer::table( 'links' ),
+			array(
+				'local_product'  => $local,
+				'remote_store'   => $store,
+				'remote_product' => $remote,
+				'generation'     => $generation,
+				'base_stock'     => 10,
+				'base_set_at'    => gmdate( 'Y-m-d H:i:s' ),
+			)
+		);
+	}
+
+	/**
+	 * Un vínculo de la maestra, como lo manda ella.
+	 *
+	 * @param int $local      Su producto.
+	 * @param int $remote     El de acá.
+	 * @param int $generation Generación.
+	 *
+	 * @return array{local: int, remote: int, generation: int}
+	 */
+	private function theirs( int $local, int $remote, int $generation ): array {
+		return array(
+			'local'      => $local,
+			'remote'     => $remote,
+			'generation' => $generation,
+		);
+	}
+
+	/**
+	 * Los productos de acá que tienen vínculo.
+	 *
+	 * @return int[]
+	 */
+	private function linked(): array {
+		global $wpdb;
+
+		$table = Installer::table( 'links' );
+
+		return array_map( 'intval', $wpdb->get_col( "SELECT local_product FROM {$table} ORDER BY local_product" ) ); // phpcs:ignore WordPress.DB
+	}
+
+	/**
+	 * BOK-11 — Los vínculos con una tienda, hasta un techo.
+	 */
+	public function test_it_lists_the_links_up_to_a_ceiling(): void {
+		$this->link( 10, 110, 5 );
+		$this->link( 11, 111, 9 );
+		$this->link( 12, 112, 6, 'c1c1c1c1-0000-4000-8000-000000000000' );
+
+		$this->assertSame( array( $this->theirs( 10, 110, 5 ) ), Books::links_with( self::REMOTE_STORE, 8 ) );
+	}
+
+	/**
+	 * BOK-12 — Los mismos vínculos de los dos lados: nada que hacer.
+	 */
+	public function test_the_same_links_on_both_sides_need_nothing(): void {
+		$this->link( 10, 110, 5 );
+
+		$this->assertSame(
+			array(
+				'deleted'    => array(),
+				'missing'    => array(),
+				'mismatched' => array(),
+			),
+			Books::compare_links( self::REMOTE_STORE, array( $this->theirs( 110, 10, 5 ) ), 9 )
+		);
+	}
+
+	/**
+	 * BOK-13 — **Un vínculo de acá que la maestra no tiene, y sin ningún producto en común, se
+	 * borra**: sólo vincula la maestra (ADR-009 §8).
+	 */
+	public function test_a_link_the_master_lacks_is_deleted(): void {
+		$this->link( 10, 110, 5 );
+		$this->link( 11, 111, 6 );
+
+		$done = Books::compare_links( self::REMOTE_STORE, array( $this->theirs( 110, 10, 5 ) ), 9 );
+
+		$this->assertSame( array( 11 ), $done['deleted'] );
+		$this->assertSame( array( 10 ), $this->linked() );
+	}
+
+	/**
+	 * BOK-14 — El mismo par con otra generación se informa y no se toca: arreglarlo es volver a
+	 * vincular.
+	 */
+	public function test_the_same_pair_with_another_generation_is_reported(): void {
+		$this->link( 10, 110, 5 );
+
+		$done = Books::compare_links( self::REMOTE_STORE, array( $this->theirs( 110, 10, 7 ) ), 9 );
+
+		$this->assertSame( array( 10 ), $done['mismatched'] );
+		$this->assertSame( array(), $done['deleted'] );
+		$this->assertSame( array(), $done['missing'], 'ya se informó como el mismo par' );
+		$this->assertSame( array( 10 ), $this->linked() );
+	}
+
+	/**
+	 * BOK-15 — Un vínculo de la maestra que acá no está se informa por su generación.
+	 */
+	public function test_a_link_missing_here_is_reported(): void {
+		$done = Books::compare_links( self::REMOTE_STORE, array( $this->theirs( 110, 10, 5 ) ), 9 );
+
+		$this->assertSame( array( 5 ), $done['missing'] );
+	}
+
+	/**
+	 * BOK-16 — **Uno armado después de que arrancó la pasada no se borra**: su generación está
+	 * por encima del techo de la maestra, y la foto de ella no lo tenía.
+	 */
+	public function test_a_link_newer_than_the_ceiling_is_left_alone(): void {
+		$this->link( 10, 110, 12 );
+
+		$done = Books::compare_links( self::REMOTE_STORE, array(), 9 );
+
+		$this->assertSame( array(), $done['deleted'] );
+		$this->assertSame( array( 10 ), $this->linked() );
+	}
+
+	/**
+	 * BOK-17 — Los bootstraps propios sin resolver, por generación.
+	 */
+	public function test_it_lists_the_unresolved_bootstraps(): void {
+		$syncing   = $this->own( Ledger::SYNCING, array( 'reason' => Ledger::BOOTSTRAP ) );
+		$uncertain = $this->own( Ledger::UNCERTAIN, array( 'reason' => Ledger::BOOTSTRAP ) );
+		$this->own( 'confirmed', array( 'reason' => Ledger::BOOTSTRAP ) );
+
+		$this->assertSame( array( $syncing, $uncertain ), Books::unresolved_generations() );
+	}
+
+	/**
+	 * BOK-18 — La misma generación con otros productos no es el mismo vínculo: el de acá no
+	 * tiene respaldo, y el de allá falta.
+	 */
+	public function test_the_same_generation_with_other_products_is_not_the_same_link(): void {
+		$this->link( 10, 110, 5 );
+
+		$done = Books::compare_links( self::REMOTE_STORE, array( $this->theirs( 120, 20, 5 ) ), 9 );
+
+		$this->assertSame( array( 10 ), $done['deleted'] );
+		$this->assertSame( array( 5 ), $done['missing'] );
+	}
 }

@@ -140,6 +140,17 @@ class Test_Reconciler extends WP_UnitTestCase {
 			);
 		}
 
+		if ( Reconcile::LINKS === $step ) {
+			return $this->reply(
+				200,
+				$this->other['answer_links'] ?? array(
+					'deleted'    => array(),
+					'missing'    => array(),
+					'mismatched' => array(),
+				)
+			);
+		}
+
 		return $this->reply( 200, $this->other['answer_mine'] );
 	}
 
@@ -453,5 +464,124 @@ class Test_Reconciler extends WP_UnitTestCase {
 		Reconciler::run( Result::NIGHTLY );
 
 		$this->assertSame( 77, $this->asked( Reconcile::MINE )[0]['purged_through'] );
+	}
+
+	/**
+	 * Un vínculo propio.
+	 *
+	 * @param int $local      Producto de acá.
+	 * @param int $remote     Producto de allá.
+	 * @param int $generation Generación.
+	 */
+	private function link( int $local, int $remote, int $generation ): void {
+		global $wpdb;
+
+		$wpdb->insert( // phpcs:ignore WordPress.DB
+			Installer::table( 'links' ),
+			array(
+				'local_product'  => $local,
+				'remote_store'   => self::REMOTE_STORE,
+				'remote_product' => $remote,
+				'generation'     => $generation,
+				'base_stock'     => 10,
+				'base_set_at'    => gmdate( 'Y-m-d H:i:s' ),
+			)
+		);
+	}
+
+	/**
+	 * RCL-11 — **La maestra manda sus vínculos hasta su techo**: uno armado después de arrancar
+	 * queda para la próxima.
+	 */
+	public function test_the_master_sends_its_links_up_to_its_ceiling(): void {
+		$ceiling = $this->own( 'confirmed' );
+		$this->link( 10, 110, $ceiling );
+		$this->link( 11, 111, $ceiling + 5 );
+
+		Reconciler::run( Result::NIGHTLY );
+
+		$links = $this->asked( Reconcile::LINKS );
+
+		$this->assertCount( 1, $links );
+		$this->assertSame( $ceiling, $links[0]['ceiling'] );
+		$this->assertSame(
+			array(
+				array(
+					'local'      => 10,
+					'remote'     => 110,
+					'generation' => $ceiling,
+				),
+			),
+			$links[0]['links']
+		);
+	}
+
+	/**
+	 * RCL-12 — La secundaria no manda vínculos: cuando lanza ella, los cubre la noche.
+	 */
+	public function test_the_secondary_does_not_send_links(): void {
+		update_option(
+			Peers::OPTION,
+			array(
+				self::REMOTE_STORE => array(
+					'rest_url' => self::REST_URL,
+					'secret'   => 'secreto-de-prueba',
+					'role'     => Peers::MASTER,
+				),
+			),
+			false
+		);
+
+		$result = Reconciler::run( Result::IMPORT );
+
+		$this->assertSame( Result::DONE, $result['outcome'] );
+		$this->assertSame( array(), $this->asked( Reconcile::LINKS ) );
+	}
+
+	/**
+	 * RCL-13 — Lo que la otra informa queda en el resultado, con los productos de acá; lo que
+	 * falta por un bootstrap sin resolver no se informa: todavía no se sabe.
+	 */
+	public function test_what_the_other_reports_about_links_is_kept(): void {
+		global $wpdb;
+
+		// Que el techo pase de las generaciones de abajo.
+		for ( $i = 0; $i < 5; $i++ ) {
+			$this->own( 'confirmed' );
+		}
+
+		$this->link( 10, 110, 3 );
+		$this->link( 11, 111, 4 );
+
+		$bootstrap = $this->own( 'uncertain' );
+		$wpdb->update( Installer::table( 'movements' ), array( 'reason' => Ledger::BOOTSTRAP ), array( 'id' => $bootstrap ) ); // phpcs:ignore WordPress.DB
+		$this->link( 12, 112, $bootstrap );
+
+		$this->other['answer_links'] = array(
+			'deleted'    => array( 130 ),
+			'missing'    => array( 3, $bootstrap ),
+			'mismatched' => array( 111 ),
+		);
+
+		$result = Reconciler::run( Result::NIGHTLY );
+
+		$this->assertSame( array( 130 ), $result['details']['peer_unlinked'] );
+		$this->assertSame( array( 10 ), $result['details']['peer_missing'] );
+		$this->assertSame( array( 111 ), $result['details']['peer_mismatched'] );
+	}
+
+	/**
+	 * RCL-14 — Si falla la comparación de vínculos, la pasada termina sin respuesta, y lo de
+	 * los movimientos queda.
+	 */
+	public function test_a_failure_comparing_links_keeps_the_rest(): void {
+		$missing             = $this->own( 'abandoned' );
+		$this->other['fail'] = Reconcile::LINKS;
+
+		$result = Reconciler::run( Result::NIGHTLY );
+
+		$this->assertSame( Result::UNREACHABLE, $result['outcome'] );
+		$this->assertSame( 'links', $result['details']['stage'] );
+		$this->assertSame( 'pending', $this->delivery_of( $missing ) );
 	}
 }

@@ -73,7 +73,8 @@ final class Reconciler {
 			'peer_confirmed' => 0,
 		);
 
-		$peer_ceiling = self::ask_theirs( $peer, $details );
+		$ceiling      = Books::ceiling();
+		$peer_ceiling = self::ask_theirs( $peer, $ceiling, $details );
 
 		if ( is_wp_error( $peer_ceiling ) ) {
 			return self::failed( $trigger, $peer_ceiling, 'theirs', $details );
@@ -83,6 +84,16 @@ final class Reconciler {
 
 		if ( is_wp_error( $sent ) ) {
 			return self::failed( $trigger, $sent, 'mine', $details );
+		}
+
+		// Los vínculos, sólo si lanza la maestra: cuando lanza la secundaria —el cierre de una
+		// importación— los cubre la noche (ADR-009 §8).
+		if ( Peers::this_is_master() ) {
+			$compared = self::compare_links( $peer, $ceiling, $details );
+
+			if ( is_wp_error( $compared ) ) {
+				return self::failed( $trigger, $compared, 'links', $details );
+			}
 		}
 
 		return self::finish( $trigger, Result::DONE, $details );
@@ -96,12 +107,12 @@ final class Reconciler {
 	 * esa: si la otra purga en el medio de la pasada, la tanda siguiente ya trae la marca nueva.
 	 *
 	 * @param array{store: string, rest_url: string, secret: string, role: string} $peer    La otra tienda.
+	 * @param int                                                                  $ceiling El techo propio.
 	 * @param array<string, mixed>                                                 $details Lo que se va haciendo.
 	 *
 	 * @return int|\WP_Error El techo de la otra, o por qué no se pudo.
 	 */
-	private static function ask_theirs( array $peer, array &$details ) {
-		$ceiling      = Books::ceiling();
+	private static function ask_theirs( array $peer, int $ceiling, array &$details ) {
 		$after        = 0;
 		$peer_ceiling = null;
 
@@ -172,6 +183,53 @@ final class Reconciler {
 			$details['peer_confirmed'] += (int) ( $answer['confirmed'] ?? 0 );
 			$after                      = $page['covered_to'];
 		} while ( $page['more'] );
+
+		return true;
+	}
+
+	/**
+	 * Los vínculos: la maestra le pasa los suyos hasta su techo, y la secundaria compara.
+	 *
+	 * Lo que falta allá y es de un bootstrap todavía sin resolver no se informa: todavía no
+	 * se sabe si la otra lo armó, y eso lo averigua la pregunta de ADR-008 §5.
+	 *
+	 * @param array{store: string, rest_url: string, secret: string, role: string} $peer    La otra tienda.
+	 * @param int                                                                  $ceiling El techo propio.
+	 * @param array<string, mixed>                                                 $details Lo que se va haciendo.
+	 *
+	 * @return true|\WP_Error
+	 */
+	private static function compare_links( array $peer, int $ceiling, array &$details ) {
+		$links  = Books::links_with( $peer['store'], $ceiling );
+		$answer = Remote::ask(
+			$peer,
+			array(
+				'step'    => Reconcile::LINKS,
+				'ceiling' => $ceiling,
+				'links'   => $links,
+			)
+		);
+
+		if ( is_wp_error( $answer ) ) {
+			return $answer;
+		}
+
+		// La otra contesta generaciones; el dueño reconoce productos.
+		$product_of = array_column( $links, 'local', 'generation' );
+		$unresolved = array_flip( Books::unresolved_generations() );
+		$missing    = array();
+
+		foreach ( (array) ( $answer['missing'] ?? array() ) as $generation ) {
+			$generation = (int) $generation;
+
+			if ( ! isset( $unresolved[ $generation ] ) && isset( $product_of[ $generation ] ) ) {
+				$missing[] = (int) $product_of[ $generation ];
+			}
+		}
+
+		$details['peer_unlinked']   = array_map( 'intval', (array) ( $answer['deleted'] ?? array() ) );
+		$details['peer_missing']    = $missing;
+		$details['peer_mismatched'] = array_map( 'intval', (array) ( $answer['mismatched'] ?? array() ) );
 
 		return true;
 	}
