@@ -158,7 +158,7 @@ es lo normal: loguearlo en cada pasada sería ruido.
 
 | | Tarea | Estado | Commit | Tests |
 |---|---|---|---|---|
-| 7.1 | El candado (ADR-009 §4) y el resultado guardado (§7) | ✅ | | `REC-01`…`REC-10`, `UNI-10` |
+| 7.1 | El candado (ADR-009 §4) y el resultado guardado (§7) | ✅ | `8c8886c` | `REC-01`…`REC-10`, `UNI-10` |
 | 7.2 | Fase 1: las dos preguntas de `POST /reconcile/digest`, por tandas, y qué se reencola o se confirma (ADR-009 §1–§3) | ⬜ | | |
 | 7.3 | Quién la lanza: la noche en la maestra, `wp wss reconcile`, y el cierre de una importación (ADR-009 §5) | ⬜ | | |
 | 7.4 | Los vínculos armados de un solo lado (ADR-009 §8) | ⬜ | | |
