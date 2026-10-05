@@ -217,6 +217,20 @@ falló entero hace menos de una pasada: `Sender::run()` lo anota en el transient
 `wss_send_failed`, de 60 segundos, y lo borra el primero que sale bien. Los ajustes a mano y las importaciones no se anotan: esperan la pasada,
 para que la ráfaga se agrupe.
 
+**La reconciliación, fase 1** (`Reconciliation\Reconciler`, ADR-009). Toma el candado y le
+hace a la otra tienda dos preguntas por `POST /reconcile/digest` (`Rest\Reconcile`), de a
+5.000 secuencias por tanda y cada tanda con su tramo:
+
+1. `step: theirs` — "¿qué tenés de lo mío?", hasta el techo propio. La otra contesta la lista,
+   su marca de purga **leída después de la lista**, y su techo. `Books::compare_own()` reencola
+   lo propio que falta —abandonado siempre, confirmado sólo por encima de la marca de **esa
+   tanda**— y confirma lo que llegó. Cada cambio es un `UPDATE` sobre el estado esperado.
+2. `step: mine` — "esto tengo de lo tuyo", hasta el techo de la otra, con la marca propia. La
+   otra hace lo mismo con lo suyo, y suma lo que hizo en su resultado (`peer`, por `session`).
+
+Si esta tienda tiene el candado tomado, contesta `409 wss_reconciling`. Si la otra no responde
+en la primera pregunta, no se toca nada; si se corta después, lo comparado queda.
+
 **El lote, la curva de backoff, las 6 horas y los 5 minutos del claim son constantes**, no
 opciones (ADR-001, revisado el 2026-09-29).
 

@@ -24,7 +24,7 @@ git show 2668a7a --stat      # qué archivos tocó y cuántas líneas
 git show 2668a7a             # el diff completo
 ```
 
-Y para correr sólo los tests de una pieza, en vez de los 297:
+Y para correr sólo los tests de una pieza, en vez de los 336:
 
 ```bash
 make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS="--filter Test_Ledger"
@@ -159,7 +159,7 @@ es lo normal: loguearlo en cada pasada sería ruido.
 | | Tarea | Estado | Commit | Tests |
 |---|---|---|---|---|
 | 7.1 | El candado (ADR-009 §4) y el resultado guardado (§7) | ✅ | `8c8886c` | `REC-01`…`REC-10`, `UNI-10` |
-| 7.2 | Fase 1: las dos preguntas de `POST /reconcile/digest`, por tandas, y qué se reencola o se confirma (ADR-009 §1–§3) | ⬜ | | |
+| 7.2 | Fase 1: las dos preguntas de `POST /reconcile/digest`, por tandas, y qué se reencola o se confirma (ADR-009 §1–§3) | ✅ | | `BOK-01`…`BOK-10`, `RCN-01`…`RCN-07`, `RCL-01`…`RCL-10`, `PLG-26`, `PLG-27` |
 | 7.3 | Quién la lanza: la noche en la maestra, `wp wss reconcile`, y el cierre de una importación (ADR-009 §5) | ⬜ | | |
 | 7.4 | Los vínculos armados de un solo lado (ADR-009 §8) | ⬜ | | |
 | 7.5 | Fase 2: la cuenta, la confirmación a los 2 minutos y las cuatro columnas (ADR-010 §1–§5) | ⬜ | | |

@@ -14,6 +14,7 @@ use Woonderful\StockSync\Rest\Auth;
 use Woonderful\StockSync\Rest\Health;
 use Woonderful\StockSync\Rest\Movements;
 use Woonderful\StockSync\Rest\Pair;
+use Woonderful\StockSync\Rest\Reconcile;
 use Woonderful\StockSync\Schema\Installer;
 use Woonderful\StockSync\Transport\Pass;
 
@@ -63,6 +64,7 @@ class Test_Plugin extends WP_UnitTestCase {
 		remove_action( 'rest_api_init', array( Health::class, 'register_routes' ) );
 		remove_filter( 'rest_post_dispatch', array( Auth::class, 'no_cache' ), 10 );
 		remove_action( 'rest_api_init', array( Pair::class, 'register_routes' ) );
+		remove_action( 'rest_api_init', array( Reconcile::class, 'register_routes' ) );
 
 		parent::tear_down();
 	}
@@ -487,5 +489,30 @@ class Test_Plugin extends WP_UnitTestCase {
 		Plugin::boot();
 
 		$this->assertNotFalse( has_action( 'rest_api_init', array( Pair::class, 'register_routes' ) ) );
+	}
+
+	/**
+	 * PLG-26 — Un sitio sano contesta las preguntas de la reconciliación.
+	 */
+	public function test_boot_hooks_the_reconcile_endpoint(): void {
+		update_option( Store::OPTION_FINGERPRINT, Store::fingerprint() );
+
+		Plugin::boot();
+
+		$this->assertNotFalse( has_action( 'rest_api_init', array( Reconcile::class, 'register_routes' ) ) );
+	}
+
+	/**
+	 * PLG-27 — Un clon no las contesta: confirmaría como propios movimientos de la tienda real,
+	 * y la otra dejaría de reenviárselos.
+	 */
+	public function test_a_suspended_site_does_not_hook_the_reconcile_endpoint(): void {
+		update_option( Store::OPTION_FINGERPRINT, hash( 'sha256', 'https://otra.test' ) );
+
+		remove_action( 'rest_api_init', array( Reconcile::class, 'register_routes' ) );
+
+		Plugin::boot();
+
+		$this->assertFalse( has_action( 'rest_api_init', array( Reconcile::class, 'register_routes' ) ) );
 	}
 }

@@ -253,6 +253,8 @@ mientras escribía la función.
 | `PLG-23` | `boot()` con el sitio suspendido | **Sí** engancha `GET /health` |
 | `PLG-24` | `boot()` con el sitio suspendido | **Sí** engancha los encabezados que prohíben la caché |
 | `PLG-25` | `boot()` con el sitio suspendido | **Sí** engancha `POST /pair`: re-emparejar es la forma de salir de la suspensión |
+| `PLG-26` | `boot()` con el sitio sano | Engancha `POST /reconcile/digest` |
+| `PLG-27` | `boot()` con el sitio suspendido | No lo engancha: un clon confirmaría como propios movimientos de la tienda real |
 
 ## [`tests/test-uninstall.php`](test-uninstall.php) — la desinstalación
 
@@ -744,6 +746,61 @@ mira el valor vencido cae `REC-10`; un `DELETE` que no mira el valor propio cae 
 ilegible tomado como vigente cae `REC-08`; autocargado cae `REC-01`; otro vencimiento caen
 `REC-01`, `REC-02` y `REC-06`.
 
+## [`tests/test-books.php`](test-books.php) — la fase 1, del lado de cada tienda
+
+| ID | Caso | Esperado |
+| --- | --- | --- |
+| `BOK-01` | Lo recibido de la otra en tres estados, uno fuera del tramo, y uno propio | Las tres del tramo, en orden; lo propio no cuenta |
+| `BOK-02` | 5.001 recibidos | Una tanda llena que cubre hasta su última secuencia y avisa que hay más; la segunda, hasta el final |
+| `BOK-03` | Uno propio abandonado que la otra no tiene | Vuelve a `pending` con el reloj en cero (ADR-001 §4) |
+| `BOK-04` | **Confirmados y abandonados por encima y por debajo de la marca de purga** | Lo confirmado se reabre sólo por encima; lo abandonado, siempre (ADR-009 §2) |
+| `BOK-05` | Pendientes y en camino, los tenga la otra o no | No se tocan |
+| `BOK-06` | Pendiente y abandonado que la otra tiene | Se confirman |
+| `BOK-07` | Un bootstrap que la otra no tiene | No se reabre |
+| `BOK-08` | Tres abandonados, uno por tramo | Sólo se toca el del tramo |
+| `BOK-09` | **La pasada se lleva la fila entre la lectura y el `UPDATE`** | No se la confirma encima |
+| `BOK-10` | El techo | La última secuencia propia; lo recibido no cuenta |
+
+Verificado rompiéndolo: sin la marca cae `BOK-04`; con el bootstrap adentro cae `BOK-07`; sin
+el tramo cae `BOK-08`; un `UPDATE` sin el estado esperado cae `BOK-09`; sin resetear el primer
+intento cae `BOK-03`.
+
+## [`tests/test-rest-reconcile.php`](test-rest-reconcile.php) — `POST /reconcile/digest`
+
+| ID | Caso | Esperado |
+| --- | --- | --- |
+| `RCN-01` | "¿Qué tenés de lo mío?" | La lista, hasta dónde cubre, la marca de purga y el techo |
+| `RCN-02` | **La purga confirma justo antes de que se lea la lista** | La marca que vuelve ya cubre lo borrado: se lee después de la lista |
+| `RCN-03` | "Esto tengo de lo tuyo" | Reencola lo que falta, confirma lo que llegó, y lo anota como resultado `peer` |
+| `RCN-04` | Tres tandas, dos de una reconciliación y una de otra | Las de la misma se suman; la nueva empieza de cero |
+| `RCN-05` | Con el candado propio tomado | `409 wss_reconciling`, sin tocar nada |
+| `RCN-06` | Once preguntas mal armadas | `400 wss_bad_request`, sin tocar nada |
+| `RCN-07` | Sin firma | `401` |
+
+Verificado rompiéndolo: leyendo la marca antes que la lista cae `RCN-02`; sin mirar el candado
+cae `RCN-05`; sin validar las secuencias cae `RCN-06`; sin sumar las tandas cae `RCN-04`.
+
+## [`tests/test-reconciler.php`](test-reconciler.php) — la tienda que lanza
+
+La otra tienda es un doble que contesta por HTTP interceptado.
+
+| ID | Caso | Esperado |
+| --- | --- | --- |
+| `RCL-01` | Una reconciliación entera | Lo que falta se reencola, lo que llegó se confirma, la segunda pregunta va hasta el techo de la otra, queda el resultado y el candado se suelta |
+| `RCL-02` | **La otra purga entre dos tandas** | Cada tanda se compara con su propia marca: lo que la otra borró no se reenvía |
+| `RCL-03` | La otra no responde | No se toca nada; `unreachable` en la primera pregunta; el candado se suelta |
+| `RCL-04` | El candado propio tomado | `busy`, sin preguntar ni guardar nada |
+| `RCL-05` | La otra contesta `409` | `busy`, sin guardar nada, y el candado se suelta |
+| `RCL-06` | Falla la segunda pregunta | Lo de la primera queda |
+| `RCL-07` | La otra dice "hay más" sin avanzar | Se corta con `wss_bad_answer` |
+| `RCL-08` | Sin socia | `unreachable` con `wss_not_paired`, sin preguntar |
+| `RCL-09` | 5.001 recibidos de la otra | La segunda pregunta va en dos tandas, cada una con su tramo |
+| `RCL-10` | La marca de purga propia | Viaja en la segunda pregunta |
+
+Verificado rompiéndolo: con la marca de la primera tanda para todas cae `RCL-02`; sin soltar el
+candado cuando falla caen `RCL-03` y `RCL-05`; guardando el `busy` cae `RCL-05`; con el techo
+propio en la segunda pregunta caen `RCL-01` y `RCL-09`.
+
 ## Cómo se prueba algo que no deja rastro en el estado final
 
 Tres casos de esta suite no se pueden verificar mirando cómo queda la base, porque lo que
@@ -764,7 +821,7 @@ la suite de WordPress abre para cada test.
 
 ## Lo que todavía no tiene tests
 
-- De la reconciliación, todo menos el candado y el resultado: las dos fases, quién la lanza y los vínculos de un solo lado (tareas 7.2 a 7.7).
+- De la reconciliación, lo que falta programar: quién la lanza, los vínculos de un solo lado, la fase 2 y la purga nocturna (tareas 7.3 a 7.7).
 - Que el libro que crece sin techo —porque la otra tienda no vuelve nunca— se **avise**
   (UC-08). `purge()` ya lo deja crecer a propósito; el aviso va con el ADR del log.
 - La purga que consolida el stock base.

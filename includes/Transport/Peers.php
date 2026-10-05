@@ -117,6 +117,23 @@ final class Peers {
 	}
 
 	/**
+	 * Hasta qué secuencia de esa tienda purgó ésta: la marca de ADR-004 §4.
+	 *
+	 * Se lee de la base y no de la caché: la reconciliación la manda junto con una lista que
+	 * acaba de leer, y la purga mueve las dos en la misma transacción (ADR-009 §2).
+	 *
+	 * @param string $store Identificador de la otra tienda.
+	 */
+	public static function purged_through( string $store ): int {
+		wp_cache_delete( self::OPTION, 'options' );
+
+		$peers = (array) get_option( self::OPTION, array() );
+		$peer  = (array) ( $peers[ $store ] ?? array() );
+
+		return (int) ( $peer['purged_through'] ?? 0 );
+	}
+
+	/**
 	 * Si esta tienda es la maestra: la otra quedó anotada como secundaria (ADR-008 §2).
 	 *
 	 * Un emparejamiento anterior a ADR-008 no tiene rol, y no es maestra ninguna de las
