@@ -11,6 +11,7 @@ namespace Woonderful\StockSync\Transport;
 
 use Woonderful\StockSync\Linking\Linker;
 use Woonderful\StockSync\Plugin;
+use Woonderful\StockSync\Reconciliation\Schedule;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -103,7 +104,7 @@ final class Pass {
 			return;
 		}
 
-		Sender::run();
+		Schedule::after_pass( Sender::run() );
 		Linker::resolve_uncertain();
 		Nonces::purge( time() );
 	}
@@ -119,6 +120,9 @@ final class Pass {
 		if ( function_exists( 'as_schedule_recurring_action' ) ) {
 			as_schedule_recurring_action( time(), self::INTERVAL, self::HOOK, array(), self::GROUP, true );
 		}
+
+		// La noche se controla con la pasada: el mismo motivo, el mismo momento.
+		Schedule::ensure_nightly();
 	}
 
 	/**
@@ -134,6 +138,8 @@ final class Pass {
 		if ( function_exists( 'as_unschedule_all_actions' ) ) {
 			as_unschedule_all_actions( self::HOOK, array(), self::GROUP );
 		}
+
+		Schedule::unschedule();
 
 		delete_option( self::OPTION_CHECKED );
 	}

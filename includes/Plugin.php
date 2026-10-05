@@ -12,6 +12,7 @@ namespace Woonderful\StockSync;
 use Woonderful\StockSync\Cli\Command;
 use Woonderful\StockSync\Detector\Detector;
 use Woonderful\StockSync\Identity\Store;
+use Woonderful\StockSync\Reconciliation\Schedule;
 use Woonderful\StockSync\Rest\Auth;
 use Woonderful\StockSync\Rest\Health;
 use Woonderful\StockSync\Rest\Movements;
@@ -73,6 +74,7 @@ final class Plugin {
 
 		// Antes de la guarda, a propósito: ver el register() de cada uno.
 		Pass::register();
+		Schedule::register();
 		Health::register();
 		Pair::register();
 		Auth::register();

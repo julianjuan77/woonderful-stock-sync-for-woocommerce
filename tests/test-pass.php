@@ -10,6 +10,7 @@ declare( strict_types = 1 );
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Ledger\Ledger;
 use Woonderful\StockSync\Plugin;
+use Woonderful\StockSync\Reconciliation\Schedule;
 use Woonderful\StockSync\Schema\Installer;
 use Woonderful\StockSync\Transport\Nonces;
 use Woonderful\StockSync\Transport\Pass;
@@ -274,5 +275,37 @@ class Test_Pass extends WP_UnitTestCase {
 		Pass::maybe_ensure_scheduled();
 
 		$this->assertTrue( $this->scheduled() );
+	}
+
+	/**
+	 * PAS-08 — **Una pasada que manda un lote lleno agenda el cierre de la importación**
+	 * (ADR-009 §5).
+	 */
+	public function test_a_pass_with_a_full_batch_schedules_the_import_close(): void {
+		global $wpdb;
+
+		$wpdb->insert(
+			Installer::table( 'links' ),
+			array(
+				'local_product'  => 3000,
+				'remote_store'   => self::REMOTE_STORE,
+				'remote_product' => 4000,
+				'generation'     => 1,
+				'base_stock'     => 10,
+				'base_set_at'    => gmdate( 'Y-m-d H:i:s' ),
+			)
+		);
+
+		for ( $i = 0; $i < Ledger::MAX_BATCH; $i++ ) {
+			Ledger::record( 3000, -1 );
+		}
+
+		$wpdb->query( $wpdb->prepare( 'UPDATE ' . Installer::table( 'movements' ) . ' SET next_attempt_at = %s', gmdate( 'Y-m-d H:i:s', time() - 60 ) ) ); // phpcs:ignore WordPress.DB
+
+		Pass::run();
+
+		$this->assertTrue( as_has_scheduled_action( Schedule::IMPORT, null, Pass::GROUP ) );
+
+		Schedule::unschedule();
 	}
 }

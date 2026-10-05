@@ -330,6 +330,16 @@ WooCommerce (§5 del SPEC exige 9.1+), así que no es una dependencia aparte.
 | Job | Mecanismo | Frecuencia | Idempotencia |
 |---|---|---|---|
 | Vaciar pendientes hacia la otra tienda, y purgar nonces | Action Scheduler, **una** acción recurrente: `wss_deliver`, grupo `woonderful-stock-sync` | 60 s, constante | El receptor deduplica por `UNIQUE (origin_store, origin_seq)` |
+| La noche: reconciliar (sólo la maestra) y purgar el libro | Action Scheduler, una acción simple `wss_nightly` que agenda la siguiente al correr. La agenda también el control horario de la pasada | A las 3 de la hora del sitio | El candado (ADR-009 §4) |
+| El cierre de una importación | Action Scheduler, `wss_import_closed` con el techo como argumento. Lo agenda una pasada que manda un lote lleno, si no hay otro agendado | 5 min después; vuelve a mirar cada 5 min mientras quede algo de la ráfaga sin intentar o en camino | El candado |
+
+**La noche es una acción por vez, no una recurrente con cron**: así la hora es la del sitio,
+sin depender de cómo interpreta Action Scheduler la zona horaria de una expresión cron. Se
+reagenda **sin `unique`**, porque Action Scheduler cuenta como agendada la acción que está
+corriendo, y compara también los argumentos (`Reconciliation\Schedule`).
+
+**`wp wss reconcile`** lanza la manual, sólo en la maestra. Si la otra no responde, termina con
+error: "no se pudo mirar" no es "no había nada".
 
 **No se agenda una acción por movimiento**: la pasada toma un lote del libro.
 

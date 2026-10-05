@@ -12,7 +12,11 @@ namespace Woonderful\StockSync\Cli;
 use Woonderful\StockSync\Linking\Linker;
 use Woonderful\StockSync\Linking\State;
 use Woonderful\StockSync\Ledger\Ledger;
+use Woonderful\StockSync\Plugin;
+use Woonderful\StockSync\Reconciliation\Reconciler;
+use Woonderful\StockSync\Reconciliation\Result;
 use Woonderful\StockSync\Transport\Pairing;
+use Woonderful\StockSync\Transport\Peers;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -182,5 +186,58 @@ final class Command {
 		} elseif ( null !== $result['remote_error'] ) {
 			\WP_CLI::line( __( 'La otra tienda no respondió: los vinculados figuran como vinculados, pero no se pudo ver si su producto sigue existiendo.', 'woonderful-stock-sync-for-woocommerce' ) );
 		}
+	}
+
+	/**
+	 * Reconcilia ahora, sin esperar a la noche. En la maestra.
+	 *
+	 * Las dos tiendas comparan qué movimientos tiene cada una de la otra, y cada una vuelve a
+	 * poner en la cola lo propio que a la otra le falta (ADR-009).
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp wss reconcile
+	 *
+	 * @param array<int, string>    $args       No lleva.
+	 * @param array<string, string> $assoc_args No lleva.
+	 */
+	public function reconcile( array $args, array $assoc_args ): void {
+		if ( null !== Plugin::suspension_reason() ) {
+			\WP_CLI::error( __( 'La sincronización está suspendida en esta tienda: no se reconcilia.', 'woonderful-stock-sync-for-woocommerce' ) );
+		}
+
+		if ( ! Peers::this_is_master() ) {
+			\WP_CLI::error( 'wss_not_master: ' . __( 'La reconciliación se lanza desde la tienda maestra: la que generó el código de emparejamiento.', 'woonderful-stock-sync-for-woocommerce' ) );
+		}
+
+		$result  = Reconciler::run( Result::MANUAL );
+		$details = $result['details'];
+
+		if ( Result::BUSY === $result['outcome'] ) {
+			\WP_CLI::error( __( 'Hay una reconciliación en curso, en esta tienda o en la otra. Probá de nuevo en unos minutos.', 'woonderful-stock-sync-for-woocommerce' ) );
+		}
+
+		if ( Result::UNREACHABLE === $result['outcome'] ) {
+			/* translators: %s: el código del error. */
+			\WP_CLI::error( sprintf( __( 'La otra tienda no respondió (%s): no se pudo mirar, que no es lo mismo que no haber nada que arreglar.', 'woonderful-stock-sync-for-woocommerce' ), (string) ( $details['error'] ?? '' ) ) );
+		}
+
+		\WP_CLI::line(
+			sprintf(
+				/* translators: 1: movimientos vueltos a la cola, 2: confirmados. */
+				__( 'Acá: %1$d vueltos a la cola, %2$d confirmados.', 'woonderful-stock-sync-for-woocommerce' ),
+				(int) ( $details['reopened'] ?? 0 ),
+				(int) ( $details['confirmed'] ?? 0 )
+			)
+		);
+		\WP_CLI::line(
+			sprintf(
+				/* translators: 1: movimientos vueltos a la cola, 2: confirmados. */
+				__( 'En la otra tienda: %1$d vueltos a la cola, %2$d confirmados.', 'woonderful-stock-sync-for-woocommerce' ),
+				(int) ( $details['peer_reopened'] ?? 0 ),
+				(int) ( $details['peer_confirmed'] ?? 0 )
+			)
+		);
+		\WP_CLI::success( __( 'Reconciliadas.', 'woonderful-stock-sync-for-woocommerce' ) );
 	}
 }

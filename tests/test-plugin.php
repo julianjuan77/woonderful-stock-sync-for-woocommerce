@@ -15,6 +15,7 @@ use Woonderful\StockSync\Rest\Health;
 use Woonderful\StockSync\Rest\Movements;
 use Woonderful\StockSync\Rest\Pair;
 use Woonderful\StockSync\Rest\Reconcile;
+use Woonderful\StockSync\Reconciliation\Schedule;
 use Woonderful\StockSync\Schema\Installer;
 use Woonderful\StockSync\Transport\Pass;
 
@@ -514,5 +515,22 @@ class Test_Plugin extends WP_UnitTestCase {
 		Plugin::boot();
 
 		$this->assertFalse( has_action( 'rest_api_init', array( Reconcile::class, 'register_routes' ) ) );
+	}
+
+	/**
+	 * PLG-28 — Los callbacks de la noche y del cierre se enganchan aunque el sitio esté
+	 * suspendido: un clon trae las acciones agendadas, y sin callback Action Scheduler las
+	 * marcaría fallidas. Los callbacks deciden no hacer nada.
+	 */
+	public function test_a_suspended_site_still_hooks_the_reconciliation_callbacks(): void {
+		update_option( Store::OPTION_FINGERPRINT, hash( 'sha256', 'https://otra.test' ) );
+
+		remove_action( Schedule::NIGHTLY, array( Schedule::class, 'nightly' ) );
+		remove_action( Schedule::IMPORT, array( Schedule::class, 'import_closed' ) );
+
+		Plugin::boot();
+
+		$this->assertNotFalse( has_action( Schedule::NIGHTLY, array( Schedule::class, 'nightly' ) ) );
+		$this->assertNotFalse( has_action( Schedule::IMPORT, array( Schedule::class, 'import_closed' ) ) );
 	}
 }

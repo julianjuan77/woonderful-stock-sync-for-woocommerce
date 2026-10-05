@@ -41,6 +41,36 @@ final class Books {
 	}
 
 	/**
+	 * Si queda algo propio hasta ese techo que todavía no salió: lo que nunca se intentó
+	 * mandar, o lo que está en camino. Es lo que espera el cierre de una importación.
+	 *
+	 * Lo que falló y espera su reintento no cuenta: puede tardar hasta 6 horas, y la
+	 * reconciliación igual no le haría nada a una fila pendiente (ADR-009 §5).
+	 *
+	 * @param int $ceiling El techo de cuando se agendó el cierre.
+	 */
+	public static function unsent_through( int $ceiling ): bool {
+		global $wpdb;
+
+		$table = Installer::table( 'movements' );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$found = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT id FROM {$table}
+				  WHERE origin_store = %s AND origin_seq <= %d
+				    AND ( ( delivery = 'pending' AND attempts = 0 ) OR delivery = 'in_flight' )
+				  LIMIT 1",
+				Store::id(),
+				$ceiling
+			)
+		);
+		// phpcs:enable
+
+		return null !== $found;
+	}
+
+	/**
 	 * Una tanda de las secuencias de esa tienda que tiene esta, en orden.
 	 *
 	 * Tenerla es tener la fila, en cualquier estado: aplicada, retenida o descartada.

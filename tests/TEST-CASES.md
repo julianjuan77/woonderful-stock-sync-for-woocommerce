@@ -255,6 +255,7 @@ mientras escribía la función.
 | `PLG-25` | `boot()` con el sitio suspendido | **Sí** engancha `POST /pair`: re-emparejar es la forma de salir de la suspensión |
 | `PLG-26` | `boot()` con el sitio sano | Engancha `POST /reconcile/digest` |
 | `PLG-27` | `boot()` con el sitio suspendido | No lo engancha: un clon confirmaría como propios movimientos de la tienda real |
+| `PLG-28` | `boot()` con el sitio suspendido | **Sí** engancha los callbacks de la noche y del cierre: un clon trae las acciones agendadas |
 
 ## [`tests/test-uninstall.php`](test-uninstall.php) — la desinstalación
 
@@ -458,6 +459,7 @@ LiteSpeed cae `SND-18`.
 | `PAS-05` | El primer control | Agenda, y la hora queda en una opción **autocargada** |
 | `PAS-06` | Un control dentro de la hora | No mira: aunque la acción se haya perdido, no hace nada |
 | `PAS-07` | **La pasada se perdió y nadie entra al admin**; pasó la hora | Cualquier request la vuelve a agendar |
+| `PAS-08` | Una pasada que manda un lote lleno de 200 | Agenda el cierre de la importación (ADR-009 §5) |
 
 Verificado rompiéndolo: sin el control de suspensión en la pasada cae `PAS-02`; agendando sin
 `unique` cae `PAS-03`; desactivando sin desagendar cae `PAS-04`; enganchando el callback
@@ -546,6 +548,10 @@ constante `WP_CLI` no se puede definir en un test sin que quede para todos los d
 | `CLI-05` | `wp wss link` y `wp wss unlink` en la maestra | Vincula y desvincula, con su aviso |
 | `CLI-06` | `wp wss link` en la secundaria | Termina con error: `wss_not_master` |
 | `CLI-07` | `wp wss status 12 abc` | Termina con error, y no muestra un `0: unlinked` |
+| `CLI-08` | `wp wss reconcile` en la secundaria | Termina con error: `wss_not_master` |
+| `CLI-09` | `wp wss reconcile` en la maestra | Reconcilia, dice qué hizo de cada lado, y queda el resultado `manual` |
+| `CLI-10` | `wp wss reconcile` con la otra caída | **Termina con error, y dice que no se pudo mirar**: no es lo mismo que no haber nada |
+| `CLI-11` | `wp wss reconcile` con otra en curso | Termina con error, sin lanzar otra |
 
 **Lo que el WP-CLI falso no ve: el docblock.** El de verdad arma los argumentos a partir de él,
 y con `<código>` rechazaba el código como argumento de más. Lo encontró la prueba entre dos
@@ -800,6 +806,32 @@ La otra tienda es un doble que contesta por HTTP interceptado.
 Verificado rompiéndolo: con la marca de la primera tanda para todas cae `RCL-02`; sin soltar el
 candado cuando falla caen `RCL-03` y `RCL-05`; guardando el `busy` cae `RCL-05`; con el techo
 propio en la segunda pregunta caen `RCL-01` y `RCL-09`.
+
+## [`tests/test-schedule.php`](test-schedule.php) — quién lanza la reconciliación
+
+| ID | Caso | Esperado |
+| --- | --- | --- |
+| `SCD-01` | La próxima noche, antes y después de las 3, en Buenos Aires | Hoy a las 3 de la hora del sitio, o mañana |
+| `SCD-02` | Agendar la noche dos veces | Una sola acción, para la próxima noche |
+| `SCD-03` | La noche en la maestra | Reconcilia (`nightly`) y agenda la siguiente |
+| `SCD-04` | La noche en la secundaria | No reconcilia, pero agenda la siguiente |
+| `SCD-05` | La noche con el sitio suspendido | No reconcilia, pero agenda la siguiente |
+| `SCD-06` | **Una pasada con 199, y otra con 200** | Sólo la de 200 agenda el cierre, con el techo de ese momento, para dentro de 5 minutos |
+| `SCD-07` | Dos lotes llenos seguidos | Un solo cierre agendado |
+| `SCD-08` | El cierre con algo nunca intentado, o en camino, hasta su techo | Vuelve a mirar en 5 minutos, con el mismo techo, sin reconciliar |
+| `SCD-09` | **El cierre con algo que espera su reintento, y algo nuevo por encima del techo** | No los espera: reconcilia (`import`) |
+| `SCD-10` | El cierre en la secundaria | Reconcilia: lo lanza la tienda que importó |
+| `SCD-11` | El cierre con el sitio suspendido | No hace nada |
+| `SCD-12` | Desactivar el plugin | Desagenda la noche y el cierre |
+| `SCD-13` | El control horario de la pasada | Agenda también la noche |
+
+Verificado rompiéndolo: en UTC cae `SCD-01`; sin mirar si ya está agendada cae `SCD-02`; sin
+agendar la siguiente caen `SCD-03` a `SCD-05`; la secundaria reconciliando cae `SCD-04`; sin
+mirar la suspensión caen `SCD-05` y `SCD-11`; con el umbral corrido caen `SCD-06` y `PAS-08`;
+dos cierres cae `SCD-07`; esperando los reintentos o sin el techo cae `SCD-09`; sin lo que está
+en camino cae `SCD-08`; la pasada sin agendar el cierre cae `PAS-08`; el control sin la noche
+cae `SCD-13`; desagendando el cierre sólo sin argumentos cae `SCD-12`; el comando sin mirar la
+maestra cae `CLI-08`.
 
 ## Cómo se prueba algo que no deja rastro en el estado final
 

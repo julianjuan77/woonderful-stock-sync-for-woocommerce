@@ -13,6 +13,9 @@ use Woonderful\StockSync\Linking\Links;
 use Woonderful\StockSync\Schema\Installer;
 use Woonderful\StockSync\Transport\Pairing;
 use Woonderful\StockSync\Transport\Peers;
+use Woonderful\StockSync\Reconciliation\Lock;
+use Woonderful\StockSync\Reconciliation\Result;
+use Woonderful\StockSync\Rest\Reconcile;
 
 require_once __DIR__ . '/fakes/class-wp-cli.php';
 
@@ -46,6 +49,11 @@ class Test_Cli extends WP_UnitTestCase {
 		update_option( 'home', 'https://example.org' );
 
 		WP_CLI::$out = array();
+
+		global $wpdb;
+		$wpdb->delete( $wpdb->options, array( 'option_name' => Lock::OPTION ) ); // phpcs:ignore WordPress.DB
+		wp_cache_delete( Lock::OPTION, 'options' );
+		delete_option( Result::OPTION );
 	}
 
 	public function tear_down(): void {
@@ -230,5 +238,92 @@ class Test_Cli extends WP_UnitTestCase {
 		$this->expectExceptionMessage( 'abc' );
 
 		( new Command() )->status( array( '12', 'abc' ), array() );
+	}
+
+	/**
+	 * Responde por la otra tienda las preguntas de la reconciliación: no tiene nada.
+	 *
+	 * @param false|array|WP_Error $preempt Lo que venía.
+	 * @param array<string, mixed> $args    Los argumentos del request.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function empty_store( $preempt, array $args ): array {
+		$body = json_decode( (string) $args['body'], true );
+		$data = Reconcile::THEIRS === $body['step']
+			? array(
+				'seqs'           => array(),
+				'covered_to'     => $body['until'],
+				'more'           => false,
+				'purged_through' => 0,
+				'ceiling'        => 0,
+			)
+			: array(
+				'reopened'  => 0,
+				'confirmed' => 0,
+			);
+
+		return array(
+			'headers'  => array(),
+			'body'     => (string) wp_json_encode( $data ),
+			'response' => array(
+				'code'    => 200,
+				'message' => '',
+			),
+			'cookies'  => array(),
+		);
+	}
+
+	/**
+	 * CLI-08 — En la secundaria, `reconcile` termina con error: la lanza la maestra.
+	 */
+	public function test_reconcile_from_the_secondary_fails(): void {
+		Peers::pair( 'b1b1b1b1-0000-4000-8000-000000000000', 'https://otra.test/wp-json/wss/v1', 'secreto', 'Minorista', Peers::MASTER );
+
+		$this->expectException( RuntimeException::class );
+		$this->expectExceptionMessage( 'wss_not_master' );
+
+		( new Command() )->reconcile( array(), array() );
+	}
+
+	/**
+	 * CLI-09 — En la maestra, reconcilia y dice qué hizo de cada lado.
+	 */
+	public function test_reconcile_from_the_master_prints_what_it_did(): void {
+		Peers::pair( 'b1b1b1b1-0000-4000-8000-000000000000', 'https://otra.test/wp-json/wss/v1', 'secreto', 'Mayorista', Peers::SECONDARY );
+		add_filter( 'pre_http_request', array( $this, 'empty_store' ), 10, 2 );
+
+		( new Command() )->reconcile( array(), array() );
+
+		$this->assertSame( 'Success: Reconciliadas.', end( WP_CLI::$out ) );
+		$this->assertStringStartsWith( 'Acá: 0', WP_CLI::$out[0] );
+		$this->assertSame( Result::MANUAL, Result::last()['trigger'] ?? null );
+	}
+
+	/**
+	 * CLI-10 — **Si la otra no responde, lo dice como error**: no se pudo mirar, que no es lo
+	 * mismo que no haber nada que arreglar (UC-06).
+	 */
+	public function test_reconcile_says_when_it_could_not_look(): void {
+		Peers::pair( 'b1b1b1b1-0000-4000-8000-000000000000', 'https://otra.test/wp-json/wss/v1', 'secreto', 'Mayorista', Peers::SECONDARY );
+		add_filter( 'pre_http_request', static fn () => new WP_Error( 'http_request_failed', 'no responde' ) );
+
+		$this->expectException( RuntimeException::class );
+		$this->expectExceptionMessage( 'no se pudo mirar' );
+
+		( new Command() )->reconcile( array(), array() );
+	}
+
+	/**
+	 * CLI-11 — Con una reconciliación en curso, termina con error y no lanza otra.
+	 */
+	public function test_reconcile_while_another_runs_fails(): void {
+		Peers::pair( 'b1b1b1b1-0000-4000-8000-000000000000', 'https://otra.test/wp-json/wss/v1', 'secreto', 'Mayorista', Peers::SECONDARY );
+		Lock::acquire();
+
+		$this->expectException( RuntimeException::class );
+		$this->expectExceptionMessage( 'en curso' );
+
+		( new Command() )->reconcile( array(), array() );
 	}
 }
