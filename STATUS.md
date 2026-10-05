@@ -160,7 +160,7 @@ es lo normal: loguearlo en cada pasada sería ruido.
 |---|---|---|---|---|
 | 7.1 | El candado (ADR-009 §4) y el resultado guardado (§7) | ✅ | `8c8886c` | `REC-01`…`REC-10`, `UNI-10` |
 | 7.2 | Fase 1: las dos preguntas de `POST /reconcile/digest`, por tandas, y qué se reencola o se confirma (ADR-009 §1–§3) | ✅ | `979803b` | `BOK-01`…`BOK-10`, `RCN-01`…`RCN-07`, `RCL-01`…`RCL-10`, `PLG-26`, `PLG-27` |
-| 7.3 | Quién la lanza: la noche en la maestra, `wp wss reconcile`, y el cierre de una importación (ADR-009 §5) | ✅ | | `SCD-01`…`SCD-13`, `CLI-08`…`CLI-11`, `PAS-08`, `PLG-28` |
+| 7.3 | Quién la lanza: la noche en la maestra, `wp wss reconcile`, y el cierre de una importación (ADR-009 §5) | ✅ | `34d8773` | `SCD-01`…`SCD-13`, `CLI-08`…`CLI-11`, `PAS-08`, `PLG-28` |
 | 7.4 | Los vínculos armados de un solo lado (ADR-009 §8) | ⬜ | | |
 | 7.5 | Fase 2: la cuenta, la confirmación a los 2 minutos y las cuatro columnas (ADR-010 §1–§5) | ⬜ | | |
 | 7.6 | La tercera pregunta, y `wp wss discrepancies`, `accept` y `restore` (ADR-010 §6–§7) | ⬜ | | |
