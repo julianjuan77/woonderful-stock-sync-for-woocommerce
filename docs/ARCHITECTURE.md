@@ -521,3 +521,4 @@ Ver `DECISIONS.md`. Índice de las aprobadas:
 | ADR-006 | El detector de cambios de stock | hooks-publicos, db-schema |
 | ADR-007 | Qué se hashea en la huella del sitio | opciones |
 | ADR-008 | Cómo se vincula un producto | rest-api, opciones, modulos |
+| ADR-009 | Reconciliación, fase 1: completar los libros | rest-api, opciones, uninstall, modulos |

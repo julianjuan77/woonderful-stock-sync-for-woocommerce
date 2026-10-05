@@ -2610,3 +2610,276 @@ nocturna; si pasara, habría que esperar más antes de preguntar.
 
 Revisar que el número siga siendo el que se vio antes de escribir es **control de concurrencia
 optimista** (*compare-and-set*): se escribe sólo si nadie cambió el dato en el medio.
+
+---
+
+## ADR-009 — Reconciliación, fase 1: completar los libros
+
+Estado: Aprobada · 2026-10-05 · aprobada por Julián
+Temas: rest-api, opciones, uninstall, modulos
+Cubre: includes/Reconciliation/_.php, includes/Rest/Reconcile.php, includes/Cli/Command.php, uninstall.php
+
+### En pocas palabras
+
+Cada tanto, las dos tiendas se muestran qué movimientos tienen de la otra. Si a una le falta
+alguno, la que lo emitió lo vuelve a poner en la cola, y sale como cualquier otro.
+
+Esto es la **fase 1** de la reconciliación (UC-06). La **fase 2** —que cada tienda compare su
+stock contra su propio libro— va en el ADR-010. No depende de esta: un movimiento que no llegó
+no está ni en el stock ni en el libro de la tienda a la que le falta, así que no la descuadra.
+
+---
+
+### 1. Cómo se comparan
+
+A la tienda que arranca la llamamos **L**, y a la otra **O**. Se hacen dos preguntas:
+
+```
+Primera:  L le pregunta a O "¿qué movimientos míos tenés?"
+          O contesta con la lista de números de secuencia.
+          L mira los suyos:
+            - los que O no tiene        → los vuelve a poner en la cola
+            - los que O tiene, pero L no sabía (se perdió la confirmación) → los marca confirmados
+
+Segunda:  L le manda a O "estos movimientos tuyos tengo yo".
+          O hace lo mismo con los suyos.
+```
+
+Un ejemplo:
+
+```
+L tiene sus movimientos 101, 102, 103 y 104.
+O contesta: "de los tuyos tengo 101, 102 y 104".
+→ A O le falta el 103. L lo vuelve a poner en la cola, y la pasada de siempre lo manda.
+```
+
+**Tener un movimiento es tener su fila**, sin importar qué hizo O con él: aplicarlo, retenerlo o
+descartarlo. Lo que se pregunta es si llegó.
+
+**Las listas van de a 5.000.** Cada tanda dice qué números cubre —"del 4.121 al 9.120"—, y quien
+la recibe compara sólo ese tramo. Si la reconciliación se corta a mitad, lo que ya se comparó
+queda bien hecho.
+
+#### Las opciones que se miraron
+
+| Opción | Por qué sí o por qué no |
+| --- | --- |
+| **A — Pasarse la lista de números** ✅ | Simple y exacta. Encuentra cualquier movimiento que falte, incluso uno que había llegado y la otra tienda perdió al restaurar un backup. El libro tiene unas 18.000 filas en 90 días entre los dos sentidos (SPEC §5): como mucho unos 100 KB por noche |
+| B — Un resumen (hash) por cada bloque de 1.000 | Casi no manda nada cuando todo está bien. Pero las dos tiendas tienen que calcular el resumen sobre exactamente las mismas filas, y las purgas y los huecos de la numeración lo vuelven frágil. Con 18.000 filas no vale la pena |
+| C — Preguntar sólo por lo que no se confirmó | Lo más chico. Pero no ve el backup restaurado: un movimiento confirmado que la otra perdió no vuelve nunca. Y el SPEC pide comparar listas |
+| D — Comparar sólo lo nuevo desde la última reconciliación | Manda menos. Pero tampoco ve el backup restaurado: lo que ya se había revisado no se vuelve a mirar. Y ahorra poco, porque la purga ya limita la lista a 90 días. Si algún día pesara, la variante es comparar lo nuevo cada noche y todo una vez por semana: la misma pregunta con otro piso |
+
+### 2. Qué se mira y qué no
+
+No se comparan todos los movimientos: hay un límite arriba y otro abajo.
+
+**Arriba: lo que pasa mientras se compara no cuenta.**
+
+```
+03:00  arranca la reconciliación. El último movimiento de L es el 900.
+03:01  L vende algo → movimiento 901. Todavía está en la cola, por salir.
+```
+
+Si se comparara el 901, parecería que le falta a O, y no le falta: está en camino. Por eso se
+compara hasta el 900, el número que tenía L al arrancar. A eso le decimos el **techo**.
+
+**Abajo: lo que la otra tienda ya borró no se compara.**
+
+Cada tienda borra lo que recibió hace más de 90 días (la purga, ADR-004 §4), y anota hasta qué
+número borró. A eso le decimos la **marca de purga**.
+
+```
+O recibió el 300 de L hace 100 días, lo aplicó y lo borró.
+Si L preguntara "¿tenés el 300?", O no lo encontraría.
+L creería que le falta, se lo mandaría de nuevo, y O lo descontaría otra vez      ❌
+```
+
+Por eso L no pregunta por lo que está por debajo de la marca: O ya lo tuvo y lo borró.
+
+**La excepción: lo que nunca se confirmó se pregunta siempre.** Es un seguro para un caso raro:
+que las reconciliaciones no hayan funcionado durante meses. Normalmente no hace falta, porque un
+movimiento que no llegó lo encuentra la reconciliación de esa misma noche.
+
+Un ejemplo de cuándo se usaría. La tienda O tiene un firewall que deja pasar las ventas, pero
+bloquea la reconciliación, porque manda una lista grande y le parece sospechosa:
+
+```
+1 de marzo    O se cae 8 horas. La venta 480 de L no llega a tiempo y queda abandonada.
+              O vuelve, y la venta 500 de L llega bien.
+2 de marzo    La reconciliación quiere preguntar por el 480 → el firewall la bloquea.
+...           Bloqueada todas las noches, durante tres meses.
+30 de mayo    O borra lo que recibió hace más de 90 días, incluido el 500.
+              Su marca de purga queda en 500.
+10 de junio   Alguien arregla el firewall, y corre la primera reconciliación que funciona.
+```
+
+- **Sin la excepción:** el 480 está por debajo de la marca, así que L no pregunta. La venta no
+  se descuenta nunca, y O muestra una unidad que no existe.
+- **Con la excepción:** L sabe que el 480 nunca se confirmó, y pregunta igual. O no lo tiene,
+  L lo manda, y O la descuenta.
+
+Así que la regla queda:
+
+| El movimiento de L, por debajo de la marca | ¿Se pregunta? |
+| --- | --- |
+| Confirmado | No: O lo tuvo y lo borró |
+| Nunca confirmado | Sí: si O no lo tiene, es que nunca llegó |
+
+Cuesta una condición en una consulta. Y su riesgo es el más chico de los dos: en el peor caso
+descuenta dos veces, lo que deja el stock más bajo que el real, y no lleva a sobrevender (ver
+"Los riesgos que quedan").
+
+**Los techos y las marcas viajan en la primera respuesta.** O contesta la primera tanda con su
+techo y con su marca de lo que borró de L. Con eso, cada tienda sabe qué tramo mirar.
+
+### 3. Qué se hace con cada movimiento
+
+| El movimiento propio… | …y la otra tienda **no** lo tiene | …y la otra tienda **sí** lo tiene |
+| --- | --- | --- |
+| Confirmado | Se vuelve a poner en la cola | Nada: está bien |
+| Abandonado | Se vuelve a poner en la cola | Se marca confirmado |
+| Pendiente | Nada: ya va a salir | Se marca confirmado |
+| En camino | Nada: ya está saliendo | Nada: su confirmación está por llegar |
+| Un bootstrap | Nada: no va por la cola (ADR-008) | Nada |
+
+**Volver a ponerlo en la cola** es dejarlo `pending` y con el reloj en cero: sin intentos, sin hora
+del primer intento y sin error. Si conservara la hora del primer intento, pasaría las 6 horas del
+techo y se abandonaría de nuevo sin intentarlo (ADR-001 §4).
+
+**La reconciliación no manda nada ella misma.** Sólo vuelve a poner en la cola. Así un movimiento
+sale siempre por el mismo camino.
+
+**Cada cambio se hace sólo si el movimiento sigue como estaba.** Por ejemplo: "marcalo confirmado,
+pero sólo si sigue pendiente". Si no, la pasada podría llevárselo justo en el medio, y la
+reconciliación lo marcaría confirmado mientras está en camino.
+
+### 4. Una reconciliación por vez
+
+Hay un **candado**: una opción, `wss_reconciling`, que dura 15 minutos. La reconciliación lo
+toma al arrancar y lo suelta al terminar. Si se muere a mitad, el candado vence solo, y la
+siguiente puede arrancar.
+
+- **Vale para las dos tiendas.** Si O está en medio de su propia reconciliación, le contesta a L
+  "estoy ocupada" (`409 wss_reconciling`).
+- **Cada una suelta sólo el suyo.** El candado lleva una marca de quién lo tomó. Así, una
+  reconciliación que tardó más de 15 minutos no le borra el candado a la que vino después.
+- **Se lee directo de la base**, no de la caché, que podría tener una copia vieja.
+
+Si el candado está tomado:
+
+- **La manual** termina con un error: "hay una reconciliación en curso".
+- **La de la madrugada y la de una importación** se saltean sin avisar. La próxima cubre lo mismo.
+
+El candado sólo evita trabajo doble. Que no se descuente dos veces lo garantiza otra cosa: la
+tienda que recibe nunca aplica dos veces el mismo movimiento (UC-06).
+
+### 5. Quién la arranca
+
+| Cuándo | Quién |
+| --- | --- |
+| **Todas las noches**, a las 3 de la hora del sitio | La maestra. La secundaria no |
+| **A mano**, con `wp wss reconcile` (hasta que exista la pantalla, tarea 1.11) | La maestra. En la secundaria da error, como `wp wss link` |
+| **Al terminar una importación grande** | Cualquiera de las dos |
+
+**Cómo se sabe que terminó una importación:**
+
+1. Una importación grande se nota porque la pasada manda **un lote lleno**: 200 movimientos.
+2. Esa pasada agenda un **cierre** para dentro de 5 minutos, y anota el último número de ese
+   momento. Si ya hay un cierre agendado, no agenda otro.
+3. Cuando el cierre corre, mira lo propio **hasta ese número**:
+   - Si queda algo que todavía no se intentó mandar, o que está en camino, espera 5 minutos más.
+   - Si no, reconcilia.
+
+Hasta ese número, para que las ventas nuevas no lo hagan esperar para siempre. Y sólo lo que no
+se intentó, para no esperar a un movimiento que falló y está esperando su reintento: ése puede
+tardar hasta 6 horas, y la reconciliación igual no lo tocaría (§3).
+
+El cierre no depende de la importación: si el importador se corta a mitad, lo que alcanzó a
+escribir sale por la cola, y el cierre corre cuando termine de salir. Una importación de menos de
+200 entra en un solo lote, y cada movimiento ya tiene su propia confirmación.
+
+### 6. Si la otra tienda no responde
+
+No se toca nada: sin la lista de la otra, no hay con qué comparar. El resultado lo dice así: **"no
+se pudo mirar"**, que no es lo mismo que "no había nada que arreglar" (UC-06). La de la noche
+vuelve a intentarlo la noche siguiente. La manual se puede lanzar de nuevo cuando la otra vuelva.
+
+### 7. El resultado
+
+Cada tienda guarda cómo terminó la última reconciliación en la opción `wss_last_reconciliation`:
+cuándo fue, quién la arrancó, cómo terminó —`done`, `unreachable` o `busy`—, cuántos movimientos
+volvió a poner en la cola y cuántos marcó confirmados. Las dos lo guardan, cada una con lo suyo.
+Así la secundaria lo puede mostrar aunque no la arranque. El aviso por email va al ADR del log
+(tarea 1.10).
+
+### 8. Los vínculos armados de un solo lado
+
+A veces un vínculo queda en una tienda y no en la otra. Por ejemplo, un bootstrap que la maestra
+dio por perdido, pero que la secundaria procesó tarde (ADR-008).
+
+Cuando arranca la maestra, en la segunda pregunta manda también **la lista de sus vínculos**. La
+secundaria la compara con los suyos:
+
+| Qué encuentra | Qué hace |
+| --- | --- |
+| La secundaria tiene un vínculo que la maestra no | **Lo borra.** Sólo vincula la maestra, así que ése no tiene respaldo |
+| La maestra tiene un vínculo que la secundaria no | **Lo informa, no lo arregla.** Arreglarlo sería mandar un bootstrap, que cambia el stock de la otra tienda. Eso lo decide el dueño, volviendo a vincular |
+| Las dos lo tienen, pero con distinta generación | Lo informa |
+
+**Sólo cuando arranca la maestra.** Cuando arranca la secundaria —al cerrar una importación— no
+se comparan vínculos. La de la noche ya lo cubre.
+
+**Sólo los vínculos que existían cuando arrancó.** La lista es una foto, y un vínculo armado un
+segundo después no está en ella:
+
+```
+03:00:00  la maestra arma la lista de sus vínculos
+03:00:02  se vincula el producto 123 → la secundaria arma su vínculo
+03:00:03  la secundaria compara: "tengo uno que la maestra no" → lo borraría      ❌
+```
+
+Para evitarlo se usa la generación, que es el número del bootstrap en la maestra (ADR-005 §4).
+Un vínculo armado después tiene una generación por encima del techo de la maestra, así que queda
+para la próxima. Es la misma regla que con los movimientos.
+
+---
+
+### Qué cambia en otros ADRs
+
+| ADR | Qué cambia |
+| --- | --- |
+| ADR-001 §4 | `POST /reconcile/digest` son dos preguntas, por tandas. Suma la respuesta `409 wss_reconciling` |
+| ADR-003 | `wss_reconciling` y `wss_last_reconciliation` se borran siempre al desinstalar: no son datos del dueño |
+| ADR-004 §4 | La marca de purga sólo deja afuera lo confirmado |
+
+### Lo que se vuelve más difícil
+
+El endpoint tiene dos preguntas y va por tandas, y cada tanda tiene que funcionar sola. Los
+tests tienen que probar una reconciliación cortada a mitad.
+
+### Los riesgos que quedan
+
+- **Un movimiento descontado dos veces.** Es el costo de la excepción de §2. Pasaría si O
+  recibió uno de L, lo borró a los 90 días, y L nunca se enteró de que había llegado: se perdió
+  la confirmación y no corrió ninguna reconciliación en 90 días. Se acepta porque el error que
+  evita es peor: sin la excepción, en ese mismo caso extremo se pierde una venta, y la otra
+  tienda vende algo que no hay.
+- **Un movimiento de una importación que falló y espera su reintento.** El cierre corre sin él y
+  no lo toca. Si termina abandonado, lo recupera la reconciliación de la noche.
+- **Una segunda importación mientras ya hay un cierre agendado.** No agenda otro. La cubre el
+  próximo lote lleno después de que ese cierre corrió, o la reconciliación de la noche.
+
+### Lo que no cubre
+
+| Qué | Dónde va |
+| --- | --- |
+| La fase 2: el stock contra el propio libro, y las discrepancias | ADR-010 |
+| Aplicar solos los movimientos retenidos cuando un par vuelve a estar bien | Sin ADR (SPEC §6, pregunta abierta) |
+| El aviso por email y el log | ADR del log (tarea 1.10) |
+| El botón en la pantalla | ADR de la interfaz (tarea 1.11) |
+
+### En qué se parece a otras cosas
+
+Compararse listas y pedir lo que falta se llama **anti-entropy**: es lo que hacen Cassandra y
+Dynamo para reparar sus réplicas. Ellos usan resúmenes por bloque (la opción B) porque comparan
+millones de filas. Acá son miles.
