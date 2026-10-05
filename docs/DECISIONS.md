@@ -2883,3 +2883,226 @@ tests tienen que probar una reconciliación cortada a mitad.
 Compararse listas y pedir lo que falta se llama **anti-entropy**: es lo que hacen Cassandra y
 Dynamo para reparar sus réplicas. Ellos usan resúmenes por bloque (la opción B) porque comparan
 millones de filas. Acá son miles.
+
+---
+
+## ADR-010 — Reconciliación, fase 2: el stock contra el propio libro
+
+Estado: Aprobada · 2026-10-05 · aprobada por Julián
+Temas: db-schema, rest-api, modulos
+Cubre: includes/Reconciliation/_.php, includes/Schema/Installer.php, includes/Linking/Links.php, includes/Rest/Reconcile.php, includes/Cli/Command.php
+
+### En pocas palabras
+
+Cada tienda hace una cuenta por cada producto vinculado: **el stock con que arrancó, más todo lo
+que su libro dice que pasó después**. Si el resultado no es el stock que tiene, alguien lo cambió
+sin que el plugin se enterara. Eso es una **discrepancia**.
+
+El plugin no la arregla: no sabe cuál de los dos números es el correcto. La guarda, la muestra y
+le da al dueño dos formas de resolverla.
+
+```
+Producto 123. Al vincularlo arrancó con 50.
+El libro dice: vendió 2, vendió 1, entró 5 de la otra tienda.
+   Esperado: 50 − 2 − 1 + 5 = 52
+   Real:     47
+   → discrepancia: faltan 5 que nadie anotó
+```
+
+**Nunca compara una tienda con la otra.** Una venta que todavía viaja dejaría los dos números
+distintos sin que nada esté mal (UC-06).
+
+---
+
+### 1. La cuenta
+
+```
+esperado = stock base del vínculo
+         + los movimientos propios de ese vínculo y su generación
+         + los recibidos de ese vínculo y su generación que se aplicaron
+```
+
+- **Los propios entran todos**, se hayan entregado o no: cada uno ya cambió el stock de acá en el
+  momento en que pasó.
+- **De los recibidos, sólo los aplicados.** Uno retenido o descartado no tocó el stock.
+- **Sólo la generación vigente.** Un bootstrap nuevo fija otro stock base, y lo de antes ya no
+  cuenta (ADR-005 §4).
+- **El bootstrap y el `unlink` no suman**: su delta es 0.
+
+La purga no rompe la cuenta: al borrar, el stock base absorbe lo borrado (ADR-004 §4).
+
+### 2. Qué productos no se revisan
+
+| Caso | Por qué |
+| --- | --- |
+| Tiene movimientos recibidos **retenidos** | El stock no tiene por qué coincidir: hay cosas que todavía no se aplicaron (UC-06) |
+| Su bootstrap **sigue sin resolver** | No se sabe todavía con qué stock arrancó el par (ADR-008) |
+| El producto de acá **no lleva su propio stock**, está en la papelera o no existe | No hay un stock propio contra el cual comparar |
+
+Todo esto se mira acá, sin preguntarle a la otra tienda: la cuenta es local.
+
+### 3. No confundir un cambio en curso con una discrepancia
+
+WooCommerce escribe el stock, y el plugin anota el movimiento un instante después. Si la cuenta
+cae justo en ese instante, ve el stock cambiado y el movimiento sin anotar:
+
+```
+03:00:00.000  una venta deja el stock en 46
+03:00:00.002  la fase 2 lee: real 46, esperado 47        → parece una discrepancia
+03:00:00.004  el plugin anota la venta: esperado 46      → no lo era
+```
+
+Por eso **una discrepancia se confirma antes de abrirse**: los productos que no cerraron se
+vuelven a revisar **2 minutos después**, y se abre sólo si la diferencia sigue siendo la misma.
+Una venta en curso ya se anotó para entonces; un cambio que nadie registró sigue ahí.
+
+La segunda revisión es una acción de Action Scheduler: no deja la reconciliación esperando.
+
+### 4. Dónde se guarda
+
+| Opción | Por qué sí o por qué no |
+| --- | --- |
+| **A — Cuatro columnas en `wss_links`** ✅ | Hay **una discrepancia por vínculo y por tienda** (UC-06), y el vínculo ya es la fila. Se borra sola con el vínculo. Leerlas para la pantalla es la misma consulta que ya lista los vínculos. Contra: no guarda historia; lo que pasó queda en el log (tarea 1.10) |
+| B — Una tabla `wss_discrepancies` | Guarda la historia de cada una. Pero es una tabla más con su purga, y hay que garantizar a mano que no haya dos abiertas para el mismo vínculo, que en A sale gratis |
+| C — Una opción con la lista | Simple al principio. Pero dos procesos que la escriben a la vez se pisan, y con cientos de productos se vuelve pesada en cada lectura |
+
+Las columnas:
+
+| Columna | Qué guarda |
+| --- | --- |
+| `expected_stock` | Lo que dice el libro |
+| `found_stock` | Lo que había |
+| `discrepancy_since` | Cuándo se vio por primera vez |
+| `discrepancy_seen_at` | Cuándo se vio por última vez |
+
+Las cuatro en `NULL` quieren decir "sin discrepancia".
+
+**Una discrepancia es de una generación.** Si un bootstrap nuevo cambiara la generación de la
+fila, las cuatro columnas se limpian en la misma escritura: si no, quedaría abierta una
+discrepancia del par anterior. Hoy no pasa —un bootstrap nuevo siempre crea otra fila (ADR-008
+§3)—, pero la regla queda escrita para el día que eso cambie.
+
+### 5. Se abre una vez y se cierra sola
+
+- **Si ya hay una abierta** y la diferencia sigue igual, no se abre otra: se actualiza
+  `discrepancy_seen_at`. **Si la diferencia cambió**, la nueva pasa por la misma confirmación de
+  2 minutos (§3) antes de reemplazar los números.
+- **Si la cuenta vuelve a dar bien**, las cuatro columnas vuelven a `NULL`. El dueño no tiene que
+  marcar nada.
+- **Mientras está abierta, el producto sincroniza igual.** Las ventas se siguen propagando; la
+  diferencia se mantiene, pero no crece (UC-06).
+
+### 6. Cómo la resuelve el dueño
+
+**Acá hay un problema en el SPEC.** UC-06 dice que la discrepancia se cierra cuando el dueño
+corrige el stock y el ajuste se propaga. Pero corregir el stock a mano también es un movimiento:
+el plugin lo anota, y el esperado se mueve junto con el real.
+
+```
+Esperado 50, real 47.
+El dueño pone 50 a mano → el plugin anota +3 → esperado 53, real 50.
+La diferencia sigue en 3                                                ❌
+```
+
+Así que hacen falta **dos acciones que no son un cambio de stock común**. Las dos cierran la
+discrepancia:
+
+| El dueño dice | Qué hace el plugin |
+| --- | --- |
+| **"El stock de acá está bien"** (hubo una venta o un ajuste que no se anotó) | Anota la diferencia como un ajuste —en el ejemplo, −3— **sin tocar el stock de acá**. El ajuste viaja a la otra tienda como cualquier otro, y las dos quedan con el número real |
+| **"El libro está bien"** (alguien escribió mal el stock) | Le suma al stock de acá la diferencia —en el ejemplo, +3— **sin anotar un movimiento**, con el guard (ADR-006 §3). La otra tienda no se entera, porque ya tenía el número bueno |
+
+**"El libro está bien" suma la diferencia; no escribe el número esperado.** Escribir 50 pisaría
+una venta que entrara justo en el medio: quedaría anotada en el libro, pero el stock no la
+tendría, y la tienda mostraría una unidad que no hay. Sumando +3 con
+`wc_update_product_stock( …, 'increase' )`, como hace `apply()`, la venta y la corrección se
+suman las dos.
+
+**Las dos acciones rehacen la cuenta en el momento.** No usan los números guardados, que pueden
+tener días. Vuelven a mirar las exclusiones de §2, vuelven a calcular, y **se niegan si la
+diferencia no es la que vio el dueño**: "cambió desde que la viste, mirala de nuevo". Así tampoco
+anotan un ajuste equivocado si justo entra una venta mientras calculan.
+
+Hasta que exista la pantalla (tarea 1.11), las dos van por WP-CLI:
+
+```
+wp wss discrepancies                      la lista, de esta tienda
+wp wss discrepancy accept <producto>      "el stock de acá está bien"
+wp wss discrepancy restore <producto>     "el libro está bien"
+```
+
+El SPEC se corrige en el mismo commit que apruebe este ADR: el criterio de UC-06 sobre el cierre
+pasa a decir que se cierra con cualquiera de las dos acciones, o sola si los números vuelven a
+coincidir.
+
+### 7. Cuándo corre, y en qué tienda
+
+**Corre en las dos tiendas, al final de cada reconciliación.** Es una tercera pregunta del
+mismo endpoint de ADR-009:
+
+```
+Primera:   L → O  "¿qué tenés de lo mío?"
+Segunda:   L → O  "esto tengo de lo tuyo"
+Tercera:   L → O  "hacé tu fase 2"
+           O      → hace su cuenta y contesta con sus discrepancias abiertas
+           L      → hace la suya
+```
+
+Así los tres disparadores de ADR-009 —la noche, la manual y el cierre de una importación— hacen
+las dos fases en las dos tiendas, como pide UC-06. Y la maestra recibe las discrepancias de la
+secundaria, que la pantalla necesita para mostrar las dos en un solo lugar.
+
+**Si la otra tienda no responde desde el principio**, ADR-009 ya corta antes: no corre ninguna
+fase en ninguna.
+
+**Si falla sólo la tercera pregunta** —la otra se cayó justo después de la fase 1—, L hace igual
+su propia fase 2, porque la cuenta es local. El resultado dice que la de O no se pudo mirar.
+
+Lo que contesta O se guarda en el resultado de la última reconciliación
+(`wss_last_reconciliation`, ADR-009 §7).
+
+**La maestra ve las de la secundaria con una reconciliación de atraso.** O contesta con las que
+ya tiene abiertas; las nuevas se confirman 2 minutos después (§3), así que la maestra las ve en la
+pasada siguiente. Se acepta así:
+
+- Hasta la tarea 1.11, **cada tienda resuelve las suyas con su propio WP-CLI**.
+- La vista unificada, y resolver las de la secundaria desde la maestra, van al ADR de la
+  interfaz: hace falta un endpoint que hoy no existe, y ese ADR tiene que decidir igual cómo se
+  ven.
+
+---
+
+### Qué cambia en otros ADRs y en el SPEC
+
+| Dónde | Qué cambia |
+| --- | --- |
+| ADR-004 §2 | `wss_links` suma las cuatro columnas. Sube la versión del esquema |
+| ADR-009 | El endpoint suma la tercera pregunta |
+| SPEC, UC-06 | El criterio de "se cierra sola" se corrige como dice §6. Y el de "sin falso positivo por movimiento en vuelo" ya no se apoya en el orden de las fases —desde ADR-009, la fase 1 sólo vuelve a poner en la cola—, sino en que la cuenta es local |
+
+### Lo que se vuelve más difícil
+
+La cuenta tiene que coincidir con la purga, con los cambios de generación y con lo retenido: un
+error en cualquiera de las tres abre discrepancias falsas en todos los productos. Los tests
+tienen que cubrir cada una.
+
+### Los riesgos que quedan
+
+- **Una discrepancia falsa por una escritura lenta.** Si entre el cambio de stock y su anotación
+  pasaran más de 2 minutos, se abriría igual. Se cerraría sola en la reconciliación siguiente.
+- **El doble conteo del detector** (ADR-006 §1): un cambio ajeno al stock entre las dos lecturas
+  se cuenta dos veces. Eso abre una discrepancia de verdad, y está bien que se vea.
+
+### Lo que no cubre
+
+| Qué | Dónde va |
+| --- | --- |
+| El aviso por email de una discrepancia nueva | ADR del log (tarea 1.10) |
+| Cómo se ve en la pantalla | ADR de la interfaz (tarea 1.11) |
+
+### En qué se parece a otras cosas
+
+Recalcular un saldo desde el historial y compararlo con el guardado es lo que hace un banco al
+**conciliar** una cuenta, y lo que en event sourcing se llama reconstruir el estado desde los
+eventos. Y confirmar antes de abrir es lo que hace un monitoreo con un umbral de "dos lecturas
+seguidas": evita alarmas por un instante.

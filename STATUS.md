@@ -34,9 +34,8 @@ make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS=
 
 ## 🔄 En progreso
 
-1.9, la reconciliación: el ADR-009 (fase 1) está aprobado; falta el ADR-010 (fase 2: el stock
-contra el propio libro, y las discrepancias). Después, el log y los avisos (1.10) y la interfaz
-(1.11).
+Nada. Los ADRs de la reconciliación están aprobados (ADR-009 y ADR-010): falta programarlos.
+Después, los ADRs del log y los avisos (1.10) y de la interfaz (1.11).
 
 **Para probar entre dos tiendas:** `sandbox` (8150, maestra) y `sandbox-b` (8170) están
 emparejadas con rol. Con `DISABLE_WP_CRON` la pasada no corre sola: se dispara con
@@ -63,7 +62,7 @@ Leyenda: ✅ hecho · 🔄 en curso · ⬜ pendiente · 🔒 bloqueado
 | 1.6 | ADR-005 — Vinculación de productos | ✅ |
 | 1.7 | ADR-006 — El detector de cambios de stock | ✅ |
 | 1.8 | ADR-007 — Qué se hashea en la huella del sitio | ✅ |
-| 1.9 | ADR — Reconciliación (UC-06): las dos fases, el candado, el cierre de una importación. Fase 1 en ADR-009 (aprobado); falta la fase 2, ADR-010 | 🔄 |
+| 1.9 | ADR — Reconciliación (UC-06): las dos fases, el candado, el cierre de una importación. ADR-009 (fase 1) y ADR-010 (fase 2) | ✅ |
 | 1.10 | ADR — Log de acciones y avisos (UC-03, UC-08) | ⬜ |
 | 1.11 | ADR — Interfaz (UC-05): pantalla de vinculación y de ajustes | ⬜ |
 
@@ -159,9 +158,13 @@ es lo normal: loguearlo en cada pasada sería ruido.
 
 | | Tarea | Estado |
 |---|---|---|
-| 7.1 | Fase 1: el digest y la reentrega de lo que falta | 🔒 1.9 |
-| 7.2 | Fase 2: comparar el stock real contra el libro | 🔒 1.9 |
-| 7.3 | El candado con vencimiento y la pasada nocturna | 🔒 1.9 |
+| 7.1 | El candado (ADR-009 §4) y el resultado guardado (§7) | ⬜ |
+| 7.2 | Fase 1: las dos preguntas de `POST /reconcile/digest`, por tandas, y qué se reencola o se confirma (ADR-009 §1–§3) | ⬜ |
+| 7.3 | Quién la lanza: la noche en la maestra, `wp wss reconcile`, y el cierre de una importación (ADR-009 §5) | ⬜ |
+| 7.4 | Los vínculos armados de un solo lado (ADR-009 §8) | ⬜ |
+| 7.5 | Fase 2: la cuenta, la confirmación a los 2 minutos y las cuatro columnas (ADR-010 §1–§5) | ⬜ |
+| 7.6 | La tercera pregunta, y `wp wss discrepancies`, `accept` y `restore` (ADR-010 §6–§7) | ⬜ |
+| 7.7 | La purga nocturna: `Ledger::purge()` existe y nada la llama (ADR-004 §4) | ⬜ |
 
 ### 8. La interfaz — `admin/`
 
@@ -196,6 +199,7 @@ La fuente es `docs/DECISIONS.md`. Acá sólo el índice de las aprobadas.
 | ADR-007 | La huella hashea la opción `home` cruda, con esquema | 2026-09-26 |
 | ADR-008 | El bootstrap se manda en el momento; sólo vincula la maestra; se revisa que nada haya cambiado; un incierto se pregunta. Revisado el 2026-10-02: el bootstrap reemplaza un vínculo viejo de la secundaria | 2026-10-01 |
 | ADR-009 | Reconciliación, fase 1: las dos tiendas se pasan la lista de secuencias y cada una reencola lo propio que falta; el candado; quién la lanza; el cierre de una importación; los vínculos de un solo lado | 2026-10-05 |
+| ADR-010 | Reconciliación, fase 2: cada tienda compara su stock contra su propio libro; se confirma a los 2 minutos; cuatro columnas en `wss_links`; dos acciones para resolver. Corrige el SPEC UC-06 | 2026-10-05 |
 
 El 2026-09-28 el SPEC §5 subió el mínimo de WooCommerce de 8.2 a 9.1: es la versión que trae
 el hook que estampa las cancelaciones (ADR-006 §2).
@@ -211,7 +215,7 @@ seguridad y convenciones de código.
 |---|---|
 | Preguntas abiertas de §6 sin cerrar: multisite y volumen real del catálogo | `docs/SPEC.md` |
 | El clon servido en la **misma URL por HTTPS** pasa la detección. Declarado, no resuelto | ADR-001 §1, ADR-007 |
-| La reconciliación de cierre de una importación no tiene ADR | §6 del SPEC → tarea 1.9 |
+| La reconciliación de cierre de una importación no tiene ADR | Resuelto en ADR-009 §5; falta implementarlo (7.3) |
 | El auditor de tests ya es un agente del entorno: `.claude/agents/test-auditor.md` | — |
 | `record()` escribiría movimientos con origen vacío si faltara el identificador. Hoy no puede pasar: `boot()` lo genera antes de todo | Auditoría 2026-09-26 |
 | `Links::for_remote_product()` devuelve la primera fila si hubiera dos vínculos con el mismo remoto. Desde ADR-008 (revisado) el bootstrap borra el que choque, así que no se arma un segundo; queda por si se crea a mano | Auditoría 2026-09-26 |
@@ -234,5 +238,5 @@ seguridad y convenciones de código.
 | La pantalla tiene que decir "esperando respuesta" para un `uncertain` que todavía está en `syncing`, y "no se sabe" recién cuando ya es `uncertain`: hoy `State` los junta en uno | Revisión 2026-10-02 → ADR de interfaz |
 | El vínculo armado de un solo lado —el catálogo de allá dice `linked: false`— no es un motivo de suspendido: lo encuentra y repara la reconciliación (ADR-005 §1, revisado) | Revisión 2026-10-02 → tarea 1.9 |
 | El envío al final del request no se probó con PHP-FPM de verdad: los sitios de wp-restore corren Apache con mod_php, y ahí `Express` no manda. Los tests cubren la lógica; falta ver un pedido real salir en el `shutdown`. Y averiguar qué corren los servidores de las dos tiendas: con Apache y mod_php no se dispara nunca | 5.9 → con un sitio en PHP-FPM |
-| `Ledger::purge()` existe y tiene tests, pero nada la llama: ADR-004 dice que corre cada noche, y hoy no corre nunca. El libro crece sin techo | Sesión 2026-10-05 → con la implementación de ADR-009 |
+| `Ledger::purge()` existe y tiene tests, pero nada la llama: ADR-004 dice que corre cada noche, y hoy no corre nunca. El libro crece sin techo | Sesión 2026-10-05 → tarea 7.7 |
 | Infection sobre `Transport/`, que ya existe: necesita PCOV en la imagen de wp-restore | — |

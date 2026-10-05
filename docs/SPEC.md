@@ -1099,7 +1099,8 @@ fuera de v1 (§2).
 
 ### UC-06 — Reconciliación
 
-> Estado: Aprobada · 2026-09-13
+> Estado: Aprobada · 2026-09-13 · Revisado 2026-10-05: el cierre de una discrepancia y el
+> falso positivo en vuelo, según ADR-010
 
 Como dueño quiero que las tiendas se revisen entre sí cada cierto tiempo y reparen lo que se
 haya perdido, para que un mensaje caído no me deje desalineado para siempre sin que yo me
@@ -1200,9 +1201,9 @@ lo tiene aunque el ACK original se haya perdido, y deja de considerarlo pendient
 
 Dos consecuencias que conviene no perder de vista:
 
-- **Un movimiento en vuelo no produce un falso positivo en la fase 2.** Las fases corren en
-  orden: para cuando se comparan los totales, la fase 1 ya entregó y aplicó todo lo que
-  faltaba. Por eso la fase 2 nunca se ejecuta sobre un libro que todavía se está completando.
+- **Un movimiento en vuelo no produce un falso positivo en la fase 2.** Cada tienda se compara
+  contra su propio libro: un movimiento que todavía no llegó no está ni en su stock ni en su
+  libro, así que no la descuadra (ADR-010).
 - **Que dos pasadas se pisen no corrompe nada.** Ninguna puede aplicar un movimiento que ya
   está aplicado. Aun así **no se permite que corran dos a la vez**, y conviene entender que
   son dos cosas distintas: la deduplicación es la que garantiza que el stock no se rompa, y
@@ -1282,9 +1283,9 @@ positivo.
 - [ ] _(reconciliaciones solapadas)_ Dada la reconciliación de cierre de importación
       corriendo, cuando el dueño lanza una manual al mismo tiempo, entonces ningún movimiento
       se aplica dos veces y ninguna de las dos corrompe el stock.
-- [ ] _(sin falso positivo por movimiento en vuelo)_ Dado un movimiento que la fase 1 acaba de
-      entregar, cuando corre la fase 2, entonces **no se reporta discrepancia**: el total ya
-      incluye lo recién aplicado, porque el orden de las fases lo garantiza.
+- [ ] _(sin falso positivo por movimiento en vuelo)_ Dado un movimiento que todavía no llegó a
+      una tienda, cuando corre su fase 2, entonces **no se reporta discrepancia**: no está ni
+      en su stock ni en su libro, porque la cuenta es local (ADR-010).
 - [ ] Dado que existe una discrepancia reportada, cuando el dueño consulta la pantalla de
       estado, entonces la ve listada con su detalle.
 - [ ] _(manual)_ Dado que el dueño pulsa _reconciliar ahora_ en la pantalla de estado,
@@ -1317,9 +1318,11 @@ positivo.
 - [ ] _(discrepancia — no se duplica)_ Dada una discrepancia de esperado 50 / real 47 que el
       dueño todavía no resolvió, cuando corre la pasada de la noche siguiente, entonces **no
       se abre una segunda**: se actualiza cuándo se la vio por última vez.
-- [ ] _(discrepancia — se cierra sola)_ Dado que el dueño corrigió el stock y el ajuste se
-      propagó (UC-04), cuando la pasada siguiente vuelve a comparar, entonces la discrepancia
-      **se cierra automáticamente**, sin que él tenga que marcarla como resuelta.
+- [ ] _(discrepancia — se cierra)_ Dado que el dueño la resolvió con una de las dos acciones
+      —"el stock de acá está bien" o "el libro está bien" (ADR-010 §6)—, o que los números
+      volvieron a coincidir, entonces la discrepancia **se cierra**, sin que él tenga que
+      marcarla como resuelta. Corregir el stock a mano no alcanza: también se anota como
+      movimiento, y el esperado se mueve junto con el real.
 - [ ] _(independiente de la UI)_ Dada la reconciliación periódica, cuando corre desde el cron
       sin ninguna pantalla abierta, entonces hace exactamente el mismo trabajo que la manual.
       La pantalla la lanza y muestra el resultado; no es parte del mecanismo.
@@ -1329,8 +1332,10 @@ positivo.
 **Una discrepancia se abre una vez y se cierra sola.** Hay **una discrepancia abierta por par
 y por tienda**, no una por pasada: si el desvío de esperado 50 / real 47 sigue ahí la noche
 siguiente, no se crea otra, se actualiza **cuándo se la vio por última vez**. Y cuando una
-pasada posterior encuentra que los números vuelven a coincidir, **se cierra automáticamente**:
-el dueño corrigió el stock, el ajuste se propagó por UC-04, y no tiene que ir a marcar nada.
+pasada posterior encuentra que los números vuelven a coincidir, **se cierra automáticamente**,
+y no hay que ir a marcar nada. Lo que la hace coincidir es una de las dos acciones de ADR-010
+§6, no un cambio de stock común: ése también se anota, y el esperado se mueve junto con el
+real.
 
 Sin esto, un desvío que el dueño todavía no resolvió generaría una alerta nueva cada noche
 hasta volver ruido toda la pantalla — el mismo problema que UC-08 resuelve para las
@@ -1340,8 +1345,8 @@ sugerencias, y con la misma respuesta.
 normalmente** — las ventas y los ajustes se propagan como siempre. El desvío se mantiene
 constante hasta que alguien lo resuelva, pero no crece ni bloquea la operación.
 
-**Fuera de este caso:** resolver la discrepancia. Corregirla es una decisión humana: el
-dueño edita el stock en la tienda que corresponda y ese ajuste se propaga por UC-04.
+**Fuera de este caso:** decidir cómo se resuelve. Es una decisión humana: el dueño elige si
+el número bueno es el stock de la tienda o el del libro, con las dos acciones de ADR-010 §6.
 
 ### UC-07 — Un producto entra a la malla (bootstrap)
 
