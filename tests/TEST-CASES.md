@@ -271,6 +271,7 @@ varios tests sin chocar.
 | `UNI-07` | Desinstalar conservando los datos | La hora del control de la pasada se va igual: no es un dato del dueño |
 | `UNI-08` | Desinstalar conservando los datos, con un código de emparejamiento vivo de cada lado | Los dos se van: son una credencial |
 | `UNI-09` | Desinstalar conservando los datos, con un envío fallido anotado | `wss_send_failed` se borra igual (ADR-003, revisado el 2026-10-02) |
+| `UNI-10` | Desinstalar conservando los datos, con el candado y el resultado de la reconciliación | Los dos se borran igual (ADR-003, revisado el 2026-10-05) |
 
 ## [`tests/test-ledger.php`](test-ledger.php) — el libro
 
@@ -722,6 +723,27 @@ movimiento queda `adjustment` sin número de pedido: el delta es correcto, la at
 lecturas, ese cambio se cuenta dos veces. Son milisegundos y no se puede reproducir en un test
 de un solo proceso; lo corrige la reconciliación (ADR-006 §1).
 
+## [`tests/test-reconciliation.php`](test-reconciliation.php) — la reconciliación
+
+| ID | Caso | Esperado |
+| --- | --- | --- |
+| `REC-01` | Tomar el candado libre | Queda guardado con su vencimiento a 15 minutos, sin autocargar (ADR-009 §4) |
+| `REC-02` | Tomarlo cuando está tomado y sin vencer | No se toma, y no se pisa |
+| `REC-03` | Tomarlo vencido | Se toma: una reconciliación que murió a mitad no la apaga para siempre |
+| `REC-04` | Quien lo tomó lo suelta | Queda libre y se puede volver a tomar |
+| `REC-05` | **Uno que venció quiere soltar el de la que vino después** | No lo suelta |
+| `REC-06` | Preguntar si está tomado | Sí mientras no venció; no después |
+| `REC-07` | **Una caché vieja dice "vencido"** y en la base está vigente | No se toma: se lee de la base |
+| `REC-08` | Un valor ilegible en la opción | Se toma como vencido |
+| `REC-09` | Guardar el resultado y leerlo | Se lee como se guardó, sin autocargar (ADR-009 §7) |
+| `REC-10` | **Dos procesos toman el mismo candado vencido a la vez** | Gana uno: el `UPDATE` sólo pisa el valor vencido |
+
+Verificado rompiéndolo: sin mirar el vencimiento caen `REC-02` y `REC-07`; un `UPDATE` que no
+mira el valor vencido cae `REC-10`; un `DELETE` que no mira el valor propio cae `REC-05`;
+`is_taken()` sin mirar el vencimiento cae `REC-06`; leyendo de la caché cae `REC-07`; un valor
+ilegible tomado como vigente cae `REC-08`; autocargado cae `REC-01`; otro vencimiento caen
+`REC-01`, `REC-02` y `REC-06`.
+
 ## Cómo se prueba algo que no deja rastro en el estado final
 
 Tres casos de esta suite no se pueden verificar mirando cómo queda la base, porque lo que
@@ -742,7 +764,7 @@ la suite de WordPress abre para cada test.
 
 ## Lo que todavía no tiene tests
 
-- Del transporte, `GET /health`, el emparejamiento y `GET /products`; y todo `Reconciliation/`: no hay código todavía.
+- De la reconciliación, todo menos el candado y el resultado: las dos fases, quién la lanza y los vínculos de un solo lado (tareas 7.2 a 7.7).
 - Que el libro que crece sin techo —porque la otra tienda no vuelve nunca— se **avise**
   (UC-08). `purge()` ya lo deja crecer a propósito; el aviso va con el ADR del log.
 - La purga que consolida el stock base.

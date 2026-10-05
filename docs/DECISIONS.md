@@ -1285,6 +1285,9 @@ escriben los dos.
 ## ADR-003 — Desinstalación y borrado de datos
 
 Estado: Aprobada · 2026-09-20 · aprobada por Julián
+Revisado: 2026-10-05 — aprobado por Julián con ADR-009. Suma `wss_reconciling` y
+`wss_last_reconciliation`, el candado y el último resultado de la reconciliación. Se borran
+**siempre**: son estado de la sincronización, no datos del dueño.
 Revisado: 2026-10-02 — aprobado por Julián. Suma el transient `wss_send_failed`, que frena el
 envío al final del request después de un fallo (ADR-006 §5). Se borra **siempre**: es estado de
 la entrega, no un dato del dueño.
@@ -1316,6 +1319,7 @@ Ajustes → [ ] Borrar todos los datos al desinstalar     ← desmarcada de fáb
 | Almacén de nonces                         | se borra           | se borra        |
 | Hora del último control de la pasada      | se borra           | se borra        |
 | Último envío fallido (`wss_send_failed`)  | se borra           | se borra        |
+| Candado y último resultado de la reconciliación | se borra     | se borra        |
 | Código de un emparejamiento en curso      | se borra           | se borra        |
 | **Secreto compartido con la otra tienda** | **se borra**       | **se borra**    |
 

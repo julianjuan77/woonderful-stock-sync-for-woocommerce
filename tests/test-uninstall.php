@@ -269,4 +269,21 @@ class Test_Uninstall extends WP_UnitTestCase {
 
 		$this->assertFalse( get_transient( 'wss_send_failed' ) );
 	}
+
+	/**
+	 * El candado y el último resultado de la reconciliación son estado de la sincronización: se
+	 * van siempre (ADR-009, que revisa ADR-003).
+	 *
+	 * UNI-10
+	 */
+	public function test_the_reconciliation_state_is_always_deleted(): void {
+		update_option( self::OPTION_DELETE_ALL, false );
+		update_option( 'wss_reconciling', 'x|1', false );
+		update_option( 'wss_last_reconciliation', array( 'at' => 'x' ), false );
+
+		$this->run_uninstall();
+
+		$this->assertFalse( get_option( 'wss_reconciling', false ) );
+		$this->assertFalse( get_option( 'wss_last_reconciliation', false ) );
+	}
 }
