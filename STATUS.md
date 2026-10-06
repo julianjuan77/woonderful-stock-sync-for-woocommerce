@@ -164,7 +164,7 @@ es lo normal: loguearlo en cada pasada sería ruido.
 | 7.4 | Los vínculos armados de un solo lado (ADR-009 §8) | ✅ | `d3f3661` | `BOK-11`…`BOK-18`, `RCN-08`…`RCN-10`, `RCL-11`…`RCL-14`, `CLI-12` |
 | 7.5 | Fase 2: la cuenta, la confirmación a los 2 minutos y las cuatro columnas (ADR-010 §1–§5) | ✅ | `d16c5fc` | `AUD-01`…`AUD-13`, `SCH-15`, `RCL-15`, `RCL-16` |
 | 7.6 | La tercera pregunta, y `wp wss discrepancies`, `accept` y `restore` (ADR-010 §6–§7) | ✅ | `b156ddf` | `AUD-14`…`AUD-18`, `RCN-11`, `RCN-12`, `RCL-17`, `RCL-18`, `CLI-13`…`CLI-15` |
-| 7.7 | La purga nocturna: `Ledger::purge()` existe y nada la llama (ADR-004 §4) | ✅ | | `SCD-14`…`SCD-16` |
+| 7.7 | La purga nocturna: `Ledger::purge()` existe y nada la llama (ADR-004 §4) | ✅ | `e307214` | `SCD-14`…`SCD-16` |
 
 ### 8. La interfaz — `admin/`
 
