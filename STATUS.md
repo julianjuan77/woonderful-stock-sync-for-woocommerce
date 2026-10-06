@@ -34,8 +34,8 @@ make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS=
 
 ## 🔄 En progreso
 
-1.10: el ADR-011 —el log— está aprobado; falta el ADR-012, los avisos por email. Después, la
-interfaz (1.11).
+Nada. Los ADRs del log (ADR-011) y de los avisos (ADR-012) están aprobados: falta programarlos,
+el bloque 10. Lo que sigue espera un ADR: la interfaz (1.11).
 
 **Para probar entre dos tiendas:** `sandbox` (8150, maestra) y `sandbox-b` (8170) están
 emparejadas con rol. Con `DISABLE_WP_CRON` la pasada no corre sola: se dispara con
@@ -63,7 +63,7 @@ Leyenda: ✅ hecho · 🔄 en curso · ⬜ pendiente · 🔒 bloqueado
 | 1.7 | ADR-006 — El detector de cambios de stock | ✅ |
 | 1.8 | ADR-007 — Qué se hashea en la huella del sitio | ✅ |
 | 1.9 | ADR — Reconciliación (UC-06): las dos fases, el candado, el cierre de una importación. ADR-009 (fase 1) y ADR-010 (fase 2) | ✅ |
-| 1.10 | ADR — Log de acciones y avisos (UC-03, UC-08). El log en ADR-011 (aprobado); falta el de los avisos por email, ADR-012 | 🔄 |
+| 1.10 | ADR — Log de acciones y avisos (UC-03, UC-08). ADR-011 (el log) y ADR-012 (los avisos) | ✅ |
 | 1.11 | ADR — Interfaz (UC-05): pantalla de vinculación y de ajustes | ⬜ |
 
 ### 2. Cimientos
@@ -174,6 +174,19 @@ es lo normal: loguearlo en cada pasada sería ruido.
 | 8.1 | Pantalla de ajustes: emparejamiento, estado del canal, la casilla de borrado | 🔒 1.11 |
 | 8.2 | Pantalla de vinculación: sugerencias por SKU, vinculación masiva, estado por producto | 🔒 1.11 |
 
+### 10. El log y los avisos — `includes/Log/`
+
+| | Tarea | Estado | Commit | Tests |
+|---|---|---|---|---|
+| 10.1 | La tabla `wss_events` y `Log\Events::record()`: el texto se arma al mostrarlo, y si escribir falla no corta nada (ADR-011 §2, §7) | ⬜ | | |
+| 10.2 | El estado de la otra tienda en `wss_peer_state`: caída, rechazo —sin el 409— y vuelta, sólo el cambio (ADR-011 §4) | ⬜ | | |
+| 10.3 | Los eventos de cada pieza: vincular, fallar, desvincular, `link_unresolved`, `abandoned`, `ledger_error`, `reconciled`, las discrepancias, `link_removed` (ADR-011 §3, §7) | ⬜ | | |
+| 10.4 | El par roto: `broken_since` en `wss_links`, revisado de noche en cada tienda (ADR-011 §7) | ⬜ | | |
+| 10.5 | La purga de 90 días que respeta el descarte y lo avisado, y `wp wss log` (ADR-011 §6, §8) | ⬜ | | |
+| 10.6 | `Notifier`: el tick de cada minuto, las ventanas por causa, lo atribuido a la caída, el tope de 10 por día (ADR-012 §2, §4, §5) | ⬜ | | |
+| 10.7 | El resumen de la noche de lo que no sincroniza, una vez por producto (ADR-012 §3, §4) | ⬜ | | |
+| 10.8 | Las tres opciones y `wp wss notify`; el email que no sale (ADR-012 §6, §7) | ⬜ | | |
+
 ### 9. Publicación
 
 | | Tarea | Estado |
@@ -201,7 +214,8 @@ La fuente es `docs/DECISIONS.md`. Acá sólo el índice de las aprobadas.
 | ADR-008 | El bootstrap se manda en el momento; sólo vincula la maestra; se revisa que nada haya cambiado; un incierto se pregunta. Revisado el 2026-10-02: el bootstrap reemplaza un vínculo viejo de la secundaria | 2026-10-01 |
 | ADR-009 | Reconciliación, fase 1: las dos tiendas se pasan la lista de secuencias y cada una reencola lo propio que falta; el candado; quién la lanza; el cierre de una importación; los vínculos de un solo lado | 2026-10-05 |
 | ADR-010 | Reconciliación, fase 2: cada tienda compara su stock contra su propio libro; se confirma a los 2 minutos; cuatro columnas en `wss_links`; dos acciones para resolver. Corrige el SPEC UC-06 | 2026-10-05 |
-| ADR-011 | El log: una tabla `wss_events` para lo que no es un movimiento —acciones del dueño, intentos fallidos, caídas y rechazos de la otra tienda, reconciliaciones, discrepancias, pares rotos—; el texto se arma al mostrarlo; 90 días, salvo el descarte y lo ya avisado | 2026-10-06 |
+| ADR-011 | El log: una tabla `wss_events` para lo que no es un movimiento —acciones del dueño, intentos fallidos, caídas y rechazos de la otra tienda, reconciliaciones, discrepancias, pares rotos—; el texto se arma al mostrarlo; 90 días, salvo el descarte y lo ya avisado. Revisado el 2026-10-06: el 409 no es un rechazo, y `link_failed` dice si salió solo | 2026-10-06 |
+| ADR-012 | Los avisos por email: cada tienda de lo suyo; lo que no sincroniza en el resumen de la noche, una vez por producto; los errores en el momento; la caída y el rechazo a los 30 minutos; ventana de 10 minutos por causa; un tick por minuto; tope de 10 por día. Corrige el SPEC UC-08 | 2026-10-06 |
 
 El 2026-09-28 el SPEC §5 subió el mínimo de WooCommerce de 8.2 a 9.1: es la versión que trae
 el hook que estampa las cancelaciones (ADR-006 §2).

@@ -3116,6 +3116,9 @@ seguidas": evita alarmas por un instante.
 ## ADR-011 — El log: qué queda registrado y dónde
 
 Estado: Aprobada · 2026-10-06 · aprobada por Julián
+Revisado: 2026-10-06 — aprobado por Julián, con ADR-012. Un `409 wss_reconciling` no es
+un rechazo: la otra está ocupada. Y `link_failed` dice en `context` si salió de algo que corría
+solo. Ver §3 y §4.
 Temas: db-schema, uninstall, modulos
 Cubre: includes/Log/_.php, includes/Schema/Installer.php, includes/Cli/Command.php, uninstall.php
 
@@ -3179,7 +3182,7 @@ dice algo no obliga a migrar filas viejas.
 | `kind` | Cuándo |
 | --- | --- |
 | `linked` | Se vinculó un producto |
-| `link_failed` | **Un intento de vincular que falló**, con su motivo. Es lo que distingue un olvido de una falla |
+| `link_failed` | **Un intento de vincular que falló**, con su motivo. Es lo que distingue un olvido de una falla. `context` dice si salió de algo que corría solo —la pregunta por un bootstrap incierto, `background: true`— o de lo que el dueño estaba haciendo: el usuario no alcanza, porque WP-CLI sin `--user` y lo automático dan `NULL` los dos |
 | `unlinked` | Se desvinculó |
 | `discarded` · `undiscarded` | Se descartó la sugerencia de un producto, o se deshizo el descarte (UC-03; lo usa la pantalla, tarea 1.11) |
 | `discrepancy_accepted` · `discrepancy_restored` | Se resolvió una discrepancia con una de las dos acciones (ADR-010 §6) |
@@ -3213,6 +3216,10 @@ dice algo no obliga a migrar filas viejas.
 **Una caída es un error de red, un timeout o un 5xx.** Un 4xx no: la otra respondió y dijo que no
 —una firma mala, un reloj desfasado, un endpoint que no existe—. Eso es un **rechazo**, y no lo
 arregla esperar.
+
+**Salvo el `409 wss_reconciling`**: la otra está en medio de su propia reconciliación (ADR-009
+§4). Es normal —pasa si un cierre de importación coincide con la noche de la otra— y no cambia
+el estado.
 
 | Respuesta | Qué es | Se registra |
 | --- | --- | --- |
@@ -3338,3 +3345,216 @@ se nota hasta que alguien lo busca. Los tests de cada pieza tienen que mirar que
 | La pantalla del log y del historial | ADR de la interfaz (tarea 1.11), partiendo de `Logs.js` de woonderful-sync |
 | Las sugerencias por SKU y qué productos "no sincronizan" | ADR de la interfaz (tarea 1.11) |
 | Editar las líneas de un pedido deja el movimiento como `adjustment`, sin número de pedido | No es un evento que falte: es un límite del estampado (ADR-006 §2), y queda como deuda conocida en STATUS |
+
+---
+
+## ADR-012 — Los avisos por email
+
+Estado: Aprobada · 2026-10-06 · aprobada por Julián
+Temas: opciones, uninstall, modulos
+Cubre: includes/Log/Notifier.php, includes/Reconciliation/Schedule.php, includes/Cli/Command.php, uninstall.php
+
+### En pocas palabras
+
+**Cada tienda avisa de lo suyo**, por email, de lo que pasa cuando no hay nadie mirando (UC-08):
+
+- **Lo que no sincroniza**, en un resumen de la noche, una sola vez por producto.
+- **Los errores, en el momento**: una vinculación que falló sola, un par roto, la otra tienda
+  que no responde o que rechaza todo.
+- **Que la otra tienda volvió**, si se había avisado que no respondía.
+
+Lee del log (ADR-011): cada aviso sale de un evento que ya quedó registrado. Si no hay nada
+nuevo, no sale nada. El silencio es lo normal.
+
+---
+
+### 1. Quién avisa
+
+| Opción | Por qué sí o por qué no |
+| --- | --- |
+| **A — Cada tienda, de lo suyo** ✅ | Todo lo que necesita para avisar está en ella: sus productos, su log, el estado de la otra. No depende de que la otra conteste, y si se cae una, la otra avisa. Contra: dos tiendas, dos configuraciones, y puede llegar un email de cada una el mismo día |
+| B — Sólo la maestra, preguntándole a la secundaria | Un solo puesto, como el resto de la administración (SPEC §3). Pero necesita un endpoint nuevo para preguntar, y si la maestra se cae no avisa nadie, justo cuando más hace falta |
+
+### 2. Qué se avisa, y cuándo
+
+| Qué | Cuándo sale | De qué evento (ADR-011) |
+| --- | --- | --- |
+| **Lo que no sincroniza** | En el resumen de la noche | Se calcula: ver §3 |
+| **Una vinculación que falló sola** | En el momento | `link_failed` con `background: true` —un bootstrap que la pregunta de los 10 minutos dio por fallido— y `link_unresolved` |
+| **Un par roto** | Cuando se detecta: a la noche (ADR-011 §7), así que llega a la mañana | `pair_broken` |
+| **La otra tienda no responde** | **A los 30 minutos seguidos** sin responder | `peer_unreachable`, si a los 30 minutos sigue igual |
+| **La otra tienda rechaza todo** | **A los 30 minutos seguidos** rechazando, como la caída: un solo 4xx no es "rechaza todo" | `peer_rejected`, si a los 30 minutos sigue igual |
+| **La otra tienda volvió** | En el momento | `peer_back` o `peer_accepted`, **sólo si antes se avisó** que no respondía o rechazaba |
+
+**Lo que no se avisa por email:**
+
+- **Lo que pasa en una operación que el dueño está mirando.** Un intento de vincular que falla
+  desde el comando o la pantalla se lo dice el resultado, no el email (UC-08). Sólo se avisa
+  lo que descubre algo que corre solo: la pregunta por un bootstrap incierto, la noche, la
+  pasada.
+- **Las discrepancias**, los abandonos y los errores sueltos: viven en el log y en la pantalla
+  (UC-08, *fuera de este caso*).
+- **Nada que se atribuya a la caída o al rechazo de la otra.** Un evento con `cause:
+  peer_unreachable` o `cause: peer_rejected` —un `link_failed`, un `link_unresolved`, lo que sea—
+  no sale por email: ya se avisó la caída, una vez. Es lo que impide que una tienda caída
+  dispare un email por cada cosa que falla.
+
+#### Por qué 30 minutos y no 6 horas
+
+El SPEC decía que la otra tienda se da por caída cuando la cola agota los reintentos de un
+envío: a las 6 horas. Es tarde: en esas 6 horas la otra puede vender lo que ya no hay. Y avisar
+en el primer error es ruido: un corte de un minuto no merece un email.
+
+**30 minutos seguidos** separan las dos cosas. Un corte corto no avisa; una caída de verdad
+avisa a la media hora. Es una constante, no una opción, como los otros tiempos del plugin.
+
+El SPEC se corrige en el commit que apruebe este ADR.
+
+#### Quién mira el reloj: un tick cada minuto
+
+Un evento se escribe sólo cuando algo cambia (ADR-011 §4). Si después de la caída no pasa nada
+más, nadie vuelve a mirar a los 30 minutos, ni cierra la ventana de §4, ni reintenta un email
+que no salió. Así que **la pasada de cada minuto llama a `Notifier::tick()`**, que corre aunque
+no haya nada que mandar:
+
+- **Si la otra no está bien**, le pregunta a `GET /health` antes de decidir. La tienda le habla a
+  la otra sólo cuando tiene algo que mandar: sin ventas, el estado podría decir "caída" de una
+  tienda que volvió al minuto 2, y saldría un email falso a los 30. Y "volvió" esperaría hasta la
+  noche. Con la pregunta, el estado está al día cada minuto mientras no está bien. Cuando está
+  bien, el tick no pregunta nada: no agrega requests.
+- **Si lleva 30 minutos caída o rechazando** y no se avisó, avisa.
+- **Cierra las ventanas vencidas** de §4 y manda su resumen.
+- **Reintenta lo que no salió**, al cerrar su ventana (§7).
+
+El tick es barato cuando no hay nada: lee una opción y sale.
+
+### 3. Lo que no sincroniza
+
+Un producto de esta tienda entra en el resumen si:
+
+- **lleva su propio stock** y está publicado: uno que no lleva su stock no se puede sincronizar
+  por diseño (ADR-005);
+- **no está vinculado**;
+- **lleva más del plazo así** —24 horas por defecto—: desde que se creó, o desde que se
+  desvinculó si fue después;
+- **no está descartado** (UC-03);
+- y **todavía no se avisó** de él desde la última vez que quedó sin vincular.
+
+**Con sugerencia y sin sugerencia.** UC-08 pide separarlos, porque piden trabajos distintos.
+Las sugerencias por SKU son de la pantalla (tarea 1.11), y todavía no existen. **Hasta
+entonces, el resumen va en un solo grupo**; cuando estén, se separa con la misma función que use
+la pantalla, sin cambiar nada más.
+
+**El email:** cuántos nuevos y cuántos pendientes en total, y la lista de los nuevos —hasta 50;
+si hay más, "y otros N"—. Una instalación con 5.000 productos sin vincular manda un email con
+el total y 50 de ejemplo, y después silencio (UC-08).
+
+### 4. Una vez por producto, una vez por incidente
+
+**Lo que no sincroniza: "ya avisé" se guarda en el log**, como un evento `notified` de ese
+producto, que la purga no borra (ADR-011 §6). Vale hasta que el producto se vincula: si después
+se desvincula, es un problema nuevo y se puede volver a avisar (UC-08). Se compara el último
+`notified` con el último `unlinked`.
+
+**Los errores no necesitan nada guardado.** El log ya los escribe una vez por incidente —sólo
+el cambio, ADR-011 §4—, así que avisar de cada evento es avisar una vez por incidente. Una marca
+de "ya avisé" por causa que nunca se borrara apagaría la caída del mes siguiente: figuraría como
+avisada. Para los errores alcanza con la ventana de 10 minutos.
+
+**Por causa, con 10 minutos de silencio** (UC-08):
+
+```
+14:00:00  pair_broken, producto 12     → sale el email: "se rompió el par del 12"
+14:00:05  pair_broken, productos 13…300 → se juntan: la ventana de esa causa está abierta
+14:10:00  se cierra la ventana         → sale UN email: "se rompieron 289 pares más"
+```
+
+- **La primera de una causa sale en el momento.**
+- **Después, 10 minutos de silencio para esa causa**: lo que siga, se junta.
+- **Al cerrarse, sale un resumen** si se juntó algo, y la ventana se renueva.
+- **Una causa no tapa a otra**: cada una tiene su ventana.
+
+La ventana de cada causa y lo que se juntó viven en una opción, `wss_notify_state`, que se
+borra siempre al desinstalar.
+
+### 5. Un tope: 10 emails por día
+
+Todo lo de arriba está pensado para que no salgan emails de más. **El tope es la red por si algo
+de eso falla**: como mucho **10 emails por día** por tienda.
+
+```
+Una caída de 5 horas con 200 ventas:
+   200 ventas que no se pueden mandar       → 0 emails: no hay un evento por venta (ADR-011)
+   a los 30 minutos                         → 1: "la otra tienda no responde"
+   lo que se abandona mientras está caída   → 0: no se registra
+   la reconciliación de la noche no mira    → 0: va al log
+   vuelve                                   → 1: "volvió"
+                                              2 en total
+```
+
+Con el diseño, un día malo son unos pocos. El tope cubre lo que el diseño no previó: una tienda
+que se cae y vuelve muchas veces en el día —cada caída de más de 30 minutos avisaría—, o un error
+al programar que dispare avisos de más.
+
+**Al llegar al tope sale un último email** —"llegaron muchos avisos hoy, mirá el log"— y después
+silencio hasta el día siguiente, en la hora del sitio. Lo que no salió queda en el log. El costo
+es que un día muy malo puede tapar el aviso número 11; el email del tope dice dónde mirarlo.
+
+Es una constante, no una opción. La cuenta del día vive en `wss_notify_state`.
+
+### 6. La configuración
+
+Tres opciones por tienda:
+
+| Opción | Por defecto | Qué es |
+| --- | --- | --- |
+| `wss_notify_enabled` | Sí | Si se mandan emails. Apagado, **todo se sigue registrando** en el log (UC-08), pero **los errores no se guardan para después**: si se apagan tres meses, al encenderlos no tiene que llegar una caída que ya pasó. El resumen de lo que no sincroniza se pone al día solo, porque se calcula cada noche |
+| `wss_notify_email` | El email del administrador del sitio | A quién |
+| `wss_notify_after_hours` | 24 | El plazo de §3 |
+
+Hasta que exista la pantalla (tarea 1.11), se cambian por WP-CLI:
+`wp wss notify --enabled=no`, `wp wss notify --email=<dirección>`, `wp wss notify --after=<horas>`;
+y `wp wss notify` sin nada muestra cómo está.
+
+### 7. Si el email no sale
+
+`wp_mail()` puede fallar: un hosting sin correo configurado, por ejemplo. Entonces **no se
+da por avisado**: el tick lo reintenta cuando se cierra la ventana de esa causa, a los 10
+minutos —no cada minuto: con un hosting sin correo serían 1.440 intentos por día—. Lo que no
+sincroniza vuelve a entrar en el resumen de la noche siguiente. Y queda
+en el log como `notify_failed`, una vez por causa, para que la pantalla diga que los emails no
+están saliendo.
+
+### Qué cambia en otros ADRs y en el SPEC
+
+| Dónde | Qué cambia |
+| --- | --- |
+| SPEC, UC-08 | La otra tienda se da por no disponible a los 30 minutos seguidos sin responder, no al agotar los reintentos. "La otra tienda rechaza todo" se avisa igual que una caída. Un tope de 10 emails por día. La separación con sugerencia / sin sugerencia llega con la pantalla |
+| ADR-011 | Suma `notified` —sólo de productos, y la purga no lo borra— y `notify_failed`. Revisado: el `409 wss_reconciling` no es un rechazo, y `link_failed` dice en `context` si salió de algo que corría solo |
+| ADR-001 §2 | La pasada de cada minuto llama a `Notifier::tick()` |
+| ADR-003 | Las tres opciones son ajustes del dueño: se borran con la casilla marcada. `wss_notify_state` se borra siempre |
+
+### Lo que se vuelve más difícil
+
+Cada aviso depende de que el evento correcto esté en el log, con su causa: un evento que falta
+es un aviso que no sale, y nadie lo nota. Los tests tienen que probar cada aviso desde el evento
+que lo dispara.
+
+### Los riesgos que quedan
+
+- **Un día con más de 10 avisos tapa los que siguen**, hasta el día siguiente: quedan en el log,
+  y el último email lo dice.
+- **Una caída de menos de 30 minutos no se avisa.** Queda en el log, y la cola y la
+  reconciliación la reparan solas.
+- **Mientras la otra no está bien, el tick le pregunta cada minuto.** Es un request liviano, y
+  sólo mientras dura el problema.
+- **Un par roto se avisa a la mañana**, no en el momento: nada observa la papelera (ADR-011 §7).
+- **Si el email no sale y nadie mira el log**, nadie se entera. Es el límite de avisar por
+  email; la pantalla lo va a mostrar (tarea 1.11).
+
+### Lo que no cubre
+
+| Qué | Dónde va |
+| --- | --- |
+| Las sugerencias por SKU y el descarte | ADR de la interfaz (tarea 1.11) |
+| La pantalla de ajustes de estas tres opciones | ADR de la interfaz (tarea 1.11) |

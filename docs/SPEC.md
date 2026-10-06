@@ -1542,7 +1542,8 @@ pool cuando los vincula.
 
 ### UC-08 — Aviso por email de lo que no está sincronizando
 
-> Estado: Aprobada · 2026-09-13
+> Estado: Aprobada · 2026-09-13 · Revisado 2026-10-06: la caída a los 30 minutos, el
+> rechazo, el tope diario y cada tienda de lo suyo, según ADR-012
 
 Como dueño quiero enterarme por email de **cualquier** producto que no esté sincronizando,
 aunque el plugin no sepa con qué aparearlo, para no descubrirlo semanas después por una venta
@@ -1613,8 +1614,9 @@ entregan, las vinculaciones no se pueden fijar, la reconciliación no corre— y
 mirado de cerca, parece un problema de un producto. No lo es: es un problema **temporal y
 único**, y el producto no tiene nada de malo.
 
-Así que en cuanto la cola agota los reintentos de un envío (§3), el plugin da a la otra tienda
-por **no disponible** y a partir de ahí:
+Así que cuando la otra tienda lleva **30 minutos seguidos** sin responder, el plugin la da por
+**no disponible** (ADR-012 §2; antes decía "en cuanto la cola agota los reintentos", que son 6
+horas: en ese tiempo la otra puede vender lo que ya no hay) y a partir de ahí:
 
 - Sale **un** email: la otra tienda no responde desde tal hora, y qué queda en espera.
 - **Todo lo que falle por esa razón se atribuye a ella**, no se reporta como error propio del
@@ -1630,9 +1632,16 @@ descarta de raíz el caso peor: 4.800 vinculaciones fallando con la otra tienda 
 emails, porque el dueño está parado frente a la pantalla viéndolo. **El email es para lo que
 pasa cuando no hay nadie mirando.**
 
+Lo mismo vale si la otra **responde pero rechaza todo** —una firma mala después de re-emparejar
+mal—: se avisa a los 30 minutos seguidos, como una caída, aunque se registra como error propio.
+
+**Un tope de 10 emails por día** por tienda, como red por si algo de lo anterior falla: al
+llegar, sale un último aviso que remite al log, y silencio hasta el día siguiente (ADR-012 §5).
+
 El aviso de lo que no sincroniza se arma junto con la reconciliación nocturna y sale como un
 único resumen. El destinatario es configurable —por defecto el administrador del sitio— y la
-notificación se puede desactivar.
+notificación se puede desactivar. **Cada tienda avisa de lo suyo** (ADR-012 §1). Hasta que
+exista la pantalla con las sugerencias por SKU (UC-05), el resumen va en un solo grupo.
 
 **Criterios de aceptación:**
 

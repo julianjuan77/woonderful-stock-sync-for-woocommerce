@@ -582,3 +582,4 @@ Ver `DECISIONS.md`. Índice de las aprobadas:
 | ADR-009 | Reconciliación, fase 1: completar los libros | rest-api, opciones, uninstall, modulos |
 | ADR-010 | Reconciliación, fase 2: el stock contra el propio libro | db-schema, rest-api, modulos |
 | ADR-011 | El log: qué queda registrado y dónde | db-schema, uninstall, modulos |
+| ADR-012 | Los avisos por email | opciones, uninstall, modulos |
