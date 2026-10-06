@@ -24,7 +24,7 @@ git show 2668a7a --stat      # qué archivos tocó y cuántas líneas
 git show 2668a7a             # el diff completo
 ```
 
-Y para correr sólo los tests de una pieza, en vez de los 466:
+Y para correr sólo los tests de una pieza, en vez de los 472:
 
 ```bash
 make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS="--filter Test_Ledger"
@@ -183,13 +183,13 @@ es lo normal: loguearlo en cada pasada sería ruido.
 
 | | Tarea | Estado | Commit | Tests |
 |---|---|---|---|---|
-| 10.1 | La tabla `wss_events` y `Log\Events::record()`: el texto se arma al mostrarlo, y si escribir falla no corta nada (ADR-011 §2, §7) | ✅ | `84b8783` | `EVT-01`…`EVT-07`, `UNI-11` |
+| 10.1 | La tabla `wss_events` y `Log\Events::record()`: el texto se arma al mostrarlo, y si escribir falla no corta nada (ADR-011 §2, §7) | ✅ | `84b8783` | `EVT-01`…`EVT-07`, `UNI-11`, `EVT-08` |
 | 10.2 | El estado de la otra tienda en `wss_peer_state`: caída, rechazo —sin el 409— y vuelta, sólo el cambio (ADR-011 §4) | ✅ | `886f9ac` | `PER-01`…`PER-08` |
 | 10.3 | Los eventos de cada pieza: vincular, fallar, desvincular, `link_unresolved`, `abandoned`, `ledger_error`, `reconciled`, las discrepancias, `link_removed` (ADR-011 §3, §7) | ✅ | `c4cbdd9` | `LNK-12`…`LNK-15`, `SND-19`…`SND-21`, `BOK-19`, `RCN-13`, `RCL-19`, `AUD-20` |
 | 10.4 | El par roto: `broken_since` en `wss_links`, revisado de noche en cada tienda (ADR-011 §7) | ✅ | `f801f3b` | `PAI-01`…`PAI-04`, `SCD-18` |
 | 10.5 | La purga de 90 días que respeta el descarte y lo avisado, y `wp wss log` (ADR-011 §6, §8) | ✅ | `f801f3b` | `EVT-06`, `CLI-16`, `CLI-17`, `SCD-18` |
-| 10.6 | `Notifier`: el tick de cada minuto, las ventanas por causa, lo atribuido a la caída, el tope de 10 por día (ADR-012 §2, §4, §5) | ✅ | `f801f3b` | `NOT-01`…`NOT-12`, `PAS-09` |
-| 10.7 | El resumen de la noche de lo que no sincroniza, una vez por producto (ADR-012 §3, §4) | ✅ | `f801f3b` | `NOT-13`…`NOT-15`, `SCD-18` |
+| 10.6 | `Notifier`: el tick de cada minuto, las ventanas por causa, lo atribuido a la caída, el tope de 10 por día (ADR-012 §2, §4, §5) | ✅ | `f801f3b` | `NOT-01`…`NOT-12`, `PAS-09`, `NOT-16`, `NOT-19`, `NOT-20` |
+| 10.7 | El resumen de la noche de lo que no sincroniza, una vez por producto (ADR-012 §3, §4) | ✅ | `f801f3b` | `NOT-13`…`NOT-15`, `SCD-18`, `NOT-17`, `NOT-18` |
 | 10.8 | Las tres opciones y `wp wss notify`; el email que no sale (ADR-012 §6, §7) | ✅ | `f801f3b` | `NOT-11`, `NOT-12`, `CLI-18`, `CLI-19` |
 
 ### 9. Publicación
@@ -258,4 +258,5 @@ seguridad y convenciones de código.
 | El envío al final del request no se probó con PHP-FPM de verdad: los sitios de wp-restore corren Apache con mod_php, y ahí `Express` no manda. Los tests cubren la lógica; falta ver un pedido real salir en el `shutdown`. Y averiguar qué corren los servidores de las dos tiendas: con Apache y mod_php no se dispara nunca | 5.9 → con un sitio en PHP-FPM |
 | Un movimiento recibido **retenido** no sale nunca de ese estado: no hay nada que lo aplique cuando el par se restablece (SPEC §6, pregunta abierta). Mientras tanto, ese producto queda fuera de la fase 2 (`Audit::measure()`) | Revisión 2026-10-06 → sin ADR |
 | La suite tarda unos 6 minutos: cada test crea y borra las tablas, y en esta base esas operaciones de esquema son lentas. El log borra filas en vez de su tabla, lo que bajó de 7 y medio a 6. Bajarlo más pediría no recrear el esquema en cada test | Sesión 2026-10-06 |
+| Si la caída avisada pasa a ser un rechazo antes de volver, "volvió" no se avisa: el cambio a rechazo arranca un incidente nuevo, sin avisar todavía. Es raro, y se prefirió declararlo a complicar el estado | Revisión 2026-10-06 |
 | Infection sobre `Transport/`, que ya existe: necesita PCOV en la imagen de wp-restore | — |

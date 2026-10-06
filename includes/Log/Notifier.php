@@ -102,6 +102,9 @@ final class Notifier {
 			$state['windows'] = array();
 			self::save( $state );
 
+			// Tampoco una vuelta que quedó pendiente: al encender sería una noticia vieja.
+			Peer::take_back_pending();
+
 			return;
 		}
 
@@ -149,7 +152,7 @@ final class Notifier {
 		);
 
 		/* translators: %d: cuántos. */
-		$sent = self::send( $state, sprintf( __( '%d productos sin sincronizar', 'woonderful-stock-sync-for-woocommerce' ), count( $new ) ), $body, 'unsynced' );
+		$sent = self::send( $state, sprintf( __( '%d productos sin sincronizar', 'woonderful-stock-sync-for-woocommerce' ), count( $new ) ), $body, 'unsynced', $now );
 
 		self::save( $state );
 
@@ -199,7 +202,12 @@ final class Notifier {
 
 		$peer = Peer::current();
 
-		if ( Peer::OK !== $peer['state'] && ! $peer['notified'] && $now - $peer['since'] >= self::PEER_AFTER ) {
+		$due = Peer::OK !== $peer['state'] && ! $peer['notified'] && $now - $peer['since'] >= self::PEER_AFTER;
+
+		// Si el email no salió, se reintenta una vez por ventana, no cada minuto (ADR-012 §7).
+		if ( $due && $now - $peer['tried_at'] >= self::WINDOW ) {
+			Peer::mark_tried( $now );
+
 			$unreachable = Peer::UNREACHABLE === $peer['state'];
 			$since       = wp_date( 'Y-m-d H:i', $peer['since'] );
 
@@ -213,7 +221,8 @@ final class Notifier {
 						$since,
 						(string) $peer['error']
 					),
-					'peer'
+					'peer',
+					$now
 				)
 				: self::send(
 					$state,
@@ -224,7 +233,8 @@ final class Notifier {
 						$since,
 						(string) $peer['error']
 					),
-					'peer'
+					'peer',
+					$now
 				);
 
 			if ( $sent ) {
@@ -237,7 +247,8 @@ final class Notifier {
 				$state,
 				__( 'La otra tienda volvió', 'woonderful-stock-sync-for-woocommerce' ),
 				__( 'La otra tienda volvió a responder. Lo que quedó pendiente lo mandan la cola y la reconciliación: no hace falta hacer nada.', 'woonderful-stock-sync-for-woocommerce' ),
-				'peer'
+				'peer',
+				$now
 			);
 		}
 	}
@@ -311,7 +322,7 @@ final class Notifier {
 				continue;
 			}
 
-			$sent = self::send( $state, self::subject_for( (string) $cause, count( $pending ) ), self::body_for( (string) $cause, $pending ), (string) $cause );
+			$sent = self::send( $state, self::subject_for( (string) $cause, count( $pending ) ), self::body_for( (string) $cause, $pending ), (string) $cause, $now );
 
 			// Lo que no salió se reintenta al cerrarse la ventana siguiente, no cada minuto.
 			$state['windows'][ $cause ] = array(
@@ -331,11 +342,12 @@ final class Notifier {
 	 * @param string               $subject El asunto, sin el prefijo.
 	 * @param string               $body    El cuerpo.
 	 * @param string               $about   De qué es, para el log si falla.
+	 * @param int                  $now     Ahora: el día del tope sale de acá.
 	 *
 	 * @return bool Si se da por avisado: salió, o no sale por el tope.
 	 */
-	private static function send( array &$state, string $subject, string $body, string $about ): bool {
-		$today = wp_date( 'Y-m-d' );
+	private static function send( array &$state, string $subject, string $body, string $about, int $now ): bool {
+		$today = (string) wp_date( 'Y-m-d', $now );
 
 		if ( $state['day'] !== $today ) {
 			$state['day']    = $today;
@@ -361,11 +373,16 @@ final class Notifier {
 		}
 
 		if ( ! self::mail( $subject, $body ) ) {
-			Events::record( Events::NOTIFY_FAILED, Events::ERROR, null, array( 'about' => $about ) );
+			// Una vez por incidente: hasta que un email de esto salga, no se repite.
+			if ( ! isset( $state['failing'][ $about ] ) ) {
+				Events::record( Events::NOTIFY_FAILED, Events::ERROR, null, array( 'about' => $about ) );
+				$state['failing'][ $about ] = true;
+			}
 
 			return false;
 		}
 
+		unset( $state['failing'][ $about ] );
 		++$state['sent'];
 
 		return true;
@@ -524,7 +541,7 @@ final class Notifier {
 	/**
 	 * El estado de los avisos.
 	 *
-	 * @return array{cursor: int, windows: array<string, array<string, mixed>>, day: string, sent: int, capped: bool}
+	 * @return array{cursor: int, windows: array<string, array<string, mixed>>, day: string, sent: int, capped: bool, failing: array<string, bool>}
 	 */
 	private static function state(): array {
 		$stored = get_option( self::OPTION_STATE, array() );
@@ -536,6 +553,7 @@ final class Notifier {
 			'day'     => (string) ( $stored['day'] ?? '' ),
 			'sent'    => (int) ( $stored['sent'] ?? 0 ),
 			'capped'  => true === ( $stored['capped'] ?? false ),
+			'failing' => is_array( $stored['failing'] ?? null ) ? $stored['failing'] : array(),
 		);
 	}
 

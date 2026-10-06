@@ -56,6 +56,18 @@ class Test_Uninstall extends WP_UnitTestCase {
 				'delivery'       => 'confirmed',
 			)
 		);
+		$wpdb->insert(
+			Installer::table( 'events' ),
+			array(
+				'created_at' => gmdate( 'Y-m-d H:i:s' ),
+				'level'      => 'info',
+				'kind'       => 'linked',
+				'product'    => 123,
+			)
+		);
+		update_option( 'wss_notify_enabled', 'no', false );
+		update_option( 'wss_notify_email', 'deposito@example.org', false );
+		update_option( 'wss_notify_after_hours', 48, false );
 		update_option(
 			'wss_peers',
 			array(
@@ -78,7 +90,7 @@ class Test_Uninstall extends WP_UnitTestCase {
 			$wpdb->query( "DROP TABLE IF EXISTS {$table}" ); // phpcs:ignore WordPress.DB
 		}
 
-		foreach ( array( Installer::OPTION_VERSION, Store::OPTION_ID, Store::OPTION_LABEL, Store::OPTION_FINGERPRINT, 'wss_peers', self::OPTION_DELETE_ALL ) as $option ) {
+		foreach ( array( Installer::OPTION_VERSION, Store::OPTION_ID, Store::OPTION_LABEL, Store::OPTION_FINGERPRINT, 'wss_peers', self::OPTION_DELETE_ALL, 'wss_notify_enabled', 'wss_notify_email', 'wss_notify_after_hours' ) as $option ) {
 			delete_option( $option );
 		}
 
@@ -161,6 +173,7 @@ class Test_Uninstall extends WP_UnitTestCase {
 
 		$this->assertSame( 1, $this->count_rows( 'movements' ), 'el libro tiene que conservar sus filas' );
 		$this->assertSame( 1, $this->count_rows( 'links' ), 'los vínculos tienen que conservar sus filas' );
+		$this->assertSame( 1, $this->count_rows( 'events' ), 'el log tiene que conservar sus filas' );
 	}
 
 	/**
@@ -177,6 +190,10 @@ class Test_Uninstall extends WP_UnitTestCase {
 		$this->assertSame( Installer::SCHEMA_VERSION, (int) get_option( Installer::OPTION_VERSION ) );
 		$this->assertSame( Store::fingerprint(), get_option( Store::OPTION_FINGERPRINT ) );
 		$this->assertNotFalse( get_option( Store::OPTION_LABEL, false ) );
+
+		foreach ( array( 'wss_notify_enabled', 'wss_notify_email', 'wss_notify_after_hours' ) as $option ) {
+			$this->assertNotFalse( get_option( $option, false ), $option . ' es un ajuste del dueño' );
+		}
 	}
 
 	/**
@@ -217,10 +234,6 @@ class Test_Uninstall extends WP_UnitTestCase {
 	 */
 	public function test_every_option_goes_when_the_box_is_checked(): void {
 		update_option( self::OPTION_DELETE_ALL, true );
-
-		foreach ( array( 'wss_notify_enabled', 'wss_notify_email', 'wss_notify_after_hours' ) as $option ) {
-			update_option( $option, 'x', false );
-		}
 
 		$this->run_uninstall();
 

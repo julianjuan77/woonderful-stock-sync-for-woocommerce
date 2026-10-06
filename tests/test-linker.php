@@ -458,7 +458,6 @@ class Test_Linker extends WP_UnitTestCase {
 	 */
 	public function test_a_failed_attempt_during_an_outage_is_attributed_to_it(): void {
 		Peer::observe( new WP_Error( 'http_request_failed', 'x' ) );
-		Peer::observe( new WP_Error( 'http_request_failed', 'x' ) );
 
 		$this->other = static fn () => self::reply( 500, array() );
 		Linker::link( $this->product( 10 ), 900, 10, 7 );

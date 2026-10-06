@@ -15,7 +15,9 @@ use Woonderful\StockSync\Log\Peer;
 use Woonderful\StockSync\Reconciliation\Remote;
 use Woonderful\StockSync\Schema\Installer;
 use Woonderful\StockSync\Transport\Catalog;
+use Woonderful\StockSync\Transport\Pairing;
 use Woonderful\StockSync\Transport\Peers;
+use Woonderful\StockSync\Transport\Signature;
 use Woonderful\StockSync\Transport\Sender;
 
 /**
@@ -38,6 +40,13 @@ class Test_Peer extends WP_UnitTestCase {
 	 * @var string[]
 	 */
 	private array $urls = array();
+
+	/**
+	 * Los argumentos de cada request.
+	 *
+	 * @var array<int, array<string, mixed>>
+	 */
+	private array $args = array();
 
 	public function set_up(): void {
 		parent::set_up();
@@ -98,6 +107,7 @@ class Test_Peer extends WP_UnitTestCase {
 	 */
 	public function intercept( $preempt, array $args, string $url ) {
 		$this->urls[] = $url;
+		$this->args[] = $args;
 
 		return $this->reply;
 	}
@@ -147,7 +157,13 @@ class Test_Peer extends WP_UnitTestCase {
 	 */
 	public function test_an_outage_is_recorded_once(): void {
 		Peer::observe( new WP_Error( 'http_request_failed', 'cURL error 28' ) );
+
+		// El "desde" atrasado: así, uno que se moviera con cada respuesta se notaría.
+		$stored          = get_option( Peer::OPTION );
+		$stored['since'] = time() - 600;
+		update_option( Peer::OPTION, $stored, false );
 		$since = Peer::current()['since'];
+
 		Peer::observe( $this->http( 503, array() ) );
 		Peer::observe( new WP_Error( 'http_request_failed', 'cURL error 7' ) );
 
@@ -179,6 +195,11 @@ class Test_Peer extends WP_UnitTestCase {
 		Peer::observe( $this->http( 409, array( 'code' => 'wss_reconciling' ) ) );
 
 		$this->assertSame( Peer::OK, Peer::current()['state'] );
+
+		Peer::observe( $this->http( 503, array() ) );
+		Peer::observe( $this->http( 409, array( 'code' => 'wss_reconciling' ) ) );
+
+		$this->assertSame( Peer::UNREACHABLE, Peer::current()['state'], 'tampoco dice que volvió' );
 
 		Peer::observe( $this->http( 409, array( 'code' => 'otro' ) ) );
 
@@ -228,7 +249,12 @@ class Test_Peer extends WP_UnitTestCase {
 
 		Peer::probe();
 
+		$headers = $this->args[0]['headers'];
+
 		$this->assertSame( array( 'https://otra.test/wp-json/wss/v1/health' ), $this->urls );
+		$this->assertSame( 'GET', $this->args[0]['method'] );
+		$this->assertSame( Pairing::CALLBACK_TIMEOUT, $this->args[0]['timeout'], 'corto: el tick pregunta cada minuto' );
+		$this->assertTrue( Signature::verify( 'secreto-de-prueba', 'GET', Peer::HEALTH_ROUTE, array(), (int) $headers['X-WSS-Timestamp'], $headers['X-WSS-Nonce'], '', $headers['X-WSS-Signature'], time() ) );
 		$this->assertSame( Peer::UNREACHABLE, Peer::current()['state'] );
 	}
 

@@ -268,9 +268,9 @@ class Test_Notifier extends WP_UnitTestCase {
 	 * está bien, el tick le pregunta a la otra.
 	 */
 	public function test_an_outage_is_mailed_after_thirty_minutes_once(): void {
-		$now = time();
-
 		Peer::observe( new WP_Error( 'http_request_failed', 'cURL error 28' ) );
+
+		$now = Peer::current()['since'];
 
 		Notifier::tick( $now + Notifier::PEER_AFTER - 60 );
 		$this->assertSame( array(), $this->mails, 'un corte corto no avisa' );
@@ -329,7 +329,8 @@ class Test_Notifier extends WP_UnitTestCase {
 	 * después nada hasta el día siguiente (ADR-012 §5).
 	 */
 	public function test_there_is_a_daily_cap(): void {
-		$now = time();
+		// A las 10 de la mañana del sitio: las pasadas del test no cruzan la medianoche.
+		$now = ( new DateTimeImmutable( 'today 10:00', wp_timezone() ) )->getTimestamp();
 
 		for ( $i = 0; $i < 15; $i++ ) {
 			$this->background_failure( 100 + $i );
@@ -338,6 +339,12 @@ class Test_Notifier extends WP_UnitTestCase {
 
 		$this->assertCount( Notifier::DAILY_CAP + 1, $this->mails );
 		$this->assertStringContainsString( 'Muchos avisos', end( $this->mails )['subject'] );
+
+		// Al día siguiente, la cuenta vuelve a cero.
+		$this->background_failure( 200 );
+		Notifier::tick( $now + DAY_IN_SECONDS );
+
+		$this->assertCount( Notifier::DAILY_CAP + 2, $this->mails );
 	}
 
 	/**
@@ -345,14 +352,29 @@ class Test_Notifier extends WP_UnitTestCase {
 	 * llega lo de antes.
 	 */
 	public function test_disabled_sends_nothing_and_keeps_nothing(): void {
+		$now = time();
+
+		// Algo que quedó juntado en una ventana antes de apagar, y una vuelta pendiente.
+		$this->background_failure( 7 );
+		Notifier::tick( $now );
+		$this->background_failure( 6 );
+		Notifier::tick( $now + 60 );
+		$this->assertCount( 1, $this->mails );
+
+		Peer::observe( new WP_Error( 'http_request_failed', 'x' ) );
+		Peer::mark_notified();
+		Peer::observe( $this->http( 200 ) );
+
 		update_option( Notifier::OPTION_ENABLED, 'no' );
 		$this->background_failure( 8 );
-		Notifier::tick();
+		Notifier::tick( $now + 120 );
+		$this->product( 30 );
+		Notifier::digest( $now + 120 );
 
 		update_option( Notifier::OPTION_ENABLED, 'yes' );
-		Notifier::tick();
+		Notifier::tick( $now + Notifier::WINDOW * 2 );
 
-		$this->assertSame( array(), $this->mails );
+		$this->assertCount( 1, $this->mails, 'ni lo juntado, ni lo de apagado, ni la vuelta vieja, ni el resumen' );
 	}
 
 	/**
@@ -386,6 +408,11 @@ class Test_Notifier extends WP_UnitTestCase {
 
 		$this->assertSame( 'deposito@example.org', Notifier::recipient() );
 		$this->assertSame( 48, Notifier::after_hours() );
+
+		$this->product( 30 );
+		Notifier::digest();
+
+		$this->assertSame( array(), $this->mails, '30 horas no llegan al plazo de 48' );
 	}
 
 	/**
@@ -449,5 +476,100 @@ class Test_Notifier extends WP_UnitTestCase {
 		Notifier::digest();
 
 		$this->assertCount( 2, $this->mails );
+	}
+
+	/**
+	 * NOT-16 — Un bootstrap que no se puede resolver, sin causa, se avisa en el momento.
+	 */
+	public function test_an_unresolved_bootstrap_is_mailed(): void {
+		Events::record( Events::LINK_UNRESOLVED, Events::WARNING, 9 );
+
+		Notifier::tick();
+
+		$this->assertCount( 1, $this->mails );
+		$this->assertStringContainsString( '(#9)', $this->mails[0]['message'] );
+	}
+
+	/**
+	 * NOT-17 — **Si el email del resumen no sale, no se da por avisado**: la noche siguiente lo
+	 * lista.
+	 */
+	public function test_a_failed_digest_is_not_marked_as_notified(): void {
+		$product          = $this->product( 30 );
+		$this->mail_works = false;
+		Notifier::digest();
+
+		$this->mail_works = true;
+		Notifier::digest();
+
+		$this->assertCount( 1, $this->mails );
+		$this->assertStringContainsString( "(#{$product})", $this->mails[0]['message'] );
+	}
+
+	/**
+	 * NOT-18 — Deshacer un descarte lo vuelve a poner en el resumen.
+	 */
+	public function test_undiscarding_brings_it_back(): void {
+		$product = $this->product( 30 );
+		Events::record( Events::DISCARDED, Events::INFO, $product );
+		Events::record( Events::UNDISCARDED, Events::INFO, $product );
+
+		Notifier::digest();
+
+		$this->assertStringContainsString( "(#{$product})", $this->mails[0]['message'] );
+	}
+
+	/**
+	 * NOT-19 — **Si el email de la caída no sale, se reintenta una vez por ventana**, no cada
+	 * minuto, y el fallo queda en el log una sola vez (ADR-012 §7).
+	 */
+	public function test_a_failed_outage_email_is_retried_per_window(): void {
+		Peer::observe( new WP_Error( 'http_request_failed', 'x' ) );
+		$now              = Peer::current()['since'] + Notifier::PEER_AFTER;
+		$attempts         = 0;
+		$count            = static function ( $short ) use ( &$attempts ) {
+			++$attempts;
+
+			return $short;
+		};
+		$this->mail_works = false;
+
+		add_filter( 'pre_wp_mail', $count, 5 );
+		for ( $minute = 0; $minute < 15; $minute++ ) {
+			Notifier::tick( $now + $minute * 60 );
+		}
+		remove_filter( 'pre_wp_mail', $count, 5 );
+
+		$this->assertSame( 2, $attempts, 'a los 0 y a los 10 minutos' );
+		$this->assertCount( 1, Events::list( array( 'kind' => Events::NOTIFY_FAILED ) )['items'] );
+
+		$this->mail_works = true;
+		Notifier::tick( $now + 20 * 60 );
+
+		$this->assertCount( 1, $this->mails );
+	}
+
+	/**
+	 * NOT-20 — Con el correo roto, el fallo de una causa queda en el log una vez por incidente,
+	 * no una por ventana; si después sale, un fallo nuevo vuelve a registrarse.
+	 */
+	public function test_a_failed_email_is_logged_once_per_incident(): void {
+		$now              = time();
+		$this->mail_works = false;
+
+		$this->background_failure( 8 );
+		Notifier::tick( $now );
+		Notifier::tick( $now + Notifier::WINDOW );
+		Notifier::tick( $now + Notifier::WINDOW * 2 );
+
+		$this->assertCount( 1, Events::list( array( 'kind' => Events::NOTIFY_FAILED ) )['items'] );
+
+		$this->mail_works = true;
+		Notifier::tick( $now + Notifier::WINDOW * 3 );
+		$this->mail_works = false;
+		$this->background_failure( 9 );
+		Notifier::tick( $now + Notifier::WINDOW * 4 );
+
+		$this->assertCount( 2, Events::list( array( 'kind' => Events::NOTIFY_FAILED ) )['items'] );
 	}
 }

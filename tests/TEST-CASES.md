@@ -198,10 +198,10 @@ mientras escribía la función.
 | `SCH-05` | Dos veces el mismo `(origin_store, origin_seq)` | El segundo lo rechaza la base |
 | `SCH-06` | La misma secuencia de dos tiendas distintas | Los dos entran |
 | `SCH-07` | `maybe_upgrade()` con la versión al día | No ejecuta ninguna consulta |
-| `SCH-08` | `maybe_upgrade()` con la versión atrasada | Reinstala las tres tablas **por nombre** y deja la versión al día |
-| `SCH-09` | **Cada una** de las tres tablas pasada a MyISAM | `unhealthy_tables()` la nombra |
+| `SCH-08` | `maybe_upgrade()` con la versión atrasada | Reinstala las cuatro tablas **por nombre** y deja la versión al día |
+| `SCH-09` | **Cada una** de las cuatro tablas pasada a MyISAM | `unhealthy_tables()` la nombra |
 | `SCH-10` | Las cuatro definiciones SQL | Declaran `ENGINE=InnoDB` explícito, no el default del host |
-| `SCH-11` | **Cada una** de las tres tablas borrada | `unhealthy_tables()` la nombra: se busca por ausencia, no entre lo que devuelve `information_schema` |
+| `SCH-11` | **Cada una** de las cuatro tablas borrada | `unhealthy_tables()` la nombra: se busca por ausencia, no entre lo que devuelve `information_schema` |
 | `SCH-12` | Las opciones que se leen en cada request | Están autocargadas, leído de la columna `autoload` |
 | `SCH-13` | Sin resultado guardado —un sitio que actualiza desde antes del control— | Mira las tablas una vez, en vez de dar por buena la ausencia del dato |
 | `SCH-14` | El esquema está roto y no había resultado guardado | El resultado **malo** queda guardado: con un booleano no se guardaba y la consulta cara se repetía en cada request |
@@ -268,9 +268,9 @@ varios tests sin chocar.
 |---|---|---|
 | `UNI-01` | Casilla en falso | El secreto de `wss_peers` se va; la URL y el identificador quedan |
 | `UNI-02` | Casilla en falso | Sólo se borra la tabla de nonces, y el libro, los vínculos y el log **conservan sus filas** |
-| `UNI-03` | Casilla en falso | Quedan la identidad, la versión de esquema, la huella y la etiqueta |
+| `UNI-03` | Casilla en falso | Quedan la identidad, la versión de esquema, la huella, la etiqueta y las tres opciones de los avisos |
 | `UNI-04` | Casilla marcada | No queda ninguna tabla |
-| `UNI-05` | Casilla marcada | No queda ninguna de las siete opciones |
+| `UNI-05` | Casilla marcada | No queda ninguna de las diez opciones |
 | `UNI-06` | **Casilla nunca tocada** — el estado de fábrica | No se borra nada: es el caso del dueño que nunca abrió los ajustes |
 | `UNI-07` | Desinstalar conservando los datos | La hora del control de la pasada se va igual: no es un dato del dueño |
 | `UNI-08` | Desinstalar conservando los datos, con un código de emparejamiento vivo de cada lado | Los dos se van: son una credencial |
@@ -932,6 +932,7 @@ visto cae `AUD-17`; sin la tercera pregunta caen `RCL-17` y `RCL-18`; ignorando 
 | `EVT-05` | **Movimientos del libro y eventos de un producto, y de otro** | Una sola línea de tiempo, sólo de ese producto (UC-03) |
 | `EVT-06` | **Eventos de hace 91 días: uno común, un descarte, un deshacer, un aviso; y uno de hace 89** | La purga borra sólo el común (ADR-011 §6) |
 | `EVT-07` | Cada tipo | Tiene su frase, no el nombre interno |
+| `EVT-08` | Un movimiento recibido de la otra para el producto | Entra en su historial, por el vínculo |
 
 Verificado rompiéndolo: guardando el usuario 0 cae `EVT-01`; sin restaurar los errores cae
 `EVT-03`; purgando todo cae `EVT-06`; el historial sin el libro cae `EVT-05`; en orden viejo o
@@ -942,12 +943,12 @@ sin el filtro de causa cae `EVT-04`.
 | ID | Caso | Esperado |
 | --- | --- | --- |
 | `PER-01` | Un 200 | Nada al log |
-| `PER-02` | **Un error de red, un 503, otro error** | Una sola `peer_unreachable`, y el "desde" no se mueve (ADR-011 §4) |
+| `PER-02` | **Un error de red, un 503, otro error, con el "desde" atrasado** | Una sola `peer_unreachable`, y el "desde" no se mueve (ADR-011 §4) |
 | `PER-03` | Un 401 `wss_bad_signature` | `peer_rejected`, como `error`: no es una caída |
-| `PER-04` | **Un `409 wss_reconciling`**, y otro 409 | El primero no cambia nada; el segundo es un rechazo |
+| `PER-04` | **Un `409 wss_reconciling`** con la otra bien y con la otra caída, y otro 409 | El `wss_reconciling` no cambia nada, ni dice que volvió; el otro es un rechazo |
 | `PER-05` | Caída y vuelta; rechazo avisado y vuelta | `peer_back` o `peer_accepted`; "volvió" queda pendiente de avisar sólo si se avisó lo anterior, y una vez |
 | `PER-06` | La causa | Nada, `peer_unreachable` o `peer_rejected`, según el estado |
-| `PER-07` | Preguntarle si anda | Un `GET /health`, y anota lo que conteste |
+| `PER-07` | Preguntarle si anda | Un `GET /health` **firmado**, con 10 segundos de espera, y anota lo que conteste |
 | `PER-08` | **El envío, el catálogo, la reconciliación y la pregunta por un bootstrap** | Los cuatro anotan el estado |
 
 Verificado rompiéndolo: sin la excepción del 409 cae `PER-04`; escribiendo en cada respuesta caen
@@ -983,13 +984,18 @@ Los emails se atrapan con `pre_wp_mail`; `GET /health` lo contesta el test.
 | `NOT-06` | **La caída, y la otra volvió sin que nadie le hablara** | El tick le pregunta y no sale un aviso de caída falso |
 | `NOT-07` | La caída avisada, y vuelve | "Volvió" |
 | `NOT-08` | Un rechazo de 30 minutos | Su propio aviso |
-| `NOT-09` | **15 avisos en un día** | 10, y uno último que remite al log; después nada (ADR-012 §5) |
-| `NOT-10` | **Apagado, una falla, y se enciende** | Nada: lo de antes no queda para después |
+| `NOT-09` | **15 avisos en un día, y uno al día siguiente** | 10, y uno último que remite al log; después nada, hasta el día siguiente (ADR-012 §5) |
+| `NOT-10` | **Apagado con algo juntado en una ventana y una vuelta pendiente; una falla y un resumen; y se enciende** | Nada de eso sale: lo de antes no queda para después |
 | `NOT-11` | **`wp_mail()` falla** | `notify_failed` una vez; se reintenta al cerrarse la ventana, no cada minuto |
-| `NOT-12` | El destinatario y el plazo | Se configuran |
+| `NOT-12` | El destinatario y el plazo, y un producto de 30 horas con plazo de 48 | Se configuran, y el producto no entra en el resumen |
 | `NOT-13` | **Sin vincular, vinculado, sin stock propio, descartado, recién creado; dos noches** | Un solo resumen, sólo con el sin vincular (ADR-012 §3) |
 | `NOT-14` | Al día siguiente, uno nuevo | Lista sólo el nuevo, y el total |
 | `NOT-15` | **Avisado, y después desvinculado** | Se vuelve a avisar pasado el plazo desde que se desvinculó |
+| `NOT-16` | Un `link_unresolved` sin causa | Se avisa en el momento |
+| `NOT-17` | **El resumen con el correo roto, y la noche siguiente andando** | No se da por avisado: la noche siguiente lo lista |
+| `NOT-18` | Descartado y después deshecho el descarte | Vuelve al resumen |
+| `NOT-19` | **El email de la caída falla durante 15 minutos** | Dos intentos —a los 0 y a los 10—, un solo `notify_failed`, y sale cuando el correo anda (ADR-012 §7) |
+| `NOT-20` | **El correo roto durante tres ventanas, después anda, y se rompe de nuevo** | Un `notify_failed` por incidente, no por ventana |
 
 Verificado rompiéndolo: avisando lo que el dueño miraba cae `NOT-01`; lo atribuido a la caída,
 `NOT-03`; sin la ventana, `NOT-02` y `NOT-11`; sin los 30 minutos, `NOT-05`; avisando la caída
@@ -998,7 +1004,11 @@ tope, `NOT-09`; guardando lo de apagado, `NOT-10`; reintentando cada minuto, `NO
 el resumen, `NOT-13` y `NOT-14`; sin el descarte o sin el plazo, `NOT-13`; sin mirar el último
 desvínculo, `NOT-15`; registrando el par roto cada noche, `PAI-02`; sin la vuelta, `PAI-03`; la
 noche sin pares, sin resumen o sin purgar el log, `SCD-18`; la pasada sin el tick, `PAS-09`;
-`notify` sin validar el email, `CLI-19`.
+`notify` sin validar el email, `CLI-19`. Después de la revisión: reintentando la caída cada
+minuto cae `NOT-19`; el día del reloj real, `NOT-09`; un `notify_failed` por intento, `NOT-20`;
+una vuelta vieja con los avisos apagados, `NOT-10`; sin `link_unresolved`, `NOT-16`; el resumen
+marcado sin mandarse, `NOT-17`; la pregunta a `/health` sin firma, `PER-07`; el plazo fijo,
+`NOT-12`.
 
 ## Cómo se prueba algo que no deja rastro en el estado final
 

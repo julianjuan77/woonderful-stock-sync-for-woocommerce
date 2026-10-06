@@ -186,4 +186,21 @@ class Test_Events extends WP_UnitTestCase {
 			$this->assertNotSame( $kind, $sentence, $kind );
 		}
 	}
+
+	/**
+	 * EVT-08 — El historial incluye lo recibido de la otra tienda para ese producto, por su
+	 * vínculo.
+	 */
+	public function test_the_history_includes_received_movements(): void {
+		global $wpdb;
+
+		$link = (int) \Woonderful\StockSync\Linking\Links::create( 12, 'b1b1b1b1-0000-4000-8000-000000000000', 900, 1, 10 );
+		$wpdb->insert( Installer::table( 'movements' ), array( 'origin_store' => 'b1b1b1b1-0000-4000-8000-000000000000', 'origin_seq' => 5, 'generation' => 1, 'delta' => -3, 'reason' => 'sale', 'created_at' => '2026-10-01 10:00:00', 'link_id' => $link, 'origin_product' => 900, 'application' => 'applied' ) ); // phpcs:ignore WordPress.DB, WordPress.Arrays.ArrayDeclarationSpacing.AssociativeArrayFound
+
+		$history = Events::history( 12 );
+
+		$this->assertCount( 1, $history );
+		$this->assertFalse( $history[0]['own'] );
+		$this->assertSame( -3, $history[0]['delta'] );
+	}
 }

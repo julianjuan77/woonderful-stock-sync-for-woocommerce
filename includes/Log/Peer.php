@@ -10,8 +10,8 @@ declare( strict_types = 1 );
 namespace Woonderful\StockSync\Log;
 
 use Woonderful\StockSync\Identity\Store;
+use Woonderful\StockSync\Transport\Pairing;
 use Woonderful\StockSync\Transport\Peers;
-use Woonderful\StockSync\Transport\Sender;
 use Woonderful\StockSync\Transport\Signature;
 
 defined( 'ABSPATH' ) || exit;
@@ -91,7 +91,7 @@ final class Peer {
 	/**
 	 * El estado guardado.
 	 *
-	 * @return array{state: string, since: int, error: string|null, notified: bool, back_pending: bool}
+	 * @return array{state: string, since: int, error: string|null, notified: bool, back_pending: bool, tried_at: int}
 	 */
 	public static function current(): array {
 		$stored = get_option( self::OPTION, array() );
@@ -103,6 +103,7 @@ final class Peer {
 			'error'        => is_string( $stored['error'] ?? null ) ? $stored['error'] : null,
 			'notified'     => true === ( $stored['notified'] ?? false ),
 			'back_pending' => true === ( $stored['back_pending'] ?? false ),
+			'tried_at'     => (int) ( $stored['tried_at'] ?? 0 ),
 		);
 	}
 
@@ -140,11 +141,25 @@ final class Peer {
 				untrailingslashit( $peer['rest_url'] ) . '/health',
 				array(
 					'headers'     => Signature::headers( Store::id(), $peer['secret'], 'GET', self::HEALTH_ROUTE, array(), '' ),
-					'timeout'     => Sender::TIMEOUT,
+					// Corto: mientras la otra está caída, el tick pregunta cada minuto.
+					'timeout'     => Pairing::CALLBACK_TIMEOUT,
 					'redirection' => 0,
 				)
 			)
 		);
+	}
+
+	/**
+	 * Anota cuándo se intentó avisar el estado actual: si el email no sale, no se reintenta
+	 * antes de una ventana (ADR-012 §7).
+	 *
+	 * @param int $now Ahora.
+	 */
+	public static function mark_tried( int $now ): void {
+		$state             = self::current();
+		$state['tried_at'] = $now;
+
+		update_option( self::OPTION, $state, false );
 	}
 
 	/**
