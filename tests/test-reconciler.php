@@ -140,6 +140,20 @@ class Test_Reconciler extends WP_UnitTestCase {
 			);
 		}
 
+		if ( Reconcile::AUDIT === $step ) {
+			return $this->reply(
+				200,
+				$this->other['answer_audit'] ?? array(
+					'audit' => array(
+						'checked'   => 0,
+						'closed'    => 0,
+						'suspected' => 0,
+					),
+					'open'  => array(),
+				)
+			);
+		}
+
 		if ( Reconcile::LINKS === $step ) {
 			return $this->reply(
 				200,
@@ -615,5 +629,51 @@ class Test_Reconciler extends WP_UnitTestCase {
 		$result = Reconciler::run( Result::NIGHTLY );
 
 		$this->assertArrayNotHasKey( 'audit', $result['details'] );
+	}
+
+	/**
+	 * RCL-17 — **La tercera pregunta trae la fase 2 de la otra**: sus discrepancias abiertas
+	 * quedan en el resultado, para mostrarlas juntas.
+	 */
+	public function test_the_third_question_brings_the_other_discrepancies(): void {
+		$open = array(
+			'product'  => 456,
+			'expected' => 50,
+			'found'    => 47,
+			'since'    => '2026-10-01 03:00:00',
+			'seen_at'  => '2026-10-05 03:00:00',
+		);
+
+		$this->other['answer_audit'] = array(
+			'audit' => array(
+				'checked'   => 3,
+				'closed'    => 0,
+				'suspected' => 1,
+			),
+			'open'  => array( $open ),
+		);
+
+		$result = Reconciler::run( Result::NIGHTLY );
+
+		$audit = $this->asked( Reconcile::AUDIT );
+
+		$this->assertCount( 1, $audit );
+		$this->assertSame( $result['details']['session'], $audit[0]['session'] );
+		$this->assertSame( array( $open ), $result['details']['peer_discrepancies'] );
+		$this->assertSame( 3, $result['details']['peer_audit']['checked'] );
+	}
+
+	/**
+	 * RCL-18 — Si falla sólo la tercera, la fase 2 propia corre igual, y el resultado dice dónde
+	 * se cortó.
+	 */
+	public function test_a_failure_in_the_third_question_keeps_the_own_audit(): void {
+		$this->other['fail'] = Reconcile::AUDIT;
+
+		$result = Reconciler::run( Result::NIGHTLY );
+
+		$this->assertSame( Result::UNREACHABLE, $result['outcome'] );
+		$this->assertSame( 'audit', $result['details']['stage'] );
+		$this->assertArrayHasKey( 'audit', $result['details'] );
 	}
 }

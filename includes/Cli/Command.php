@@ -13,6 +13,7 @@ use Woonderful\StockSync\Linking\Linker;
 use Woonderful\StockSync\Linking\State;
 use Woonderful\StockSync\Ledger\Ledger;
 use Woonderful\StockSync\Plugin;
+use Woonderful\StockSync\Reconciliation\Audit;
 use Woonderful\StockSync\Reconciliation\Reconciler;
 use Woonderful\StockSync\Reconciliation\Result;
 use Woonderful\StockSync\Transport\Pairing;
@@ -254,5 +255,89 @@ final class Command {
 		}
 
 		\WP_CLI::success( __( 'Reconciliadas.', 'woonderful-stock-sync-for-woocommerce' ) );
+	}
+
+	/**
+	 * Lista las discrepancias abiertas de esta tienda: productos cuyo stock no coincide con lo
+	 * que dice el libro (ADR-010).
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp wss discrepancies
+	 *
+	 * @param array<int, string>    $args       No lleva.
+	 * @param array<string, string> $assoc_args No lleva.
+	 */
+	public function discrepancies( array $args, array $assoc_args ): void {
+		$open = Audit::open();
+
+		if ( array() === $open ) {
+			\WP_CLI::success( __( 'No hay discrepancias abiertas.', 'woonderful-stock-sync-for-woocommerce' ) );
+
+			return;
+		}
+
+		foreach ( $open as $discrepancy ) {
+			\WP_CLI::line(
+				sprintf(
+					/* translators: 1: producto, 2: stock que dice el libro, 3: stock que hay, 4: desde cuándo. */
+					__( '%1$d: el libro dice %2$d, hay %3$d (desde %4$s)', 'woonderful-stock-sync-for-woocommerce' ),
+					$discrepancy['product'],
+					$discrepancy['expected'],
+					$discrepancy['found'],
+					$discrepancy['since']
+				)
+			);
+		}
+	}
+
+	/**
+	 * Resuelve la discrepancia de un producto de esta tienda.
+	 *
+	 * Corregir el stock a mano no la cierra: también se anota, y lo esperado se mueve junto con
+	 * lo que hay (ADR-010 §6).
+	 *
+	 * ## OPTIONS
+	 *
+	 * <action>
+	 * : `accept` si el stock de acá está bien: la diferencia se anota como ajuste y viaja a la
+	 * otra tienda. `restore` si el libro está bien: el stock de acá vuelve a lo que dice el
+	 * libro, y la otra no se entera.
+	 *
+	 * <local>
+	 * : El ID del producto en esta tienda.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp wss discrepancy accept 123
+	 *     wp wss discrepancy restore 123
+	 *
+	 * @param array<int, string>    $args       La acción y el producto.
+	 * @param array<string, string> $assoc_args No lleva.
+	 */
+	public function discrepancy( array $args, array $assoc_args ): void {
+		$action  = (string) ( $args[0] ?? '' );
+		$product = (string) ( $args[1] ?? '' );
+
+		if ( ! in_array( $action, array( 'accept', 'restore' ), true ) ) {
+			\WP_CLI::error( __( 'La acción es accept o restore.', 'woonderful-stock-sync-for-woocommerce' ) );
+		}
+
+		if ( ! ctype_digit( $product ) || '0' === $product ) {
+			/* translators: %s: lo que se pasó en lugar de un ID. */
+			\WP_CLI::error( sprintf( __( '"%s" no es el ID de un producto.', 'woonderful-stock-sync-for-woocommerce' ), $product ) );
+		}
+
+		$result = 'accept' === $action ? Audit::accept( (int) $product ) : Audit::restore( (int) $product );
+
+		if ( is_wp_error( $result ) ) {
+			\WP_CLI::error( $result->get_error_code() . ': ' . $result->get_error_message() );
+		}
+
+		\WP_CLI::success(
+			'accept' === $action
+				? __( 'Anotado como ajuste. La otra tienda lo recibe en la próxima pasada.', 'woonderful-stock-sync-for-woocommerce' )
+				: __( 'El stock volvió a lo que dice el libro.', 'woonderful-stock-sync-for-woocommerce' )
+		);
 	}
 }

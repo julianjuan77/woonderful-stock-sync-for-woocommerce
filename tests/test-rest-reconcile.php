@@ -509,4 +509,38 @@ class Test_Rest_Reconcile extends WP_UnitTestCase {
 			'pasado del techo'     => array( array( array_merge( $good, array( 'generation' => 10 ) ) ) ),
 		);
 	}
+
+	/**
+	 * RCN-11 — "Hacé tu fase 2": esta tienda la hace, contesta sus discrepancias abiertas y lo
+	 * anota en su resultado.
+	 */
+	public function test_audit_runs_the_own_phase_two(): void {
+		$response = $this->ask(
+			array(
+				'step'    => Reconcile::AUDIT,
+				'session' => 'pasada-1',
+			)
+		);
+
+		$this->assertSame( 200, $response->get_status() );
+		$this->assertSame(
+			array(
+				'audit' => array(
+					'checked'   => 0,
+					'closed'    => 0,
+					'suspected' => 0,
+				),
+				'open'  => array(),
+			),
+			$response->get_data()
+		);
+		$this->assertSame( 0, Result::last()['details']['audit']['checked'] ?? null );
+	}
+
+	/**
+	 * RCN-12 — Sin sesión, no.
+	 */
+	public function test_audit_without_a_session_is_rejected(): void {
+		$this->assertSame( 400, $this->ask( array( 'step' => Reconcile::AUDIT ) )->get_status() );
+	}
 }

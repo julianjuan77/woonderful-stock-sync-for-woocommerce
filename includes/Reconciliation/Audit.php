@@ -10,6 +10,7 @@ declare( strict_types = 1 );
 namespace Woonderful\StockSync\Reconciliation;
 
 use Woonderful\StockSync\Detector\Detector;
+use Woonderful\StockSync\Detector\Guard;
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Ledger\Ledger;
 use Woonderful\StockSync\Linking\Links;
@@ -195,6 +196,101 @@ final class Audit {
 
 			self::write( (int) $link->id, $measure, ! $same );
 		}
+	}
+
+	/**
+	 * "El stock de acá está bien": anota la diferencia como un ajuste, sin tocar el stock de
+	 * acá. El ajuste viaja a la otra tienda como cualquier otro (ADR-010 §6).
+	 *
+	 * @param int $product Producto de esta tienda.
+	 *
+	 * @return true|\WP_Error
+	 */
+	public static function accept( int $product ) {
+		$checked = self::recheck( $product );
+
+		if ( is_wp_error( $checked ) ) {
+			return $checked;
+		}
+
+		list( $link, $difference ) = $checked;
+
+		if ( null === Ledger::record( $product, $difference, 'adjustment', __( 'discrepancia aceptada', 'woonderful-stock-sync-for-woocommerce' ) ) ) {
+			return new \WP_Error( 'wss_not_recorded', __( 'No se pudo anotar el ajuste.', 'woonderful-stock-sync-for-woocommerce' ) );
+		}
+
+		self::close( (int) $link->id );
+
+		return true;
+	}
+
+	/**
+	 * "El libro está bien": le suma al stock de acá la diferencia, sin anotar un movimiento.
+	 * La otra tienda no se entera: ya tenía el número bueno (ADR-010 §6).
+	 *
+	 * **Suma la diferencia; no escribe el número esperado.** Escribirlo pisaría una venta que
+	 * entrara justo en el medio: quedaría en el libro y no en el stock. Con `increase` o
+	 * `decrease`, WooCommerce escribe `meta_value = meta_value + x`, y las dos se suman.
+	 *
+	 * @param int $product Producto de esta tienda.
+	 *
+	 * @return true|\WP_Error
+	 */
+	public static function restore( int $product ) {
+		$checked = self::recheck( $product );
+
+		if ( is_wp_error( $checked ) ) {
+			return $checked;
+		}
+
+		list( $link, $difference ) = $checked;
+
+		// El guard hace que el detector no lo anote: no es un movimiento, es volver al libro.
+		Guard::expect( $product );
+		wc_update_product_stock( $product, abs( $difference ), $difference < 0 ? 'increase' : 'decrease' );
+
+		self::close( (int) $link->id );
+
+		return true;
+	}
+
+	/**
+	 * Vuelve a hacer la cuenta antes de resolver una discrepancia.
+	 *
+	 * No usa los números guardados, que pueden tener días: vuelve a mirar las exclusiones, a
+	 * calcular, y **se niega si la diferencia no es la que vio el dueño**. Así tampoco se
+	 * anota un ajuste equivocado si justo entró una venta.
+	 *
+	 * @param int $product Producto de esta tienda.
+	 *
+	 * @return array{0: \stdClass, 1: int}|\WP_Error El vínculo y la diferencia —lo que hay
+	 *                                              menos lo esperado—.
+	 */
+	private static function recheck( int $product ) {
+		if ( null !== Plugin::suspension_reason() ) {
+			return new \WP_Error( 'wss_suspended', __( 'La sincronización está suspendida en esta tienda.', 'woonderful-stock-sync-for-woocommerce' ) );
+		}
+
+		$link = Links::for_product( $product );
+
+		if ( null === $link || null === $link->expected_stock ) {
+			return new \WP_Error( 'wss_no_discrepancy', __( 'Ese producto no tiene una discrepancia abierta.', 'woonderful-stock-sync-for-woocommerce' ) );
+		}
+
+		$measure = self::measure( $link );
+
+		if ( null === $measure ) {
+			return new \WP_Error( 'wss_not_checkable', __( 'Ese producto no se puede revisar ahora: tiene movimientos retenidos, el vínculo sin confirmar, o no lleva su propio stock.', 'woonderful-stock-sync-for-woocommerce' ) );
+		}
+
+		$difference = $measure['found'] - $measure['expected'];
+
+		// Una abierta nunca guarda diferencia cero: si coincide con la guardada, no es cero.
+		if ( $difference !== (int) $link->found_stock - (int) $link->expected_stock ) {
+			return new \WP_Error( 'wss_changed', __( 'La diferencia cambió desde que la viste. Mirala de nuevo con wp wss discrepancies.', 'woonderful-stock-sync-for-woocommerce' ) );
+		}
+
+		return array( $link, $difference );
 	}
 
 	/**

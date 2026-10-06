@@ -7,6 +7,8 @@
 
 declare( strict_types = 1 );
 
+use Woonderful\StockSync\Detector\Detector;
+use Woonderful\StockSync\Detector\Guard;
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Ledger\Ledger;
 use Woonderful\StockSync\Linking\Links;
@@ -47,6 +49,9 @@ class Test_Audit extends WP_UnitTestCase {
 		global $wpdb;
 
 		Schedule::unschedule();
+		wss_unhook_detector();
+		Detector::forget_all();
+		Guard::forget_all();
 
 		foreach ( array( 'movements', 'links', 'nonces' ) as $name ) {
 			$table = Installer::table( $name );
@@ -419,5 +424,135 @@ class Test_Audit extends WP_UnitTestCase {
 		Audit::confirm( array( array( (int) $link->id, -3 ) ) );
 
 		$this->assertSame( '2026-01-01 00:00:00', Audit::open()[0]['since'] );
+	}
+
+	/**
+	 * Una discrepancia abierta: el libro dice 50, hay 47.
+	 */
+	private function open_discrepancy(): \stdClass {
+		$link = $this->linked( 47, 50 );
+		Audit::confirm( array( array( (int) $link->id, -3 ) ) );
+
+		return $link;
+	}
+
+	/**
+	 * Los movimientos propios de un vínculo: delta y motivo.
+	 *
+	 * @param \stdClass $link El vínculo.
+	 *
+	 * @return array<int, array{0: int, 1: string}>
+	 */
+	private function own_movements( \stdClass $link ): array {
+		global $wpdb;
+
+		$table = Installer::table( 'movements' );
+		$rows  = $wpdb->get_results( $wpdb->prepare( "SELECT delta, reason FROM {$table} WHERE link_id = %d AND origin_store = %s ORDER BY id", (int) $link->id, Store::id() ) ); // phpcs:ignore WordPress.DB
+
+		return array_map( static fn ( $row ) => array( (int) $row->delta, (string) $row->reason ), $rows );
+	}
+
+	/**
+	 * AUD-14 — **"El stock de acá está bien" anota la diferencia como ajuste, sin tocar el
+	 * stock**: queda pendiente para viajar a la otra, y la discrepancia se cierra (ADR-010 §6).
+	 */
+	public function test_accept_records_the_difference_without_touching_the_stock(): void {
+		$link = $this->open_discrepancy();
+
+		$this->assertTrue( Audit::accept( (int) $link->local_product ) );
+
+		$this->assertSame( array( array( -3, 'adjustment' ) ), $this->own_movements( $link ) );
+		$this->assertSame( 47, Detector::stock_in_db( (int) $link->local_product ) );
+		$this->assertSame( 47, Audit::expected( $link ) );
+		$this->assertSame( array(), Audit::open() );
+	}
+
+	/**
+	 * AUD-15 — **"El libro está bien" vuelve el stock a lo esperado, sin anotar un movimiento**:
+	 * la otra no se entera, ya tenía el número bueno.
+	 */
+	public function test_restore_brings_the_stock_back_without_a_movement(): void {
+		$link = $this->open_discrepancy();
+		Detector::register();
+
+		$this->assertTrue( Audit::restore( (int) $link->local_product ) );
+
+		$this->assertSame( 50, Detector::stock_in_db( (int) $link->local_product ) );
+		$this->assertSame( array(), $this->own_movements( $link ) );
+		$this->assertSame( array(), Audit::open() );
+	}
+
+	/**
+	 * AUD-16 — **"El libro está bien" suma la diferencia; no escribe el número**: una venta que
+	 * entra justo en el medio no se pierde.
+	 */
+	public function test_restore_does_not_overwrite_a_sale_in_the_middle(): void {
+		global $wpdb;
+
+		$link    = $this->open_discrepancy();
+		$product = (int) $link->local_product;
+		$sold    = false;
+		$sale    = static function ( string $query ) use ( $wpdb, $product, &$sold ): string {
+			if ( ! $sold && str_starts_with( $query, "UPDATE {$wpdb->postmeta} SET meta_value" ) && str_contains( $query, "post_id = {$product}" ) ) {
+				$sold = true;
+				$wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->postmeta} SET meta_value = meta_value - 1 WHERE post_id = %d AND meta_key = '_stock'", $product ) ); // phpcs:ignore WordPress.DB
+			}
+
+			return $query;
+		};
+
+		add_filter( 'query', $sale );
+		Audit::restore( $product );
+		remove_filter( 'query', $sale );
+
+		$this->assertTrue( $sold );
+		$this->assertSame( 49, Detector::stock_in_db( $product ), '50 de la corrección, menos 1 de la venta' );
+	}
+
+	/**
+	 * AUD-17 — **Si la diferencia cambió desde que el dueño la vio, se niega**, y no toca nada.
+	 *
+	 * @dataProvider actions
+	 *
+	 * @param string $action `accept` o `restore`.
+	 */
+	public function test_a_difference_that_changed_is_refused( string $action ): void {
+		$link = $this->open_discrepancy();
+		$this->unrecorded_write( $link, 45 );
+
+		$result = Audit::$action( (int) $link->local_product );
+
+		$this->assertInstanceOf( WP_Error::class, $result );
+		$this->assertSame( 'wss_changed', $result->get_error_code() );
+		$this->assertSame( 45, Detector::stock_in_db( (int) $link->local_product ) );
+		$this->assertSame( array(), $this->own_movements( $link ) );
+		$this->assertCount( 1, Audit::open() );
+	}
+
+	/**
+	 * Las dos acciones.
+	 *
+	 * @return array<string, array{0: string}>
+	 */
+	public function actions(): array {
+		return array(
+			'accept'  => array( 'accept' ),
+			'restore' => array( 'restore' ),
+		);
+	}
+
+	/**
+	 * AUD-18 — Sin discrepancia abierta, sin vínculo, o con algo que no deja revisar, se niega.
+	 */
+	public function test_nothing_to_resolve_is_refused(): void {
+		$clean = $this->linked( 50, 50 );
+
+		$this->assertSame( 'wss_no_discrepancy', Audit::accept( (int) $clean->local_product )->get_error_code() );
+		$this->assertSame( 'wss_no_discrepancy', Audit::restore( 999999 )->get_error_code() );
+
+		$held = $this->open_discrepancy();
+		$this->received( $held, -1, Ledger::HELD, 30 );
+
+		$this->assertSame( 'wss_not_checkable', Audit::restore( (int) $held->local_product )->get_error_code() );
 	}
 }

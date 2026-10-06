@@ -9,6 +9,7 @@ declare( strict_types = 1 );
 
 namespace Woonderful\StockSync\Rest;
 
+use Woonderful\StockSync\Reconciliation\Audit;
 use Woonderful\StockSync\Reconciliation\Books;
 use Woonderful\StockSync\Reconciliation\Lock;
 use Woonderful\StockSync\Reconciliation\Result;
@@ -39,6 +40,12 @@ final class Reconcile {
 	 * "Estos son mis vínculos": la maestra se los pasa a la secundaria (ADR-009 §8).
 	 */
 	public const LINKS = 'links';
+
+	/**
+	 * "Hacé tu fase 2": esta tienda compara su stock con su libro, y contesta sus
+	 * discrepancias abiertas (ADR-010 §7).
+	 */
+	public const AUDIT = 'audit';
 
 	/**
 	 * Engancha el registro de la ruta.
@@ -91,6 +98,8 @@ final class Reconcile {
 				return self::mine( $payload, $store );
 			case self::LINKS:
 				return self::links( $payload, $store );
+			case self::AUDIT:
+				return self::audit( $payload, $store );
 		}
 
 		return self::bad_request();
@@ -217,16 +226,56 @@ final class Reconcile {
 	}
 
 	/**
+	 * La tercera pregunta: la fase 2 de esta tienda, y sus discrepancias abiertas.
+	 *
+	 * Contesta las que ya estaban abiertas: las nuevas se confirman 2 minutos después, así que
+	 * la otra las ve en la reconciliación siguiente (ADR-010 §7).
+	 *
+	 * @param array<mixed, mixed> $payload El cuerpo.
+	 * @param string              $store   La tienda que pregunta.
+	 *
+	 * @return \WP_REST_Response|\WP_Error
+	 */
+	private static function audit( array $payload, string $store ) {
+		$session = $payload['session'] ?? null;
+
+		if ( ! is_string( $session ) || '' === $session || strlen( $session ) > 64 ) {
+			return self::bad_request();
+		}
+
+		$summary = Audit::run();
+
+		self::remember(
+			$session,
+			$store,
+			array(
+				'reopened'  => 0,
+				'confirmed' => 0,
+			),
+			$summary
+		);
+
+		return new \WP_REST_Response(
+			array(
+				'audit' => $summary,
+				'open'  => Audit::open(),
+			),
+			200
+		);
+	}
+
+	/**
 	 * Suma lo que hizo esta tanda al resultado de esta tienda.
 	 *
 	 * Una reconciliación son varias tandas; esta tienda no sabe cuál es la última. Las de la
 	 * misma reconciliación —el mismo `session`— se acumulan en un solo resultado.
 	 *
-	 * @param string                               $session La reconciliación.
-	 * @param string                               $store   La tienda que la lanzó.
-	 * @param array{reopened: int, confirmed: int} $done    Lo que hizo esta tanda.
+	 * @param string                                                $session La reconciliación.
+	 * @param string                                                $store   La tienda que la lanzó.
+	 * @param array{reopened: int, confirmed: int}                  $done    Lo que hizo esta tanda.
+	 * @param array{checked: int, closed: int, suspected: int}|null $audit   La fase 2, si es eso.
 	 */
-	private static function remember( string $session, string $store, array $done ): void {
+	private static function remember( string $session, string $store, array $done, ?array $audit = null ): void {
 		$last    = Result::last();
 		$details = array(
 			'session'   => $session,
@@ -243,6 +292,10 @@ final class Reconcile {
 
 		$details['reopened']  = (int) $details['reopened'] + $done['reopened'];
 		$details['confirmed'] = (int) $details['confirmed'] + $done['confirmed'];
+
+		if ( null !== $audit ) {
+			$details['audit'] = $audit;
+		}
 
 		Result::save( Result::PEER, Result::DONE, $details );
 	}

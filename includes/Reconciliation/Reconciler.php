@@ -121,6 +121,22 @@ final class Reconciler {
 			}
 		}
 
+		// La tercera: la fase 2 de la otra. Si falla, la propia corre igual (ADR-010 §7).
+		$answer = Remote::ask(
+			$peer,
+			array(
+				'step'    => Reconcile::AUDIT,
+				'session' => $details['session'],
+			)
+		);
+
+		if ( is_wp_error( $answer ) ) {
+			return array( $answer, 'audit' );
+		}
+
+		$details['peer_audit']         = is_array( $answer['audit'] ?? null ) ? $answer['audit'] : array();
+		$details['peer_discrepancies'] = is_array( $answer['open'] ?? null ) ? array_values( $answer['open'] ) : array();
+
 		return null;
 	}
 

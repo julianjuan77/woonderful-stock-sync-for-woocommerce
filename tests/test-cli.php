@@ -363,4 +363,56 @@ class Test_Cli extends WP_UnitTestCase {
 
 		$this->assertContains( 'La otra tienda tenía vínculos que acá no existen, y los borró: sus productos 130.', WP_CLI::$out );
 	}
+
+	/**
+	 * CLI-13 — `discrepancies` sin nada abierto lo dice.
+	 */
+	public function test_discrepancies_says_when_there_are_none(): void {
+		( new Command() )->discrepancies( array(), array() );
+
+		$this->assertSame( array( 'Success: No hay discrepancias abiertas.' ), WP_CLI::$out );
+	}
+
+	/**
+	 * CLI-14 — `discrepancies` lista cada una: lo que dice el libro, lo que hay y desde cuándo;
+	 * y `discrepancy accept` la resuelve.
+	 */
+	public function test_discrepancies_lists_and_accept_resolves(): void {
+		global $wpdb;
+
+		$product = $this->product( 47 );
+		$wpdb->insert( // phpcs:ignore WordPress.DB
+			Installer::table( 'links' ),
+			array(
+				'local_product'       => $product,
+				'remote_store'        => 'b1b1b1b1-0000-4000-8000-000000000000',
+				'remote_product'      => 900,
+				'generation'          => 1,
+				'base_stock'          => 50,
+				'base_set_at'         => gmdate( 'Y-m-d H:i:s' ),
+				'expected_stock'      => 50,
+				'found_stock'         => 47,
+				'discrepancy_since'   => '2026-10-01 03:00:00',
+				'discrepancy_seen_at' => '2026-10-05 03:00:00',
+			)
+		);
+
+		( new Command() )->discrepancies( array(), array() );
+
+		$this->assertSame( array( $product . ': el libro dice 50, hay 47 (desde 2026-10-01 03:00:00)' ), WP_CLI::$out );
+
+		( new Command() )->discrepancy( array( 'accept', (string) $product ), array() );
+
+		$this->assertStringStartsWith( 'Success: Anotado como ajuste', end( WP_CLI::$out ) );
+	}
+
+	/**
+	 * CLI-15 — Una acción que no es `accept` ni `restore` termina con error.
+	 */
+	public function test_discrepancy_rejects_an_unknown_action(): void {
+		$this->expectException( RuntimeException::class );
+		$this->expectExceptionMessage( 'accept o restore' );
+
+		( new Command() )->discrepancy( array( 'borrar', '12' ), array() );
+	}
 }

@@ -554,6 +554,9 @@ constante `WP_CLI` no se puede definir en un test sin que quede para todos los d
 | `CLI-10` | `wp wss reconcile` con la otra caída | **Termina con error, y dice que no se pudo mirar**: no es lo mismo que no haber nada |
 | `CLI-11` | `wp wss reconcile` con otra en curso | Termina con error, sin lanzar otra |
 | `CLI-12` | `wp wss reconcile` y la otra borró un vínculo sin respaldo | Lo dice, con el producto de allá |
+| `CLI-13` | `wp wss discrepancies` sin nada abierto | Lo dice |
+| `CLI-14` | `wp wss discrepancies` con una, y `wp wss discrepancy accept` | La lista con lo que dice el libro, lo que hay y desde cuándo; y la resuelve |
+| `CLI-15` | `wp wss discrepancy borrar 12` | Termina con error |
 
 **Lo que el WP-CLI falso no ve: el docblock.** El de verdad arma los argumentos a partir de él,
 y con `<código>` rechazaba el código como argumento de más. Lo encontró la prueba entre dos
@@ -797,6 +800,8 @@ generación cae `BOK-18`; informándolo dos veces cae `BOK-14`.
 | `RCN-08` | "Estos son mis vínculos", de la maestra | Borra el de acá sin respaldo, e informa el que falta |
 | `RCN-09` | **Los mismos, de la secundaria** | `403 wss_not_master`: no se compara nada |
 | `RCN-10` | Cinco listas mal armadas, una con una generación por encima del techo | `400` |
+| `RCN-11` | "Hacé tu fase 2" | La hace, contesta sus discrepancias abiertas, y lo anota en su resultado |
+| `RCN-12` | Sin sesión | `400` |
 
 Verificado rompiéndolo: leyendo la marca antes que la lista cae `RCN-02`; sin mirar el candado
 cae `RCN-05`; sin validar las secuencias cae `RCN-06`; sin sumar las tandas cae `RCN-04`; sin
@@ -824,6 +829,8 @@ La otra tienda es un doble que contesta por HTTP interceptado.
 | `RCL-14` | Falla la comparación de vínculos | `unreachable` en `links`, y lo de los movimientos queda |
 | `RCL-15` | Falla la segunda pregunta | **La fase 2 propia corre igual**: la cuenta es local (ADR-010 §7) |
 | `RCL-16` | Falla la primera pregunta | No corre ninguna fase, tampoco la propia |
+| `RCL-17` | **La tercera pregunta** | Las discrepancias abiertas de la otra quedan en el resultado |
+| `RCL-18` | Falla sólo la tercera | La fase 2 propia corre igual; `unreachable` en `audit` |
 
 Verificado rompiéndolo: con la marca de la primera tanda para todas cae `RCL-02`; sin soltar el
 candado cuando falla caen `RCL-03` y `RCL-05`; guardando el `busy` cae `RCL-05`; con el techo
@@ -874,13 +881,21 @@ maestra cae `CLI-08`.
 | `AUD-11` | La segunda revisión con el sitio suspendido | No abre nada |
 | `AUD-12` | Un vínculo nuevo | Nace con las cuatro columnas en `NULL` |
 | `AUD-13` | Dos segundas revisiones de lo mismo | La segunda no mueve el "desde" |
+| `AUD-14` | **"El stock de acá está bien"** | Anota la diferencia como ajuste pendiente, sin tocar el stock, y la cierra (ADR-010 §6) |
+| `AUD-15` | **"El libro está bien"**, con el detector enganchado | El stock vuelve a lo esperado sin anotar un movimiento, y la cierra |
+| `AUD-16` | **Una venta entra justo mientras se restaura** | No se pierde: se suma la diferencia, no se escribe el número |
+| `AUD-17` | Las dos acciones, con la diferencia cambiada desde que se vio | `wss_changed`, sin tocar nada |
+| `AUD-18` | Sin discrepancia, sin vínculo, o con retenidos | `wss_no_discrepancy` o `wss_not_checkable` |
 
 Verificado rompiéndolo: sumando los retenidos o sin la generación cae `AUD-01`; abriendo a la
 primera caen `AUD-03` y `AUD-08`; confirmando sin volver a medir caen `AUD-05` y `AUD-06`; sin
 cerrar cae `AUD-09`; reabriendo una igual cae `AUD-07`; moviendo siempre el "desde" cae `AUD-13`;
 sin cada exclusión cae su caso de `AUD-10`; confirmando suspendida cae `AUD-11`; con la fase 2
 cuando la otra no respondió cae `RCL-16`, y sin ella `RCL-15`; sin desagendar la segunda
-revisión cae `SCD-12`.
+revisión cae `SCD-12`. De las acciones: con el signo del ajuste al revés o sin cerrar cae
+`AUD-14`; escribiendo el número cae `AUD-16`; sin el guard cae `AUD-15`; sin comparar con lo
+visto cae `AUD-17`; sin la tercera pregunta caen `RCL-17` y `RCL-18`; ignorando su falla cae
+`RCL-18`; sin validar la sesión cae `RCN-12`.
 
 ## Cómo se prueba algo que no deja rastro en el estado final
 

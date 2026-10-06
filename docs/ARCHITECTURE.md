@@ -245,6 +245,24 @@ stock. Lo que no cierra no se abre: agenda `wss_audit_confirm` a los 2 minutos c
 la diferencia, y se abre sólo si sigue igual. Una abierta igual se marca como vista; una que
 vuelve a coincidir se cierra sola.
 
+**La tercera pregunta** (`step: audit`) le pide a la otra su fase 2; contesta sus discrepancias
+abiertas, que la maestra guarda en `peer_discrepancies`. Las nuevas se confirman 2 minutos
+después, así que la maestra las ve en la reconciliación siguiente. Si falla sólo la tercera, la
+fase 2 propia corre igual.
+
+**Resolver una discrepancia** es una de dos acciones, porque corregir el stock a mano también
+se anota y el esperado se mueve junto con el real (ADR-010 §6). Las dos rehacen la cuenta y se
+niegan si la diferencia no es la guardada:
+
+- `Audit::accept()` — "el stock de acá está bien": `Ledger::record()` de la diferencia como
+  ajuste, sin tocar el stock. Viaja a la otra.
+- `Audit::restore()` — "el libro está bien": `Guard::expect()` y `wc_update_product_stock()` con
+  `increase` o `decrease`, que escribe `meta_value = meta_value + x`: una venta en el medio se
+  suma, no se pisa. No se anota.
+
+Hasta la pantalla, `wp wss discrepancies` y `wp wss discrepancy accept|restore <producto>`, cada
+tienda con las suyas.
+
 **El lote, la curva de backoff, las 6 horas y los 5 minutos del claim son constantes**, no
 opciones (ADR-001, revisado el 2026-09-29).
 
