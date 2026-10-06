@@ -855,6 +855,9 @@ propio en la segunda pregunta caen `RCL-01` y `RCL-09`; la secundaria mandando v
 | `SCD-11` | El cierre con el sitio suspendido | No hace nada |
 | `SCD-12` | Desactivar el plugin | Desagenda la noche, el cierre y la segunda revisión de la fase 2 |
 | `SCD-13` | El control horario de la pasada | Agenda también la noche |
+| `SCD-14` | **La noche en la secundaria, con un confirmado de hace 100 días** | Lo purga (ADR-004 §4), y suelta el candado |
+| `SCD-15` | La noche con el candado tomado | No purga: la marca no se mueve en medio de una reconciliación |
+| `SCD-16` | La noche con el sitio suspendido | No purga |
 
 Verificado rompiéndolo: en UTC cae `SCD-01`; sin mirar si ya está agendada cae `SCD-02`; sin
 agendar la siguiente caen `SCD-03` a `SCD-05`; la secundaria reconciliando cae `SCD-04`; sin
@@ -862,7 +865,8 @@ mirar la suspensión caen `SCD-05` y `SCD-11`; con el umbral corrido caen `SCD-0
 dos cierres cae `SCD-07`; esperando los reintentos o sin el techo cae `SCD-09`; sin lo que está
 en camino cae `SCD-08`; la pasada sin agendar el cierre cae `PAS-08`; el control sin la noche
 cae `SCD-13`; desagendando el cierre sólo sin argumentos cae `SCD-12`; el comando sin mirar la
-maestra cae `CLI-08`.
+maestra cae `CLI-08`; sin purgar o sin soltar el candado cae `SCD-14`; purgando sin el candado
+cae `SCD-15`.
 
 ## [`tests/test-audit.php`](test-audit.php) — la fase 2: el stock contra el propio libro
 
@@ -917,7 +921,6 @@ la suite de WordPress abre para cada test.
 
 ## Lo que todavía no tiene tests
 
-- De la reconciliación, lo que falta programar: quién la lanza, los vínculos de un solo lado, la fase 2 y la purga nocturna (tareas 7.3 a 7.7).
 - Que el libro que crece sin techo —porque la otra tienda no vuelve nunca— se **avise**
   (UC-08). `purge()` ya lo deja crecer a propósito; el aviso va con el ADR del log.
 - La purga que consolida el stock base.

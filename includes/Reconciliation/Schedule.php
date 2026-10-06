@@ -88,7 +88,8 @@ final class Schedule {
 	}
 
 	/**
-	 * La noche: agenda la siguiente y, si esta tienda es la maestra, reconcilia.
+	 * La noche: agenda la siguiente; si esta tienda es la maestra, reconcilia; y purga el
+	 * libro, en las dos (ADR-004 §4).
 	 *
 	 * La siguiente se agenda primero: si la reconciliación muriera a mitad, la noche de
 	 * mañana igual corre. Sin `unique`, porque Action Scheduler cuenta como agendada a esta
@@ -103,6 +104,30 @@ final class Schedule {
 
 		if ( Peers::this_is_master() ) {
 			Reconciler::run( Result::NIGHTLY );
+		}
+
+		self::purge();
+	}
+
+	/**
+	 * Purga el libro, con el candado de la reconciliación.
+	 *
+	 * Si esta tienda purgara mientras reconcilia, su marca de purga se movería en medio de la
+	 * pasada. Con el candado tomado por otra, no purga: la noche siguiente lo hace. La otra
+	 * tienda sí puede estar reconciliando con ésta mientras purga, y no hace falta frenarla:
+	 * cada tanda viaja con la marca leída después de su lista (ADR-009 §2).
+	 */
+	private static function purge(): void {
+		$lock = Lock::acquire();
+
+		if ( null === $lock ) {
+			return;
+		}
+
+		try {
+			Ledger::purge();
+		} finally {
+			Lock::release( $lock );
 		}
 	}
 

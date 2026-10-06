@@ -356,4 +356,71 @@ class Test_Schedule extends WP_UnitTestCase {
 
 		Pass::unschedule();
 	}
+
+	/**
+	 * Un movimiento propio confirmado hace más de 90 días: lo que la purga borra.
+	 */
+	private function old_confirmed(): int {
+		global $wpdb;
+
+		$id = $this->own( 'confirmed' );
+		$wpdb->update( Installer::table( 'movements' ), array( 'created_at' => gmdate( 'Y-m-d H:i:s', time() - 100 * DAY_IN_SECONDS ) ), array( 'id' => $id ) ); // phpcs:ignore WordPress.DB
+
+		return $id;
+	}
+
+	/**
+	 * Si un movimiento sigue en el libro.
+	 *
+	 * @param int $id ID.
+	 */
+	private function exists( int $id ): bool {
+		global $wpdb;
+
+		$table = Installer::table( 'movements' );
+
+		return null !== $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$table} WHERE id = %d", $id ) ); // phpcs:ignore WordPress.DB
+	}
+
+	/**
+	 * SCD-14 — **La noche purga el libro, también en la secundaria** (ADR-004 §4), y suelta el
+	 * candado.
+	 */
+	public function test_the_night_purges_in_both_stores(): void {
+		$this->pair_as( Peers::MASTER );
+		$old = $this->old_confirmed();
+
+		Schedule::nightly();
+
+		$this->assertFalse( $this->exists( $old ) );
+		$this->assertFalse( Lock::is_taken() );
+	}
+
+	/**
+	 * SCD-15 — Con el candado tomado, no purga: la marca no se mueve en medio de una
+	 * reconciliación.
+	 */
+	public function test_the_night_does_not_purge_while_reconciling(): void {
+		$this->pair_as( Peers::MASTER );
+		$old   = $this->old_confirmed();
+		$taken = Lock::acquire();
+
+		Schedule::nightly();
+
+		$this->assertTrue( $this->exists( $old ) );
+
+		Lock::release( (string) $taken );
+	}
+
+	/**
+	 * SCD-16 — Suspendida, no purga.
+	 */
+	public function test_a_suspended_store_does_not_purge(): void {
+		$old = $this->old_confirmed();
+		update_option( Store::OPTION_FINGERPRINT, hash( 'sha256', 'https://otra.test' ) );
+
+		Schedule::nightly();
+
+		$this->assertTrue( $this->exists( $old ) );
+	}
 }

@@ -24,7 +24,7 @@ git show 2668a7a --stat      # qué archivos tocó y cuántas líneas
 git show 2668a7a             # el diff completo
 ```
 
-Y para correr sólo los tests de una pieza, en vez de los 409:
+Y para correr sólo los tests de una pieza, en vez de los 412:
 
 ```bash
 make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS="--filter Test_Ledger"
@@ -34,8 +34,8 @@ make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS=
 
 ## 🔄 En progreso
 
-Nada. Los ADRs de la reconciliación están aprobados (ADR-009 y ADR-010): falta programarlos.
-Después, los ADRs del log y los avisos (1.10) y de la interfaz (1.11).
+Nada. El bloque 7, la reconciliación, está completo. Lo que sigue espera un ADR: el log y los
+avisos (1.10) y la interfaz (1.11).
 
 **Para probar entre dos tiendas:** `sandbox` (8150, maestra) y `sandbox-b` (8170) están
 emparejadas con rol. Con `DISABLE_WP_CRON` la pasada no corre sola: se dispara con
@@ -164,7 +164,7 @@ es lo normal: loguearlo en cada pasada sería ruido.
 | 7.4 | Los vínculos armados de un solo lado (ADR-009 §8) | ✅ | `d3f3661` | `BOK-11`…`BOK-18`, `RCN-08`…`RCN-10`, `RCL-11`…`RCL-14`, `CLI-12` |
 | 7.5 | Fase 2: la cuenta, la confirmación a los 2 minutos y las cuatro columnas (ADR-010 §1–§5) | ✅ | `d16c5fc` | `AUD-01`…`AUD-13`, `SCH-15`, `RCL-15`, `RCL-16` |
 | 7.6 | La tercera pregunta, y `wp wss discrepancies`, `accept` y `restore` (ADR-010 §6–§7) | ✅ | `b156ddf` | `AUD-14`…`AUD-18`, `RCN-11`, `RCN-12`, `RCL-17`, `RCL-18`, `CLI-13`…`CLI-15` |
-| 7.7 | La purga nocturna: `Ledger::purge()` existe y nada la llama (ADR-004 §4) | ⬜ | | |
+| 7.7 | La purga nocturna: `Ledger::purge()` existe y nada la llama (ADR-004 §4) | ✅ | | `SCD-14`…`SCD-16` |
 
 ### 8. La interfaz — `admin/`
 
@@ -215,13 +215,11 @@ seguridad y convenciones de código.
 |---|---|
 | Preguntas abiertas de §6 sin cerrar: multisite y volumen real del catálogo | `docs/SPEC.md` |
 | El clon servido en la **misma URL por HTTPS** pasa la detección. Declarado, no resuelto | ADR-001 §1, ADR-007 |
-| La reconciliación de cierre de una importación no tiene ADR | Resuelto en ADR-009 §5; falta implementarlo (7.3) |
 | El auditor de tests ya es un agente del entorno: `.claude/agents/test-auditor.md` | — |
 | `record()` escribiría movimientos con origen vacío si faltara el identificador. Hoy no puede pasar: `boot()` lo genera antes de todo | Auditoría 2026-09-26 |
 | `Links::for_remote_product()` devuelve la primera fila si hubiera dos vínculos con el mismo remoto. Desde ADR-008 (revisado) el bootstrap borra el que choque, así que no se arma un segundo; queda por si se crea a mano | Auditoría 2026-09-26 |
-| La marca de purga se calcula con `max()` de lo purgado, y los reintentos desordenan las secuencias: el ADR de la reconciliación tiene que decir que cada tienda ofrece sus filas no confirmadas sin mirar la marca | Resuelto en ADR-009 §2; falta implementarlo |
 | `remember_purged()` crea en `wss_peers` una entrada por cada tienda de la que purgó filas, aunque ya no esté emparejada: queda una entrada vieja sin URL ni secreto. `Peers::only()` ya no las cuenta (`SND-10`), así que no corta la entrega; lo que queda es basura en la opción. Re-emparejar le deja a la entrada anterior sólo el `purged_through` (`PAR-08`) | Revisión 2026-09-27, decidido en 5.7 |
-| Un cambio ajeno al stock del mismo producto entre las dos lecturas del detector se cuenta dos veces. Declarado y aceptado: son milisegundos, y lo corrige la reconciliación | ADR-006 §1 → tarea 7.2 |
+| Un cambio ajeno al stock del mismo producto entre las dos lecturas del detector se cuenta dos veces. Declarado y aceptado: son milisegundos, y lo corrige la reconciliación | Lo ve la fase 2 como discrepancia (7.5), y se resuelve con `wp wss discrepancy accept` (7.6) |
 | Editar las líneas de un pedido desde el admin deja el movimiento en `adjustment`, sin número de pedido: `wc_maybe_adjust_line_item_product_stock()` no dispara ningún hook que estampe | Sesión 2026-09-28 → ADR del log (UC-04) |
 | Si un hook de terceros escribe algo que no es stock adentro de la transacción de `apply()` y después falla, el `ROLLBACK` lo deshace pero su caché queda vieja. Sólo se limpia la del stock | Sesión 2026-09-28, declarado |
 | **Condición para publicar:** ninguna versión puede salir con 5.3 y sin 6.2 y 6.3. Una tienda con esa versión le confirmaría con ACK el bootstrap o el `unlink` de otra más nueva, lo descartaría, y el par no se crearía —o no se borraría— sin que nadie se entere | Revisión 2026-09-29 → 9.3 |
@@ -236,7 +234,5 @@ seguridad y convenciones de código.
 | `claim()` ignora si el `UPDATE` devuelve false: un error de la base cortaría la entrega sin aviso. Ya no puede ser el 1093, pero cualquier otro sí | Revisión 2026-10-02 → ADR del log |
 | La paginación de `GET /products` es por número de página: si se borra un producto definitivamente mientras se recorre el catálogo, todo se corre un lugar y uno de la página siguiente no aparece. Para sugerir pares por SKU es poco grave; si importa, se pagina por "los que vienen después del ID X" | Revisión 2026-10-02 → ADR de interfaz |
 | La pantalla tiene que decir "esperando respuesta" para un `uncertain` que todavía está en `syncing`, y "no se sabe" recién cuando ya es `uncertain`: hoy `State` los junta en uno | Revisión 2026-10-02 → ADR de interfaz |
-| El vínculo armado de un solo lado —el catálogo de allá dice `linked: false`— no es un motivo de suspendido: lo encuentra y repara la reconciliación (ADR-005 §1, revisado) | Resuelto en 7.4 (ADR-009 §8) |
 | El envío al final del request no se probó con PHP-FPM de verdad: los sitios de wp-restore corren Apache con mod_php, y ahí `Express` no manda. Los tests cubren la lógica; falta ver un pedido real salir en el `shutdown`. Y averiguar qué corren los servidores de las dos tiendas: con Apache y mod_php no se dispara nunca | 5.9 → con un sitio en PHP-FPM |
-| `Ledger::purge()` existe y tiene tests, pero nada la llama: ADR-004 dice que corre cada noche, y hoy no corre nunca. El libro crece sin techo | Sesión 2026-10-05 → tarea 7.7 |
 | Infection sobre `Transport/`, que ya existe: necesita PCOV en la imagen de wp-restore | — |
