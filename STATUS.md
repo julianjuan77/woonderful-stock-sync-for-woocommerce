@@ -24,7 +24,7 @@ git show 2668a7a --stat      # qué archivos tocó y cuántas líneas
 git show 2668a7a             # el diff completo
 ```
 
-Y para correr sólo los tests de una pieza, en vez de los 376:
+Y para correr sólo los tests de una pieza, en vez de los 396:
 
 ```bash
 make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS="--filter Test_Ledger"
@@ -162,7 +162,7 @@ es lo normal: loguearlo en cada pasada sería ruido.
 | 7.2 | Fase 1: las dos preguntas de `POST /reconcile/digest`, por tandas, y qué se reencola o se confirma (ADR-009 §1–§3) | ✅ | `979803b` | `BOK-01`…`BOK-10`, `RCN-01`…`RCN-07`, `RCL-01`…`RCL-10`, `PLG-26`, `PLG-27` |
 | 7.3 | Quién la lanza: la noche en la maestra, `wp wss reconcile`, y el cierre de una importación (ADR-009 §5) | ✅ | `34d8773` | `SCD-01`…`SCD-13`, `CLI-08`…`CLI-11`, `PAS-08`, `PLG-28` |
 | 7.4 | Los vínculos armados de un solo lado (ADR-009 §8) | ✅ | `d3f3661` | `BOK-11`…`BOK-18`, `RCN-08`…`RCN-10`, `RCL-11`…`RCL-14`, `CLI-12` |
-| 7.5 | Fase 2: la cuenta, la confirmación a los 2 minutos y las cuatro columnas (ADR-010 §1–§5) | ⬜ | | |
+| 7.5 | Fase 2: la cuenta, la confirmación a los 2 minutos y las cuatro columnas (ADR-010 §1–§5) | ✅ | | `AUD-01`…`AUD-13`, `SCH-15`, `RCL-15`, `RCL-16` |
 | 7.6 | La tercera pregunta, y `wp wss discrepancies`, `accept` y `restore` (ADR-010 §6–§7) | ⬜ | | |
 | 7.7 | La purga nocturna: `Ledger::purge()` existe y nada la llama (ADR-004 §4) | ⬜ | | |
 

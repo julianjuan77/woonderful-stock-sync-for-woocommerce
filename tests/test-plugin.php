@@ -15,6 +15,7 @@ use Woonderful\StockSync\Rest\Health;
 use Woonderful\StockSync\Rest\Movements;
 use Woonderful\StockSync\Rest\Pair;
 use Woonderful\StockSync\Rest\Reconcile;
+use Woonderful\StockSync\Reconciliation\Audit;
 use Woonderful\StockSync\Reconciliation\Schedule;
 use Woonderful\StockSync\Schema\Installer;
 use Woonderful\StockSync\Transport\Pass;
@@ -527,10 +528,12 @@ class Test_Plugin extends WP_UnitTestCase {
 
 		remove_action( Schedule::NIGHTLY, array( Schedule::class, 'nightly' ) );
 		remove_action( Schedule::IMPORT, array( Schedule::class, 'import_closed' ) );
+		remove_action( Audit::CONFIRM, array( Audit::class, 'confirm' ) );
 
 		Plugin::boot();
 
 		$this->assertNotFalse( has_action( Schedule::NIGHTLY, array( Schedule::class, 'nightly' ) ) );
 		$this->assertNotFalse( has_action( Schedule::IMPORT, array( Schedule::class, 'import_closed' ) ) );
+		$this->assertNotFalse( has_action( Audit::CONFIRM, array( Audit::class, 'confirm' ) ) );
 	}
 }

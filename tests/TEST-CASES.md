@@ -205,6 +205,7 @@ mientras escribía la función.
 | `SCH-12` | Las opciones que se leen en cada request | Están autocargadas, leído de la columna `autoload` |
 | `SCH-13` | Sin resultado guardado —un sitio que actualiza desde antes del control— | Mira las tablas una vez, en vez de dar por buena la ausencia del dato |
 | `SCH-14` | El esquema está roto y no había resultado guardado | El resultado **malo** queda guardado: con un booleano no se guardaba y la consulta cara se repetía en cada request |
+| `SCH-15` | **Una tabla de vínculos de la versión 1, con una fila** | Migrar agrega las cuatro columnas de la discrepancia y conserva la fila (ADR-010 §4) |
 
 ## [`tests/test-store.php`](test-store.php) — la identidad
 
@@ -255,7 +256,7 @@ mientras escribía la función.
 | `PLG-25` | `boot()` con el sitio suspendido | **Sí** engancha `POST /pair`: re-emparejar es la forma de salir de la suspensión |
 | `PLG-26` | `boot()` con el sitio sano | Engancha `POST /reconcile/digest` |
 | `PLG-27` | `boot()` con el sitio suspendido | No lo engancha: un clon confirmaría como propios movimientos de la tienda real |
-| `PLG-28` | `boot()` con el sitio suspendido | **Sí** engancha los callbacks de la noche y del cierre: un clon trae las acciones agendadas |
+| `PLG-28` | `boot()` con el sitio suspendido | **Sí** engancha los callbacks de la noche, del cierre y de la segunda revisión: un clon trae las acciones agendadas |
 
 ## [`tests/test-uninstall.php`](test-uninstall.php) — la desinstalación
 
@@ -821,6 +822,8 @@ La otra tienda es un doble que contesta por HTTP interceptado.
 | `RCL-12` | Lanza la secundaria | No manda vínculos |
 | `RCL-13` | La otra informa vínculos borrados, faltantes y con otra generación | Quedan en el resultado; los faltantes, como productos de acá, y sin los de un bootstrap sin resolver |
 | `RCL-14` | Falla la comparación de vínculos | `unreachable` en `links`, y lo de los movimientos queda |
+| `RCL-15` | Falla la segunda pregunta | **La fase 2 propia corre igual**: la cuenta es local (ADR-010 §7) |
+| `RCL-16` | Falla la primera pregunta | No corre ninguna fase, tampoco la propia |
 
 Verificado rompiéndolo: con la marca de la primera tanda para todas cae `RCL-02`; sin soltar el
 candado cuando falla caen `RCL-03` y `RCL-05`; guardando el `busy` cae `RCL-05`; con el techo
@@ -843,7 +846,7 @@ propio en la segunda pregunta caen `RCL-01` y `RCL-09`; la secundaria mandando v
 | `SCD-09` | **El cierre con algo que espera su reintento, y algo nuevo por encima del techo** | No los espera: reconcilia (`import`) |
 | `SCD-10` | El cierre en la secundaria | Reconcilia: lo lanza la tienda que importó |
 | `SCD-11` | El cierre con el sitio suspendido | No hace nada |
-| `SCD-12` | Desactivar el plugin | Desagenda la noche y el cierre |
+| `SCD-12` | Desactivar el plugin | Desagenda la noche, el cierre y la segunda revisión de la fase 2 |
 | `SCD-13` | El control horario de la pasada | Agenda también la noche |
 
 Verificado rompiéndolo: en UTC cae `SCD-01`; sin mirar si ya está agendada cae `SCD-02`; sin
@@ -853,6 +856,31 @@ dos cierres cae `SCD-07`; esperando los reintentos o sin el techo cae `SCD-09`; 
 en camino cae `SCD-08`; la pasada sin agendar el cierre cae `PAS-08`; el control sin la noche
 cae `SCD-13`; desagendando el cierre sólo sin argumentos cae `SCD-12`; el comando sin mirar la
 maestra cae `CLI-08`.
+
+## [`tests/test-audit.php`](test-audit.php) — la fase 2: el stock contra el propio libro
+
+| ID | Caso | Esperado |
+| --- | --- | --- |
+| `AUD-01` | **Propios en tres estados, recibidos aplicados, retenidos y descartados, otra generación y otro vínculo** | Lo esperado es el stock base más lo propio y lo recibido aplicado, de esa generación y ese vínculo (ADR-010 §1) |
+| `AUD-02` | El stock coincide con el libro | Nada que volver a revisar |
+| `AUD-03` | **No coincide** | No se abre todavía: se agenda la segunda revisión en 2 minutos, con la diferencia (ADR-010 §3) |
+| `AUD-04` | A los 2 minutos sigue igual | Se abre: esperado, encontrado, desde y visto |
+| `AUD-05` | **A los 2 minutos ya cerró** | No se abre: era una venta anotándose |
+| `AUD-06` | A los 2 minutos la diferencia es otra | No se abre |
+| `AUD-07` | Una abierta que sigue igual | Se anota que se la vio; el "desde" no cambia, y no hay segunda revisión |
+| `AUD-08` | Una abierta cuya diferencia cambió | Los números se reemplazan recién después de la segunda revisión |
+| `AUD-09` | **Los números vuelven a coincidir** | Se cierra sola |
+| `AUD-10` | Retenidos, bootstrap sin resolver, sin stock propio, en la papelera, borrado | No se revisa (ADR-010 §2) |
+| `AUD-11` | La segunda revisión con el sitio suspendido | No abre nada |
+| `AUD-12` | Un vínculo nuevo | Nace con las cuatro columnas en `NULL` |
+| `AUD-13` | Dos segundas revisiones de lo mismo | La segunda no mueve el "desde" |
+
+Verificado rompiéndolo: sumando los retenidos o sin la generación cae `AUD-01`; abriendo a la
+primera caen `AUD-03` y `AUD-08`; confirmando sin volver a medir caen `AUD-05` y `AUD-06`; sin
+cerrar cae `AUD-09`; reabriendo una igual cae `AUD-07`; moviendo siempre el "desde" cae `AUD-13`;
+sin cada exclusión cae su caso de `AUD-10`; confirmando suspendida cae `AUD-11`; con la fase 2
+cuando la otra no respondió cae `RCL-16`, y sin ella `RCL-15`; sin desagendar la segunda
+revisión cae `SCD-12`.
 
 ## Cómo se prueba algo que no deja rastro en el estado final
 

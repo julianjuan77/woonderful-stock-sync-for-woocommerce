@@ -16,7 +16,11 @@ defined( 'ABSPATH' ) || exit;
  */
 final class Installer {
 
-	public const SCHEMA_VERSION = 1;
+	/**
+	 * La versión del esquema. La 2 suma las cuatro columnas de la discrepancia a `wss_links`
+	 * (ADR-010 §4): `dbDelta` las agrega sin tocar las filas.
+	 */
+	public const SCHEMA_VERSION = 2;
 
 	public const OPTION_VERSION = 'wss_schema_version';
 
@@ -210,6 +214,10 @@ final class Installer {
 				generation int(10) unsigned NOT NULL DEFAULT 1,
 				base_stock int(11) NOT NULL,
 				base_set_at datetime NOT NULL,
+				expected_stock int(11) DEFAULT NULL,
+				found_stock int(11) DEFAULT NULL,
+				discrepancy_since datetime DEFAULT NULL,
+				discrepancy_seen_at datetime DEFAULT NULL,
 				PRIMARY KEY  (id),
 				UNIQUE KEY local (local_product,remote_store),
 				KEY remote (remote_store,remote_product)

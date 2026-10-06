@@ -9,6 +9,7 @@ declare( strict_types = 1 );
 
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Ledger\Ledger;
+use Woonderful\StockSync\Reconciliation\Audit;
 use Woonderful\StockSync\Reconciliation\Lock;
 use Woonderful\StockSync\Reconciliation\Result;
 use Woonderful\StockSync\Reconciliation\Schedule;
@@ -336,10 +337,13 @@ class Test_Schedule extends WP_UnitTestCase {
 		Schedule::ensure_nightly();
 		Schedule::after_pass( array( 'sent' => Ledger::MAX_BATCH, 'confirmed' => 0, 'failed' => 0, 'error' => null ) ); // phpcs:ignore WordPress.Arrays.ArrayDeclarationSpacing.AssociativeArrayFound
 
+		as_schedule_single_action( time() + 120, Audit::CONFIRM, array( array( array( 1, -3 ) ) ), Pass::GROUP );
+
 		Pass::unschedule();
 
 		$this->assertSame( array(), $this->pending( Schedule::NIGHTLY ) );
 		$this->assertSame( array(), $this->pending( Schedule::IMPORT ) );
+		$this->assertSame( array(), $this->pending( Audit::CONFIRM ) );
 	}
 
 	/**

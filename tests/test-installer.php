@@ -437,4 +437,33 @@ class Test_Installer extends WP_UnitTestCase {
 
 		return $result;
 	}
+
+	/**
+	 * SCH-15 — **Migrar de la versión 1 agrega las cuatro columnas de la discrepancia** a una
+	 * tabla de vínculos que ya existe, y conserva sus filas (ADR-010 §4).
+	 */
+	public function test_upgrading_adds_the_discrepancy_columns(): void {
+		global $wpdb;
+
+		Installer::install();
+
+		$links = Installer::table( 'links' );
+
+		foreach ( array( 'expected_stock', 'found_stock', 'discrepancy_since', 'discrepancy_seen_at' ) as $column ) {
+			$wpdb->query( "ALTER TABLE {$links} DROP COLUMN {$column}" ); // phpcs:ignore WordPress.DB
+		}
+
+		$wpdb->insert( $links, array( 'local_product' => 1, 'remote_store' => 'x', 'remote_product' => 2, 'generation' => 1, 'base_stock' => 5, 'base_set_at' => '2026-01-01 00:00:00' ) ); // phpcs:ignore WordPress.DB, WordPress.Arrays.ArrayDeclarationSpacing.AssociativeArrayFound
+		update_option( Installer::OPTION_VERSION, 1, true );
+
+		Installer::maybe_upgrade();
+
+		$columns = $wpdb->get_col( "SHOW COLUMNS FROM {$links}" ); // phpcs:ignore WordPress.DB
+
+		foreach ( array( 'expected_stock', 'found_stock', 'discrepancy_since', 'discrepancy_seen_at' ) as $column ) {
+			$this->assertContains( $column, $columns );
+		}
+
+		$this->assertSame( '5', $wpdb->get_var( "SELECT base_stock FROM {$links} WHERE local_product = 1" ) ); // phpcs:ignore WordPress.DB
+	}
 }

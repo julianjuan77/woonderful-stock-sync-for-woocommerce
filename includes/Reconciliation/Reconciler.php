@@ -76,14 +76,39 @@ final class Reconciler {
 		$ceiling      = Books::ceiling();
 		$peer_ceiling = self::ask_theirs( $peer, $ceiling, $details );
 
+		// Si la otra no respondió la primera pregunta, no corre ninguna fase en ninguna tienda
+		// (ADR-010 §7).
 		if ( is_wp_error( $peer_ceiling ) ) {
 			return self::failed( $trigger, $peer_ceiling, 'theirs', $details );
 		}
 
+		$failure = self::the_rest( $peer, $ceiling, $peer_ceiling, $details );
+
+		// La fase 2 propia corre aunque la otra se haya caído después: la cuenta es local.
+		$details['audit'] = Audit::run();
+
+		if ( null !== $failure ) {
+			return self::failed( $trigger, $failure[0], $failure[1], $details );
+		}
+
+		return self::finish( $trigger, Result::DONE, $details );
+	}
+
+	/**
+	 * La segunda pregunta y los vínculos.
+	 *
+	 * @param array{store: string, rest_url: string, secret: string, role: string} $peer         La otra tienda.
+	 * @param int                                                                  $ceiling      El techo propio.
+	 * @param int                                                                  $peer_ceiling El de la otra.
+	 * @param array<string, mixed>                                                 $details      Lo que se va haciendo.
+	 *
+	 * @return array{0: \WP_Error, 1: string}|null Por qué y dónde se cortó, o null si no.
+	 */
+	private static function the_rest( array $peer, int $ceiling, int $peer_ceiling, array &$details ): ?array {
 		$sent = self::tell_mine( $peer, $peer_ceiling, $details );
 
 		if ( is_wp_error( $sent ) ) {
-			return self::failed( $trigger, $sent, 'mine', $details );
+			return array( $sent, 'mine' );
 		}
 
 		// Los vínculos, sólo si lanza la maestra: cuando lanza la secundaria —el cierre de una
@@ -92,11 +117,11 @@ final class Reconciler {
 			$compared = self::compare_links( $peer, $ceiling, $details );
 
 			if ( is_wp_error( $compared ) ) {
-				return self::failed( $trigger, $compared, 'links', $details );
+				return array( $compared, 'links' );
 			}
 		}
 
-		return self::finish( $trigger, Result::DONE, $details );
+		return null;
 	}
 
 	/**

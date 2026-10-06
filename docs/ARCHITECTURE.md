@@ -20,7 +20,7 @@ Tres tablas propias, con el prefijo de WordPress más `wss_`:
 | Tabla | Qué guarda |
 |---|---|
 | `{prefix}wss_movements` | El libro: los movimientos propios y los recibidos, en la misma tabla |
-| `{prefix}wss_links` | El par de productos, su generación y su stock base. **Sin columna de estado**: vinculado, suspendido y sin vincular se derivan (UC-03, ADR-004 §2) |
+| `{prefix}wss_links` | El par de productos, su generación y su stock base. **Sin columna de estado**: vinculado, suspendido y sin vincular se derivan (UC-03, ADR-004 §2). Desde la versión 2 del esquema, las cuatro columnas de una discrepancia abierta —`expected_stock`, `found_stock`, `discrepancy_since`, `discrepancy_seen_at`—, en `NULL` si no hay (ADR-010 §4) |
 
 **La generación de un par es la secuencia del bootstrap que lo abrió** (ADR-005 §4): nunca se
 repite, así que un movimiento de una época anterior no puede colarse como vigente.
@@ -236,6 +236,14 @@ hace a la otra tienda dos preguntas por `POST /reconcile/digest` (`Rest\Reconcil
 
 Si esta tienda tiene el candado tomado, contesta `409 wss_reconciling`. Si la otra no responde
 en la primera pregunta, no se toca nada; si se corta después, lo comparado queda.
+
+**La fase 2** (`Reconciliation\Audit`, ADR-010). Al final de cada reconciliación —aunque la
+otra se haya caído después de la primera pregunta—, esta tienda compara cada vínculo: lo
+esperado es el stock base más lo propio y lo recibido aplicado, de ese vínculo y su generación.
+No revisa un vínculo con retenidos, con el bootstrap sin resolver, ni un producto sin su propio
+stock. Lo que no cierra no se abre: agenda `wss_audit_confirm` a los 2 minutos con el vínculo y
+la diferencia, y se abre sólo si sigue igual. Una abierta igual se marca como vista; una que
+vuelve a coincidir se cierra sola.
 
 **El lote, la curva de backoff, las 6 horas y los 5 minutos del claim son constantes**, no
 opciones (ADR-001, revisado el 2026-09-29).

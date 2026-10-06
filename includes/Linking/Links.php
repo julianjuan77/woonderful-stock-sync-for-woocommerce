@@ -98,6 +98,23 @@ final class Links {
 	}
 
 	/**
+	 * Un vínculo por su ID, o null.
+	 *
+	 * @param int $link_id ID del vínculo.
+	 */
+	public static function find( int $link_id ): ?\stdClass {
+		global $wpdb;
+
+		$table = Installer::table( 'links' );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", $link_id ) );
+		// phpcs:enable
+
+		return $row instanceof \stdClass ? $row : null;
+	}
+
+	/**
 	 * Borra un vínculo. No hay baja lógica (ADR-005).
 	 *
 	 * @param int $link_id ID del vínculo.

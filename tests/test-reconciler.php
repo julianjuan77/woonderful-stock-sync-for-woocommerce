@@ -584,4 +584,36 @@ class Test_Reconciler extends WP_UnitTestCase {
 		$this->assertSame( 'links', $result['details']['stage'] );
 		$this->assertSame( 'pending', $this->delivery_of( $missing ) );
 	}
+
+	/**
+	 * RCL-15 — Al final, esta tienda hace su fase 2, aunque la otra se haya caído después de la
+	 * primera pregunta: la cuenta es local (ADR-010 §7).
+	 */
+	public function test_the_own_audit_runs_at_the_end_even_after_a_later_failure(): void {
+		$this->other['fail'] = Reconcile::MINE;
+
+		$result = Reconciler::run( Result::NIGHTLY );
+
+		$this->assertSame( Result::UNREACHABLE, $result['outcome'] );
+		$this->assertSame(
+			array(
+				'checked'   => 0,
+				'closed'    => 0,
+				'suspected' => 0,
+			),
+			$result['details']['audit'] ?? null
+		);
+	}
+
+	/**
+	 * RCL-16 — **Si la otra no respondió la primera pregunta, no corre ninguna fase**, tampoco
+	 * la propia.
+	 */
+	public function test_no_audit_when_the_other_never_answered(): void {
+		$this->other['fail'] = Reconcile::THEIRS;
+
+		$result = Reconciler::run( Result::NIGHTLY );
+
+		$this->assertArrayNotHasKey( 'audit', $result['details'] );
+	}
 }

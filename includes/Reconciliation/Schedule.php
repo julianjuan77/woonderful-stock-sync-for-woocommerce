@@ -52,6 +52,7 @@ final class Schedule {
 	public static function register(): void {
 		add_action( self::NIGHTLY, array( self::class, 'nightly' ) );
 		add_action( self::IMPORT, array( self::class, 'import_closed' ) );
+		add_action( Audit::CONFIRM, array( Audit::class, 'confirm' ) );
 	}
 
 	/**
@@ -160,12 +161,14 @@ final class Schedule {
 	}
 
 	/**
-	 * Desagenda las dos. Al desactivar el plugin, con la pasada.
+	 * Desagenda la noche, el cierre y la segunda revisión de la fase 2. Al desactivar el
+	 * plugin, con la pasada.
 	 */
 	public static function unschedule(): void {
 		if ( function_exists( 'as_unschedule_all_actions' ) ) {
 			as_unschedule_all_actions( self::NIGHTLY, array(), Pass::GROUP );
 			as_unschedule_all_actions( self::IMPORT, null, Pass::GROUP );
+			as_unschedule_all_actions( Audit::CONFIRM, null, Pass::GROUP );
 		}
 	}
 }
