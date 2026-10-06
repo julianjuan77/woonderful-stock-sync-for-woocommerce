@@ -800,7 +800,7 @@ generación cae `BOK-18`; informándolo dos veces cae `BOK-14`.
 | `RCN-08` | "Estos son mis vínculos", de la maestra | Borra el de acá sin respaldo, e informa el que falta |
 | `RCN-09` | **Los mismos, de la secundaria** | `403 wss_not_master`: no se compara nada |
 | `RCN-10` | Cinco listas mal armadas, una con una generación por encima del techo | `400` |
-| `RCN-11` | "Hacé tu fase 2" | La hace, contesta sus discrepancias abiertas, y lo anota en su resultado |
+| `RCN-11` | "Hacé tu fase 2", con un vínculo que no cierra y una discrepancia ya abierta | La hace —dos revisados, uno sospechoso—, contesta la abierta, y lo anota en su resultado |
 | `RCN-12` | Sin sesión | `400` |
 
 Verificado rompiéndolo: leyendo la marca antes que la lista cae `RCN-02`; sin mirar el candado
@@ -827,10 +827,10 @@ La otra tienda es un doble que contesta por HTTP interceptado.
 | `RCL-12` | Lanza la secundaria | No manda vínculos |
 | `RCL-13` | La otra informa vínculos borrados, faltantes y con otra generación | Quedan en el resultado; los faltantes, como productos de acá, y sin los de un bootstrap sin resolver |
 | `RCL-14` | Falla la comparación de vínculos | `unreachable` en `links`, y lo de los movimientos queda |
-| `RCL-15` | Falla la segunda pregunta | **La fase 2 propia corre igual**: la cuenta es local (ADR-010 §7) |
+| `RCL-15` | Falla la segunda pregunta, con un producto que no cierra | **La fase 2 propia corre igual** y lo encuentra: la cuenta es local (ADR-010 §7) |
 | `RCL-16` | Falla la primera pregunta | No corre ninguna fase, tampoco la propia |
 | `RCL-17` | **La tercera pregunta** | Las discrepancias abiertas de la otra quedan en el resultado |
-| `RCL-18` | Falla sólo la tercera | La fase 2 propia corre igual; `unreachable` en `audit` |
+| `RCL-18` | Falla sólo la tercera, con un producto que no cierra | La fase 2 propia corre igual y lo encuentra; `unreachable` en `audit` |
 
 Verificado rompiéndolo: con la marca de la primera tanda para todas cae `RCL-02`; sin soltar el
 candado cuando falla caen `RCL-03` y `RCL-05`; guardando el `busy` cae `RCL-05`; con el techo
@@ -844,7 +844,7 @@ propio en la segunda pregunta caen `RCL-01` y `RCL-09`; la secundaria mandando v
 | --- | --- | --- |
 | `SCD-01` | La próxima noche, antes y después de las 3, en Buenos Aires | Hoy a las 3 de la hora del sitio, o mañana |
 | `SCD-02` | Agendar la noche dos veces | Una sola acción, para la próxima noche |
-| `SCD-03` | La noche en la maestra | Reconcilia (`nightly`) y agenda la siguiente |
+| `SCD-03` | La noche en la maestra | Reconcilia (`nightly`), **después purga**, suelta el candado, y agenda la siguiente a las 3 |
 | `SCD-04` | La noche en la secundaria | No reconcilia, pero agenda la siguiente |
 | `SCD-05` | La noche con el sitio suspendido | No reconcilia, pero agenda la siguiente |
 | `SCD-06` | **Una pasada con 199, y otra con 200** | Sólo la de 200 agenda el cierre, con el techo de ese momento, para dentro de 5 minutos |
@@ -858,6 +858,7 @@ propio en la segunda pregunta caen `RCL-01` y `RCL-09`; la secundaria mandando v
 | `SCD-14` | **La noche en la secundaria, con un confirmado de hace 100 días** | Lo purga (ADR-004 §4), y suelta el candado |
 | `SCD-15` | La noche con el candado tomado | No purga: la marca no se mueve en medio de una reconciliación |
 | `SCD-16` | La noche con el sitio suspendido | No purga |
+| `SCD-17` | **La noche de la secundaria** | A las 4: purgar toma el candado, y a las 3 le contestaría "ocupada" a la maestra |
 
 Verificado rompiéndolo: en UTC cae `SCD-01`; sin mirar si ya está agendada cae `SCD-02`; sin
 agendar la siguiente caen `SCD-03` a `SCD-05`; la secundaria reconciliando cae `SCD-04`; sin
@@ -872,7 +873,7 @@ cae `SCD-15`.
 
 | ID | Caso | Esperado |
 | --- | --- | --- |
-| `AUD-01` | **Propios en tres estados, recibidos aplicados, retenidos y descartados, otra generación y otro vínculo** | Lo esperado es el stock base más lo propio y lo recibido aplicado, de esa generación y ese vínculo (ADR-010 §1) |
+| `AUD-01` | **Propios en tres estados, recibidos aplicados, retenidos y descartados, y propios y recibidos aplicados de otra generación y de otro vínculo** | Lo esperado es el stock base más lo propio y lo recibido aplicado, de esa generación y ese vínculo (ADR-010 §1) |
 | `AUD-02` | El stock coincide con el libro | Nada que volver a revisar |
 | `AUD-03` | **No coincide** | No se abre todavía: se agenda la segunda revisión en 2 minutos, con la diferencia (ADR-010 §3) |
 | `AUD-04` | A los 2 minutos sigue igual | Se abre: esperado, encontrado, desde y visto |
@@ -890,6 +891,7 @@ cae `SCD-15`.
 | `AUD-16` | **Una venta entra justo mientras se restaura** | No se pierde: se suma la diferencia, no se escribe el número |
 | `AUD-17` | Las dos acciones, con la diferencia cambiada desde que se vio | `wss_changed`, sin tocar nada |
 | `AUD-18` | Sin discrepancia, sin vínculo, o con retenidos | `wss_no_discrepancy` o `wss_not_checkable` |
+| `AUD-19` | "El libro está bien" con 53 contra 50 | Baja a 50, sin anotar un movimiento |
 
 Verificado rompiéndolo: sumando los retenidos o sin la generación cae `AUD-01`; abriendo a la
 primera caen `AUD-03` y `AUD-08`; confirmando sin volver a medir caen `AUD-05` y `AUD-06`; sin
@@ -958,3 +960,4 @@ la suite de WordPress abre para cada test.
 | 2026-09-27 | "No se borró nada" se verificaba sobre tablas vacías, así que un `TRUNCATE` pasaba igual |
 | 2026-09-27 | Ningún test leía el aviso de esquema roto, ni verificaba que los `add_action` del arranque estuvieran puestos: los tests llaman a `boot()` a mano |
 | 2026-09-27 | Ningún test miraba que el resultado del control de esquema quedara **guardado**. Con un booleano nunca se guardaba el caso malo, y el cacheo que evita la consulta cara no funcionaba — pero como la función devolvía el valor correcto, todo pasaba en verde |
+| 2026-10-06 | `AUD-01` no tenía recibidos aplicados de otro vínculo ni de otra generación: sin los paréntesis del `OR`, la cuenta sumaba lo de todos los vínculos y pasaba igual. Ningún test veía que la maestra purgara de noche (`SCD-03`), ni un `restore` que baja (`AUD-19`). `RCN-11`, `RCL-15` y `RCL-18` corrían sin vínculos y comparaban contra ceros |

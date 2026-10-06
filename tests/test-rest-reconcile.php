@@ -9,7 +9,9 @@ declare( strict_types = 1 );
 
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Ledger\Ledger;
+use Woonderful\StockSync\Reconciliation\Audit;
 use Woonderful\StockSync\Reconciliation\Lock;
+use Woonderful\StockSync\Reconciliation\Schedule;
 use Woonderful\StockSync\Reconciliation\Result;
 use Woonderful\StockSync\Rest\Reconcile;
 use Woonderful\StockSync\Schema\Installer;
@@ -61,6 +63,8 @@ class Test_Rest_Reconcile extends WP_UnitTestCase {
 
 		remove_action( 'rest_api_init', array( Reconcile::class, 'register_routes' ) );
 		$wp_rest_server = null; // phpcs:ignore WordPress.WP.GlobalVariablesOverride
+
+		Schedule::unschedule();
 
 		foreach ( array( 'movements', 'links', 'nonces' ) as $name ) {
 			$table = Installer::table( $name );
@@ -515,6 +519,11 @@ class Test_Rest_Reconcile extends WP_UnitTestCase {
 	 * anota en su resultado.
 	 */
 	public function test_audit_runs_the_own_phase_two(): void {
+		// Uno que no cierra —el libro dice 50, hay 47— y uno ya abierto que sigue igual.
+		$suspect = $this->linked_product( 47, 50 );
+		$open    = $this->linked_product( 8, 10 );
+		Audit::confirm( array( array( $open, -2 ) ) );
+
 		$response = $this->ask(
 			array(
 				'step'    => Reconcile::AUDIT,
@@ -522,19 +531,51 @@ class Test_Rest_Reconcile extends WP_UnitTestCase {
 			)
 		);
 
+		$data = $response->get_data();
+
 		$this->assertSame( 200, $response->get_status() );
 		$this->assertSame(
 			array(
-				'audit' => array(
-					'checked'   => 0,
-					'closed'    => 0,
-					'suspected' => 0,
-				),
-				'open'  => array(),
+				'checked'   => 2,
+				'closed'    => 0,
+				'suspected' => 1,
 			),
-			$response->get_data()
+			$data['audit']
 		);
-		$this->assertSame( 0, Result::last()['details']['audit']['checked'] ?? null );
+		$this->assertCount( 1, $data['open'] );
+		$this->assertSame( array( 10, 8 ), array( $data['open'][0]['expected'], $data['open'][0]['found'] ) );
+		$this->assertSame( 2, Result::last()['details']['audit']['checked'] ?? null );
+		$this->assertGreaterThan( 0, $suspect );
+	}
+
+	/**
+	 * Un producto vinculado con su stock y su stock base.
+	 *
+	 * @param int $stock El stock que tiene.
+	 * @param int $base  Con cuánto arrancó.
+	 *
+	 * @return int El ID del vínculo.
+	 */
+	private function linked_product( int $stock, int $base ): int {
+		global $wpdb;
+
+		$product = new WC_Product_Simple();
+		$product->set_manage_stock( true );
+		$product->set_stock_quantity( $stock );
+
+		$wpdb->insert( // phpcs:ignore WordPress.DB
+			Installer::table( 'links' ),
+			array(
+				'local_product'  => (int) $product->save(),
+				'remote_store'   => self::REMOTE_STORE,
+				'remote_product' => 900 + $stock,
+				'generation'     => 1,
+				'base_stock'     => $base,
+				'base_set_at'    => gmdate( 'Y-m-d H:i:s' ),
+			)
+		);
+
+		return (int) $wpdb->insert_id;
 	}
 
 	/**

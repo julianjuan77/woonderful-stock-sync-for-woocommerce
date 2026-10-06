@@ -198,6 +198,10 @@ class Test_Audit extends WP_UnitTestCase {
 		$this->movement( $link, -20, array( 'generation' => 99 ) );
 		$this->movement( $other, -30 );
 
+		// Recibidos y aplicados, pero de otra generación y de otro vínculo: tampoco cuentan.
+		$this->movement( $link, -40, array( 'origin_store' => self::REMOTE_STORE, 'origin_seq' => 13, 'delivery' => null, 'application' => Ledger::APPLIED, 'generation' => 99 ) ); // phpcs:ignore WordPress.Arrays.ArrayDeclarationSpacing.AssociativeArrayFound
+		$this->received( $other, -50, Ledger::APPLIED, 14 );
+
 		$this->assertSame( 50 - 2 - 1 - 3 + 5, Audit::expected( $link ) );
 	}
 
@@ -554,5 +558,19 @@ class Test_Audit extends WP_UnitTestCase {
 		$this->received( $held, -1, Ledger::HELD, 30 );
 
 		$this->assertSame( 'wss_not_checkable', Audit::restore( (int) $held->local_product )->get_error_code() );
+	}
+
+	/**
+	 * AUD-19 — "El libro está bien" también baja: si hay de más, vuelve a lo esperado.
+	 */
+	public function test_restore_also_brings_an_excess_down(): void {
+		$link = $this->linked( 53, 50 );
+		Audit::confirm( array( array( (int) $link->id, 3 ) ) );
+		Detector::register();
+
+		$this->assertTrue( Audit::restore( (int) $link->local_product ) );
+
+		$this->assertSame( 50, Detector::stock_in_db( (int) $link->local_product ) );
+		$this->assertSame( array(), $this->own_movements( $link ) );
 	}
 }

@@ -177,8 +177,8 @@ class Test_Schedule extends WP_UnitTestCase {
 		$before = strtotime( '2026-10-05 05:00:00 UTC' );
 		$after  = strtotime( '2026-10-05 07:00:00 UTC' );
 
-		$this->assertSame( strtotime( '2026-10-05 06:00:00 UTC' ), Schedule::next_night( $before ) );
-		$this->assertSame( strtotime( '2026-10-06 06:00:00 UTC' ), Schedule::next_night( $after ) );
+		$this->assertSame( strtotime( '2026-10-05 06:00:00 UTC' ), Schedule::next_night( $before, 3 ) );
+		$this->assertSame( strtotime( '2026-10-06 06:00:00 UTC' ), Schedule::next_night( $after, 3 ) );
 	}
 
 	/**
@@ -188,18 +188,40 @@ class Test_Schedule extends WP_UnitTestCase {
 		Schedule::ensure_nightly();
 		Schedule::ensure_nightly();
 
-		$this->assertSame( Schedule::next_night( time() ), $this->scheduled_at( Schedule::NIGHTLY ) );
+		$this->assertSame( Schedule::next_night( time(), Schedule::NIGHT_HOUR ), $this->scheduled_at( Schedule::NIGHTLY ) );
 	}
 
 	/**
-	 * SCD-03 — **De noche, la maestra reconcilia**, y deja agendada la noche siguiente.
+	 * SCD-03 — **De noche, la maestra reconcilia y después purga**, suelta el candado y deja
+	 * agendada la noche siguiente, a las 3.
 	 */
 	public function test_the_master_reconciles_at_night(): void {
+		$old = $this->old_confirmed();
+
 		Schedule::nightly();
 
 		$this->assertSame( Result::NIGHTLY, Result::last()['trigger'] ?? null );
 		$this->assertGreaterThan( 0, $this->asked );
-		$this->assertSame( Schedule::next_night( time() ), $this->scheduled_at( Schedule::NIGHTLY ) );
+		$this->assertFalse( $this->exists( $old ), 'la maestra también purga' );
+		$this->assertFalse( Lock::is_taken() );
+		$this->assertSame( Schedule::next_night( time(), Schedule::NIGHT_HOUR ), $this->scheduled_at( Schedule::NIGHTLY ) );
+	}
+
+	/**
+	 * SCD-17 — **La secundaria agenda su noche a las 4**: purgar toma el candado, y a las 3 le
+	 * contestaría "ocupada" a la maestra que reconcilia con ella.
+	 */
+	public function test_the_secondary_night_is_an_hour_later(): void {
+		$this->pair_as( Peers::MASTER );
+
+		Schedule::ensure_nightly();
+
+		$this->assertSame( Schedule::next_night( time(), Schedule::SECONDARY_NIGHT_HOUR ), $this->scheduled_at( Schedule::NIGHTLY ) );
+
+		Schedule::unschedule();
+		Schedule::nightly();
+
+		$this->assertSame( Schedule::next_night( time(), Schedule::SECONDARY_NIGHT_HOUR ), $this->scheduled_at( Schedule::NIGHTLY ) );
 	}
 
 	/**

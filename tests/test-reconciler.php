@@ -13,6 +13,7 @@ use Woonderful\StockSync\Reconciliation\Books;
 use Woonderful\StockSync\Reconciliation\Lock;
 use Woonderful\StockSync\Reconciliation\Reconciler;
 use Woonderful\StockSync\Reconciliation\Result;
+use Woonderful\StockSync\Reconciliation\Schedule;
 use Woonderful\StockSync\Rest\Reconcile;
 use Woonderful\StockSync\Schema\Installer;
 use Woonderful\StockSync\Transport\Peers;
@@ -90,6 +91,7 @@ class Test_Reconciler extends WP_UnitTestCase {
 		global $wpdb;
 
 		remove_filter( 'pre_http_request', array( $this, 'intercept' ), 10 );
+		Schedule::unschedule();
 
 		foreach ( array( 'movements', 'links', 'nonces' ) as $name ) {
 			$table = Installer::table( $name );
@@ -604,6 +606,7 @@ class Test_Reconciler extends WP_UnitTestCase {
 	 * primera pregunta: la cuenta es local (ADR-010 §7).
 	 */
 	public function test_the_own_audit_runs_at_the_end_even_after_a_later_failure(): void {
+		$this->unbalanced_product();
 		$this->other['fail'] = Reconcile::MINE;
 
 		$result = Reconciler::run( Result::NIGHTLY );
@@ -611,11 +614,33 @@ class Test_Reconciler extends WP_UnitTestCase {
 		$this->assertSame( Result::UNREACHABLE, $result['outcome'] );
 		$this->assertSame(
 			array(
-				'checked'   => 0,
+				'checked'   => 1,
 				'closed'    => 0,
-				'suspected' => 0,
+				'suspected' => 1,
 			),
 			$result['details']['audit'] ?? null
+		);
+	}
+
+	/**
+	 * Un producto vinculado cuyo stock no cierra con el libro: dice 50, hay 47.
+	 */
+	private function unbalanced_product(): void {
+		$product = new WC_Product_Simple();
+		$product->set_manage_stock( true );
+		$product->set_stock_quantity( 47 );
+
+		global $wpdb;
+		$wpdb->insert( // phpcs:ignore WordPress.DB
+			Installer::table( 'links' ),
+			array(
+				'local_product'  => (int) $product->save(),
+				'remote_store'   => self::REMOTE_STORE,
+				'remote_product' => 999,
+				'generation'     => 0,
+				'base_stock'     => 50,
+				'base_set_at'    => gmdate( 'Y-m-d H:i:s' ),
+			)
 		);
 	}
 
@@ -668,12 +693,13 @@ class Test_Reconciler extends WP_UnitTestCase {
 	 * se cortó.
 	 */
 	public function test_a_failure_in_the_third_question_keeps_the_own_audit(): void {
+		$this->unbalanced_product();
 		$this->other['fail'] = Reconcile::AUDIT;
 
 		$result = Reconciler::run( Result::NIGHTLY );
 
 		$this->assertSame( Result::UNREACHABLE, $result['outcome'] );
 		$this->assertSame( 'audit', $result['details']['stage'] );
-		$this->assertArrayHasKey( 'audit', $result['details'] );
+		$this->assertSame( 1, $result['details']['audit']['suspected'] ?? null );
 	}
 }

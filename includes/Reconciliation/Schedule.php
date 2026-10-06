@@ -33,9 +33,16 @@ final class Schedule {
 	public const IMPORT = 'wss_import_closed';
 
 	/**
-	 * La hora de la noche, en la hora del sitio.
+	 * La hora de la noche de la maestra, en la hora del sitio: reconcilia y después purga.
 	 */
 	public const NIGHT_HOUR = 3;
+
+	/**
+	 * La de la secundaria, que sólo purga: una hora después, para no purgar mientras la
+	 * maestra reconcilia con ella. Purgar toma el candado, y con el candado tomado esta
+	 * tienda le contesta a la otra que está ocupada.
+	 */
+	public const SECONDARY_NIGHT_HOUR = 4;
 
 	/**
 	 * Cuánto espera el cierre antes de mirar, y antes de volver a mirar, en segundos.
@@ -66,19 +73,30 @@ final class Schedule {
 			return;
 		}
 
-		self::schedule( self::next_night( time() ), self::NIGHTLY, array() );
+		self::schedule( self::next_night( time(), self::night_hour() ), self::NIGHTLY, array() );
 	}
 
 	/**
-	 * La próxima noche: hoy a las 3 de la hora del sitio, o mañana si ya pasó.
+	 * La hora de la noche de esta tienda: según sea maestra o secundaria.
+	 *
+	 * Si el rol cambia, la noche ya agendada corre una vez más a la hora vieja; la siguiente
+	 * se agenda a la nueva.
+	 */
+	public static function night_hour(): int {
+		return Peers::this_is_master() ? self::NIGHT_HOUR : self::SECONDARY_NIGHT_HOUR;
+	}
+
+	/**
+	 * La próxima noche: hoy a esa hora del sitio, o mañana si ya pasó.
 	 *
 	 * Una acción por vez, y no una recurrente con cron: así la hora es la del sitio sin
 	 * depender de cómo interpreta Action Scheduler la zona horaria de una expresión cron.
 	 *
-	 * @param int $now Ahora.
+	 * @param int $now  Ahora.
+	 * @param int $hour La hora.
 	 */
-	public static function next_night( int $now ): int {
-		$night = ( new \DateTimeImmutable( '@' . $now ) )->setTimezone( wp_timezone() )->setTime( self::NIGHT_HOUR, 0 );
+	public static function next_night( int $now, int $hour ): int {
+		$night = ( new \DateTimeImmutable( '@' . $now ) )->setTimezone( wp_timezone() )->setTime( $hour, 0 );
 
 		if ( $night->getTimestamp() <= $now ) {
 			$night = $night->modify( '+1 day' );
@@ -96,7 +114,7 @@ final class Schedule {
 	 * misma acción, que está corriendo.
 	 */
 	public static function nightly(): void {
-		self::schedule( self::next_night( time() ), self::NIGHTLY, array() );
+		self::schedule( self::next_night( time(), self::night_hour() ), self::NIGHTLY, array() );
 
 		if ( null !== Plugin::suspension_reason() ) {
 			return;
@@ -113,9 +131,11 @@ final class Schedule {
 	 * Purga el libro, con el candado de la reconciliación.
 	 *
 	 * Si esta tienda purgara mientras reconcilia, su marca de purga se movería en medio de la
-	 * pasada. Con el candado tomado por otra, no purga: la noche siguiente lo hace. La otra
-	 * tienda sí puede estar reconciliando con ésta mientras purga, y no hace falta frenarla:
-	 * cada tanda viaja con la marca leída después de su lista (ADR-009 §2).
+	 * pasada. Con el candado tomado por otra, no purga: la noche siguiente lo hace.
+	 *
+	 * Mientras purga, le contesta a la otra que está ocupada: por eso la secundaria purga una
+	 * hora después de que la maestra reconcilia. Si igual coinciden —una reconciliación
+	 * manual—, la de la otra se saltea y la cubre la siguiente.
 	 */
 	private static function purge(): void {
 		$lock = Lock::acquire();

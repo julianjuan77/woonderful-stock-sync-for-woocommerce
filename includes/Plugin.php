@@ -90,7 +90,7 @@ final class Plugin {
 		}
 
 		// Van después de la guarda a propósito: un plugin suspendido no emite ni acepta
-		// movimientos. Falta la reconciliación.
+		// movimientos, ni contesta la reconciliación.
 		Detector::register();
 		Movements::register();
 		Products::register();
