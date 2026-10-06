@@ -34,8 +34,8 @@ make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS=
 
 ## 🔄 En progreso
 
-Nada. El bloque 7, la reconciliación, está completo. Lo que sigue espera un ADR: el log y los
-avisos (1.10) y la interfaz (1.11).
+1.10: el ADR-011 —el log— está aprobado; falta el ADR-012, los avisos por email. Después, la
+interfaz (1.11).
 
 **Para probar entre dos tiendas:** `sandbox` (8150, maestra) y `sandbox-b` (8170) están
 emparejadas con rol. Con `DISABLE_WP_CRON` la pasada no corre sola: se dispara con
@@ -63,7 +63,7 @@ Leyenda: ✅ hecho · 🔄 en curso · ⬜ pendiente · 🔒 bloqueado
 | 1.7 | ADR-006 — El detector de cambios de stock | ✅ |
 | 1.8 | ADR-007 — Qué se hashea en la huella del sitio | ✅ |
 | 1.9 | ADR — Reconciliación (UC-06): las dos fases, el candado, el cierre de una importación. ADR-009 (fase 1) y ADR-010 (fase 2) | ✅ |
-| 1.10 | ADR — Log de acciones y avisos (UC-03, UC-08) | ⬜ |
+| 1.10 | ADR — Log de acciones y avisos (UC-03, UC-08). El log en ADR-011 (aprobado); falta el de los avisos por email, ADR-012 | 🔄 |
 | 1.11 | ADR — Interfaz (UC-05): pantalla de vinculación y de ajustes | ⬜ |
 
 ### 2. Cimientos
@@ -201,6 +201,7 @@ La fuente es `docs/DECISIONS.md`. Acá sólo el índice de las aprobadas.
 | ADR-008 | El bootstrap se manda en el momento; sólo vincula la maestra; se revisa que nada haya cambiado; un incierto se pregunta. Revisado el 2026-10-02: el bootstrap reemplaza un vínculo viejo de la secundaria | 2026-10-01 |
 | ADR-009 | Reconciliación, fase 1: las dos tiendas se pasan la lista de secuencias y cada una reencola lo propio que falta; el candado; quién la lanza; el cierre de una importación; los vínculos de un solo lado | 2026-10-05 |
 | ADR-010 | Reconciliación, fase 2: cada tienda compara su stock contra su propio libro; se confirma a los 2 minutos; cuatro columnas en `wss_links`; dos acciones para resolver. Corrige el SPEC UC-06 | 2026-10-05 |
+| ADR-011 | El log: una tabla `wss_events` para lo que no es un movimiento —acciones del dueño, intentos fallidos, caídas y rechazos de la otra tienda, reconciliaciones, discrepancias, pares rotos—; el texto se arma al mostrarlo; 90 días, salvo el descarte y lo ya avisado | 2026-10-06 |
 
 El 2026-09-28 el SPEC §5 subió el mínimo de WooCommerce de 8.2 a 9.1: es la versión que trae
 el hook que estampa las cancelaciones (ADR-006 §2).
@@ -221,18 +222,18 @@ seguridad y convenciones de código.
 | `Links::for_remote_product()` devuelve la primera fila si hubiera dos vínculos con el mismo remoto. Desde ADR-008 (revisado) el bootstrap borra el que choque, así que no se arma un segundo; queda por si se crea a mano | Auditoría 2026-09-26 |
 | `remember_purged()` crea en `wss_peers` una entrada por cada tienda de la que purgó filas, aunque ya no esté emparejada: queda una entrada vieja sin URL ni secreto. `Peers::only()` ya no las cuenta (`SND-10`), así que no corta la entrega; lo que queda es basura en la opción. Re-emparejar le deja a la entrada anterior sólo el `purged_through` (`PAR-08`) | Revisión 2026-09-27, decidido en 5.7 |
 | Un cambio ajeno al stock del mismo producto entre las dos lecturas del detector se cuenta dos veces. Declarado y aceptado: son milisegundos, y lo corrige la reconciliación | Lo ve la fase 2 como discrepancia (7.5), y se resuelve con `wp wss discrepancy accept` (7.6) |
-| Editar las líneas de un pedido desde el admin deja el movimiento en `adjustment`, sin número de pedido: `wc_maybe_adjust_line_item_product_stock()` no dispara ningún hook que estampe | Sesión 2026-09-28 → ADR del log (UC-04) |
+| Editar las líneas de un pedido desde el admin deja el movimiento en `adjustment`, sin número de pedido: `wc_maybe_adjust_line_item_product_stock()` no dispara ningún hook que estampe | Sesión 2026-09-28 → límite del estampado (ADR-006 §2), dicho en ADR-011 |
 | Si un hook de terceros escribe algo que no es stock adentro de la transacción de `apply()` y después falla, el `ROLLBACK` lo deshace pero su caché queda vieja. Sólo se limpia la del stock | Sesión 2026-09-28, declarado |
 | **Condición para publicar:** ninguna versión puede salir con 5.3 y sin 6.2 y 6.3. Una tienda con esa versión le confirmaría con ACK el bootstrap o el `unlink` de otra más nueva, lo descartaría, y el par no se crearía —o no se borraría— sin que nadie se entere | Revisión 2026-09-29 → 9.3 |
 | Un `reason` desconocido se guarda y su delta se aplica, que está bien para una etiqueta nueva. Pero si una versión futura suma un motivo con **significado especial**, como el `bootstrap`, la vieja lo aplicaría como un ajuste común. La sección *Compatibilidad entre versiones* de ADR-001 tiene que decir cómo se marca un movimiento que una versión vieja no debe aplicar | Revisión 2026-09-29 → ADR-001 |
 | **Un lote que siempre voltea al receptor arrastra a los otros 199.** Si el receptor muere con un error que `apply()` no puede atrapar —sin memoria, o el tiempo máximo de PHP—, las 200 filas reciben el mismo error, el mismo backoff, vuelven a salir juntas y a las 6 horas se abandonan todas. Un timeout de 30 s no tiene el problema: el receptor termina igual y el reintento deduplica. La mitigación posible es partir el lote a la mitad tras una falla del lote entero que no sea de red ni de autenticación. No se hace hasta ver el volumen real | Revisión 2026-09-29 → §6 del SPEC |
 | **En el sandbox faltaban `wp_wss_links` y `wp_wss_movements`** —sólo quedaba `wp_wss_nonces`— con `wss_schema_version` en 1: el sitio estaba suspendido por esquema, y `maybe_upgrade()` no lo arregla porque la versión está al día. No coincide con ninguno de los dos caminos de `uninstall.php`. Causa sin encontrar; se reparó reactivando el plugin. Si se repite, mirar quién hace `DROP TABLE` sobre el prefijo `wp_` | E.1, 2026-09-30 |
 | Las dos tiendas del sandbox tienen todavía el vínculo armado a mano en E.1 ("Alpargata azul 38"), con generación 1: no corresponde a ningún bootstrap. Si molesta, borrarlo de `wss_links` en las dos | E.1, 2026-09-30 |
-| **Un bootstrap incierto que nunca recibe respuesta** —por ejemplo, un 401 después de re-emparejar— retiene las ventas de ese producto para siempre, sin avisarle a nadie. No se pierden, pero nadie se entera; y el dueño ve `already_linked` si intenta revincular. Lo tiene que avisar el log (UC-08) | Revisión 2026-10-02 → ADR del log |
+| **Un bootstrap incierto que nunca recibe respuesta** —por ejemplo, un 401 después de re-emparejar— retiene las ventas de ese producto para siempre, sin avisarle a nadie. No se pierden, pero nadie se entera; y el dueño ve `already_linked` si intenta revincular. Lo tiene que avisar el log (UC-08) | Revisión 2026-10-02 → ADR-011 (`link_unresolved`), falta implementarlo |
 | `wp wss link` sale con código 0 cuando el resultado queda incierto: un script no lo distingue de un éxito | Revisión 2026-10-02 |
 | `GET /movements/<origen>/<secuencia>` no exige que el origen consultado sea el de quien firma. Con dos tiendas no expone nada, pero conviene acotarlo | Revisión 2026-10-02 |
 | Los bootstraps `failed` no se purgan nunca: `purge()` sólo mira lo confirmado | Revisión 2026-10-02 → 7.x |
-| `claim()` ignora si el `UPDATE` devuelve false: un error de la base cortaría la entrega sin aviso. Ya no puede ser el 1093, pero cualquier otro sí | Revisión 2026-10-02 → ADR del log |
+| `claim()` ignora si el `UPDATE` devuelve false: un error de la base cortaría la entrega sin aviso. Ya no puede ser el 1093, pero cualquier otro sí | Revisión 2026-10-02 → ADR-011 (`ledger_error`), falta implementarlo |
 | La paginación de `GET /products` es por número de página: si se borra un producto definitivamente mientras se recorre el catálogo, todo se corre un lugar y uno de la página siguiente no aparece. Para sugerir pares por SKU es poco grave; si importa, se pagina por "los que vienen después del ID X" | Revisión 2026-10-02 → ADR de interfaz |
 | La pantalla tiene que decir "esperando respuesta" para un `uncertain` que todavía está en `syncing`, y "no se sabe" recién cuando ya es `uncertain`: hoy `State` los junta en uno | Revisión 2026-10-02 → ADR de interfaz |
 | El envío al final del request no se probó con PHP-FPM de verdad: los sitios de wp-restore corren Apache con mod_php, y ahí `Express` no manda. Los tests cubren la lógica; falta ver un pedido real salir en el `shutdown`. Y averiguar qué corren los servidores de las dos tiendas: con Apache y mod_php no se dispara nunca | 5.9 → con un sitio en PHP-FPM |

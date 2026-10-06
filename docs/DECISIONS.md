@@ -3101,7 +3101,7 @@ tienen que cubrir cada una.
 
 | Qué | Dónde va |
 | --- | --- |
-| El aviso por email de una discrepancia nueva | ADR del log (tarea 1.10) |
+| El aviso de una discrepancia | Va al log (ADR-011), no al email: en v1 las discrepancias viven en el log y en la pantalla (UC-08, *fuera de este caso*) |
 | Cómo se ve en la pantalla | ADR de la interfaz (tarea 1.11) |
 
 ### En qué se parece a otras cosas
@@ -3110,3 +3110,231 @@ Recalcular un saldo desde el historial y compararlo con el guardado es lo que ha
 **conciliar** una cuenta, y lo que en event sourcing se llama reconstruir el estado desde los
 eventos. Y confirmar antes de abrir es lo que hace un monitoreo con un umbral de "dos lecturas
 seguidas": evita alarmas por un instante.
+
+---
+
+## ADR-011 — El log: qué queda registrado y dónde
+
+Estado: Aprobada · 2026-10-06 · aprobada por Julián
+Temas: db-schema, uninstall, modulos
+Cubre: includes/Log/_.php, includes/Schema/Installer.php, includes/Cli/Command.php, uninstall.php
+
+### En pocas palabras
+
+Una tabla nueva, `wss_events`, guarda **lo que pasa y no es un movimiento de stock**: lo que el
+dueño hace con un par, los intentos que fallan, y los eventos del sistema —una caída de la otra
+tienda, una reconciliación, una discrepancia—. Los movimientos de stock **no** van ahí: ya están
+en el libro.
+
+El historial de un producto junta las dos cosas en una línea de tiempo: los movimientos del
+libro y los eventos de esta tabla (UC-03).
+
+Los avisos por email (UC-08) van en el ADR-012, y leen de acá.
+
+---
+
+### 1. Dónde se guarda
+
+| Opción | Por qué sí o por qué no |
+| --- | --- |
+| **A — Una tabla propia, `wss_events`, para todo** ✅ | Un solo lugar, que se consulta por producto, por tipo o por fecha. Es lo que ya hace woonderful-sync con `ws_stock_logs`, y su pantalla de log (`Logs.js`: filtros, paginado, filas que se expanden) es el punto de partida de la de este plugin (tarea 1.11). Contra: una tabla más, con su purga y su lugar en el desinstalador |
+| B — Una tabla para lo de cada producto, y el logger de WooCommerce para lo del sistema | El log del sistema sale casi gratis en *WooCommerce → Estado → Registros*. Pero son dos lugares, y mostrar lo del sistema en la pantalla propia obliga a leer los archivos de WooCommerce |
+| C — Todo en el logger de WooCommerce | Ninguna tabla nueva. Pero por defecto escribe archivos: armar el historial de un producto es recorrer texto, y el ADR-012 no podría preguntar bien "¿esto ya lo avisé?" |
+
+**La diferencia con woonderful-sync:** allá se escribe una fila por cada movimiento de stock,
+porque no hay otro registro. Acá el libro ya es ese registro, así que repetirlo duplicaría cada
+venta. Por eso esta tabla guarda **sólo lo que no es un movimiento**.
+
+### 2. La tabla
+
+```sql
+CREATE TABLE {prefix}wss_events (
+  id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  created_at  DATETIME        NOT NULL,   -- UTC
+  level       VARCHAR(10)     NOT NULL,   -- info · warning · error
+  kind        VARCHAR(40)     NOT NULL,   -- qué pasó: ver §3
+  product     BIGINT UNSIGNED NULL,       -- el producto de esta tienda, si es de uno
+  user_id     BIGINT UNSIGNED NULL,       -- quién, si fue una persona; NULL si no (WP-CLI sin --user da 0)
+  cause       VARCHAR(40)     NULL,       -- a qué se atribuye: ver §5
+  context     TEXT            NULL,       -- JSON con los datos del evento
+  PRIMARY KEY (id),
+  KEY by_product (product, created_at),
+  KEY by_date (created_at)
+) ENGINE=InnoDB;
+```
+
+**Dos índices, y por qué.** `by_product` es el historial de un producto, que es lo que más se
+mira. `by_date` es la purga y el listado general, que se lee de lo más nuevo a lo más viejo. No
+se indexan `kind` ni `cause`: filtrar por ellos recorre a lo sumo 90 días de eventos, que son
+pocos (ver §6).
+
+**El texto no se guarda: se arma al mostrarlo.** Cada evento guarda su tipo y sus datos en
+`context`, y la pantalla o el comando arman la frase. Así se puede traducir, y cambiar cómo se
+dice algo no obliga a migrar filas viejas.
+
+### 3. Qué se registra
+
+**Lo que el dueño hace con un par**, con su usuario, aunque no mueva stock (UC-03):
+
+| `kind` | Cuándo |
+| --- | --- |
+| `linked` | Se vinculó un producto |
+| `link_failed` | **Un intento de vincular que falló**, con su motivo. Es lo que distingue un olvido de una falla |
+| `unlinked` | Se desvinculó |
+| `discarded` · `undiscarded` | Se descartó la sugerencia de un producto, o se deshizo el descarte (UC-03; lo usa la pantalla, tarea 1.11) |
+| `discrepancy_accepted` · `discrepancy_restored` | Se resolvió una discrepancia con una de las dos acciones (ADR-010 §6) |
+
+**Lo que pasa solo**, sin nadie mirando:
+
+| `kind` | Cuándo |
+| --- | --- |
+| `peer_unreachable` · `peer_back` | La otra tienda dejó de responder, o volvió. **Sólo el cambio**: no una línea por cada pasada que falla mientras sigue caída (ver §4) |
+| `peer_rejected` · `peer_accepted` | La otra tienda **responde pero rechaza** —un 4xx: una firma mala después de re-emparejar mal, por ejemplo—, o dejó de rechazar. También sólo el cambio. No es una caída: es un error propio, y se registra como `error` |
+| `abandoned` | Una pasada abandonó movimientos por pasar las 6 horas: una línea con cuántos (ADR-001 §2). **Con la otra caída no se registra**: es un síntoma de la caída, cada pasada abandonaría unos pocos —una línea por minuto—, y lo repara la reconciliación cuando vuelve. Con la otra rechazando sí: eso no lo repara nada solo |
+| `reconciled` | Una reconciliación terminó: quién la lanzó, cómo terminó y qué hizo (ADR-009 §7). **La registran las dos tiendas**, cada una con lo suyo, como las dos guardan su resultado |
+| `discrepancy_opened` · `discrepancy_closed` | La fase 2 abrió una discrepancia, o se cerró sola (ADR-010 §5) |
+| `link_removed` | La reconciliación borró un vínculo sin respaldo en la secundaria (ADR-009 §8) |
+| `pair_broken` · `pair_restored` | Un producto **de esta tienda** que está vinculado se fue a la papelera, se borró o dejó de llevar su propio stock; o volvió. Ver §6 |
+| `link_unresolved` | **Un bootstrap sigue incierto y la pregunta por él falla** (ADR-008 §5): sus ventas quedan retenidas hasta que se resuelva. Una vez por bootstrap, la primera vez que la pregunta falla |
+| `ledger_error` | Una escritura del libro que la base rechazó —por ejemplo, el `UPDATE` del claim—: la entrega se corta hasta que se arregle |
+
+**Lo que no se registra:**
+
+- **Cada movimiento de stock.** Ya está en el libro.
+- **Cada reintento de un envío.** El estado vive en la fila del libro —intentos, último error—;
+  el log recibe una línea por evento, no por reintento (ADR-001 §2).
+- **Cada venta de un producto sin vincular.** Llenaría el log de ruido, y el producto ya figura
+  como _sin vincular_ (UC-01). Lo que no sincroniza lo avisa el ADR-012 por tiempo, no por
+  ventas.
+- **Una reconciliación salteada** porque había otra en curso: no pasó nada.
+
+### 4. Cuándo está caída la otra tienda
+
+**Una caída es un error de red, un timeout o un 5xx.** Un 4xx no: la otra respondió y dijo que no
+—una firma mala, un reloj desfasado, un endpoint que no existe—. Eso es un **rechazo**, y no lo
+arregla esperar.
+
+| Respuesta | Qué es | Se registra |
+| --- | --- | --- |
+| Error de red, timeout, 5xx | Caída | `peer_unreachable` una vez, `peer_back` cuando vuelve |
+| 4xx | Rechazo | `peer_rejected` una vez, como `error`; `peer_accepted` cuando deja de rechazar |
+| 200 | Anda | Nada, salvo que antes estuviera caída o rechazando |
+
+**El estado vive en una opción, `wss_peer_state`**: `ok`, `unreachable` o `rejected`, y desde
+cuándo. Se compara con la respuesta nueva, y sólo un cambio escribe una línea. El transient
+`wss_send_failed` no sirve para esto: dura una pasada, y el log escribiría la caída y la vuelta
+una vez por minuto.
+
+**Una caída se nota con el primer request que falla**, no a la hora en que la otra cayó: el
+plugin no la vigila, se entera cuando le habla. Le hablan la pasada cuando tiene algo que
+mandar, el envío al final del request, la reconciliación, la vinculación y el catálogo; todos
+actualizan el estado. Sin ventas, la reconciliación de la noche de la maestra es un request por
+día, así que una caída se registra a lo sumo a la mañana siguiente.
+
+### 5. La causa
+
+`cause` dice **a qué se atribuye** un evento, para que una tienda caída no se lea como un error
+de cada producto (UC-08):
+
+```
+14:00  peer_unreachable                      ← la otra tienda dejó de responder
+14:05  link_failed   producto 123   cause: peer_unreachable
+14:06  link_failed   producto 124   cause: peer_unreachable
+```
+
+El historial del 123 dice "falló porque la otra tienda no respondía", no "falló el 123". Y el
+ADR-012 agrupa por causa: 300 productos que fallan por lo mismo son un aviso, no 300.
+
+### 6. Cuánto se guarda
+
+**90 días, como el libro** (SPEC §5), en la purga de la noche (ADR-009 §5), con el mismo
+candado.
+
+**Con una excepción: lo que es una decisión o una memoria no se borra.** La purga borra
+eventos; no puede borrar algo que el plugin necesita recordar.
+
+- **El descarte.** Descartar es una decisión del dueño, y es lo que hace que ese producto no
+  vuelva a aparecer en la pantalla ni en el email (UC-03). Si se purgara a los 90 días, el
+  producto volvería a avisarse como si nadie hubiera decidido nada. Así que `discarded` y
+  `undiscarded` no se purgan nunca.
+- **Lo que ya se avisó** (ADR-012). UC-08 pide avisar de cada producto una sola vez, aunque
+  siga igual durante meses: si "ya lo avisé" viviera en una fila que se purga a los 90 días, el
+  aviso se repetiría. El ADR-012 lo guarda en filas que la purga no borra, o en otro lado; esta
+  tabla sólo garantiza que la purga respeta la lista de tipos que no se borran.
+
+Son pocos: uno por producto que el dueño decidió dejar afuera, o del que ya se avisó.
+
+**Cuánto ocupa.** Sin una línea por movimiento ni por reintento, son unos pocos eventos por día:
+las acciones del dueño, una reconciliación por noche, y los cambios de estado. Una caída de un
+día entero son dos líneas.
+
+### 7. Quién escribe
+
+Una sola clase, `Log\Events`, con `record( $kind, $level, $product, $context, $cause )`. La
+llaman las piezas que ya existen, en el lugar donde pasa cada cosa:
+
+| Quién | Qué registra |
+| --- | --- |
+| `Linking\Linker` | `linked`, `link_failed`, `unlinked`; `link_unresolved` la primera vez que la pregunta por un bootstrap incierto falla |
+| Todo lo que le habla a la otra tienda | El estado de §4, por una sola función: `peer_unreachable`, `peer_back`, `peer_rejected`, `peer_accepted` |
+| `Transport\Sender` | `abandoned`, después del claim: `claim()` cuenta cuántos abandonó, y el emisor —que sabe el estado de la otra— decide si registrarlo. `ledger_error` si el claim no pudo escribir |
+| `Reconciliation\Reconciler` y `Rest\Reconcile` | `reconciled`, cada tienda la suya |
+| `Reconciliation\Audit` | `discrepancy_opened`, `discrepancy_closed`, `discrepancy_accepted`, `discrepancy_restored` |
+| `Reconciliation\Books` | `link_removed` |
+| La noche (`Reconciliation\Schedule`) | `pair_broken` y `pair_restored` |
+
+**Si escribir el log falla, no se corta nada.** El log cuenta lo que pasó; no puede impedir que
+pase. Una venta no deja de propagarse porque no se pudo escribir una línea.
+
+**`pair_broken`, un caso aparte.** El par se rompe cuando un producto se va a la papelera, y
+nada del plugin lo observa: el estado se calcula al mirarlo (ADR-005 §1).
+
+- **Cada tienda mira sus propios productos.** Lo de este lado se sabe sin preguntarle a nadie;
+  lo del otro lado lo registra la otra tienda. Así no depende de que la otra conteste.
+- **Lo mira la noche, en las dos tiendas**, recorriendo los vínculos: no la fase 2, que no corre
+  las noches en que la otra no responde.
+- **Recuerda que ya lo vio en una columna de `wss_links`, `broken_since`**, como las de la
+  discrepancia: se llena al verlo roto —y ahí se registra `pair_broken`— y vuelve a `NULL` al
+  verlo sano —y ahí `pair_restored`—. Así no depende de buscar un evento que la purga pudo
+  borrar, y si se rompe otra vez después de arreglarse, se registra de nuevo.
+
+Llega a la mañana siguiente y no en el momento: si el aviso tiene que salir antes, lo decide el
+ADR-012.
+
+### 8. Cómo se lee
+
+- **El historial de un producto:** los movimientos del libro y los eventos de ese producto, en
+  una sola línea de tiempo, de lo más nuevo a lo más viejo (UC-03).
+- **El log general:** los eventos, filtrables por nivel, tipo, causa y fecha, paginados.
+- Hasta que exista la pantalla (tarea 1.11), por WP-CLI: `wp wss log` y `wp wss log --product=<id>`.
+
+---
+
+### Qué cambia en otros ADRs
+
+| ADR | Qué cambia |
+| --- | --- |
+| ADR-004 | Una cuarta tabla, `wss_events`, y la columna `broken_since` en `wss_links`. Sube la versión del esquema. El control de las tablas sanas suma la tabla nueva |
+| ADR-003 | `wss_events` es historial del dueño: se borra **sólo con la casilla marcada**, como el libro. La opción `wss_peer_state` se borra siempre: es estado de la conexión |
+| ADR-010 | "El aviso por email de una discrepancia nueva" no va: en v1 las discrepancias viven en el log y en la pantalla, no en el email (UC-08, *fuera de este caso*) |
+
+### Lo que se vuelve más difícil
+
+Cada pieza que hace algo importante tiene que acordarse de registrarlo, y un evento que falta no
+se nota hasta que alguien lo busca. Los tests de cada pieza tienen que mirar que el evento quede.
+
+### Los riesgos que quedan
+
+- **Un par roto se registra a la mañana siguiente**, no en el momento (§7).
+- **Una caída se registra cuando el plugin le habla a la otra**, no cuando la otra cae (§4).
+- **Si escribir el log falla, el evento se pierde** sin aviso: se prefiere eso a que una venta
+  no se propague.
+
+### Lo que no cubre
+
+| Qué | Dónde va |
+| --- | --- |
+| Los emails, la ventana de silencio, "la otra tienda no responde" y "volvió" por email, y qué ya se avisó | ADR-012 |
+| La pantalla del log y del historial | ADR de la interfaz (tarea 1.11), partiendo de `Logs.js` de woonderful-sync |
+| Las sugerencias por SKU y qué productos "no sincronizan" | ADR de la interfaz (tarea 1.11) |
+| Editar las líneas de un pedido deja el movimiento como `adjustment`, sin número de pedido | No es un evento que falte: es un límite del estampado (ADR-006 §2), y queda como deuda conocida en STATUS |
