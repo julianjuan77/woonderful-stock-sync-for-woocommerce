@@ -7,6 +7,8 @@
 
 declare( strict_types = 1 );
 
+use Woonderful\StockSync\Linking\Links;
+use Woonderful\StockSync\Log\Events;
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Ledger\Ledger;
 use Woonderful\StockSync\Reconciliation\Audit;
@@ -39,6 +41,7 @@ class Test_Schedule extends WP_UnitTestCase {
 		remove_filter( 'query', array( $this, '_create_temporary_tables' ) );
 		remove_filter( 'query', array( $this, '_drop_temporary_tables' ) );
 		delete_option( \Woonderful\StockSync\Log\Peer::OPTION );
+		delete_option( \Woonderful\StockSync\Log\Notifier::OPTION_STATE );
 
 		Installer::install();
 		Store::ensure_identity();
@@ -63,7 +66,11 @@ class Test_Schedule extends WP_UnitTestCase {
 		remove_filter( 'pre_http_request', array( $this, 'unreachable' ) );
 		Schedule::unschedule();
 
-		foreach ( array( 'movements', 'links', 'nonces', 'events' ) as $name ) {
+		// Las filas del log, no la tabla: el DROP de las otras confirma el borrado, y una
+		// tabla menos que crear y borrar en cada test hace la suite más rápida.
+		$wpdb->query( 'DELETE FROM ' . Installer::table( 'events' ) ); // phpcs:ignore WordPress.DB
+
+		foreach ( array( 'movements', 'links', 'nonces' ) as $name ) {
 			$table = Installer::table( $name );
 			$wpdb->query( "DROP TABLE IF EXISTS {$table}" ); // phpcs:ignore WordPress.DB
 		}
@@ -445,5 +452,47 @@ class Test_Schedule extends WP_UnitTestCase {
 		Schedule::nightly();
 
 		$this->assertTrue( $this->exists( $old ) );
+	}
+
+	/**
+	 * SCD-18 — **La noche, en las dos tiendas, revisa los pares rotos, purga el log y manda el
+	 * resumen de lo que no sincroniza** (ADR-011 §6, §7; ADR-012 §3).
+	 */
+	public function test_the_night_checks_pairs_purges_the_log_and_sends_the_digest(): void {
+		global $wpdb;
+
+		$this->pair_as( Peers::MASTER );
+
+		$product = new WC_Product_Simple();
+		$product->set_manage_stock( true );
+		$product->set_stock_quantity( 5 );
+		$broken = (int) $product->save();
+		Links::create( $broken, self::REMOTE_STORE, 900, 1, 5 );
+		wp_trash_post( $broken );
+
+		Events::record( Events::LINKED, Events::INFO, 1 );
+		$wpdb->update( Installer::table( 'events' ), array( 'created_at' => gmdate( 'Y-m-d H:i:s', time() - 100 * DAY_IN_SECONDS ) ), array( 'kind' => Events::LINKED ) ); // phpcs:ignore WordPress.DB
+
+		$mails = array();
+		$catch = static function ( $short, array $atts ) use ( &$mails ): bool {
+			$mails[] = $atts;
+
+			return true;
+		};
+
+		$unsynced = new WC_Product_Simple();
+		$unsynced->set_manage_stock( true );
+		$unsynced->set_stock_quantity( 5 );
+		$id = (int) $unsynced->save();
+		$wpdb->update( $wpdb->posts, array( 'post_date_gmt' => gmdate( 'Y-m-d H:i:s', time() - 2 * DAY_IN_SECONDS ) ), array( 'ID' => $id ) ); // phpcs:ignore WordPress.DB
+
+		add_filter( 'pre_wp_mail', $catch, 10, 2 );
+		Schedule::nightly();
+		remove_filter( 'pre_wp_mail', $catch, 10 );
+
+		$this->assertCount( 1, Events::list( array( 'kind' => Events::PAIR_BROKEN ) )['items'] );
+		$this->assertSame( 0, Events::list( array( 'kind' => Events::LINKED ) )['total'] );
+		$this->assertCount( 1, $mails );
+		$this->assertStringContainsString( "(#{$id})", $mails[0]['message'] );
 	}
 }

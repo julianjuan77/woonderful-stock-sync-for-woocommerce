@@ -7,6 +7,8 @@
 
 declare( strict_types = 1 );
 
+use Woonderful\StockSync\Log\Notifier;
+use Woonderful\StockSync\Log\Events;
 use Woonderful\StockSync\Cli\Command;
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Linking\Links;
@@ -65,7 +67,11 @@ class Test_Cli extends WP_UnitTestCase {
 
 		// CLI-05 vincula y desvincula de verdad: sin esto, sus filas pasaban a la corrida
 		// siguiente, y la primera clase de la suite encontraba movimientos ajenos.
-		foreach ( array( 'movements', 'links', 'nonces', 'events' ) as $name ) {
+		// Las filas del log, no la tabla: el DROP de las otras confirma el borrado, y una
+		// tabla menos que crear y borrar en cada test hace la suite más rápida.
+		$wpdb->query( 'DELETE FROM ' . Installer::table( 'events' ) ); // phpcs:ignore WordPress.DB
+
+		foreach ( array( 'movements', 'links', 'nonces' ) as $name ) {
 			$table = Installer::table( $name );
 			$wpdb->query( "DROP TABLE IF EXISTS {$table}" ); // phpcs:ignore WordPress.DB
 		}
@@ -415,5 +421,70 @@ class Test_Cli extends WP_UnitTestCase {
 		$this->expectExceptionMessage( 'accept o restore' );
 
 		( new Command() )->discrepancy( array( 'borrar', '12' ), array() );
+	}
+
+	/**
+	 * CLI-16 — `wp wss log` muestra cada evento con su fecha, su nivel y su frase.
+	 */
+	public function test_log_shows_the_events(): void {
+		Events::record( Events::PEER_BACK, Events::INFO );
+
+		( new Command() )->log( array(), array() );
+
+		$this->assertCount( 1, WP_CLI::$out );
+		$this->assertStringContainsString( 'INFO  La otra tienda volvió a responder.', WP_CLI::$out[0] );
+	}
+
+	/**
+	 * CLI-17 — `wp wss log --product` muestra el historial: movimientos y eventos juntos.
+	 */
+	public function test_log_shows_a_product_history(): void {
+		global $wpdb;
+
+		$wpdb->insert( Installer::table( 'movements' ), array( 'origin_store' => Store::id(), 'origin_seq' => 1, 'generation' => 1, 'delta' => -2, 'reason' => 'sale', 'reference' => 'pedido #9', 'created_at' => '2026-10-01 10:00:00', 'origin_product' => 12, 'delivery' => 'confirmed' ) ); // phpcs:ignore WordPress.DB, WordPress.Arrays.ArrayDeclarationSpacing.AssociativeArrayFound
+		Events::record( Events::UNLINKED, Events::INFO, 12 );
+
+		( new Command() )->log( array(), array( 'product' => '12' ) );
+
+		$this->assertCount( 2, WP_CLI::$out );
+		$this->assertStringContainsString( 'Se desvinculó el producto 12.', WP_CLI::$out[0] );
+		$this->assertStringContainsString( 'acá -2 sale (pedido #9)', WP_CLI::$out[1] );
+	}
+
+	/**
+	 * CLI-18 — `wp wss notify` cambia los avisos y muestra cómo quedaron.
+	 */
+	public function test_notify_changes_the_settings(): void {
+		( new Command() )->notify(
+			array(),
+			array(
+				'enabled' => 'no',
+				'email'   => 'deposito@example.org',
+				'after'   => '48',
+			)
+		);
+
+		$this->assertFalse( Notifier::enabled() );
+		$this->assertSame( 'deposito@example.org', Notifier::recipient() );
+		$this->assertSame( 48, Notifier::after_hours() );
+		$this->assertSame( 'Avisos: no. A: deposito@example.org. Plazo de lo que no sincroniza: 48 horas.', WP_CLI::$out[0] );
+
+		foreach ( array( Notifier::OPTION_ENABLED, Notifier::OPTION_EMAIL, Notifier::OPTION_AFTER ) as $option ) {
+			delete_option( $option );
+		}
+	}
+
+	/**
+	 * CLI-19 — `wp wss notify` con un email que no es, termina con error y no lo guarda.
+	 */
+	public function test_notify_rejects_a_bad_email(): void {
+		try {
+			( new Command() )->notify( array(), array( 'email' => 'no-es-un-email' ) );
+			$this->fail( 'tenía que terminar con error' );
+		} catch ( RuntimeException $error ) {
+			$this->assertStringContainsString( 'no es un email', $error->getMessage() );
+		}
+
+		$this->assertFalse( get_option( Notifier::OPTION_EMAIL, false ) );
 	}
 }

@@ -25,7 +25,7 @@ Tres tablas propias, con el prefijo de WordPress más `wss_`:
 **La generación de un par es la secuencia del bootstrap que lo abrió** (ADR-005 §4): nunca se
 repite, así que un movimiento de una época anterior no puede colarse como vigente.
 | `{prefix}wss_nonces` | Los nonces vistos, para rechazar un request reenviado |
-| `{prefix}wss_events` | El log: lo que pasa y no es un movimiento —acciones del dueño, intentos fallidos, la otra tienda que se cae, reconciliaciones, discrepancias, pares rotos—. El texto se arma al mostrarlo (`Log\Events::describe()`). 90 días, salvo el descarte y lo avisado (ADR-011) |
+| `{prefix}wss_events` | El log: lo que pasa y no es un movimiento —acciones del dueño, intentos fallidos, la otra tienda que se cae, reconciliaciones, discrepancias, pares rotos—. El texto se arma al mostrarlo (`Log\Events::describe()`). 90 días, salvo el descarte y lo avisado (ADR-011). Escriben: `Linker` —cada intento, `link_unresolved` una vez por bootstrap con la marca `unresolved` en su `last_error`—, `Sender` —lo abandonado salvo con la otra caída, y `ledger_error`, con lo que deja `Ledger::last_claim()`—, `Reconciler` y `Rest\Reconcile` —`reconciled`, cada tienda la suya—, `Audit` y `Books` |
 
 **El libro es también la cola** (ADR-001): no hay tabla de pendientes. Cada movimiento propio
 lleva en su fila el estado de entrega, y eso es lo único que dice qué falta entregar.
@@ -264,6 +264,29 @@ niegan si la diferencia no es la guardada:
 Hasta la pantalla, `wp wss discrepancies` y `wp wss discrepancy accept|restore <producto>`, cada
 tienda con las suyas.
 
+**Los avisos por email** (`Log\Notifier`, ADR-012). Cada tienda avisa de lo suyo, y cada aviso
+sale de un evento del log. **El tick** corre con la pasada, cada minuto, aunque no haya nada que
+mandar:
+
+- Si la otra no está bien, le pregunta a `GET /health` (`Peer::probe()`) antes de decidir; a los
+  30 minutos de caída o de rechazo, avisa una vez, y avisa que volvió si lo había avisado.
+- Lee lo nuevo del log —`link_failed` que salió solo, `link_unresolved`, `pair_broken`—, salvo
+  lo atribuido a la caída o al rechazo, y lo junta en la ventana de su causa.
+- Manda lo de cada ventana cerrada: la primera de una causa sale en el momento, lo siguiente se
+  junta 10 minutos. Si `wp_mail()` falla, `notify_failed` y se reintenta al cerrar la ventana.
+
+**El resumen de la noche** lista lo que no sincroniza: publicado, con su propio stock, sin
+vincular desde hace más del plazo —desde que se creó o se desvinculó—, sin descartar, y del que
+no se avisó desde la última vez que quedó sin vincular. Hasta 50 por email, con el total.
+
+**Como mucho 10 emails por día**: al llegar al tope sale uno último que remite al log. Los
+emails son como los de woonderful-sync: texto plano, asunto con `[Woonderful Stock Sync]`, la
+tienda y el panel al pie.
+
+**Los pares rotos** (`Log\Pairs`, ADR-011 §7). La noche revisa, en cada tienda, sus propios
+productos vinculados: borrado, en la papelera o sin su propio stock. Lo recuerda en
+`broken_since` de `wss_links`, y registra `pair_broken` y `pair_restored` sólo en el cambio.
+
 **El lote, la curva de backoff, las 6 horas y los 5 minutos del claim son constantes**, no
 opciones (ADR-001, revisado el 2026-09-29).
 
@@ -299,6 +322,8 @@ compatible; quitar uno o cambiarle el significado es `wss/v2`.
 | `wss_pass_checked_at` | Cuándo se controló por última vez que la pasada esté agendada. **Autocargada**: se lee en cada request. Se borra siempre al desinstalar (ADR-003) |
 | `wss_send_failed` | Transient de 60 segundos: cuándo falló entero el último envío. Mientras exista, el final del request no manda (ADR-006 §5). Se borra siempre al desinstalar (ADR-003) |
 | `wss_peer_state` | El estado de la otra tienda: `ok`, `unreachable` —error de red, timeout, 5xx— o `rejected` —un 4xx que no sea `409 wss_reconciling`—, desde cuándo, y si ya se avisó. Lo actualiza `Log\Peer::observe()` en cada request a la otra; sólo un cambio escribe en el log (ADR-011 §4). Se borra siempre al desinstalar |
+| `wss_notify_enabled` · `wss_notify_email` · `wss_notify_after_hours` | Los avisos por email: si salen (por defecto sí), a quién (por defecto el administrador) y el plazo de lo que no sincroniza (24 horas). Ajustes del dueño: se borran con la casilla. `wp wss notify` los muestra y los cambia (ADR-012 §6) |
+| `wss_notify_state` | Lo que los avisos recuerdan: hasta qué evento del log se leyó, la ventana de cada causa con lo que se juntó, y la cuenta del día. Se borra siempre |
 | `wss_reconciling` | El candado de la reconciliación: `<token>\|<vence>`, 15 minutos. Se toma con `INSERT IGNORE`, o con un `UPDATE` que sólo pisa el valor vencido; se suelta con un `DELETE` que sólo borra el propio. Siempre con SQL directo, nunca con `get_option()` (ADR-009 §4). Se borra siempre al desinstalar |
 | `wss_last_reconciliation` | Cómo terminó la última reconciliación en esta tienda: cuándo, quién la lanzó, `done`, `unreachable` o `busy`, y qué hizo. No autocargada (ADR-009 §7). Se borra siempre al desinstalar |
 

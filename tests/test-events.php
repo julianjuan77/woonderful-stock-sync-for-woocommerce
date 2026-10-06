@@ -30,6 +30,7 @@ class Test_Events extends WP_UnitTestCase {
 	public function tear_down(): void {
 		global $wpdb;
 
+		// La tabla del log también: EVT-03 la borra.
 		foreach ( array( 'movements', 'links', 'nonces', 'events' ) as $name ) {
 			$table = Installer::table( $name );
 			$wpdb->query( "DROP TABLE IF EXISTS {$table}" ); // phpcs:ignore WordPress.DB

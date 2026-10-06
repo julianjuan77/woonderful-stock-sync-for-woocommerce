@@ -7,6 +7,8 @@
 
 declare( strict_types = 1 );
 
+use Woonderful\StockSync\Log\Notifier;
+use Woonderful\StockSync\Log\Peer;
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Ledger\Ledger;
 use Woonderful\StockSync\Plugin;
@@ -68,7 +70,11 @@ class Test_Pass extends WP_UnitTestCase {
 		remove_filter( 'pre_http_request', array( $this, 'answer' ), 10 );
 		Pass::unschedule();
 
-		foreach ( array( 'movements', 'links', 'nonces', 'events' ) as $name ) {
+		// Las filas del log, no la tabla: el DROP de las otras confirma el borrado, y una
+		// tabla menos que crear y borrar en cada test hace la suite más rápida.
+		$wpdb->query( 'DELETE FROM ' . Installer::table( 'events' ) ); // phpcs:ignore WordPress.DB
+
+		foreach ( array( 'movements', 'links', 'nonces' ) as $name ) {
 			$table = Installer::table( $name );
 			$wpdb->query( "DROP TABLE IF EXISTS {$table}" ); // phpcs:ignore WordPress.DB
 		}
@@ -308,5 +314,43 @@ class Test_Pass extends WP_UnitTestCase {
 		$this->assertTrue( as_has_scheduled_action( Schedule::IMPORT, null, Pass::GROUP ) );
 
 		Schedule::unschedule();
+	}
+
+	/**
+	 * PAS-09 — **La pasada mira el reloj de los avisos aunque no tenga nada que mandar**: una
+	 * caída que ya duró 30 minutos se avisa (ADR-012 §2).
+	 */
+	public function test_the_pass_ticks_the_notifier(): void {
+		remove_filter( 'pre_http_request', array( $this, 'answer' ), 10 );
+		$down = static fn () => new WP_Error( 'http_request_failed', 'no responde' );
+		add_filter( 'pre_http_request', $down );
+
+		update_option(
+			Peer::OPTION,
+			array(
+				'state' => Peer::UNREACHABLE,
+				'since' => time() - 3600,
+			),
+			false
+		);
+		delete_option( Notifier::OPTION_STATE );
+
+		$mails = 0;
+		$catch = static function () use ( &$mails ): bool {
+			++$mails;
+
+			return true;
+		};
+
+		add_filter( 'pre_wp_mail', $catch );
+		Pass::run();
+		remove_filter( 'pre_wp_mail', $catch );
+		remove_filter( 'pre_http_request', $down );
+
+		$this->assertSame( 1, $mails );
+		$this->assertTrue( Peer::current()['notified'] );
+
+		delete_option( Peer::OPTION );
+		delete_option( Notifier::OPTION_STATE );
 	}
 }

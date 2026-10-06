@@ -2,7 +2,7 @@
 
 > Plugin: `woonderful-stock-sync-for-woocommerce` | WP 6.5+ | PHP 8.1+ | WooCommerce 9.1+
 > Repo: [woonderful-stock-sync-for-woocommerce](https://github.com/julianjuan77/woonderful-stock-sync-for-woocommerce)
-> Creado: 2026-09-20 · Última sesión: 2026-10-06 — el bloque 7 entero: la reconciliación, sus dos fases, quién la lanza, los vínculos de un solo lado y la purga nocturna; probado entre `sandbox` y `sandbox-b`
+> Creado: 2026-09-20 · Última sesión: 2026-10-06 — los ADRs del log (ADR-011) y de los avisos (ADR-012), y el bloque 10 entero: la tabla del log, el estado de la otra tienda, los eventos de cada pieza, los pares rotos, la purga y los avisos por email
 
 Sincroniza el stock entre dos tiendas WooCommerce propias que despachan del mismo depósito.
 Pool único, sin reparto: lo que se vende en una descuenta en las dos.
@@ -24,7 +24,7 @@ git show 2668a7a --stat      # qué archivos tocó y cuántas líneas
 git show 2668a7a             # el diff completo
 ```
 
-Y para correr sólo los tests de una pieza, en vez de los 441:
+Y para correr sólo los tests de una pieza, en vez de los 466:
 
 ```bash
 make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS="--filter Test_Ledger"
@@ -34,8 +34,11 @@ make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS=
 
 ## 🔄 En progreso
 
-Nada. Los ADRs del log (ADR-011) y de los avisos (ADR-012) están aprobados: falta programarlos,
-el bloque 10. Lo que sigue espera un ADR: la interfaz (1.11).
+Nada. El bloque 10, el log y los avisos, está completo. Lo que sigue espera un ADR: la interfaz
+(1.11), que parte del diseño de woonderful-sync (ver el bloque 8).
+
+**Falta probar los avisos entre las dos tiendas de verdad** —una caída de 30 minutos, el resumen
+de la noche— y ver los emails en el Mailhog de cada sitio (`sandbox` 8250, `sandbox-b` 8270).
 
 **Para probar entre dos tiendas:** `sandbox` (8150, maestra) y `sandbox-b` (8170) están
 emparejadas con rol. Con `DISABLE_WP_CRON` la pasada no corre sola: se dispara con
@@ -183,11 +186,11 @@ es lo normal: loguearlo en cada pasada sería ruido.
 | 10.1 | La tabla `wss_events` y `Log\Events::record()`: el texto se arma al mostrarlo, y si escribir falla no corta nada (ADR-011 §2, §7) | ✅ | `84b8783` | `EVT-01`…`EVT-07`, `UNI-11` |
 | 10.2 | El estado de la otra tienda en `wss_peer_state`: caída, rechazo —sin el 409— y vuelta, sólo el cambio (ADR-011 §4) | ✅ | `886f9ac` | `PER-01`…`PER-08` |
 | 10.3 | Los eventos de cada pieza: vincular, fallar, desvincular, `link_unresolved`, `abandoned`, `ledger_error`, `reconciled`, las discrepancias, `link_removed` (ADR-011 §3, §7) | ✅ | `c4cbdd9` | `LNK-12`…`LNK-15`, `SND-19`…`SND-21`, `BOK-19`, `RCN-13`, `RCL-19`, `AUD-20` |
-| 10.4 | El par roto: `broken_since` en `wss_links`, revisado de noche en cada tienda (ADR-011 §7) | ⬜ | | |
-| 10.5 | La purga de 90 días que respeta el descarte y lo avisado, y `wp wss log` (ADR-011 §6, §8) | ⬜ | | |
-| 10.6 | `Notifier`: el tick de cada minuto, las ventanas por causa, lo atribuido a la caída, el tope de 10 por día (ADR-012 §2, §4, §5) | ⬜ | | |
-| 10.7 | El resumen de la noche de lo que no sincroniza, una vez por producto (ADR-012 §3, §4) | ⬜ | | |
-| 10.8 | Las tres opciones y `wp wss notify`; el email que no sale (ADR-012 §6, §7) | ⬜ | | |
+| 10.4 | El par roto: `broken_since` en `wss_links`, revisado de noche en cada tienda (ADR-011 §7) | ✅ | | `PAI-01`…`PAI-04`, `SCD-18` |
+| 10.5 | La purga de 90 días que respeta el descarte y lo avisado, y `wp wss log` (ADR-011 §6, §8) | ✅ | | `EVT-06`, `CLI-16`, `CLI-17`, `SCD-18` |
+| 10.6 | `Notifier`: el tick de cada minuto, las ventanas por causa, lo atribuido a la caída, el tope de 10 por día (ADR-012 §2, §4, §5) | ✅ | | `NOT-01`…`NOT-12`, `PAS-09` |
+| 10.7 | El resumen de la noche de lo que no sincroniza, una vez por producto (ADR-012 §3, §4) | ✅ | | `NOT-13`…`NOT-15`, `SCD-18` |
+| 10.8 | Las tres opciones y `wp wss notify`; el email que no sale (ADR-012 §6, §7) | ✅ | | `NOT-11`, `NOT-12`, `CLI-18`, `CLI-19` |
 
 ### 9. Publicación
 
@@ -254,4 +257,5 @@ seguridad y convenciones de código.
 | La pantalla tiene que decir "esperando respuesta" para un `uncertain` que todavía está en `syncing`, y "no se sabe" recién cuando ya es `uncertain`: hoy `State` los junta en uno | Revisión 2026-10-02 → ADR de interfaz |
 | El envío al final del request no se probó con PHP-FPM de verdad: los sitios de wp-restore corren Apache con mod_php, y ahí `Express` no manda. Los tests cubren la lógica; falta ver un pedido real salir en el `shutdown`. Y averiguar qué corren los servidores de las dos tiendas: con Apache y mod_php no se dispara nunca | 5.9 → con un sitio en PHP-FPM |
 | Un movimiento recibido **retenido** no sale nunca de ese estado: no hay nada que lo aplique cuando el par se restablece (SPEC §6, pregunta abierta). Mientras tanto, ese producto queda fuera de la fase 2 (`Audit::measure()`) | Revisión 2026-10-06 → sin ADR |
+| La suite tarda unos 6 minutos: cada test crea y borra las tablas, y en esta base esas operaciones de esquema son lentas. El log borra filas en vez de su tabla, lo que bajó de 7 y medio a 6. Bajarlo más pediría no recrear el esquema en cada test | Sesión 2026-10-06 |
 | Infection sobre `Transport/`, que ya existe: necesita PCOV en la imagen de wp-restore | — |

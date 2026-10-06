@@ -10,6 +10,7 @@ declare( strict_types = 1 );
 namespace Woonderful\StockSync\Transport;
 
 use Woonderful\StockSync\Linking\Linker;
+use Woonderful\StockSync\Log\Notifier;
 use Woonderful\StockSync\Plugin;
 use Woonderful\StockSync\Reconciliation\Schedule;
 
@@ -97,7 +98,8 @@ final class Pass {
 
 	/**
 	 * Una pasada: vacía un lote hacia la otra tienda, pregunta por los bootstraps sin
-	 * respuesta (ADR-008 §5) y purga los nonces viejos.
+	 * respuesta (ADR-008 §5), purga los nonces viejos y mira el reloj de los avisos
+	 * (ADR-012 §2).
 	 */
 	public static function run(): void {
 		if ( null !== Plugin::suspension_reason() ) {
@@ -107,6 +109,9 @@ final class Pass {
 		Schedule::after_pass( Sender::run() );
 		Linker::resolve_uncertain();
 		Nonces::purge( time() );
+
+		// Corre aunque no haya nada que mandar: es lo que mira el reloj de los avisos.
+		Notifier::tick();
 	}
 
 	/**

@@ -10,6 +10,9 @@ declare( strict_types = 1 );
 namespace Woonderful\StockSync\Reconciliation;
 
 use Woonderful\StockSync\Ledger\Ledger;
+use Woonderful\StockSync\Log\Events;
+use Woonderful\StockSync\Log\Notifier;
+use Woonderful\StockSync\Log\Pairs;
 use Woonderful\StockSync\Plugin;
 use Woonderful\StockSync\Transport\Pass;
 use Woonderful\StockSync\Transport\Peers;
@@ -106,8 +109,9 @@ final class Schedule {
 	}
 
 	/**
-	 * La noche: agenda la siguiente; si esta tienda es la maestra, reconcilia; y purga el
-	 * libro, en las dos (ADR-004 §4).
+	 * La noche: agenda la siguiente; si esta tienda es la maestra, reconcilia; y en las dos,
+	 * revisa los pares rotos (ADR-011 §7), purga el libro y el log (ADR-004 §4, ADR-011 §6) y
+	 * manda el resumen de lo que no sincroniza (ADR-012 §3).
 	 *
 	 * La siguiente se agenda primero: si la reconciliación muriera a mitad, la noche de
 	 * mañana igual corre. Sin `unique`, porque Action Scheduler cuenta como agendada a esta
@@ -124,7 +128,9 @@ final class Schedule {
 			Reconciler::run( Result::NIGHTLY );
 		}
 
+		Pairs::check();
 		self::purge();
+		Notifier::digest();
 	}
 
 	/**
@@ -146,6 +152,7 @@ final class Schedule {
 
 		try {
 			Ledger::purge();
+			Events::purge();
 		} finally {
 			Lock::release( $lock );
 		}

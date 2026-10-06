@@ -12,6 +12,8 @@ namespace Woonderful\StockSync\Cli;
 use Woonderful\StockSync\Linking\Linker;
 use Woonderful\StockSync\Linking\State;
 use Woonderful\StockSync\Ledger\Ledger;
+use Woonderful\StockSync\Log\Events;
+use Woonderful\StockSync\Log\Notifier;
 use Woonderful\StockSync\Plugin;
 use Woonderful\StockSync\Reconciliation\Audit;
 use Woonderful\StockSync\Reconciliation\Reconciler;
@@ -338,6 +340,120 @@ final class Command {
 			'accept' === $action
 				? __( 'Anotado como ajuste. La otra tienda lo recibe en la próxima pasada.', 'woonderful-stock-sync-for-woocommerce' )
 				: __( 'El stock volvió a lo que dice el libro.', 'woonderful-stock-sync-for-woocommerce' )
+		);
+	}
+
+	/**
+	 * Muestra el log: lo que pasó y no es un movimiento de stock (ADR-011).
+	 *
+	 * Con `--product`, el historial de ese producto: sus movimientos y sus eventos, juntos.
+	 *
+	 * ## OPTIONS
+	 *
+	 * [--product=<id>]
+	 * : Sólo ese producto de esta tienda.
+	 *
+	 * [--limit=<n>]
+	 * : Cuántas entradas. Por defecto, 50.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp wss log
+	 *     wp wss log --product=123
+	 *
+	 * @param array<int, string>    $args       No lleva.
+	 * @param array<string, string> $assoc_args El producto y el límite.
+	 */
+	public function log( array $args, array $assoc_args ): void {
+		$limit = max( 1, min( 100, (int) ( $assoc_args['limit'] ?? 50 ) ) );
+
+		if ( isset( $assoc_args['product'] ) ) {
+			foreach ( Events::history( (int) $assoc_args['product'], $limit ) as $entry ) {
+				\WP_CLI::line( $entry['at'] . '  ' . ( 'event' === $entry['type'] ? Events::describe( $entry ) : self::movement_line( $entry ) ) );
+			}
+
+			return;
+		}
+
+		foreach ( Events::list( array(), 1, $limit )['items'] as $event ) {
+			\WP_CLI::line( $event['at'] . '  ' . strtoupper( (string) $event['level'] ) . '  ' . Events::describe( $event ) );
+		}
+	}
+
+	/**
+	 * Muestra o cambia los avisos por email (ADR-012).
+	 *
+	 * ## OPTIONS
+	 *
+	 * [--enabled=<yes|no>]
+	 * : Si se mandan.
+	 *
+	 * [--email=<address>]
+	 * : A quién. Vacío vuelve al administrador del sitio.
+	 *
+	 * [--after=<hours>]
+	 * : Cuántas horas sin vincular antes de avisar.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp wss notify
+	 *     wp wss notify --email=deposito@example.org --after=48
+	 *     wp wss notify --enabled=no
+	 *
+	 * @param array<int, string>    $args       No lleva.
+	 * @param array<string, string> $assoc_args Lo que se cambia.
+	 */
+	public function notify( array $args, array $assoc_args ): void {
+		if ( isset( $assoc_args['enabled'] ) ) {
+			if ( ! in_array( $assoc_args['enabled'], array( 'yes', 'no' ), true ) ) {
+				\WP_CLI::error( __( '--enabled es yes o no.', 'woonderful-stock-sync-for-woocommerce' ) );
+			}
+
+			update_option( Notifier::OPTION_ENABLED, $assoc_args['enabled'], false );
+		}
+
+		if ( isset( $assoc_args['email'] ) ) {
+			$email = trim( (string) $assoc_args['email'] );
+
+			if ( '' !== $email && ! is_email( $email ) ) {
+				/* translators: %s: lo que se pasó. */
+				\WP_CLI::error( sprintf( __( '"%s" no es un email.', 'woonderful-stock-sync-for-woocommerce' ), $email ) );
+			}
+
+			update_option( Notifier::OPTION_EMAIL, $email, false );
+		}
+
+		if ( isset( $assoc_args['after'] ) ) {
+			if ( ! ctype_digit( (string) $assoc_args['after'] ) || (int) $assoc_args['after'] < 1 ) {
+				\WP_CLI::error( __( '--after es una cantidad de horas, desde 1.', 'woonderful-stock-sync-for-woocommerce' ) );
+			}
+
+			update_option( Notifier::OPTION_AFTER, (int) $assoc_args['after'], false );
+		}
+
+		\WP_CLI::line(
+			sprintf(
+				/* translators: 1: sí o no, 2: el destinatario, 3: horas. */
+				__( 'Avisos: %1$s. A: %2$s. Plazo de lo que no sincroniza: %3$d horas.', 'woonderful-stock-sync-for-woocommerce' ),
+				Notifier::enabled() ? __( 'sí', 'woonderful-stock-sync-for-woocommerce' ) : __( 'no', 'woonderful-stock-sync-for-woocommerce' ),
+				Notifier::recipient(),
+				Notifier::after_hours()
+			)
+		);
+	}
+
+	/**
+	 * Un movimiento del historial, en una línea.
+	 *
+	 * @param array<string, mixed> $entry El movimiento.
+	 */
+	private static function movement_line( array $entry ): string {
+		return sprintf(
+			'%s %+d %s%s',
+			$entry['own'] ? __( 'acá', 'woonderful-stock-sync-for-woocommerce' ) : __( 'de la otra', 'woonderful-stock-sync-for-woocommerce' ),
+			(int) $entry['delta'],
+			(string) $entry['reason'],
+			null === $entry['reference'] ? '' : ' (' . $entry['reference'] . ')'
 		);
 	}
 }

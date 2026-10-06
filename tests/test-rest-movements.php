@@ -63,7 +63,11 @@ class Test_Rest_Movements extends WP_UnitTestCase {
 		remove_action( 'rest_api_init', array( Movements::class, 'register_routes' ) );
 		$wp_rest_server = null; // phpcs:ignore WordPress.WP.GlobalVariablesOverride
 
-		foreach ( array( 'movements', 'links', 'nonces', 'events' ) as $name ) {
+		// Las filas del log, no la tabla: el DROP de las otras confirma el borrado, y una
+		// tabla menos que crear y borrar en cada test hace la suite más rápida.
+		$wpdb->query( 'DELETE FROM ' . Installer::table( 'events' ) ); // phpcs:ignore WordPress.DB
+
+		foreach ( array( 'movements', 'links', 'nonces' ) as $name ) {
 			$table = Installer::table( $name );
 			$wpdb->query( "DROP TABLE IF EXISTS {$table}" ); // phpcs:ignore WordPress.DB
 		}

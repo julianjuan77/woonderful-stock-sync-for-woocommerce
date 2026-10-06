@@ -465,6 +465,7 @@ LiteSpeed cae `SND-18`.
 | `PAS-06` | Un control dentro de la hora | No mira: aunque la acción se haya perdido, no hace nada |
 | `PAS-07` | **La pasada se perdió y nadie entra al admin**; pasó la hora | Cualquier request la vuelve a agendar |
 | `PAS-08` | Una pasada que manda un lote lleno de 200 | Agenda el cierre de la importación (ADR-009 §5) |
+| `PAS-09` | **Una pasada sin nada que mandar, con la otra caída hace una hora** | Avisa la caída: el tick corre igual (ADR-012 §2) |
 
 Verificado rompiéndolo: sin el control de suspensión en la pasada cae `PAS-02`; agendando sin
 `unique` cae `PAS-03`; desactivando sin desagendar cae `PAS-04`; enganchando el callback
@@ -561,6 +562,10 @@ constante `WP_CLI` no se puede definir en un test sin que quede para todos los d
 | `CLI-13` | `wp wss discrepancies` sin nada abierto | Lo dice |
 | `CLI-14` | `wp wss discrepancies` con una, y `wp wss discrepancy accept` | La lista con lo que dice el libro, lo que hay y desde cuándo; y la resuelve |
 | `CLI-15` | `wp wss discrepancy borrar 12` | Termina con error |
+| `CLI-16` | `wp wss log` | Cada evento con fecha, nivel y frase |
+| `CLI-17` | `wp wss log --product=12` | El historial: el evento y el movimiento del libro, juntos |
+| `CLI-18` | `wp wss notify --enabled=no --email=… --after=48` | Lo guarda y muestra cómo quedó |
+| `CLI-19` | `wp wss notify --email=no-es-un-email` | Termina con error y no lo guarda |
 
 **Lo que el WP-CLI falso no ve: el docblock.** El de verdad arma los argumentos a partir de él,
 y con `<código>` rechazaba el código como argumento de más. Lo encontró la prueba entre dos
@@ -870,6 +875,7 @@ propio en la segunda pregunta caen `RCL-01` y `RCL-09`; la secundaria mandando v
 | `SCD-15` | La noche con el candado tomado | No purga: la marca no se mueve en medio de una reconciliación |
 | `SCD-16` | La noche con el sitio suspendido | No purga |
 | `SCD-17` | **La noche de la secundaria** | A las 4: purgar toma el candado, y a las 3 le contestaría "ocupada" a la maestra |
+| `SCD-18` | **La noche en la secundaria, con un par roto, un evento de hace 100 días y un producto sin vincular de hace 2 días** | Registra el par roto, purga el evento viejo, y manda el resumen con el producto (ADR-011, ADR-012) |
 
 Verificado rompiéndolo: en UTC cae `SCD-01`; sin mirar si ya está agendada cae `SCD-02`; sin
 agendar la siguiente caen `SCD-03` a `SCD-05`; la secundaria reconciliando cae `SCD-04`; sin
@@ -953,6 +959,46 @@ cae `LNK-13`; registrando lo irresoluble en cada pasada cae `LNK-14`; sin `unlin
 `LNK-15`; registrando lo abandonado durante la caída cae `SND-20`; sin la cuenta del claim cae
 `SND-19`; sin el error del claim cae `SND-21`; sin `reconciled` caen `RCL-19` y `RCN-13`; sin
 abrir o cerrar la discrepancia cae `AUD-20`; sin `link_removed` cae `BOK-19`.
+
+## [`tests/test-pairs.php`](test-pairs.php) — los pares rotos
+
+| ID | Caso | Esperado |
+| --- | --- | --- |
+| `PAI-01` | Un par sano | Nada |
+| `PAI-02` | **Un producto vinculado a la papelera, dos noches** | Un solo `pair_broken`, con el motivo, y `broken_since` lleno |
+| `PAI-03` | **A la papelera, de vuelta, y a la papelera otra vez** | `pair_broken`, `pair_restored`, `pair_broken`: se registra de nuevo |
+| `PAI-04` | Borrado, en la papelera, sin su propio stock | Cada uno con su motivo |
+
+## [`tests/test-notifier.php`](test-notifier.php) — los avisos por email
+
+Los emails se atrapan con `pre_wp_mail`; `GET /health` lo contesta el test.
+
+| ID | Caso | Esperado |
+| --- | --- | --- |
+| `NOT-01` | **Un vínculo que falló mientras el dueño miraba, y uno que falló solo** | Sólo el segundo, en el momento: al administrador, con `[Woonderful Stock Sync]`, la tienda y el panel |
+| `NOT-02` | **300 pares rotos de golpe** | Uno enseguida; el resto, en un solo email al cerrarse la ventana de 10 minutos, con 50 listados y "y otros 249" (UC-08) |
+| `NOT-03` | Fallas atribuidas a la caída y al rechazo | Ningún email (ADR-012 §2) |
+| `NOT-04` | Dos causas distintas | Cada una su email: una no tapa a otra |
+| `NOT-05` | **La caída a los 29 y a los 30 minutos, y otra vez** | Sólo a los 30, una vez |
+| `NOT-06` | **La caída, y la otra volvió sin que nadie le hablara** | El tick le pregunta y no sale un aviso de caída falso |
+| `NOT-07` | La caída avisada, y vuelve | "Volvió" |
+| `NOT-08` | Un rechazo de 30 minutos | Su propio aviso |
+| `NOT-09` | **15 avisos en un día** | 10, y uno último que remite al log; después nada (ADR-012 §5) |
+| `NOT-10` | **Apagado, una falla, y se enciende** | Nada: lo de antes no queda para después |
+| `NOT-11` | **`wp_mail()` falla** | `notify_failed` una vez; se reintenta al cerrarse la ventana, no cada minuto |
+| `NOT-12` | El destinatario y el plazo | Se configuran |
+| `NOT-13` | **Sin vincular, vinculado, sin stock propio, descartado, recién creado; dos noches** | Un solo resumen, sólo con el sin vincular (ADR-012 §3) |
+| `NOT-14` | Al día siguiente, uno nuevo | Lista sólo el nuevo, y el total |
+| `NOT-15` | **Avisado, y después desvinculado** | Se vuelve a avisar pasado el plazo desde que se desvinculó |
+
+Verificado rompiéndolo: avisando lo que el dueño miraba cae `NOT-01`; lo atribuido a la caída,
+`NOT-03`; sin la ventana, `NOT-02` y `NOT-11`; sin los 30 minutos, `NOT-05`; avisando la caída
+de nuevo, `NOT-05`, `NOT-07` y `PAS-09`; sin preguntarle a la otra, `NOT-06` y `NOT-07`; sin el
+tope, `NOT-09`; guardando lo de apagado, `NOT-10`; reintentando cada minuto, `NOT-11`; repitiendo
+el resumen, `NOT-13` y `NOT-14`; sin el descarte o sin el plazo, `NOT-13`; sin mirar el último
+desvínculo, `NOT-15`; registrando el par roto cada noche, `PAI-02`; sin la vuelta, `PAI-03`; la
+noche sin pares, sin resumen o sin purgar el log, `SCD-18`; la pasada sin el tick, `PAS-09`;
+`notify` sin validar el email, `CLI-19`.
 
 ## Cómo se prueba algo que no deja rastro en el estado final
 
