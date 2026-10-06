@@ -2,7 +2,7 @@
 
 > Plugin: `woonderful-stock-sync-for-woocommerce` | WP 6.5+ | PHP 8.1+ | WooCommerce 9.1+
 > Repo: [woonderful-stock-sync-for-woocommerce](https://github.com/julianjuan77/woonderful-stock-sync-for-woocommerce)
-> Creado: 2026-09-20 · Última sesión: 2026-10-02 — los arreglos de la revisión del bloque 6: la copia que no vincula, el stock bloqueado al revisar, el vínculo viejo que se reemplaza
+> Creado: 2026-09-20 · Última sesión: 2026-10-06 — el bloque 7 entero: la reconciliación, sus dos fases, quién la lanza, los vínculos de un solo lado y la purga nocturna; probado entre `sandbox` y `sandbox-b`
 
 Sincroniza el stock entre dos tiendas WooCommerce propias que despachan del mismo depósito.
 Pool único, sin reparto: lo que se vende en una descuenta en las dos.
@@ -141,6 +141,7 @@ es lo normal: loguearlo en cada pasada sería ruido.
 | | Tarea | Estado |
 |---|---|---|
 | E.1 | Dos tiendas locales que se hablan: `sandbox` y `sandbox-b`, con `PEER_NETWORK=1` (wp-restore `019585b`). Emparejadas con `wp wss pairing-code` / `wp wss pair`; una venta en A descuenta en B y un ajuste en B descuenta en A, sin eco. El vínculo se armó a mano: la vinculación es 6.1 | ✅ |
+| E.2 | La reconciliación entre `sandbox` y `sandbox-b` (2026-10-06): una pasada limpia; una venta abandonada que vuelve a la cola y llega; un ACK perdido que se confirma sin reenviar; una escritura por fuera del plugin que la fase 2 abre a la segunda revisión y la maestra ve en la siguiente; `discrepancy accept` que viaja (a los 10 s de la espera); un vínculo huérfano que la secundaria borra; y `discrepancy restore` sin movimiento | ✅ |
 
 ### 6. La vinculación — `includes/Linking/`
 
