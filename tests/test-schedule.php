@@ -38,6 +38,7 @@ class Test_Schedule extends WP_UnitTestCase {
 
 		remove_filter( 'query', array( $this, '_create_temporary_tables' ) );
 		remove_filter( 'query', array( $this, '_drop_temporary_tables' ) );
+		delete_option( \Woonderful\StockSync\Log\Peer::OPTION );
 
 		Installer::install();
 		Store::ensure_identity();

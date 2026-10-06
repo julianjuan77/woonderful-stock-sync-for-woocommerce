@@ -10,6 +10,7 @@ declare( strict_types = 1 );
 namespace Woonderful\StockSync\Transport;
 
 use Woonderful\StockSync\Identity\Store;
+use Woonderful\StockSync\Log\Peer;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -93,6 +94,8 @@ final class Catalog {
 				'redirection' => 0,
 			)
 		);
+
+		Peer::observe( $response );
 
 		if ( is_wp_error( $response ) ) {
 			return $response;

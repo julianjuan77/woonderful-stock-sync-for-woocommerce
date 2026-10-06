@@ -298,6 +298,7 @@ compatible; quitar uno o cambiarle el significado es `wss/v2`.
 | `wss_redeeming` | El código que esta tienda está canjeando, la maestra y el vencimiento (2 min), del lado de la secundaria. Se borra al terminar el canje y siempre al desinstalar |
 | `wss_pass_checked_at` | Cuándo se controló por última vez que la pasada esté agendada. **Autocargada**: se lee en cada request. Se borra siempre al desinstalar (ADR-003) |
 | `wss_send_failed` | Transient de 60 segundos: cuándo falló entero el último envío. Mientras exista, el final del request no manda (ADR-006 §5). Se borra siempre al desinstalar (ADR-003) |
+| `wss_peer_state` | El estado de la otra tienda: `ok`, `unreachable` —error de red, timeout, 5xx— o `rejected` —un 4xx que no sea `409 wss_reconciling`—, desde cuándo, y si ya se avisó. Lo actualiza `Log\Peer::observe()` en cada request a la otra; sólo un cambio escribe en el log (ADR-011 §4). Se borra siempre al desinstalar |
 | `wss_reconciling` | El candado de la reconciliación: `<token>\|<vence>`, 15 minutos. Se toma con `INSERT IGNORE`, o con un `UPDATE` que sólo pisa el valor vencido; se suelta con un `DELETE` que sólo borra el propio. Siempre con SQL directo, nunca con `get_option()` (ADR-009 §4). Se borra siempre al desinstalar |
 | `wss_last_reconciliation` | Cómo terminó la última reconciliación en esta tienda: cuándo, quién la lanzó, `done`, `unreachable` o `busy`, y qué hizo. No autocargada (ADR-009 §7). Se borra siempre al desinstalar |
 

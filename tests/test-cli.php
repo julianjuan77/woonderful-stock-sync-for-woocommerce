@@ -36,6 +36,7 @@ class Test_Cli extends WP_UnitTestCase {
 
 		remove_filter( 'query', array( $this, '_create_temporary_tables' ) );
 		remove_filter( 'query', array( $this, '_drop_temporary_tables' ) );
+		delete_option( \Woonderful\StockSync\Log\Peer::OPTION );
 
 		// Acá y no en el tear_down, por lo mismo que en test-pairing.php.
 		foreach ( array( Peers::OPTION, Pairing::OPTION_PAIRING, Pairing::OPTION_REDEEMING, Store::OPTION_FINGERPRINT ) as $option ) {

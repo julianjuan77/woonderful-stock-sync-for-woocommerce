@@ -36,6 +36,7 @@ class Test_Pass extends WP_UnitTestCase {
 
 		remove_filter( 'query', array( $this, '_create_temporary_tables' ) );
 		remove_filter( 'query', array( $this, '_drop_temporary_tables' ) );
+		delete_option( \Woonderful\StockSync\Log\Peer::OPTION );
 
 		// El DROP TABLE del tear_down confirma lo escrito: un fallo de otro test lo dejaría.
 		delete_transient( Sender::FAILED );

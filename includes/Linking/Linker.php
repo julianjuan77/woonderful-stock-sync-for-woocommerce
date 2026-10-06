@@ -11,6 +11,7 @@ namespace Woonderful\StockSync\Linking;
 
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Ledger\Ledger;
+use Woonderful\StockSync\Log\Peer;
 use Woonderful\StockSync\Plugin;
 use Woonderful\StockSync\Transport\Peers;
 use Woonderful\StockSync\Transport\Sender;
@@ -261,6 +262,8 @@ final class Linker {
 				'redirection' => 0,
 			)
 		);
+
+		Peer::observe( $response );
 
 		if ( is_wp_error( $response ) || 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
 			return null;

@@ -11,6 +11,7 @@ namespace Woonderful\StockSync\Transport;
 
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Ledger\Ledger;
+use Woonderful\StockSync\Log\Peer;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -115,7 +116,7 @@ final class Sender {
 	public static function post( array $peer, array $movements, int $timeout = self::TIMEOUT ) {
 		$body = (string) wp_json_encode( array( 'movements' => $movements ) );
 
-		return wp_remote_post(
+		$response = wp_remote_post(
 			untrailingslashit( $peer['rest_url'] ) . '/movements',
 			array(
 				'headers'     => array_merge(
@@ -128,6 +129,10 @@ final class Sender {
 				'redirection' => 0,
 			)
 		);
+
+		Peer::observe( $response );
+
+		return $response;
 	}
 
 	/**

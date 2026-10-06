@@ -37,6 +37,7 @@ class Test_Bootstrap extends WP_UnitTestCase {
 
 		remove_filter( 'query', array( $this, '_create_temporary_tables' ) );
 		remove_filter( 'query', array( $this, '_drop_temporary_tables' ) );
+		delete_option( \Woonderful\StockSync\Log\Peer::OPTION );
 
 		// En el set_up y no en el tear_down: ver tests/TEST-CASES.md.
 		delete_option( Peers::OPTION );

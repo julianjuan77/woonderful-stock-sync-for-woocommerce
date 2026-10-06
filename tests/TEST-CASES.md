@@ -920,6 +920,23 @@ Verificado rompiéndolo: guardando el usuario 0 cae `EVT-01`; sin restaurar los 
 `EVT-03`; purgando todo cae `EVT-06`; el historial sin el libro cae `EVT-05`; en orden viejo o
 sin el filtro de causa cae `EVT-04`.
 
+## [`tests/test-peer.php`](test-peer.php) — el estado de la otra tienda
+
+| ID | Caso | Esperado |
+| --- | --- | --- |
+| `PER-01` | Un 200 | Nada al log |
+| `PER-02` | **Un error de red, un 503, otro error** | Una sola `peer_unreachable`, y el "desde" no se mueve (ADR-011 §4) |
+| `PER-03` | Un 401 `wss_bad_signature` | `peer_rejected`, como `error`: no es una caída |
+| `PER-04` | **Un `409 wss_reconciling`**, y otro 409 | El primero no cambia nada; el segundo es un rechazo |
+| `PER-05` | Caída y vuelta; rechazo avisado y vuelta | `peer_back` o `peer_accepted`; "volvió" queda pendiente de avisar sólo si se avisó lo anterior, y una vez |
+| `PER-06` | La causa | Nada, `peer_unreachable` o `peer_rejected`, según el estado |
+| `PER-07` | Preguntarle si anda | Un `GET /health`, y anota lo que conteste |
+| `PER-08` | **El envío, el catálogo, la reconciliación y la pregunta por un bootstrap** | Los cuatro anotan el estado |
+
+Verificado rompiéndolo: sin la excepción del 409 cae `PER-04`; escribiendo en cada respuesta caen
+`PER-01` y `PER-02`; un 4xx como caída cae `PER-03`; "volvió" sin haber avisado cae `PER-05`;
+el rechazo como `warning` cae `PER-03`; el envío o el catálogo sin anotar cae `PER-08`.
+
 ## Cómo se prueba algo que no deja rastro en el estado final
 
 Tres casos de esta suite no se pueden verificar mirando cómo queda la base, porque lo que
