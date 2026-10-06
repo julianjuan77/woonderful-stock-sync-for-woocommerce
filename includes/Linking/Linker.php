@@ -11,6 +11,7 @@ namespace Woonderful\StockSync\Linking;
 
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Ledger\Ledger;
+use Woonderful\StockSync\Log\Events;
 use Woonderful\StockSync\Log\Peer;
 use Woonderful\StockSync\Plugin;
 use Woonderful\StockSync\Transport\Peers;
@@ -32,6 +33,12 @@ final class Linker {
 	public const QUERY_AFTER = 600;
 
 	/**
+	 * La marca que deja en el bootstrap una pregunta que falló: así `link_unresolved` va al
+	 * log una vez, no en cada pasada.
+	 */
+	public const UNRESOLVED = 'unresolved';
+
+	/**
 	 * Vincula un producto de acá con uno de la otra tienda: el bootstrap.
 	 *
 	 * Revisa lo suyo antes de escribir nada (ADR-008 §3), escribe el bootstrap y su vínculo
@@ -46,6 +53,41 @@ final class Linker {
 	 * @return string|\WP_Error `confirmed`, `uncertain`, o por qué no se vinculó.
 	 */
 	public static function link( int $local, int $remote, int $seen, int $remote_seen, ?string $reference = null ) {
+		$result = self::attempt( $local, $remote, $seen, $remote_seen, $reference );
+
+		// Todo intento queda: es lo que distingue un olvido de una falla (UC-03). Lo incierto
+		// todavía no es nada: lo resuelve la pregunta de los 10 minutos.
+		if ( is_wp_error( $result ) ) {
+			Events::record(
+				Events::LINK_FAILED,
+				Events::WARNING,
+				$local,
+				array(
+					'remote'     => $remote,
+					'reason'     => $result->get_error_code(),
+					'background' => false,
+				),
+				Peer::cause()
+			);
+		} elseif ( 'confirmed' === $result ) {
+			Events::record( Events::LINKED, Events::INFO, $local, array( 'remote' => $remote ) );
+		}
+
+		return $result;
+	}
+
+	/**
+	 * El intento de vincular, sin el log.
+	 *
+	 * @param int         $local       Producto de esta tienda.
+	 * @param int         $remote      Producto de la otra tienda.
+	 * @param int         $seen        El stock de acá que vio el dueño.
+	 * @param int         $remote_seen El stock de allá que vio el dueño.
+	 * @param string|null $reference   Quién lo vinculó.
+	 *
+	 * @return string|\WP_Error
+	 */
+	private static function attempt( int $local, int $remote, int $seen, int $remote_seen, ?string $reference ) {
 		$peer    = Peers::only();
 		$refusal = self::refusal( $peer );
 
@@ -138,6 +180,8 @@ final class Linker {
 			return new \WP_Error( 'not_stored', __( 'No se pudo escribir el desvincular.', 'woonderful-stock-sync-for-woocommerce' ) );
 		}
 
+		Events::record( Events::UNLINKED, Events::INFO, $local );
+
 		return true;
 	}
 
@@ -156,10 +200,17 @@ final class Linker {
 		foreach ( Ledger::unresolved_bootstraps( self::QUERY_AFTER ) as $row ) {
 			$state = self::ask( $peer, (int) $row->origin_seq );
 
+			$product = (int) $row->origin_product;
+
 			if ( null === $state ) {
 				// Sin respuesta sigue incierto. Un `syncing` de un proceso que murió pasa a
-				// incierto, que es lo que es.
-				Ledger::resolve_bootstrap( (int) $row->id, Ledger::UNCERTAIN );
+				// incierto, que es lo que es. La primera vez que la pregunta falla, va al log:
+				// sus ventas quedan retenidas hasta que se resuelva (ADR-011 §3).
+				if ( self::UNRESOLVED !== $row->last_error ) {
+					Events::record( Events::LINK_UNRESOLVED, Events::WARNING, $product, array( 'generation' => (int) $row->origin_seq ), Peer::cause() );
+				}
+
+				Ledger::resolve_bootstrap( (int) $row->id, Ledger::UNCERTAIN, self::UNRESOLVED );
 
 				continue;
 			}
@@ -168,8 +219,19 @@ final class Linker {
 			// que ver el dueño.
 			if ( Ledger::APPLIED === $state ) {
 				Ledger::resolve_bootstrap( (int) $row->id, 'confirmed' );
+				Events::record( Events::LINKED, Events::INFO, $product, array( 'background' => true ) );
 			} else {
 				Ledger::resolve_bootstrap( (int) $row->id, 'failed', 'not_applied: ' . $state );
+				Events::record(
+					Events::LINK_FAILED,
+					Events::WARNING,
+					$product,
+					array(
+						'reason'     => 'not_applied: ' . $state,
+						'background' => true,
+					),
+					Peer::cause()
+				);
 			}
 		}
 	}

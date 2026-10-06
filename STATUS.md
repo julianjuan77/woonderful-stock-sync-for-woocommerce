@@ -24,7 +24,7 @@ git show 2668a7a --stat      # qué archivos tocó y cuántas líneas
 git show 2668a7a             # el diff completo
 ```
 
-Y para correr sólo los tests de una pieza, en vez de los 430:
+Y para correr sólo los tests de una pieza, en vez de los 441:
 
 ```bash
 make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS="--filter Test_Ledger"
@@ -182,7 +182,7 @@ es lo normal: loguearlo en cada pasada sería ruido.
 |---|---|---|---|---|
 | 10.1 | La tabla `wss_events` y `Log\Events::record()`: el texto se arma al mostrarlo, y si escribir falla no corta nada (ADR-011 §2, §7) | ✅ | `84b8783` | `EVT-01`…`EVT-07`, `UNI-11` |
 | 10.2 | El estado de la otra tienda en `wss_peer_state`: caída, rechazo —sin el 409— y vuelta, sólo el cambio (ADR-011 §4) | ✅ | `886f9ac` | `PER-01`…`PER-08` |
-| 10.3 | Los eventos de cada pieza: vincular, fallar, desvincular, `link_unresolved`, `abandoned`, `ledger_error`, `reconciled`, las discrepancias, `link_removed` (ADR-011 §3, §7) | ⬜ | | |
+| 10.3 | Los eventos de cada pieza: vincular, fallar, desvincular, `link_unresolved`, `abandoned`, `ledger_error`, `reconciled`, las discrepancias, `link_removed` (ADR-011 §3, §7) | ✅ | | `LNK-12`…`LNK-15`, `SND-19`…`SND-21`, `BOK-19`, `RCN-13`, `RCL-19`, `AUD-20` |
 | 10.4 | El par roto: `broken_since` en `wss_links`, revisado de noche en cada tienda (ADR-011 §7) | ⬜ | | |
 | 10.5 | La purga de 90 días que respeta el descarte y lo avisado, y `wp wss log` (ADR-011 §6, §8) | ⬜ | | |
 | 10.6 | `Notifier`: el tick de cada minuto, las ventanas por causa, lo atribuido a la caída, el tope de 10 por día (ADR-012 §2, §4, §5) | ⬜ | | |
@@ -245,11 +245,11 @@ seguridad y convenciones de código.
 | **Un lote que siempre voltea al receptor arrastra a los otros 199.** Si el receptor muere con un error que `apply()` no puede atrapar —sin memoria, o el tiempo máximo de PHP—, las 200 filas reciben el mismo error, el mismo backoff, vuelven a salir juntas y a las 6 horas se abandonan todas. Un timeout de 30 s no tiene el problema: el receptor termina igual y el reintento deduplica. La mitigación posible es partir el lote a la mitad tras una falla del lote entero que no sea de red ni de autenticación. No se hace hasta ver el volumen real | Revisión 2026-09-29 → §6 del SPEC |
 | **En el sandbox faltaban `wp_wss_links` y `wp_wss_movements`** —sólo quedaba `wp_wss_nonces`— con `wss_schema_version` en 1: el sitio estaba suspendido por esquema, y `maybe_upgrade()` no lo arregla porque la versión está al día. No coincide con ninguno de los dos caminos de `uninstall.php`. Causa sin encontrar; se reparó reactivando el plugin. Si se repite, mirar quién hace `DROP TABLE` sobre el prefijo `wp_` | E.1, 2026-09-30 |
 | Las dos tiendas del sandbox tienen todavía el vínculo armado a mano en E.1 ("Alpargata azul 38"), con generación 1: no corresponde a ningún bootstrap. Si molesta, borrarlo de `wss_links` en las dos | E.1, 2026-09-30 |
-| **Un bootstrap incierto que nunca recibe respuesta** —por ejemplo, un 401 después de re-emparejar— retiene las ventas de ese producto para siempre, sin avisarle a nadie. No se pierden, pero nadie se entera; y el dueño ve `already_linked` si intenta revincular. Lo tiene que avisar el log (UC-08) | Revisión 2026-10-02 → ADR-011 (`link_unresolved`), falta implementarlo |
+| **Un bootstrap incierto que nunca recibe respuesta** —por ejemplo, un 401 después de re-emparejar— retiene las ventas de ese producto para siempre, sin avisarle a nadie. No se pierden, pero nadie se entera; y el dueño ve `already_linked` si intenta revincular. Lo tiene que avisar el log (UC-08) | Resuelto en 10.3: `link_unresolved` (ADR-011) |
 | `wp wss link` sale con código 0 cuando el resultado queda incierto: un script no lo distingue de un éxito | Revisión 2026-10-02 |
 | `GET /movements/<origen>/<secuencia>` no exige que el origen consultado sea el de quien firma. Con dos tiendas no expone nada, pero conviene acotarlo | Revisión 2026-10-02 |
 | Los bootstraps `failed` no se purgan nunca: `purge()` sólo mira lo confirmado | Revisión 2026-10-02 → 7.x |
-| `claim()` ignora si el `UPDATE` devuelve false: un error de la base cortaría la entrega sin aviso. Ya no puede ser el 1093, pero cualquier otro sí | Revisión 2026-10-02 → ADR-011 (`ledger_error`), falta implementarlo |
+| `claim()` ignora si el `UPDATE` devuelve false: un error de la base cortaría la entrega sin aviso. Ya no puede ser el 1093, pero cualquier otro sí | Resuelto en 10.3: `ledger_error` (ADR-011) |
 | La paginación de `GET /products` es por número de página: si se borra un producto definitivamente mientras se recorre el catálogo, todo se corre un lugar y uno de la página siguiente no aparece. Para sugerir pares por SKU es poco grave; si importa, se pagina por "los que vienen después del ID X" | Revisión 2026-10-02 → ADR de interfaz |
 | La pantalla tiene que decir "esperando respuesta" para un `uncertain` que todavía está en `syncing`, y "no se sabe" recién cuando ya es `uncertain`: hoy `State` los junta en uno | Revisión 2026-10-02 → ADR de interfaz |
 | El envío al final del request no se probó con PHP-FPM de verdad: los sitios de wp-restore corren Apache con mod_php, y ahí `Express` no manda. Los tests cubren la lógica; falta ver un pedido real salir en el `shutdown`. Y averiguar qué corren los servidores de las dos tiendas: con Apache y mod_php no se dispara nunca | 5.9 → con un sitio en PHP-FPM |

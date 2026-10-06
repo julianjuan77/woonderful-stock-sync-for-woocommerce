@@ -7,6 +7,8 @@
 
 declare( strict_types = 1 );
 
+use Woonderful\StockSync\Log\Peer;
+use Woonderful\StockSync\Log\Events;
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Ledger\Ledger;
 use Woonderful\StockSync\Linking\Linker;
@@ -410,5 +412,117 @@ class Test_Linker extends WP_UnitTestCase {
 	 */
 	public function test_the_query_waits_longer_than_the_signature_window(): void {
 		$this->assertGreaterThan( Signature::WINDOW, Linker::QUERY_AFTER );
+	}
+
+	/**
+	 * Los eventos del log, del más viejo al más nuevo.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function events(): array {
+		return array_reverse( Events::list( array(), 1, 100 )['items'] );
+	}
+
+	/**
+	 * LNK-12 — **Cada intento de vincular queda en el log**: el que sale bien como `linked`, el
+	 * que falla como `link_failed` con su motivo —también los rechazos antes de mandar nada—,
+	 * marcado como lo que el dueño estaba haciendo. El incierto todavía no es nada.
+	 */
+	public function test_every_link_attempt_is_logged(): void {
+		$local = $this->product( 10 );
+		$this->other_answers( 'received' );
+		Linker::link( $local, 900, 10, 7 );
+
+		Linker::link( $local, 901, 10, 7 );
+
+		$this->other = null;
+		Linker::link( $this->product( 10 ), 902, 10, 7 );
+
+		// El incierto deja anotada la caída de la otra, pero ningún evento de vinculación.
+		$events = array_values( array_filter( $this->events(), static fn ( $event ) => Events::PEER_UNREACHABLE !== $event['kind'] ) );
+
+		$this->assertSame( array( Events::LINKED, Events::LINK_FAILED ), array_column( $events, 'kind' ) );
+		$this->assertSame( $local, $events[0]['product'] );
+		$this->assertSame( 900, $events[0]['context']['remote'] );
+		$this->assertSame( 'already_linked', $events[1]['context']['reason'] );
+		$this->assertFalse( $events[1]['context']['background'] );
+	}
+
+	/**
+	 * LNK-13 — **Con la otra caída, el intento fallido se atribuye a la caída**, no al producto
+	 * (ADR-011 §5).
+	 */
+	public function test_a_failed_attempt_during_an_outage_is_attributed_to_it(): void {
+		Peer::observe( new WP_Error( 'http_request_failed', 'x' ) );
+		Peer::observe( new WP_Error( 'http_request_failed', 'x' ) );
+
+		$this->other = static fn () => self::reply( 500, array() );
+		Linker::link( $this->product( 10 ), 900, 10, 7 );
+		Linker::link( 99999, 901, 10, 7 );
+
+		$failed = Events::list( array( 'kind' => Events::LINK_FAILED ) )['items'];
+
+		$this->assertCount( 1, $failed );
+		$this->assertSame( Events::PEER_UNREACHABLE, $failed[0]['cause'] );
+	}
+
+	/**
+	 * LNK-14 — La pregunta de los 10 minutos deja su resultado en el log como algo que corrió
+	 * solo; y **un bootstrap que no se puede resolver se registra una vez**, no en cada pasada.
+	 */
+	public function test_resolving_bootstraps_is_logged(): void {
+		global $wpdb;
+
+		$applied = $this->product( 10 );
+		$unknown = $this->product( 10 );
+		$silent  = $this->product( 10 );
+
+		foreach ( array( $applied => 900, $unknown => 901, $silent => 902 ) as $local => $remote ) { // phpcs:ignore WordPress.Arrays.ArrayDeclarationSpacing.AssociativeArrayFound
+			Linker::link( $local, $remote, 10, 7 );
+		}
+
+		$table = Installer::table( 'movements' );
+		$wpdb->query( $wpdb->prepare( "UPDATE {$table} SET created_at = %s", gmdate( 'Y-m-d H:i:s', time() - Linker::QUERY_AFTER - 60 ) ) ); // phpcs:ignore WordPress.DB
+
+		$seq_of = static fn ( int $local ) => (int) Links::for_product( $local )->generation;
+		$states = array(
+			$seq_of( $applied ) => 'applied',
+			$seq_of( $unknown ) => 'unknown',
+		);
+
+		$this->other = static function ( string $url ) use ( $states ) {
+			$seq = (int) basename( wp_parse_url( $url, PHP_URL_PATH ) );
+
+			return isset( $states[ $seq ] ) ? self::reply( 200, array( 'state' => $states[ $seq ] ) ) : self::reply( 200, array() );
+		};
+
+		Linker::resolve_uncertain();
+		Linker::resolve_uncertain();
+
+		$by_kind = array();
+
+		foreach ( $this->events() as $event ) {
+			$by_kind[ $event['kind'] ][] = $event;
+		}
+
+		$this->assertSame( $applied, $by_kind[ Events::LINKED ][0]['product'] );
+		$this->assertTrue( $by_kind[ Events::LINKED ][0]['context']['background'] );
+		$this->assertSame( $unknown, $by_kind[ Events::LINK_FAILED ][0]['product'] );
+		$this->assertTrue( $by_kind[ Events::LINK_FAILED ][0]['context']['background'] );
+		$this->assertCount( 1, $by_kind[ Events::LINK_UNRESOLVED ], 'una vez, aunque la pasada pregunte de nuevo' );
+		$this->assertSame( $silent, $by_kind[ Events::LINK_UNRESOLVED ][0]['product'] );
+	}
+
+	/**
+	 * LNK-15 — Desvincular queda en el log.
+	 */
+	public function test_unlinking_is_logged(): void {
+		$local = $this->product( 10 );
+		Links::create( $local, self::OTHER, 900, 77, 10 );
+
+		Linker::unlink( $local );
+
+		$this->assertSame( Events::UNLINKED, $this->events()[0]['kind'] );
+		$this->assertSame( $local, $this->events()[0]['product'] );
 	}
 }

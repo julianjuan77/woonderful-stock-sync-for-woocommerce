@@ -7,6 +7,7 @@
 
 declare( strict_types = 1 );
 
+use Woonderful\StockSync\Log\Events;
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Ledger\Ledger;
 use Woonderful\StockSync\Reconciliation\Audit;
@@ -584,5 +585,23 @@ class Test_Rest_Reconcile extends WP_UnitTestCase {
 	 */
 	public function test_audit_without_a_session_is_rejected(): void {
 		$this->assertSame( 400, $this->ask( array( 'step' => Reconcile::AUDIT ) )->get_status() );
+	}
+
+	/**
+	 * RCN-13 — La tienda que contesta también deja su reconciliación en el log, al contestar la
+	 * última pregunta.
+	 */
+	public function test_the_answering_store_logs_its_reconciliation(): void {
+		$this->ask(
+			array(
+				'step'    => Reconcile::AUDIT,
+				'session' => 'pasada-1',
+			)
+		);
+
+		$event = Events::list( array( 'kind' => Events::RECONCILED ) )['items'][0];
+
+		$this->assertSame( Result::PEER, $event['context']['trigger'] );
+		$this->assertSame( self::REMOTE_STORE, $event['context']['by'] );
 	}
 }

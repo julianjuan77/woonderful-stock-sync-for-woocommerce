@@ -11,6 +11,7 @@ namespace Woonderful\StockSync\Transport;
 
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Ledger\Ledger;
+use Woonderful\StockSync\Log\Events;
 use Woonderful\StockSync\Log\Peer;
 
 defined( 'ABSPATH' ) || exit;
@@ -77,6 +78,8 @@ final class Sender {
 
 		$rows = Ledger::claim( Ledger::MAX_BATCH, $only );
 
+		self::record_claim( Ledger::last_claim() );
+
 		if ( array() === $rows ) {
 			return $summary;
 		}
@@ -100,6 +103,25 @@ final class Sender {
 		}
 
 		return $summary;
+	}
+
+	/**
+	 * Anota en el log lo que pasó en el claim (ADR-011 §3).
+	 *
+	 * Lo abandonado con la otra caída no va: es un síntoma de la caída, cada pasada
+	 * abandonaría unos pocos —una línea por minuto—, y lo repara la reconciliación cuando
+	 * vuelve. Con la otra rechazando sí: eso no lo repara nada solo.
+	 *
+	 * @param array{abandoned: int, error: string|null} $claim Lo que dijo el claim.
+	 */
+	private static function record_claim( array $claim ): void {
+		if ( $claim['abandoned'] > 0 && Peer::UNREACHABLE !== Peer::current()['state'] ) {
+			Events::record( Events::ABANDONED, Events::WARNING, null, array( 'count' => $claim['abandoned'] ), Peer::cause() );
+		}
+
+		if ( null !== $claim['error'] ) {
+			Events::record( Events::LEDGER_ERROR, Events::ERROR, null, array( 'error' => $claim['error'] ) );
+		}
 	}
 
 	/**

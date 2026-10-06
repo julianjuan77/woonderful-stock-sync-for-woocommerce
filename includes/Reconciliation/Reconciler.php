@@ -9,6 +9,8 @@ declare( strict_types = 1 );
 
 namespace Woonderful\StockSync\Reconciliation;
 
+use Woonderful\StockSync\Log\Events;
+use Woonderful\StockSync\Log\Peer;
 use Woonderful\StockSync\Rest\Reconcile;
 use Woonderful\StockSync\Transport\Peers;
 
@@ -345,6 +347,20 @@ final class Reconciler {
 	 */
 	private static function finish( string $trigger, string $outcome, array $details ): array {
 		Result::save( $trigger, $outcome, $details );
+
+		Events::record(
+			Events::RECONCILED,
+			Result::DONE === $outcome ? Events::INFO : Events::WARNING,
+			null,
+			array(
+				'trigger'   => $trigger,
+				'outcome'   => $outcome,
+				'reopened'  => (int) ( $details['reopened'] ?? 0 ),
+				'confirmed' => (int) ( $details['confirmed'] ?? 0 ),
+				'error'     => $details['error'] ?? null,
+			),
+			Result::DONE === $outcome ? null : Peer::cause()
+		);
 
 		return array(
 			'outcome' => $outcome,

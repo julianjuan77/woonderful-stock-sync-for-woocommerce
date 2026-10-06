@@ -207,6 +207,26 @@ final class Ledger {
 	public const RETENTION_DAYS = 90;
 
 	/**
+	 * Lo que pasó en el último `claim()`: cuántos abandonó, y el error de la base si no pudo
+	 * reclamar. El emisor decide si va al log: sabe si la otra está caída (ADR-011 §7).
+	 *
+	 * @var array{abandoned: int, error: string|null}
+	 */
+	private static array $last_claim = array(
+		'abandoned' => 0,
+		'error'     => null,
+	);
+
+	/**
+	 * Lo que pasó en el último `claim()`.
+	 *
+	 * @return array{abandoned: int, error: string|null}
+	 */
+	public static function last_claim(): array {
+		return self::$last_claim;
+	}
+
+	/**
 	 * Purga los movimientos terminados y viejos, consolidando el stock base.
 	 *
 	 * Tres reglas duras (ADR-004 §4):
@@ -373,6 +393,11 @@ final class Ledger {
 	public static function claim( int $limit = self::MAX_BATCH, ?array $only = null ): array {
 		global $wpdb;
 
+		self::$last_claim = array(
+			'abandoned' => 0,
+			'error'     => null,
+		);
+
 		if ( array() === $only ) {
 			return array();
 		}
@@ -403,13 +428,15 @@ final class Ledger {
 		// Va después del paso 1 a propósito: así la fila de un worker muerto se libera y
 		// se abandona en la misma pasada. Y el techo se mira acá y no al anotar el
 		// resultado porque un worker que muere nunca llama a `ack()` (ADR-001 §2).
-		$wpdb->query(
+		$abandoned = $wpdb->query(
 			"UPDATE {$table}
 			    SET delivery = 'abandoned', claimed_by = NULL, claimed_at = NULL
 			  WHERE delivery = 'pending'
 			    AND first_attempt_at IS NOT NULL
 			    AND first_attempt_at < UTC_TIMESTAMP() - INTERVAL " . self::DELIVERY_CEILING
 		);
+
+		self::$last_claim['abandoned'] = (int) $abandoned;
 
 		// Paso 3 — reclamar el lote, sin lo que cuelga de un bootstrap sin resolver. Una
 		// venta de esos segundos sale con el vínculo nuevo (ADR-008 §4): entregada antes de
@@ -443,7 +470,7 @@ final class Ledger {
 		// El intento se cuenta acá y no al anotar el resultado: si el worker muere, nadie
 		// llega a anotarlo y el techo de 6 horas no avanzaría nunca (ADR-001 §2). Un lote
 		// que siempre supera el tiempo de PHP se reintentaría para siempre.
-		$wpdb->query(
+		$claimed_rows = $wpdb->query(
 			$wpdb->prepare(
 				"UPDATE {$table}
 				    SET delivery = 'in_flight',
@@ -459,6 +486,11 @@ final class Ledger {
 				max( 1, min( $limit, self::MAX_BATCH ) )
 			)
 		);
+
+		// Un error de la base cortaría la entrega sin aviso: lo anota quien llamó (ADR-011 §7).
+		if ( false === $claimed_rows ) {
+			self::$last_claim['error'] = '' === $wpdb->last_error ? 'UPDATE' : $wpdb->last_error;
+		}
 
 		$claimed = $wpdb->get_results(
 			$wpdb->prepare(

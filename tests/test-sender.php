@@ -7,6 +7,8 @@
 
 declare( strict_types = 1 );
 
+use Woonderful\StockSync\Log\Peer;
+use Woonderful\StockSync\Log\Events;
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Ledger\Ledger;
 use Woonderful\StockSync\Rest\Movements;
@@ -627,5 +629,96 @@ class Test_Sender extends WP_UnitTestCase {
 		$this->assertSame( 'fastcgi_finish_request', Express::finisher( $only( 'fastcgi_finish_request' ) ) );
 		$this->assertSame( 'litespeed_finish_request', Express::finisher( $only( 'litespeed_finish_request' ) ) );
 		$this->assertNull( Express::finisher( $only( 'otra' ) ) );
+	}
+
+	/**
+	 * Los eventos del log, del más viejo al más nuevo.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function events(): array {
+		return array_reverse( Events::list( array(), 1, 100 )['items'] );
+	}
+
+	/**
+	 * Un movimiento que ya pasó las 6 horas: el próximo claim lo abandona.
+	 */
+	private function expired_movement(): int {
+		global $wpdb;
+
+		$id = $this->pending_movement( -1 );
+		$wpdb->update( Installer::table( 'movements' ), array( 'first_attempt_at' => gmdate( 'Y-m-d H:i:s', time() - 7 * 3600 ) ), array( 'id' => $id ) ); // phpcs:ignore WordPress.DB
+
+		return $id;
+	}
+
+	/**
+	 * SND-19 — **Lo abandonado va al log, una línea con cuántos**, con la otra respondiendo.
+	 */
+	public function test_abandoned_movements_are_logged(): void {
+		$this->expired_movement();
+		$this->expired_movement();
+
+		Sender::run();
+
+		$this->assertSame( Events::ABANDONED, $this->events()[0]['kind'] );
+		$this->assertSame( 2, $this->events()[0]['context']['count'] );
+	}
+
+	/**
+	 * SND-20 — **Con la otra caída, lo abandonado no va**: es un síntoma, y daría una línea por
+	 * minuto. Con la otra rechazando sí, atribuido al rechazo.
+	 */
+	public function test_abandoned_movements_during_an_outage_are_not_logged(): void {
+		Peer::observe( new WP_Error( 'http_request_failed', 'x' ) );
+		$this->expired_movement();
+
+		Sender::run();
+
+		$this->assertSame( array(), Events::list( array( 'kind' => Events::ABANDONED ) )['items'] );
+
+		Peer::observe(
+			array(
+				'headers'  => array(),
+				'body'     => '{}',
+				'response' => array(
+					'code'    => 401,
+					'message' => '',
+				),
+				'cookies'  => array(),
+			)
+		);
+		$this->expired_movement();
+
+		Sender::run();
+
+		$abandoned = Events::list( array( 'kind' => Events::ABANDONED ) )['items'];
+
+		$this->assertCount( 1, $abandoned );
+		$this->assertSame( Events::PEER_REJECTED, $abandoned[0]['cause'] );
+	}
+
+	/**
+	 * SND-21 — Si la base rechaza el claim, queda `ledger_error`: la entrega se corta.
+	 */
+	public function test_a_failed_claim_is_logged(): void {
+		global $wpdb;
+
+		$this->pending_movement( -1 );
+		$table = Installer::table( 'movements' );
+		$break = static function ( string $query ) use ( $table ): string {
+			return str_contains( $query, "UPDATE {$table}" ) && str_contains( $query, "SET delivery = 'in_flight'" ) ? str_replace( 'SET delivery', 'SET no_such_column', $query ) : $query;
+		};
+
+		add_filter( 'query', $break );
+		$suppressed = $wpdb->suppress_errors( true );
+		Sender::run();
+		$wpdb->suppress_errors( $suppressed );
+		remove_filter( 'query', $break );
+
+		$errors = Events::list( array( 'kind' => Events::LEDGER_ERROR ) )['items'];
+
+		$this->assertCount( 1, $errors );
+		$this->assertStringContainsString( 'no_such_column', $errors[0]['context']['error'] );
 	}
 }

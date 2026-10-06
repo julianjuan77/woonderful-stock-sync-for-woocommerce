@@ -14,6 +14,7 @@ use Woonderful\StockSync\Detector\Guard;
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Ledger\Ledger;
 use Woonderful\StockSync\Linking\Links;
+use Woonderful\StockSync\Log\Events;
 use Woonderful\StockSync\Plugin;
 use Woonderful\StockSync\Schema\Installer;
 use Woonderful\StockSync\Transport\Pass;
@@ -138,6 +139,7 @@ final class Audit {
 			if ( 0 === $difference ) {
 				if ( $open ) {
 					self::close( (int) $link->id );
+					Events::record( Events::DISCREPANCY_CLOSED, Events::INFO, (int) $link->local_product );
 					++$summary['closed'];
 				}
 
@@ -195,6 +197,10 @@ final class Audit {
 			$same = null !== $link->expected_stock && (int) $link->found_stock - (int) $link->expected_stock === $expected;
 
 			self::write( (int) $link->id, $measure, ! $same );
+
+			if ( ! $same ) {
+				Events::record( Events::DISCREPANCY_OPENED, Events::WARNING, (int) $link->local_product, $measure );
+			}
 		}
 	}
 
@@ -220,6 +226,7 @@ final class Audit {
 		}
 
 		self::close( (int) $link->id );
+		Events::record( Events::DISCREPANCY_ACCEPTED, Events::INFO, $product, array( 'difference' => $difference ) );
 
 		return true;
 	}
@@ -250,6 +257,7 @@ final class Audit {
 		wc_update_product_stock( $product, abs( $difference ), $difference < 0 ? 'increase' : 'decrease' );
 
 		self::close( (int) $link->id );
+		Events::record( Events::DISCREPANCY_RESTORED, Events::INFO, $product, array( 'difference' => $difference ) );
 
 		return true;
 	}

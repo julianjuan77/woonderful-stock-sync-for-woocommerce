@@ -440,6 +440,9 @@ necesita, sin salir a ningún lado.
 | `SND-16` | Un envío falla entero, y después uno sale bien | El primero anota `wss_send_failed`; el segundo lo borra |
 | `SND-17` | **Al final del request, con un fallo de hace menos de un minuto** | No sale nada ni se cuenta un intento: lo lleva la pasada (ADR-006 §5) |
 | `SND-18` | Con la función de PHP-FPM, con la de LiteSpeed, sin ninguna | Elige la que hay, o ninguna |
+| `SND-19` | **Dos movimientos que pasan las 6 horas, con la otra respondiendo** | Un `abandoned` con la cuenta (ADR-011 §3) |
+| `SND-20` | **Lo mismo con la otra caída, y después rechazando** | Caída: nada. Rechazando: `abandoned`, atribuido al rechazo |
+| `SND-21` | La base rechaza el claim | `ledger_error` con el error |
 
 Verificado rompiéndolo: reclamando antes de mirar si hay tienda cae `SND-01`; sin el control
 del `seq` o tomando un resultado faltante como confirmado cae `SND-08`; ignorando el error del
@@ -619,6 +622,10 @@ Esta tienda hace de maestra; la otra la hace `pre_http_request`.
 | `LNK-09` | **Una copia de la tienda, suspendida, vincula y desvincula** | `wss_suspended` las dos, sin salir a la red ni escribir nada. Sin la guarda, cae |
 | `LNK-10` | Vincular sin emparejar | `wss_not_paired` |
 | `LNK-11` | La espera antes de preguntar contra la ventana de la firma | Es más larga: un bootstrap tardío ya no pasa la firma cuando se pregunta |
+| `LNK-12` | **Un vínculo que sale bien, uno rechazado antes de mandar, y uno incierto** | `linked` y `link_failed` con su motivo, marcado como lo que el dueño estaba haciendo; el incierto, ningún evento de vinculación (ADR-011 §3) |
+| `LNK-13` | Un intento fallido con la otra caída | El `link_failed` se atribuye a la caída (ADR-011 §5) |
+| `LNK-14` | **La pregunta de los 10 minutos: aplicado, desconocido, sin respuesta; dos pasadas** | `linked` y `link_failed` como algo que corrió solo; `link_unresolved` **una vez** |
+| `LNK-15` | Desvincular | `unlinked` |
 
 Verificado rompiéndolo, con seis cambios: sin revisar el stock propio (`LNK-02`) o la maestra
 (`LNK-02`); el timeout como fallido (`LNK-04`, `LNK-06`); el 5xx como fallido (`LNK-05`); el
@@ -780,6 +787,7 @@ ilegible tomado como vigente cae `REC-08`; autocargado cae `REC-01`; otro vencim
 | `BOK-16` | **Uno de acá armado después del techo de la maestra** | No se borra: la foto de ella no lo tenía |
 | `BOK-17` | Bootstraps propios `syncing`, `uncertain` y `confirmed` | Las generaciones de los dos primeros |
 | `BOK-18` | La misma generación con otros productos | No es el mismo vínculo: se borra el de acá y falta el de allá |
+| `BOK-19` | Un vínculo borrado por no tener respaldo | `link_removed` |
 
 Verificado rompiéndolo: sin la marca cae `BOK-04`; con el bootstrap adentro cae `BOK-07`; sin
 el tramo cae `BOK-08`; un `UPDATE` sin el estado esperado cae `BOK-09`; sin resetear el primer
@@ -803,6 +811,7 @@ generación cae `BOK-18`; informándolo dos veces cae `BOK-14`.
 | `RCN-10` | Cinco listas mal armadas, una con una generación por encima del techo | `400` |
 | `RCN-11` | "Hacé tu fase 2", con un vínculo que no cierra y una discrepancia ya abierta | La hace —dos revisados, uno sospechoso—, contesta la abierta, y lo anota en su resultado |
 | `RCN-12` | Sin sesión | `400` |
+| `RCN-13` | La tienda que contesta, al contestar la última pregunta | Deja su `reconciled`, con quién la lanzó |
 
 Verificado rompiéndolo: leyendo la marca antes que la lista cae `RCN-02`; sin mirar el candado
 cae `RCN-05`; sin validar las secuencias cae `RCN-06`; sin sumar las tandas cae `RCN-04`; sin
@@ -832,6 +841,7 @@ La otra tienda es un doble que contesta por HTTP interceptado.
 | `RCL-16` | Falla la primera pregunta | No corre ninguna fase, tampoco la propia |
 | `RCL-17` | **La tercera pregunta** | Las discrepancias abiertas de la otra quedan en el resultado |
 | `RCL-18` | Falla sólo la tercera, con un producto que no cierra | La fase 2 propia corre igual y lo encuentra; `unreachable` en `audit` |
+| `RCL-19` | **Una que corre, una que no puede mirar, una salteada por el candado** | Dos `reconciled`: `info` y `warning`; la salteada no deja nada |
 
 Verificado rompiéndolo: con la marca de la primera tanda para todas cae `RCL-02`; sin soltar el
 candado cuando falla caen `RCL-03` y `RCL-05`; guardando el `busy` cae `RCL-05`; con el techo
@@ -893,6 +903,7 @@ cae `SCD-15`.
 | `AUD-17` | Las dos acciones, con la diferencia cambiada desde que se vio | `wss_changed`, sin tocar nada |
 | `AUD-18` | Sin discrepancia, sin vínculo, o con retenidos | `wss_no_discrepancy` o `wss_not_checkable` |
 | `AUD-19` | "El libro está bien" con 53 contra 50 | Baja a 50, sin anotar un movimiento |
+| `AUD-20` | Una discrepancia que se cierra sola, una aceptada, una restaurada | `discrepancy_opened` con sus números, y `closed`, `accepted` y `restored` |
 
 Verificado rompiéndolo: sumando los retenidos o sin la generación cae `AUD-01`; abriendo a la
 primera caen `AUD-03` y `AUD-08`; confirmando sin volver a medir caen `AUD-05` y `AUD-06`; sin
@@ -936,6 +947,12 @@ sin el filtro de causa cae `EVT-04`.
 Verificado rompiéndolo: sin la excepción del 409 cae `PER-04`; escribiendo en cada respuesta caen
 `PER-01` y `PER-02`; un 4xx como caída cae `PER-03`; "volvió" sin haber avisado cae `PER-05`;
 el rechazo como `warning` cae `PER-03`; el envío o el catálogo sin anotar cae `PER-08`.
+
+**Los eventos del log (10.3), verificados rompiéndolos:** sin `linked` cae `LNK-12`; sin la causa
+cae `LNK-13`; registrando lo irresoluble en cada pasada cae `LNK-14`; sin `unlinked` cae
+`LNK-15`; registrando lo abandonado durante la caída cae `SND-20`; sin la cuenta del claim cae
+`SND-19`; sin el error del claim cae `SND-21`; sin `reconciled` caen `RCL-19` y `RCN-13`; sin
+abrir o cerrar la discrepancia cae `AUD-20`; sin `link_removed` cae `BOK-19`.
 
 ## Cómo se prueba algo que no deja rastro en el estado final
 

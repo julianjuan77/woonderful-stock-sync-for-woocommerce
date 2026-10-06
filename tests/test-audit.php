@@ -7,6 +7,7 @@
 
 declare( strict_types = 1 );
 
+use Woonderful\StockSync\Log\Events;
 use Woonderful\StockSync\Detector\Detector;
 use Woonderful\StockSync\Detector\Guard;
 use Woonderful\StockSync\Identity\Store;
@@ -572,5 +573,39 @@ class Test_Audit extends WP_UnitTestCase {
 
 		$this->assertSame( 50, Detector::stock_in_db( (int) $link->local_product ) );
 		$this->assertSame( array(), $this->own_movements( $link ) );
+	}
+
+	/**
+	 * AUD-20 — Las discrepancias dejan su rastro: se abrió con sus números, se cerró sola, se
+	 * aceptó, se restauró.
+	 */
+	public function test_discrepancies_are_logged(): void {
+		$closing = $this->open_discrepancy();
+		$this->unrecorded_write( $closing, 50 );
+		Audit::run();
+
+		$accepted = $this->open_discrepancy();
+		Audit::accept( (int) $accepted->local_product );
+
+		$restored = $this->open_discrepancy();
+		Audit::restore( (int) $restored->local_product );
+
+		$events = array_reverse( Events::list( array(), 1, 100 )['items'] );
+		$kinds  = array_column( $events, 'kind' );
+
+		$this->assertSame(
+			array(
+				Events::DISCREPANCY_OPENED,
+				Events::DISCREPANCY_CLOSED,
+				Events::DISCREPANCY_OPENED,
+				Events::DISCREPANCY_ACCEPTED,
+				Events::DISCREPANCY_OPENED,
+				Events::DISCREPANCY_RESTORED,
+			),
+			$kinds
+		);
+		$this->assertSame( 50, $events[0]['context']['expected'] );
+		$this->assertSame( 47, $events[0]['context']['found'] );
+		$this->assertSame( (int) $closing->local_product, $events[1]['product'] );
 	}
 }

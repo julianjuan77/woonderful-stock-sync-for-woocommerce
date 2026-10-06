@@ -7,6 +7,7 @@
 
 declare( strict_types = 1 );
 
+use Woonderful\StockSync\Log\Events;
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Ledger\Ledger;
 use Woonderful\StockSync\Reconciliation\Books;
@@ -702,5 +703,26 @@ class Test_Reconciler extends WP_UnitTestCase {
 		$this->assertSame( Result::UNREACHABLE, $result['outcome'] );
 		$this->assertSame( 'audit', $result['details']['stage'] );
 		$this->assertSame( 1, $result['details']['audit']['suspected'] ?? null );
+	}
+
+	/**
+	 * RCL-19 — **Cada reconciliación que termina queda en el log**: la que corrió, como info; la
+	 * que no pudo mirar, como warning. La salteada por el candado no deja nada.
+	 */
+	public function test_each_reconciliation_is_logged(): void {
+		Reconciler::run( Result::NIGHTLY );
+
+		$this->other['fail'] = Reconcile::THEIRS;
+		Reconciler::run( Result::MANUAL );
+
+		$taken = Lock::acquire();
+		Reconciler::run( Result::NIGHTLY );
+		Lock::release( (string) $taken );
+
+		$events = array_reverse( Events::list( array( 'kind' => Events::RECONCILED ) )['items'] );
+
+		$this->assertCount( 2, $events );
+		$this->assertSame( array( Result::NIGHTLY, Result::DONE, Events::INFO ), array( $events[0]['context']['trigger'], $events[0]['context']['outcome'], $events[0]['level'] ) );
+		$this->assertSame( array( Result::MANUAL, Result::UNREACHABLE, Events::WARNING ), array( $events[1]['context']['trigger'], $events[1]['context']['outcome'], $events[1]['level'] ) );
 	}
 }

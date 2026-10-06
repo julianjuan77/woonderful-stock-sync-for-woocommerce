@@ -12,6 +12,7 @@ namespace Woonderful\StockSync\Reconciliation;
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Ledger\Ledger;
 use Woonderful\StockSync\Linking\Links;
+use Woonderful\StockSync\Log\Events;
 use Woonderful\StockSync\Schema\Installer;
 
 defined( 'ABSPATH' ) || exit;
@@ -293,6 +294,7 @@ final class Books {
 
 			if ( null !== $row && (int) $row->generation === $link['generation'] && Links::delete( (int) $row->id ) ) {
 				$deleted[] = $link['local'];
+				Events::record( Events::LINK_REMOVED, Events::WARNING, $link['local'], array( 'generation' => $link['generation'] ) );
 			}
 		}
 

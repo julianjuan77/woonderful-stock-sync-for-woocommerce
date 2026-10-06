@@ -7,6 +7,7 @@
 
 declare( strict_types = 1 );
 
+use Woonderful\StockSync\Log\Events;
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Ledger\Ledger;
 use Woonderful\StockSync\Reconciliation\Books;
@@ -451,5 +452,19 @@ class Test_Books extends WP_UnitTestCase {
 
 		$this->assertSame( array( 10 ), $done['deleted'] );
 		$this->assertSame( array( 5 ), $done['missing'] );
+	}
+
+	/**
+	 * BOK-19 — Un vínculo borrado por no tener respaldo queda en el log.
+	 */
+	public function test_a_removed_link_is_logged(): void {
+		$this->link( 11, 111, 6 );
+
+		Books::compare_links( self::REMOTE_STORE, array(), 9 );
+
+		$event = Events::list()['items'][0];
+
+		$this->assertSame( Events::LINK_REMOVED, $event['kind'] );
+		$this->assertSame( 11, $event['product'] );
 	}
 }

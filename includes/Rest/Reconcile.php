@@ -9,6 +9,7 @@ declare( strict_types = 1 );
 
 namespace Woonderful\StockSync\Rest;
 
+use Woonderful\StockSync\Log\Events;
 use Woonderful\StockSync\Reconciliation\Audit;
 use Woonderful\StockSync\Reconciliation\Books;
 use Woonderful\StockSync\Reconciliation\Lock;
@@ -244,6 +245,18 @@ final class Reconcile {
 		}
 
 		$summary = Audit::run();
+
+		// La tercera pregunta es la última: acá termina, del lado de esta tienda.
+		Events::record(
+			Events::RECONCILED,
+			Events::INFO,
+			null,
+			array(
+				'trigger' => Result::PEER,
+				'outcome' => Result::DONE,
+				'by'      => $store,
+			)
+		);
 
 		self::remember(
 			$session,
