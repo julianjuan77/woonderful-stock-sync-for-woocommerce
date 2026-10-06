@@ -186,11 +186,11 @@ es lo normal: loguearlo en cada pasada sería ruido.
 | 10.1 | La tabla `wss_events` y `Log\Events::record()`: el texto se arma al mostrarlo, y si escribir falla no corta nada (ADR-011 §2, §7) | ✅ | `84b8783` | `EVT-01`…`EVT-07`, `UNI-11` |
 | 10.2 | El estado de la otra tienda en `wss_peer_state`: caída, rechazo —sin el 409— y vuelta, sólo el cambio (ADR-011 §4) | ✅ | `886f9ac` | `PER-01`…`PER-08` |
 | 10.3 | Los eventos de cada pieza: vincular, fallar, desvincular, `link_unresolved`, `abandoned`, `ledger_error`, `reconciled`, las discrepancias, `link_removed` (ADR-011 §3, §7) | ✅ | `c4cbdd9` | `LNK-12`…`LNK-15`, `SND-19`…`SND-21`, `BOK-19`, `RCN-13`, `RCL-19`, `AUD-20` |
-| 10.4 | El par roto: `broken_since` en `wss_links`, revisado de noche en cada tienda (ADR-011 §7) | ✅ | | `PAI-01`…`PAI-04`, `SCD-18` |
-| 10.5 | La purga de 90 días que respeta el descarte y lo avisado, y `wp wss log` (ADR-011 §6, §8) | ✅ | | `EVT-06`, `CLI-16`, `CLI-17`, `SCD-18` |
-| 10.6 | `Notifier`: el tick de cada minuto, las ventanas por causa, lo atribuido a la caída, el tope de 10 por día (ADR-012 §2, §4, §5) | ✅ | | `NOT-01`…`NOT-12`, `PAS-09` |
-| 10.7 | El resumen de la noche de lo que no sincroniza, una vez por producto (ADR-012 §3, §4) | ✅ | | `NOT-13`…`NOT-15`, `SCD-18` |
-| 10.8 | Las tres opciones y `wp wss notify`; el email que no sale (ADR-012 §6, §7) | ✅ | | `NOT-11`, `NOT-12`, `CLI-18`, `CLI-19` |
+| 10.4 | El par roto: `broken_since` en `wss_links`, revisado de noche en cada tienda (ADR-011 §7) | ✅ | `f801f3b` | `PAI-01`…`PAI-04`, `SCD-18` |
+| 10.5 | La purga de 90 días que respeta el descarte y lo avisado, y `wp wss log` (ADR-011 §6, §8) | ✅ | `f801f3b` | `EVT-06`, `CLI-16`, `CLI-17`, `SCD-18` |
+| 10.6 | `Notifier`: el tick de cada minuto, las ventanas por causa, lo atribuido a la caída, el tope de 10 por día (ADR-012 §2, §4, §5) | ✅ | `f801f3b` | `NOT-01`…`NOT-12`, `PAS-09` |
+| 10.7 | El resumen de la noche de lo que no sincroniza, una vez por producto (ADR-012 §3, §4) | ✅ | `f801f3b` | `NOT-13`…`NOT-15`, `SCD-18` |
+| 10.8 | Las tres opciones y `wp wss notify`; el email que no sale (ADR-012 §6, §7) | ✅ | `f801f3b` | `NOT-11`, `NOT-12`, `CLI-18`, `CLI-19` |
 
 ### 9. Publicación
 
