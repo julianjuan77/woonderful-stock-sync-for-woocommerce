@@ -1285,6 +1285,9 @@ escriben los dos.
 ## ADR-003 — Desinstalación y borrado de datos
 
 Estado: Aprobada · 2026-09-20 · aprobada por Julián
+Revisado: 2026-10-06 — aprobado por Julián con ADR-011 y ADR-012. La tabla `wss_events` es
+historial del dueño: se borra con la casilla, como el libro; también las tres opciones de los
+avisos, que son ajustes. `wss_peer_state` y `wss_notify_state` se borran siempre.
 Revisado: 2026-10-05 — aprobado por Julián con ADR-009. Suma `wss_reconciling` y
 `wss_last_reconciliation`, el candado y el último resultado de la reconciliación. Se borran
 **siempre**: son estado de la sincronización, no datos del dueño.
@@ -1320,6 +1323,8 @@ Ajustes → [ ] Borrar todos los datos al desinstalar     ← desmarcada de fáb
 | Hora del último control de la pasada      | se borra           | se borra        |
 | Último envío fallido (`wss_send_failed`)  | se borra           | se borra        |
 | Candado y último resultado de la reconciliación | se borra     | se borra        |
+| Estado de la otra tienda y de los avisos  | se borra           | se borra        |
+| El log (`wss_events`) y los ajustes de los avisos | queda      | se borra        |
 | Código de un emparejamiento en curso      | se borra           | se borra        |
 | **Secreto compartido con la otra tienda** | **se borra**       | **se borra**    |
 
@@ -1387,6 +1392,9 @@ purgar). Va al ADR del esquema.
 ## ADR-004 — Esquema de la base de datos
 
 Estado: Aprobada · 2026-09-20 · aprobada por Julián
+Revisado: 2026-10-06 — aprobado por Julián con ADR-010 y ADR-011. Una cuarta tabla,
+`wss_events`, y en `wss_links` las cuatro columnas de la discrepancia y `broken_since`.
+Esquema 3. Ver ADR-010 §4 y ADR-011 §2.
 Revisado: 2026-09-21 — se quita la columna `status` de `wss_links`. Contradecía UC-03, que
 fija que el estado de sincronización es una vista y no se persiste. Ver §2.
 Revisado: 2026-09-21 — entra `details TEXT NULL` en `wss_movements`, donde el bootstrap deja

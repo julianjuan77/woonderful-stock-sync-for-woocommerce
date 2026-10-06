@@ -73,7 +73,7 @@ class Test_Uninstall extends WP_UnitTestCase {
 	public function tear_down(): void {
 		global $wpdb;
 
-		foreach ( array( 'movements', 'links', 'nonces' ) as $name ) {
+		foreach ( array( 'movements', 'links', 'nonces', 'events' ) as $name ) {
 			$table = Installer::table( $name );
 			$wpdb->query( "DROP TABLE IF EXISTS {$table}" ); // phpcs:ignore WordPress.DB
 		}
@@ -143,7 +143,7 @@ class Test_Uninstall extends WP_UnitTestCase {
 	}
 
 	/**
-	 * UNI-02 — La tabla de nonces se borra siempre; el libro y los vínculos no.
+	 * UNI-02 — La tabla de nonces se borra siempre; el libro, los vínculos y el log no.
 	 */
 	public function test_only_the_nonce_table_goes_when_data_is_kept(): void {
 		update_option( self::OPTION_DELETE_ALL, false );
@@ -152,6 +152,7 @@ class Test_Uninstall extends WP_UnitTestCase {
 
 		$this->assertSame(
 			array(
+				Installer::table( 'events' ),
 				Installer::table( 'links' ),
 				Installer::table( 'movements' ),
 			),
@@ -191,6 +192,7 @@ class Test_Uninstall extends WP_UnitTestCase {
 
 		$this->assertSame(
 			array(
+				Installer::table( 'events' ),
 				Installer::table( 'links' ),
 				Installer::table( 'movements' ),
 			),
@@ -216,9 +218,13 @@ class Test_Uninstall extends WP_UnitTestCase {
 	public function test_every_option_goes_when_the_box_is_checked(): void {
 		update_option( self::OPTION_DELETE_ALL, true );
 
+		foreach ( array( 'wss_notify_enabled', 'wss_notify_email', 'wss_notify_after_hours' ) as $option ) {
+			update_option( $option, 'x', false );
+		}
+
 		$this->run_uninstall();
 
-		foreach ( array( Store::OPTION_ID, Store::OPTION_LABEL, Store::OPTION_FINGERPRINT, 'wss_peers', Installer::OPTION_VERSION, Installer::OPTION_SCHEMA_HEALTHY, self::OPTION_DELETE_ALL ) as $option ) {
+		foreach ( array( Store::OPTION_ID, Store::OPTION_LABEL, Store::OPTION_FINGERPRINT, 'wss_peers', Installer::OPTION_VERSION, Installer::OPTION_SCHEMA_HEALTHY, self::OPTION_DELETE_ALL, 'wss_notify_enabled', 'wss_notify_email', 'wss_notify_after_hours' ) as $option ) {
 			$this->assertFalse( get_option( $option, false ), $option . ' tendría que estar borrada' );
 		}
 	}
@@ -285,5 +291,22 @@ class Test_Uninstall extends WP_UnitTestCase {
 
 		$this->assertFalse( get_option( 'wss_reconciling', false ) );
 		$this->assertFalse( get_option( 'wss_last_reconciliation', false ) );
+	}
+
+	/**
+	 * El estado de la otra tienda y el de los avisos son estado de la conexión: se van
+	 * siempre (ADR-011, ADR-012).
+	 *
+	 * UNI-11
+	 */
+	public function test_the_peer_and_notify_state_are_always_deleted(): void {
+		update_option( self::OPTION_DELETE_ALL, false );
+		update_option( 'wss_peer_state', array( 'state' => 'ok' ), false );
+		update_option( 'wss_notify_state', array( 'sent' => 1 ), false );
+
+		$this->run_uninstall();
+
+		$this->assertFalse( get_option( 'wss_peer_state', false ) );
+		$this->assertFalse( get_option( 'wss_notify_state', false ) );
 	}
 }

@@ -33,12 +33,14 @@ if ( is_array( $wss_peers ) ) {
 $wpdb->query( "DROP TABLE IF EXISTS {$wss_prefix}nonces" );
 
 // Ni la hora del control de la pasada, ni la del último envío fallido, ni la reconciliación
-// —su candado y su último resultado—, ni un código de emparejamiento vivo son datos del dueño
-// (ADR-003).
+// —su candado y su último resultado—, ni el estado de la otra tienda o de los avisos, ni un
+// código de emparejamiento vivo son datos del dueño (ADR-003).
 delete_option( 'wss_pass_checked_at' );
 delete_transient( 'wss_send_failed' );
 delete_option( 'wss_reconciling' );
 delete_option( 'wss_last_reconciliation' );
+delete_option( 'wss_peer_state' );
+delete_option( 'wss_notify_state' );
 delete_option( 'wss_pairing' );
 delete_option( 'wss_redeeming' );
 
@@ -49,6 +51,7 @@ if ( ! get_option( 'wss_delete_data_on_uninstall', false ) ) {
 // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- ídem.
 $wpdb->query( "DROP TABLE IF EXISTS {$wss_prefix}movements" );
 $wpdb->query( "DROP TABLE IF EXISTS {$wss_prefix}links" );
+$wpdb->query( "DROP TABLE IF EXISTS {$wss_prefix}events" );
 // phpcs:enable
 
 foreach ( array(
@@ -59,6 +62,9 @@ foreach ( array(
 	'wss_schema_version',
 	'wss_schema_healthy',
 	'wss_delete_data_on_uninstall',
+	'wss_notify_enabled',
+	'wss_notify_email',
+	'wss_notify_after_hours',
 ) as $wss_option ) {
 	delete_option( $wss_option );
 }

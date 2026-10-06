@@ -64,7 +64,7 @@ class Test_Cli extends WP_UnitTestCase {
 
 		// CLI-05 vincula y desvincula de verdad: sin esto, sus filas pasaban a la corrida
 		// siguiente, y la primera clase de la suite encontraba movimientos ajenos.
-		foreach ( array( 'movements', 'links', 'nonces' ) as $name ) {
+		foreach ( array( 'movements', 'links', 'nonces', 'events' ) as $name ) {
 			$table = Installer::table( $name );
 			$wpdb->query( "DROP TABLE IF EXISTS {$table}" ); // phpcs:ignore WordPress.DB
 		}

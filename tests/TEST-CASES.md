@@ -103,7 +103,7 @@ mientras escribía la función.
 
 | Decisión | Dónde está | Tests | Archivo |
 |---|---|---|---|
-| Tres tablas, InnoDB | ADR-004 §1-§3 | `SCH-01`, `SCH-02` | [test-installer.php](test-installer.php) |
+| Cuatro tablas, InnoDB | ADR-004 §1-§3, ADR-011 §2 | `SCH-01`, `SCH-02` | [test-installer.php](test-installer.php) |
 | Tres índices en el libro, ni uno más | ADR-004 §1 | `SCH-03` | [test-installer.php](test-installer.php) |
 | La secuencia propia es el `AUTO_INCREMENT`, en `NULL` hasta el `UPDATE` | ADR-004 §1 | `SCH-04` | [test-installer.php](test-installer.php) |
 | La deduplicación vive en el `UNIQUE`, no en PHP | SPEC §3, ADR-001 | `SCH-05`, `SCH-06` | [test-installer.php](test-installer.php) |
@@ -191,8 +191,8 @@ mientras escribía la función.
 
 | ID | Caso | Resultado esperado |
 |---|---|---|
-| `SCH-01` | `install()` sobre una base limpia | Existen las tres tablas |
-| `SCH-02` | Idem | Las tres figuran en `information_schema` como InnoDB, por nombre |
+| `SCH-01` | `install()` sobre una base limpia | Existen las cuatro tablas, por nombre |
+| `SCH-02` | Idem | Las cuatro figuran en `information_schema` como InnoDB, por nombre |
 | `SCH-03` | Idem | Los cuatro índices del libro, con sus **columnas en orden** y cuáles son únicos |
 | `SCH-04` | Dos movimientos propios con `origin_seq` en `NULL` | Los dos entran: en un `UNIQUE`, `NULL` no choca con `NULL` |
 | `SCH-05` | Dos veces el mismo `(origin_store, origin_seq)` | El segundo lo rechaza la base |
@@ -200,7 +200,7 @@ mientras escribía la función.
 | `SCH-07` | `maybe_upgrade()` con la versión al día | No ejecuta ninguna consulta |
 | `SCH-08` | `maybe_upgrade()` con la versión atrasada | Reinstala las tres tablas **por nombre** y deja la versión al día |
 | `SCH-09` | **Cada una** de las tres tablas pasada a MyISAM | `unhealthy_tables()` la nombra |
-| `SCH-10` | Las tres definiciones SQL | Declaran `ENGINE=InnoDB` explícito, no el default del host |
+| `SCH-10` | Las cuatro definiciones SQL | Declaran `ENGINE=InnoDB` explícito, no el default del host |
 | `SCH-11` | **Cada una** de las tres tablas borrada | `unhealthy_tables()` la nombra: se busca por ausencia, no entre lo que devuelve `information_schema` |
 | `SCH-12` | Las opciones que se leen en cada request | Están autocargadas, leído de la columna `autoload` |
 | `SCH-13` | Sin resultado guardado —un sitio que actualiza desde antes del control— | Mira las tablas una vez, en vez de dar por buena la ausencia del dato |
@@ -267,7 +267,7 @@ varios tests sin chocar.
 | ID | Caso | Resultado esperado |
 |---|---|---|
 | `UNI-01` | Casilla en falso | El secreto de `wss_peers` se va; la URL y el identificador quedan |
-| `UNI-02` | Casilla en falso | Sólo se borra la tabla de nonces, y el libro y los vínculos **conservan sus filas** |
+| `UNI-02` | Casilla en falso | Sólo se borra la tabla de nonces, y el libro, los vínculos y el log **conservan sus filas** |
 | `UNI-03` | Casilla en falso | Quedan la identidad, la versión de esquema, la huella y la etiqueta |
 | `UNI-04` | Casilla marcada | No queda ninguna tabla |
 | `UNI-05` | Casilla marcada | No queda ninguna de las siete opciones |
@@ -276,6 +276,7 @@ varios tests sin chocar.
 | `UNI-08` | Desinstalar conservando los datos, con un código de emparejamiento vivo de cada lado | Los dos se van: son una credencial |
 | `UNI-09` | Desinstalar conservando los datos, con un envío fallido anotado | `wss_send_failed` se borra igual (ADR-003, revisado el 2026-10-02) |
 | `UNI-10` | Desinstalar conservando los datos, con el candado y el resultado de la reconciliación | Los dos se borran igual (ADR-003, revisado el 2026-10-05) |
+| `UNI-11` | Desinstalar conservando los datos, con el estado de la otra tienda y el de los avisos | Los dos se borran igual (ADR-011, ADR-012) |
 
 ## [`tests/test-ledger.php`](test-ledger.php) — el libro
 
@@ -902,6 +903,22 @@ revisión cae `SCD-12`. De las acciones: con el signo del ajuste al revés o sin
 `AUD-14`; escribiendo el número cae `AUD-16`; sin el guard cae `AUD-15`; sin comparar con lo
 visto cae `AUD-17`; sin la tercera pregunta caen `RCL-17` y `RCL-18`; ignorando su falla cae
 `RCL-18`; sin validar la sesión cae `RCN-12`.
+
+## [`tests/test-events.php`](test-events.php) — el log
+
+| ID | Caso | Esperado |
+| --- | --- | --- |
+| `EVT-01` | Un evento con producto, causa y datos, sin persona | Queda todo, y el usuario en `NULL`: WP-CLI sin `--user` da 0 |
+| `EVT-02` | Con una persona | Queda quién fue |
+| `EVT-03` | **Escribir con la tabla borrada** | No corta nada, no imprime nada, y deja los errores de la base como estaban (ADR-011 §7) |
+| `EVT-04` | Tres eventos | De lo más nuevo a lo más viejo; filtra por producto, tipo, nivel y causa; pagina |
+| `EVT-05` | **Movimientos del libro y eventos de un producto, y de otro** | Una sola línea de tiempo, sólo de ese producto (UC-03) |
+| `EVT-06` | **Eventos de hace 91 días: uno común, un descarte, un deshacer, un aviso; y uno de hace 89** | La purga borra sólo el común (ADR-011 §6) |
+| `EVT-07` | Cada tipo | Tiene su frase, no el nombre interno |
+
+Verificado rompiéndolo: guardando el usuario 0 cae `EVT-01`; sin restaurar los errores cae
+`EVT-03`; purgando todo cae `EVT-06`; el historial sin el libro cae `EVT-05`; en orden viejo o
+sin el filtro de causa cae `EVT-04`.
 
 ## Cómo se prueba algo que no deja rastro en el estado final
 

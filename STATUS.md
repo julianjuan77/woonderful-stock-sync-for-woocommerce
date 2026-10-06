@@ -24,7 +24,7 @@ git show 2668a7a --stat      # qué archivos tocó y cuántas líneas
 git show 2668a7a             # el diff completo
 ```
 
-Y para correr sólo los tests de una pieza, en vez de los 414:
+Y para correr sólo los tests de una pieza, en vez de los 422:
 
 ```bash
 make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS="--filter Test_Ledger"
@@ -174,11 +174,13 @@ es lo normal: loguearlo en cada pasada sería ruido.
 | 8.1 | Pantalla de ajustes: emparejamiento, estado del canal, la casilla de borrado | 🔒 1.11 |
 | 8.2 | Pantalla de vinculación: sugerencias por SKU, vinculación masiva, estado por producto | 🔒 1.11 |
 
+**El diseño parte de woonderful-sync** (pedido de Julián, 2026-10-06): los mismos logos (`assets/brand/`), la misma disposición —sidebar con logo, pantallas como `src/screens/Logs.js`— y los mismos colores y estilos (`src/style.scss`, clases `woon-*`).
+
 ### 10. El log y los avisos — `includes/Log/`
 
 | | Tarea | Estado | Commit | Tests |
 |---|---|---|---|---|
-| 10.1 | La tabla `wss_events` y `Log\Events::record()`: el texto se arma al mostrarlo, y si escribir falla no corta nada (ADR-011 §2, §7) | ⬜ | | |
+| 10.1 | La tabla `wss_events` y `Log\Events::record()`: el texto se arma al mostrarlo, y si escribir falla no corta nada (ADR-011 §2, §7) | ✅ | | `EVT-01`…`EVT-07`, `UNI-11` |
 | 10.2 | El estado de la otra tienda en `wss_peer_state`: caída, rechazo —sin el 409— y vuelta, sólo el cambio (ADR-011 §4) | ⬜ | | |
 | 10.3 | Los eventos de cada pieza: vincular, fallar, desvincular, `link_unresolved`, `abandoned`, `ledger_error`, `reconciled`, las discrepancias, `link_removed` (ADR-011 §3, §7) | ⬜ | | |
 | 10.4 | El par roto: `broken_since` en `wss_links`, revisado de noche en cada tienda (ADR-011 §7) | ⬜ | | |

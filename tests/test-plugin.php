@@ -51,7 +51,7 @@ class Test_Plugin extends WP_UnitTestCase {
 		update_option( 'home', $this->original_home );
 		delete_option( Store::OPTION_FINGERPRINT );
 
-		foreach ( array( 'movements', 'links', 'nonces' ) as $name ) {
+		foreach ( array( 'movements', 'links', 'nonces', 'events' ) as $name ) {
 			$table = Installer::table( $name );
 			$wpdb->query( "DROP TABLE IF EXISTS {$table}" ); // phpcs:ignore WordPress.DB
 		}
@@ -220,7 +220,7 @@ class Test_Plugin extends WP_UnitTestCase {
 	public function test_boot_migrates_the_schema(): void {
 		global $wpdb;
 
-		foreach ( array( 'movements', 'links', 'nonces' ) as $name ) {
+		foreach ( array( 'movements', 'links', 'nonces', 'events' ) as $name ) {
 			$table = Installer::table( $name );
 			$wpdb->query( "DROP TABLE IF EXISTS {$table}" ); // phpcs:ignore WordPress.DB
 		}
@@ -233,7 +233,7 @@ class Test_Plugin extends WP_UnitTestCase {
 
 		// Y que las tablas hayan vuelto: install() escribe la versión aunque dbDelta no
 		// haya creado nada, así que la opción sola no prueba que migró.
-		foreach ( array( 'movements', 'links', 'nonces' ) as $name ) {
+		foreach ( array( 'movements', 'links', 'nonces', 'events' ) as $name ) {
 			$table = Installer::table( $name );
 
 			$this->assertSame(
@@ -269,7 +269,7 @@ class Test_Plugin extends WP_UnitTestCase {
 
 		delete_option( Store::OPTION_ID );
 
-		foreach ( array( 'movements', 'links', 'nonces' ) as $name ) {
+		foreach ( array( 'movements', 'links', 'nonces', 'events' ) as $name ) {
 			$table = Installer::table( $name );
 			$wpdb->query( "DROP TABLE IF EXISTS {$table}" ); // phpcs:ignore WordPress.DB
 		}
@@ -328,7 +328,7 @@ class Test_Plugin extends WP_UnitTestCase {
 
 		delete_option( Store::OPTION_ID );
 
-		foreach ( array( 'movements', 'links', 'nonces' ) as $name ) {
+		foreach ( array( 'movements', 'links', 'nonces', 'events' ) as $name ) {
 			$table = Installer::table( $name );
 			$wpdb->query( "DROP TABLE IF EXISTS {$table}" ); // phpcs:ignore WordPress.DB
 		}

@@ -25,6 +25,7 @@ Tres tablas propias, con el prefijo de WordPress más `wss_`:
 **La generación de un par es la secuencia del bootstrap que lo abrió** (ADR-005 §4): nunca se
 repite, así que un movimiento de una época anterior no puede colarse como vigente.
 | `{prefix}wss_nonces` | Los nonces vistos, para rechazar un request reenviado |
+| `{prefix}wss_events` | El log: lo que pasa y no es un movimiento —acciones del dueño, intentos fallidos, la otra tienda que se cae, reconciliaciones, discrepancias, pares rotos—. El texto se arma al mostrarlo (`Log\Events::describe()`). 90 días, salvo el descarte y lo avisado (ADR-011) |
 
 **El libro es también la cola** (ADR-001): no hay tabla de pendientes. Cada movimiento propio
 lleva en su fila el estado de entrega, y eso es lo único que dice qué falta entregar.

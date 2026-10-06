@@ -96,7 +96,7 @@ class Test_Pairing extends WP_UnitTestCase {
 
 		update_option( 'home', $this->original_home );
 
-		foreach ( array( 'movements', 'links', 'nonces' ) as $name ) {
+		foreach ( array( 'movements', 'links', 'nonces', 'events' ) as $name ) {
 			$table = Installer::table( $name );
 			$wpdb->query( "DROP TABLE IF EXISTS {$table}" ); // phpcs:ignore WordPress.DB
 		}

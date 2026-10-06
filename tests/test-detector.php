@@ -59,7 +59,7 @@ class Test_Detector extends WP_UnitTestCase {
 		Guard::forget_all();
 		Express::forget_all();
 
-		foreach ( array( 'movements', 'links', 'nonces' ) as $name ) {
+		foreach ( array( 'movements', 'links', 'nonces', 'events' ) as $name ) {
 			$table = Installer::table( $name );
 			$wpdb->query( "DROP TABLE IF EXISTS {$table}" ); // phpcs:ignore WordPress.DB
 		}

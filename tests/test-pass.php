@@ -67,7 +67,7 @@ class Test_Pass extends WP_UnitTestCase {
 		remove_filter( 'pre_http_request', array( $this, 'answer' ), 10 );
 		Pass::unschedule();
 
-		foreach ( array( 'movements', 'links', 'nonces' ) as $name ) {
+		foreach ( array( 'movements', 'links', 'nonces', 'events' ) as $name ) {
 			$table = Installer::table( $name );
 			$wpdb->query( "DROP TABLE IF EXISTS {$table}" ); // phpcs:ignore WordPress.DB
 		}

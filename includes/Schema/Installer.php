@@ -12,25 +12,26 @@ namespace Woonderful\StockSync\Schema;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Las tres tablas del plugin y su versión de esquema (ADR-004).
+ * Las cuatro tablas del plugin y su versión de esquema (ADR-004, ADR-011).
  */
 final class Installer {
 
 	/**
 	 * La versión del esquema. La 2 suma las cuatro columnas de la discrepancia a `wss_links`
-	 * (ADR-010 §4): `dbDelta` las agrega sin tocar las filas.
+	 * (ADR-010 §4); la 3, la tabla `wss_events` y `broken_since` (ADR-011). `dbDelta` agrega
+	 * sin tocar las filas.
 	 */
-	public const SCHEMA_VERSION = 2;
+	public const SCHEMA_VERSION = 3;
 
 	public const OPTION_VERSION = 'wss_schema_version';
 
 	/**
-	 * Si las tres tablas están sanas. Se autocarga: la guarda de arranque la lee en cada
+	 * Si las cuatro tablas están sanas. Se autocarga: la guarda de arranque la lee en cada
 	 * request.
 	 */
 	public const OPTION_SCHEMA_HEALTHY = 'wss_schema_healthy';
 
-	private const TABLES = array( 'movements', 'links', 'nonces' );
+	private const TABLES = array( 'movements', 'links', 'nonces', 'events' );
 
 	/**
 	 * Nombre completo de una de las tablas del plugin.
@@ -64,7 +65,7 @@ final class Installer {
 	}
 
 	/**
-	 * Vuelve a revisar las tres tablas y guarda el resultado.
+	 * Vuelve a revisar las cuatro tablas y guarda el resultado.
 	 *
 	 * La consulta a `information_schema` es cara y esto no cambia solo, así que se hace
 	 * al instalar y al migrar, no en cada carga de página (ADR-004 §5).
@@ -163,7 +164,7 @@ final class Installer {
 	}
 
 	/**
-	 * El SQL de las tres tablas.
+	 * El SQL de las cuatro tablas.
 	 *
 	 * @param string $charset_collate Charset y collation del sitio.
 	 *
@@ -173,6 +174,7 @@ final class Installer {
 		$movements = self::table( 'movements' );
 		$links     = self::table( 'links' );
 		$nonces    = self::table( 'nonces' );
+		$events    = self::table( 'events' );
 
 		return array(
 			// origin_seq admite NULL a propósito: la secuencia de un movimiento propio es
@@ -218,6 +220,7 @@ final class Installer {
 				found_stock int(11) DEFAULT NULL,
 				discrepancy_since datetime DEFAULT NULL,
 				discrepancy_seen_at datetime DEFAULT NULL,
+				broken_since datetime DEFAULT NULL,
 				PRIMARY KEY  (id),
 				UNIQUE KEY local (local_product,remote_store),
 				KEY remote (remote_store,remote_product)
@@ -230,6 +233,21 @@ final class Installer {
 				seen_at datetime NOT NULL,
 				PRIMARY KEY  (nonce),
 				KEY seen_at (seen_at)
+			) ENGINE=InnoDB {$charset_collate};",
+
+			// Lo que pasa y no es un movimiento: los movimientos ya están en el libro (ADR-011).
+			"CREATE TABLE {$events} (
+				id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+				created_at datetime NOT NULL,
+				level varchar(10) NOT NULL,
+				kind varchar(40) NOT NULL,
+				product bigint(20) unsigned DEFAULT NULL,
+				user_id bigint(20) unsigned DEFAULT NULL,
+				cause varchar(40) DEFAULT NULL,
+				context text DEFAULT NULL,
+				PRIMARY KEY  (id),
+				KEY by_product (product,created_at),
+				KEY by_date (created_at)
 			) ENGINE=InnoDB {$charset_collate};",
 		);
 	}

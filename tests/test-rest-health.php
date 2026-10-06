@@ -60,7 +60,7 @@ class Test_Rest_Health extends WP_UnitTestCase {
 		remove_action( 'rest_api_init', array( Health::class, 'register_routes' ) );
 		$wp_rest_server = null; // phpcs:ignore WordPress.WP.GlobalVariablesOverride
 
-		foreach ( array( 'movements', 'links', 'nonces' ) as $name ) {
+		foreach ( array( 'movements', 'links', 'nonces', 'events' ) as $name ) {
 			$table = Installer::table( $name );
 			$wpdb->query( "DROP TABLE IF EXISTS {$table}" ); // phpcs:ignore WordPress.DB
 		}

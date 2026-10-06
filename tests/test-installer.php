@@ -10,7 +10,7 @@ declare( strict_types = 1 );
 use Woonderful\StockSync\Schema\Installer;
 
 /**
- * El instalador crea las tres tablas como las describe ADR-004.
+ * El instalador crea las cuatro tablas como las describe ADR-004.
  */
 class Test_Installer extends WP_UnitTestCase {
 
@@ -37,7 +37,7 @@ class Test_Installer extends WP_UnitTestCase {
 	public function tear_down(): void {
 		global $wpdb;
 
-		foreach ( array( 'movements', 'links', 'nonces' ) as $name ) {
+		foreach ( array( 'movements', 'links', 'nonces', 'events' ) as $name ) {
 			$table = Installer::table( $name );
 			$wpdb->query( "DROP TABLE IF EXISTS {$table}" ); // phpcs:ignore WordPress.DB
 		}
@@ -91,18 +91,19 @@ class Test_Installer extends WP_UnitTestCase {
 	}
 
 	/**
-	 * SCH-01 — install() sobre una base limpia crea las tres tablas.
+	 * SCH-01 — install() sobre una base limpia crea las cuatro tablas.
 	 */
-	public function test_install_creates_the_three_tables(): void {
+	public function test_install_creates_the_four_tables(): void {
 		Installer::install();
 
 		$tables = $this->existing_tables();
 		sort( $tables );
 
 		// Por nombre y no por cantidad: una tabla creada con el nombre equivocado sigue
-		// siendo una tabla, y contar tres no lo detecta.
+		// siendo una tabla, y contarlas no lo detecta.
 		$this->assertSame(
 			array(
+				Installer::table( 'events' ),
 				Installer::table( 'links' ),
 				Installer::table( 'movements' ),
 				Installer::table( 'nonces' ),
@@ -141,11 +142,12 @@ class Test_Installer extends WP_UnitTestCase {
 	 *
 	 * SCH-02
 	 */
-	public function test_the_three_tables_are_innodb(): void {
+	public function test_the_four_tables_are_innodb(): void {
 		Installer::install();
 
 		$this->assertSame(
 			array(
+				Installer::table( 'events' )    => 'InnoDB',
 				Installer::table( 'links' )     => 'InnoDB',
 				Installer::table( 'movements' ) => 'InnoDB',
 				Installer::table( 'nonces' )    => 'InnoDB',
@@ -169,7 +171,7 @@ class Test_Installer extends WP_UnitTestCase {
 
 		$statements = (array) $definitions->invoke( null, '' );
 
-		$this->assertCount( 3, $statements );
+		$this->assertCount( 4, $statements );
 
 		foreach ( $statements as $sql ) {
 			$this->assertStringContainsString( 'ENGINE=InnoDB', (string) $sql );
@@ -358,6 +360,7 @@ class Test_Installer extends WP_UnitTestCase {
 
 		$this->assertSame(
 			array(
+				Installer::table( 'events' ),
 				Installer::table( 'links' ),
 				Installer::table( 'movements' ),
 				Installer::table( 'nonces' ),
@@ -377,9 +380,9 @@ class Test_Installer extends WP_UnitTestCase {
 	public function test_a_missing_table_is_reported(): void {
 		global $wpdb;
 
-		// Las tres, no una: mirar sólo `nonces` dejaría pasar que alguien saque `links`
+		// Todas, no una: mirar sólo `nonces` dejaría pasar que alguien saque `links`
 		// de la lista de tablas que se controlan.
-		foreach ( array( 'movements', 'links', 'nonces' ) as $name ) {
+		foreach ( array( 'movements', 'links', 'nonces', 'events' ) as $name ) {
 			Installer::install();
 
 			$table = Installer::table( $name );
@@ -395,7 +398,7 @@ class Test_Installer extends WP_UnitTestCase {
 	public function test_it_detects_a_table_without_transactions(): void {
 		global $wpdb;
 
-		foreach ( array( 'movements', 'links', 'nonces' ) as $name ) {
+		foreach ( array( 'movements', 'links', 'nonces', 'events' ) as $name ) {
 			Installer::install();
 
 			$table = Installer::table( $name );
