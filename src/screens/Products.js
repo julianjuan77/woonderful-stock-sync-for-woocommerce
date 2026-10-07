@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import Pagination from '../components/Pagination';
+import LinkModal from '../components/LinkModal';
 
 const STATE_FILTERS = [
 	{
@@ -86,6 +87,8 @@ export default function Products( { apiFetch, navigate, status } ) {
 	const [ loading, setLoading ] = useState( false );
 	const [ error, setError ] = useState( null );
 	const [ refreshing, setRefreshing ] = useState( null );
+	const [ modal, setModal ] = useState( null );
+	const [ notice, setNotice ] = useState( null );
 	const autoRefreshed = useRef( false );
 
 	// La búsqueda espera a que se deje de escribir.
@@ -168,6 +171,58 @@ export default function Products( { apiFetch, navigate, status } ) {
 		} );
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [ load ] );
+
+	// La fila se reemplaza con lo que devuelve el servidor, no con lo que se esperaba (UC-05);
+	// después se recarga la página, por los conteos.
+	const replaceRow = ( id, row ) => {
+		setData( ( prev ) => ( {
+			...prev,
+			rows: prev.rows.map( ( r ) =>
+				r.id === id ? { ...r, ...( row ?? {} ) } : r
+			),
+		} ) );
+		load();
+	};
+
+	const act = async ( path, row ) => {
+		setNotice( null );
+		try {
+			const result = await apiFetch( {
+				path,
+				method: 'POST',
+				data: { local: row.id },
+			} );
+			replaceRow( row.id, result.row );
+		} catch ( e ) {
+			setNotice( { type: 'error', text: e?.message } );
+		}
+	};
+
+	const linked = ( id, result ) => {
+		setModal( null );
+		replaceRow( id, result.row );
+		setNotice(
+			'uncertain' === result.result
+				? {
+						type: 'warning',
+						text: __(
+							'La otra tienda no respondió: no se sabe si lo vinculó. El plugin le pregunta solo dentro de 10 minutos.',
+							'woonderful-stock-sync-for-woocommerce'
+						),
+				  }
+				: null
+		);
+	};
+
+	const actions = status?.store?.master
+		? {
+				link: ( row ) => setModal( { row, reassign: false } ),
+				reassign: ( row ) => setModal( { row, reassign: true } ),
+				unlink: ( row ) => act( '/unlink', row ),
+				discard: ( row ) => act( '/discard', row ),
+				undiscard: ( row ) => act( '/undiscard', row ),
+		  }
+		: null;
 
 	const pickState = ( value ) => {
 		setState( value );
@@ -309,6 +364,20 @@ export default function Products( { apiFetch, navigate, status } ) {
 					<p>{ error }</p>
 				</div>
 			) }
+			{ notice && (
+				<div className={ `woon-notice woon-notice--${ notice.type }` }>
+					<p>{ notice.text }</p>
+				</div>
+			) }
+			{ modal && (
+				<LinkModal
+					apiFetch={ apiFetch }
+					row={ modal.row }
+					reassign={ modal.reassign }
+					onClose={ () => setModal( null ) }
+					onDone={ ( result ) => linked( modal.row.id, result ) }
+				/>
+			) }
 			{ loading && ! data && (
 				<div className="woon-loading">
 					{ __(
@@ -381,7 +450,7 @@ export default function Products( { apiFetch, navigate, status } ) {
 								header && (
 									<tr key={ `g${ row.group }` }>
 										<td
-											colSpan={ 5 }
+											colSpan={ actions ? 6 : 5 }
 											style={ {
 												fontWeight: 600,
 												background:
@@ -396,6 +465,7 @@ export default function Products( { apiFetch, navigate, status } ) {
 								<Row
 									key={ row.id }
 									row={ row }
+									actions={ actions }
 									onHistory={ () =>
 										navigate( 'logs', {
 											product: row.id,
@@ -420,7 +490,7 @@ export default function Products( { apiFetch, navigate, status } ) {
 	);
 }
 
-function Row( { row, onHistory } ) {
+function Row( { row, actions, onHistory } ) {
 	const [ badge, label ] = STATE_BADGE[ row.state ] ?? [ 'muted', row.state ];
 	const other = row.remote ?? row.suggestion;
 	return (
@@ -472,6 +542,119 @@ function Row( { row, onHistory } ) {
 					</div>
 				) }
 			</td>
+			{ actions && (
+				<td style={ { whiteSpace: 'nowrap' } }>
+					<RowActions row={ row } actions={ actions } />
+				</td>
+			) }
 		</tr>
+	);
+}
+
+function RowActions( { row, actions } ) {
+	const [ confirming, setConfirming ] = useState( false );
+
+	if ( 'stock_in_parent' === row.motive ) {
+		return null;
+	}
+
+	if ( 'unlinked' !== row.state ) {
+		if ( confirming ) {
+			return (
+				<span>
+					<span className="woon-muted">
+						{ __(
+							'Deja de sincronizar; el stock no se toca.',
+							'woonderful-stock-sync-for-woocommerce'
+						) }{ ' ' }
+					</span>
+					<button
+						className="woon-btn woon-btn--danger woon-btn--sm"
+						onClick={ () => actions.unlink( row ) }
+					>
+						{ __(
+							'Desvincular',
+							'woonderful-stock-sync-for-woocommerce'
+						) }
+					</button>{ ' ' }
+					<button
+						className="woon-btn woon-btn--ghost woon-btn--sm"
+						onClick={ () => setConfirming( false ) }
+					>
+						{ __(
+							'Cancelar',
+							'woonderful-stock-sync-for-woocommerce'
+						) }
+					</button>
+				</span>
+			);
+		}
+		return (
+			<span>
+				<button
+					className="woon-btn woon-btn--ghost woon-btn--sm"
+					onClick={ () => actions.reassign( row ) }
+				>
+					{ __(
+						'Reasignar',
+						'woonderful-stock-sync-for-woocommerce'
+					) }
+				</button>{ ' ' }
+				<button
+					className="woon-btn woon-btn--ghost woon-btn--sm"
+					onClick={ () => setConfirming( true ) }
+				>
+					{ __(
+						'Desvincular',
+						'woonderful-stock-sync-for-woocommerce'
+					) }
+				</button>
+			</span>
+		);
+	}
+
+	if ( 'trashed' === row.motive ) {
+		return null;
+	}
+
+	return (
+		<span>
+			<button
+				className="woon-btn woon-btn--secondary woon-btn--sm"
+				onClick={ () => actions.link( row ) }
+			>
+				{ 'suggestion' === row.motive
+					? __(
+							'Vincular sugerencia',
+							'woonderful-stock-sync-for-woocommerce'
+					  )
+					: __(
+							'Vincular',
+							'woonderful-stock-sync-for-woocommerce'
+					  ) }
+			</button>{ ' ' }
+			{ 'suggestion' === row.motive && (
+				<button
+					className="woon-btn woon-btn--ghost woon-btn--sm"
+					onClick={ () => actions.discard( row ) }
+				>
+					{ __(
+						'Descartar',
+						'woonderful-stock-sync-for-woocommerce'
+					) }
+				</button>
+			) }
+			{ 'discarded' === row.motive && (
+				<button
+					className="woon-btn woon-btn--ghost woon-btn--sm"
+					onClick={ () => actions.undiscard( row ) }
+				>
+					{ __(
+						'Deshacer descarte',
+						'woonderful-stock-sync-for-woocommerce'
+					) }
+				</button>
+			) }
+		</span>
 	);
 }

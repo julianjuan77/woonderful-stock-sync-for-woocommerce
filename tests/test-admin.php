@@ -41,7 +41,7 @@ class Test_Admin extends WP_UnitTestCase {
 	private WP_REST_Server $server;
 
 	public function set_up(): void {
-		global $wp_rest_server;
+		global $wpdb, $wp_rest_server;
 
 		parent::set_up();
 
@@ -54,6 +54,7 @@ class Test_Admin extends WP_UnitTestCase {
 		delete_option( Peers::OPTION );
 		delete_option( Result::OPTION );
 		delete_option( Lock::OPTION );
+		$wpdb->query( 'DELETE FROM ' . Installer::table( Installer::REMOTE_PRODUCTS ) ); // phpcs:ignore WordPress.DB
 		// En el set_up: el DROP del tear_down confirma lo que escribió el test anterior, y un
 		// borrado después del DROP lo deshace el rollback.
 		delete_option( Notifier::OPTION_ENABLED );
@@ -644,5 +645,214 @@ class Test_Admin extends WP_UnitTestCase {
 		$this->assertSame( array( $product ), array_column( $data['rows'], 'id' ) );
 		$this->assertNull( $data['catalog']['age'] );
 		$this->assertTrue( $data['catalog']['stale'] );
+	}
+
+	/**
+	 * Uno de allá, en la copia.
+	 *
+	 * @param int                  $id      Su ID.
+	 * @param array<string, mixed> $columns Lo que cambia.
+	 */
+	private function in_copy( int $id, array $columns = array() ): void {
+		global $wpdb;
+
+		$wpdb->insert( // phpcs:ignore WordPress.DB
+			Installer::table( Installer::REMOTE_PRODUCTS ),
+			array_merge(
+				array(
+					'remote_product' => $id,
+					'type'           => 'simple',
+					'sku'            => 'ALP-' . $id,
+					'name'           => 'Alpargata ' . $id,
+					'stock'          => 4,
+					'status'         => 'publish',
+					'seen_at'        => gmdate( 'Y-m-d H:i:s' ),
+				),
+				$columns
+			)
+		);
+	}
+
+	/**
+	 * La otra contesta: el catálogo con `include`, y el bootstrap como recibido.
+	 *
+	 * @param int $stock El stock de su producto.
+	 */
+	private function other_store( int $stock ): void {
+		add_filter(
+			'pre_http_request',
+			static function ( $preempt, $args, $url ) use ( $stock ) {
+				if ( str_contains( $url, '/products' ) ) {
+					parse_str( (string) wp_parse_url( $url, PHP_URL_QUERY ), $query );
+					$ids = array_map( 'intval', explode( ',', (string) ( $query['include'] ?? '' ) ) );
+
+					$body = array(
+						'products' => array_map(
+							static fn ( int $id ) => array(
+								'id'     => $id,
+								'sku'    => 'ALP-' . $id,
+								'name'   => 'Alpargata ' . $id,
+								'stock'  => $stock,
+								'status' => 'publish',
+								'linked' => false,
+							),
+							array_filter( $ids, static fn ( int $id ) => 404 !== $id )
+						),
+						'total'    => 1,
+					);
+				} else {
+					$movement = json_decode( (string) $args['body'], true )['movements'][0];
+					$body     = array(
+						'results' => array(
+							array(
+								'origin' => $movement['origin'],
+								'seq'    => $movement['seq'],
+								'status' => 'received',
+							),
+						),
+					);
+				}
+
+				return array(
+					'response' => array( 'code' => 200 ),
+					'body'     => (string) wp_json_encode( $body ),
+				);
+			},
+			10,
+			3
+		);
+	}
+
+	/**
+	 * ADM-24 — **Buscar el de allá para vincular a mano**: en la copia, sólo vinculables sin
+	 * par, por nombre o SKU.
+	 */
+	public function test_the_copy_is_searched_for_linkables(): void {
+		$this->as_user( 'administrator' );
+		$this->as_master();
+		$this->in_copy( 900 );
+		$this->in_copy( 901, array( 'linked' => 1 ) );
+		$this->in_copy( 902, array( 'status' => 'trash' ) );
+		$this->in_copy( 903, array( 'stock' => null ) );
+		$this->in_copy(
+			904,
+			array(
+				'sku'  => 'OTRO',
+				'name' => 'Ojota',
+			)
+		);
+
+		$this->assertSame( array( 900 ), array_column( $this->send( 'GET', '/catalog/search', array( 'q' => 'alpargata' ) )->get_data()['items'], 'id' ) );
+		$this->assertSame( array( 904 ), array_column( $this->send( 'GET', '/catalog/search', array( 'q' => 'otro' ) )->get_data()['items'], 'id' ) );
+	}
+
+	/**
+	 * ADM-25 — **Antes de confirmar, el de allá en el momento**, el de acá de la base, y cuál
+	 * queda: el de la maestra. Uno que ya no existe, `404`.
+	 */
+	public function test_the_other_product_is_read_fresh_before_confirming(): void {
+		$this->as_user( 'administrator' );
+		$this->as_master();
+		$this->other_store( 7 );
+
+		$product = new WC_Product_Simple();
+		$product->set_manage_stock( true );
+		$product->set_stock_quantity( 9 );
+		$local = (int) $product->save();
+
+		$data = $this->send( 'GET', '/catalog/fresh/900', array( 'local' => $local ) )->get_data();
+
+		$this->assertSame( 7, $data['remote']['stock'] );
+		$this->assertSame( 9, $data['local']['stock'] );
+		$this->assertSame( 9, $data['result'] );
+		$this->assertSame( 404, $this->call( 'GET', '/catalog/fresh/404' )->get_status() );
+	}
+
+	/**
+	 * ADM-26 — **Vincular desde la pantalla devuelve la fila como quedó**; con un stock que
+	 * cambió, `409 stock_changed`, y no vincula.
+	 */
+	public function test_linking_returns_the_row_as_it_is(): void {
+		$this->as_user( 'administrator' );
+		$this->as_master();
+		$this->other_store( 7 );
+		$this->in_copy( 900 );
+
+		$product = new WC_Product_Simple();
+		$product->set_manage_stock( true );
+		$product->set_stock_quantity( 9 );
+		$local = (int) $product->save();
+
+		$changed = $this->send(
+			'POST',
+			'/link',
+			array(
+				'local'        => $local,
+				'remote'       => 900,
+				'stock'        => 8,
+				'remote_stock' => 7,
+			)
+		);
+
+		$this->assertSame( 409, $changed->get_status() );
+		$this->assertSame( 'stock_changed', $changed->get_data()['code'] );
+
+		$data = $this->send(
+			'POST',
+			'/link',
+			array(
+				'local'        => $local,
+				'remote'       => 900,
+				'stock'        => 9,
+				'remote_stock' => 7,
+			)
+		)->get_data();
+
+		$this->assertSame( 'confirmed', $data['result'] );
+		$this->assertSame( 'linked', $data['row']['state'] );
+		$this->assertSame( 900, $data['row']['remote']['id'] );
+	}
+
+	/**
+	 * ADM-27 — **Desde la secundaria, vincular, desvincular, reasignar y descartar se rechazan en
+	 * el servidor**, con `403`.
+	 */
+	public function test_the_secondary_cannot_change_links(): void {
+		$this->as_user( 'administrator' );
+		Peers::pair( self::REMOTE_STORE, 'https://otra.test/wp-json/wss/v1', 'secreto', 'Mayorista', Peers::MASTER );
+		$local = $this->linked( 5, 5, 900 );
+
+		foreach ( array( '/link', '/unlink', '/reassign', '/discard', '/undiscard' ) as $route ) {
+			$response = $this->send(
+				'POST',
+				$route,
+				array(
+					'local'        => $local,
+					'remote'       => 901,
+					'stock'        => 5,
+					'remote_stock' => 5,
+				)
+			);
+
+			$this->assertSame( 403, $response->get_status(), $route );
+			$this->assertSame( 'wss_not_master', $response->get_data()['code'], $route );
+		}
+	}
+
+	/**
+	 * ADM-28 — Descartar devuelve la fila descartada; desvincular, sin vincular.
+	 */
+	public function test_discard_and_unlink_return_the_row(): void {
+		$this->as_user( 'administrator' );
+		$this->as_master();
+		$linked = $this->linked( 5, 5, 900 );
+
+		$product = new WC_Product_Simple();
+		$product->set_manage_stock( true );
+		$product->set_stock_quantity( 3 );
+		$loose = (int) $product->save();
+
+		$this->assertSame( 'discarded', $this->send( 'POST', '/discard', array( 'local' => $loose ) )->get_data()['row']['motive'] );
+		$this->assertSame( 'unlinked', $this->send( 'POST', '/unlink', array( 'local' => $linked ) )->get_data()['row']['state'] );
 	}
 }

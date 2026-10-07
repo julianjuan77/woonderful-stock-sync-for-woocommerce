@@ -218,6 +218,52 @@ final class Events {
 	}
 
 	/**
+	 * Cuáles de esos productos tienen la sugerencia descartada: su último `discarded` es
+	 * posterior a su último `undiscarded` (ADR-011 §3).
+	 *
+	 * @param int[] $products Productos de esta tienda.
+	 *
+	 * @return array<int, true>
+	 */
+	public static function discarded_among( array $products ): array {
+		global $wpdb;
+
+		$products = array_values( array_filter( array_map( 'intval', $products ) ) );
+
+		if ( array() === $products ) {
+			return array();
+		}
+
+		$table        = Installer::table( 'events' );
+		$placeholders = implode( ',', array_fill( 0, count( $products ), '%d' ) );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+		$rows = (array) $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT product, kind, MAX( id ) AS id FROM {$table} WHERE kind IN ( %s, %s ) AND product IN ( {$placeholders} ) GROUP BY product, kind",
+				array_merge( array( self::DISCARDED, self::UNDISCARDED ), $products )
+			)
+		);
+		// phpcs:enable
+
+		$last = array();
+
+		foreach ( $rows as $row ) {
+			$last[ (int) $row->product ][ (string) $row->kind ] = (int) $row->id;
+		}
+
+		$discarded = array();
+
+		foreach ( $last as $product => $kinds ) {
+			if ( ( $kinds[ self::DISCARDED ] ?? 0 ) > ( $kinds[ self::UNDISCARDED ] ?? 0 ) ) {
+				$discarded[ $product ] = true;
+			}
+		}
+
+		return $discarded;
+	}
+
+	/**
 	 * Borra lo de más de 90 días, salvo lo que no se borra nunca (ADR-011 §6).
 	 *
 	 * @param int $days Días.

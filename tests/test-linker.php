@@ -528,4 +528,59 @@ class Test_Linker extends WP_UnitTestCase {
 		$this->assertSame( Events::UNLINKED, $this->events()[0]['kind'] );
 		$this->assertSame( $local, $this->events()[0]['product'] );
 	}
+
+	/**
+	 * LNK-16 — **Reasignar desvincula y vincula, en ese orden**: queda con el par nuevo, y el
+	 * `unlink` del viejo sale por la cola.
+	 */
+	public function test_reassign_unlinks_then_links(): void {
+		$local = $this->product( 10 );
+		Links::create( $local, self::OTHER, 900, 77, 10 );
+		$this->other_answers( 'received' );
+
+		$this->assertSame( 'confirmed', Linker::reassign( $local, 901, 10, 4 ) );
+
+		$this->assertSame( 901, (int) Links::for_product( $local )->remote_product );
+		$this->assertSame( array( Events::UNLINKED, Events::LINKED ), array_column( $this->events(), 'kind' ) );
+	}
+
+	/**
+	 * LNK-17 — **Si vincular falla, queda sin vincular**: un estado válido, que se reintenta. Sin
+	 * vínculo que desvincular, no hace nada.
+	 */
+	public function test_a_failed_reassign_leaves_it_unlinked(): void {
+		$local = $this->product( 10 );
+		Links::create( $local, self::OTHER, 900, 77, 10 );
+		$this->other_answers( 'error', 'target_missing' );
+
+		$this->assertSame( 'target_missing', Linker::reassign( $local, 901, 10, 4 )->get_error_code() );
+		$this->assertNull( Links::for_product( $local ) );
+		$this->assertSame( 'not_linked', Linker::reassign( $local, 901, 10, 4 )->get_error_code() );
+	}
+
+	/**
+	 * LNK-18 — **Descartar y deshacer quedan en el log**, una vez cada uno: descartar lo
+	 * descartado, o deshacer lo que no lo está, se rechaza.
+	 */
+	public function test_discard_and_undiscard(): void {
+		$local = $this->product( 10 );
+
+		$this->assertTrue( Linker::discard( $local ) );
+		$this->assertSame( 'already_discarded', Linker::discard( $local )->get_error_code() );
+		$this->assertArrayHasKey( $local, Events::discarded_among( array( $local ) ) );
+
+		$this->assertTrue( Linker::undiscard( $local ) );
+		$this->assertSame( 'not_discarded', Linker::undiscard( $local )->get_error_code() );
+		$this->assertSame( array(), Events::discarded_among( array( $local ) ) );
+		$this->assertSame( array( Events::DISCARDED, Events::UNDISCARDED ), array_column( $this->events(), 'kind' ) );
+	}
+
+	/**
+	 * LNK-19 — Descartar es de la maestra, como vincular.
+	 */
+	public function test_only_the_master_discards(): void {
+		Peers::pair( self::OTHER, self::REST_URL, self::SECRET, 'Mayorista', Peers::MASTER );
+
+		$this->assertSame( 'wss_not_master', Linker::discard( $this->product( 10 ) )->get_error_code() );
+	}
 }

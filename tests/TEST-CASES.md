@@ -632,6 +632,10 @@ Esta tienda hace de maestra; la otra la hace `pre_http_request`.
 | `LNK-13` | Un intento fallido con la otra caída | El `link_failed` se atribuye a la caída (ADR-011 §5) |
 | `LNK-14` | **La pregunta de los 10 minutos: aplicado, desconocido, sin respuesta; dos pasadas** | `linked` y `link_failed` como algo que corrió solo; `link_unresolved` **una vez** |
 | `LNK-15` | Desvincular | `unlinked` |
+| `LNK-16` | **Reasignar a otro par** | Desvincula y vincula, en ese orden: queda con el nuevo, y el log dice `unlinked` y después `linked` (ADR-014 §7) |
+| `LNK-17` | **Reasignar, y el nuevo par se rechaza** | Queda sin vincular: estado válido y reintentable. Sin vínculo, `not_linked` |
+| `LNK-18` | Descartar dos veces, deshacer dos veces | Una vez cada uno en el log; lo repetido, `already_discarded` y `not_discarded` |
+| `LNK-19` | Descartar desde la secundaria | `wss_not_master` |
 
 Verificado rompiéndolo, con seis cambios: sin revisar el stock propio (`LNK-02`) o la maestra
 (`LNK-02`); el timeout como fallido (`LNK-04`, `LNK-06`); el 5xx como fallido (`LNK-05`); el
@@ -1043,6 +1047,11 @@ marcado sin mandarse, `NOT-17`; la pregunta a `/health` sin firma, `PER-07`; el 
 | `ADM-21` | Canjear algo que no es un código | `400 wss_pairing_invalid`, sin emparejar |
 | `ADM-22` | El refresco de la copia desde la pantalla | Una página con su avance; sin emparejar `409`, con la otra caída `502` |
 | `ADM-23` | Productos, con un estado que no existe y la copia sin refrescar nunca | Las filas, como "todos", y la copia vieja: la app la refresca |
+| `ADM-24` | Buscar el de allá en la copia | Sólo vinculables sin par —ni vinculado, ni en la papelera, ni sin su stock—, por nombre o SKU |
+| `ADM-25` | **El de allá en el momento, antes de confirmar** | Su stock real, el de acá de la base y cuál queda —el de la maestra—; uno que no existe, `404` |
+| `ADM-26` | **Vincular con un stock que cambió, y después con el bueno** | `409 stock_changed` sin vincular; después, la fila vinculada como quedó |
+| `ADM-27` | **Vincular, desvincular, reasignar y descartar desde la secundaria** | `403 wss_not_master` en los cinco: se rechaza en el servidor (ADR-013 §5) |
+| `ADM-28` | Descartar, y desvincular | Cada uno devuelve la fila como quedó |
 
 ## [`src/__tests__/routing.test.js`](../src/__tests__/routing.test.js) — las pantallas por `#/ruta`
 

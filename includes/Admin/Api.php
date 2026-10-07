@@ -11,7 +11,9 @@ namespace Woonderful\StockSync\Admin;
 
 use Woonderful\StockSync\Catalog\Copy;
 use Woonderful\StockSync\Catalog\Rows;
+use Woonderful\StockSync\Detector\Detector;
 use Woonderful\StockSync\Identity\Store;
+use Woonderful\StockSync\Linking\Linker;
 use Woonderful\StockSync\Linking\Links;
 use Woonderful\StockSync\Log\Events;
 use Woonderful\StockSync\Log\Notifier;
@@ -20,6 +22,7 @@ use Woonderful\StockSync\Plugin;
 use Woonderful\StockSync\Reconciliation\Audit;
 use Woonderful\StockSync\Reconciliation\Reconciler;
 use Woonderful\StockSync\Reconciliation\Result;
+use Woonderful\StockSync\Transport\Catalog;
 use Woonderful\StockSync\Transport\Pairing;
 use Woonderful\StockSync\Transport\Peers;
 
@@ -56,15 +59,22 @@ final class Api {
 	 */
 	public static function register_routes(): void {
 		$routes = array(
-			'/status'          => array( 'GET', 'status' ),
-			'/reconcile'       => array( 'POST', 'reconcile' ),
-			'/log'             => array( 'GET', 'log' ),
-			'/settings'        => array( 'GET, POST', 'settings' ),
-			'/store'           => array( 'POST', 'store' ),
-			'/pairing/code'    => array( 'POST', 'pairing_code' ),
-			'/pairing/redeem'  => array( 'POST', 'pairing_redeem' ),
-			'/catalog/refresh' => array( 'POST', 'catalog_refresh' ),
-			'/products'        => array( 'GET', 'products' ),
+			'/status'                         => array( 'GET', 'status' ),
+			'/reconcile'                      => array( 'POST', 'reconcile' ),
+			'/log'                            => array( 'GET', 'log' ),
+			'/settings'                       => array( 'GET, POST', 'settings' ),
+			'/store'                          => array( 'POST', 'store' ),
+			'/pairing/code'                   => array( 'POST', 'pairing_code' ),
+			'/pairing/redeem'                 => array( 'POST', 'pairing_redeem' ),
+			'/catalog/refresh'                => array( 'POST', 'catalog_refresh' ),
+			'/products'                       => array( 'GET', 'products' ),
+			'/catalog/search'                 => array( 'GET', 'catalog_search' ),
+			'/catalog/fresh/(?P<remote>\\d+)' => array( 'GET', 'catalog_fresh' ),
+			'/link'                           => array( 'POST', 'link' ),
+			'/unlink'                         => array( 'POST', 'unlink' ),
+			'/reassign'                       => array( 'POST', 'reassign' ),
+			'/discard'                        => array( 'POST', 'discard' ),
+			'/undiscard'                      => array( 'POST', 'undiscard' ),
 			'/discrepancies/(?P<product>\\d+)/(?P<action>accept|restore)' => array( 'POST', 'resolve' ),
 		);
 
@@ -376,6 +386,140 @@ final class Api {
 		);
 
 		return new \WP_REST_Response( $result, 200 );
+	}
+
+	/**
+	 * Busca el producto de la otra para vincular a mano, en la copia (ADR-014 §5).
+	 *
+	 * @param \WP_REST_Request $request Lo buscado, en `q`.
+	 */
+	public static function catalog_search( \WP_REST_Request $request ): \WP_REST_Response {
+		return new \WP_REST_Response( array( 'items' => Copy::search( sanitize_text_field( (string) $request['q'] ) ) ), 200 );
+	}
+
+	/**
+	 * El producto de la otra **en el momento**, antes de confirmar: los dos stocks y cuál va a
+	 * quedar, el de la maestra (ADR-014 §5, UC-07). Con `local`, el stock de acá leído de la
+	 * base, que es contra lo que compara el bootstrap.
+	 *
+	 * @param \WP_REST_Request $request El de allá en la ruta, y el de acá en `local`.
+	 */
+	public static function catalog_fresh( \WP_REST_Request $request ): \WP_REST_Response|\WP_Error {
+		$result = Catalog::fetch( 1, Catalog::MAX_INCLUDE, array( (int) $request['remote'] ) );
+
+		if ( is_wp_error( $result ) ) {
+			$result->add_data( array( 'status' => 'wss_not_paired' === $result->get_error_code() ? 409 : 502 ) );
+
+			return $result;
+		}
+
+		$remote = $result['products'][0] ?? null;
+
+		if ( null === $remote ) {
+			return new \WP_Error( 'target_missing', Events::reason_text( 'target_missing' ), array( 'status' => 404 ) );
+		}
+
+		$local = (int) $request['local'];
+		$stock = $local > 0 ? Detector::stock_in_db( $local ) : null;
+
+		return new \WP_REST_Response(
+			array(
+				'remote' => $remote,
+				'local'  => null === $stock ? null : array(
+					'id'    => $local,
+					'stock' => $stock,
+				),
+				// El stock de arranque es el de la maestra.
+				'result' => Peers::this_is_master() ? $stock : $remote['stock'],
+			),
+			200
+		);
+	}
+
+	/**
+	 * Vincula uno a mano, con los dos stocks que vio el dueño: lo mismo que `wp wss link`. Si
+	 * alguno cambió, `stock_changed`, y la pantalla vuelve a pedirlos.
+	 *
+	 * @param \WP_REST_Request $request `local`, `remote`, `stock` y `remote_stock`.
+	 */
+	public static function link( \WP_REST_Request $request ): \WP_REST_Response|\WP_Error {
+		return self::acted(
+			(int) $request['local'],
+			Linker::link( (int) $request['local'], (int) $request['remote'], self::seen( $request['stock'] ), self::seen( $request['remote_stock'] ), __( 'vinculado desde la pantalla', 'woonderful-stock-sync-for-woocommerce' ) )
+		);
+	}
+
+	/**
+	 * Desvincula: el producto deja de sincronizar y el stock no se toca. Lo mismo que
+	 * `wp wss unlink`.
+	 *
+	 * @param \WP_REST_Request $request `local`.
+	 */
+	public static function unlink( \WP_REST_Request $request ): \WP_REST_Response|\WP_Error {
+		return self::acted( (int) $request['local'], Linker::unlink( (int) $request['local'] ) );
+	}
+
+	/**
+	 * Reasigna: desvincula y vincula con otro.
+	 *
+	 * @param \WP_REST_Request $request Como en `link`.
+	 */
+	public static function reassign( \WP_REST_Request $request ): \WP_REST_Response|\WP_Error {
+		return self::acted(
+			(int) $request['local'],
+			Linker::reassign( (int) $request['local'], (int) $request['remote'], self::seen( $request['stock'] ), self::seen( $request['remote_stock'] ), __( 'reasignado desde la pantalla', 'woonderful-stock-sync-for-woocommerce' ) )
+		);
+	}
+
+	/**
+	 * Descarta la sugerencia de un producto.
+	 *
+	 * @param \WP_REST_Request $request `local`.
+	 */
+	public static function discard( \WP_REST_Request $request ): \WP_REST_Response|\WP_Error {
+		return self::acted( (int) $request['local'], Linker::discard( (int) $request['local'] ) );
+	}
+
+	/**
+	 * Deshace el descarte.
+	 *
+	 * @param \WP_REST_Request $request `local`.
+	 */
+	public static function undiscard( \WP_REST_Request $request ): \WP_REST_Response|\WP_Error {
+		return self::acted( (int) $request['local'], Linker::undiscard( (int) $request['local'] ) );
+	}
+
+	/**
+	 * Lo que vuelve de una acción sobre un producto: su fila como quedó, o por qué no se hizo.
+	 *
+	 * @param int                   $local  El producto.
+	 * @param string|true|\WP_Error $result Lo que devolvió `Linker`.
+	 */
+	private static function acted( int $local, $result ): \WP_REST_Response|\WP_Error {
+		if ( is_wp_error( $result ) ) {
+			$code = $result->get_error_code();
+
+			$result->add_data( array( 'status' => in_array( $code, array( 'wss_not_master', 'wss_suspended' ), true ) ? 403 : 409 ) );
+
+			return $result;
+		}
+
+		return new \WP_REST_Response(
+			array(
+				'result' => true === $result ? 'done' : $result,
+				'row'    => Rows::one( $local ),
+			),
+			200
+		);
+	}
+
+	/**
+	 * Un stock que vio el dueño, o -1 si no vino: `Linker` lo rechaza como cambiado.
+	 *
+	 * @param mixed $value Lo que vino.
+	 */
+	private static function seen( $value ): int {
+		return is_numeric( $value ) ? (int) $value : -1;
 	}
 
 	/**

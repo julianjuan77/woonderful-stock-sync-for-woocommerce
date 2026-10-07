@@ -429,6 +429,18 @@ espacios a los costados y sin mayúsculas** (`Rows::normalize()`). Un variable q
 el padre tiene su propia fila, que lo dice. Lo descartado se esconde salvo con "mostrar
 descartados". Si la copia tiene más de 10 minutos, la pantalla la refresca al abrirse.
 
+**Las acciones de Productos**, sólo en la maestra —y rechazadas en el servidor fuera de ella, con
+`403 wss_not_master`—: vincular a mano, desvincular, reasignar, descartar y deshacer el descarte.
+Vincular a mano (`src/components/LinkModal.js`) busca el de allá en la copia (`Copy::search()`:
+vinculables sin par), lo pide **en el momento** con `GET /catalog/fresh/<id>?local=` —el de allá
+con `include`, el de acá de la base— y muestra los dos stocks y cuál queda, el de la maestra. Al
+confirmar manda los dos stocks que vio: si alguno cambió, `409 stock_changed` y vuelve a leerlos.
+Reasignar es `Linker::reassign()`: desvincular y vincular, en ese orden; si vincular falla, queda
+sin vincular. Descartar y deshacerlo son `Linker::discard()` y `undiscard()`, que escriben
+`discarded` y `undiscarded` en el log; `Events::discarded_among()` es la regla de "descartado",
+que usan también las filas. **Cada acción devuelve la fila como quedó** (`Rows::one()`), y la
+pantalla la reemplaza.
+
 **El submenú de WordPress** marca la página, no la ruta: la app le pone `current` a la entrada de
 la pantalla abierta.
 

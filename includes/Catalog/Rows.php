@@ -139,7 +139,7 @@ final class Rows {
 		$links    = self::links_of( array_keys( $linkable ) );
 		$skus     = self::sku_counts( $linkable );
 		$by_sku   = self::remote_by_sku( $remote );
-		$discards = self::discarded( array_keys( $linkable ) );
+		$discards = Events::discarded_among( array_keys( $linkable ) );
 		$rows     = array();
 
 		foreach ( $linkable as $id => $item ) {
@@ -171,6 +171,24 @@ final class Rows {
 		usort( $rows, static fn ( array $a, array $b ) => array( $a['group'], $a['parent'] > 0, $a['id'] ) <=> array( $b['group'], $b['parent'] > 0, $b['id'] ) );
 
 		return $rows;
+	}
+
+	/**
+	 * La fila de un producto, como queda después de una acción: la pantalla la reemplaza con lo
+	 * que dice el servidor, no con lo que esperaba (UC-05). Null si no es un vinculable.
+	 *
+	 * @param int $product Producto de esta tienda.
+	 *
+	 * @return array<string, mixed>|null
+	 */
+	public static function one( int $product ): ?array {
+		foreach ( self::all() as $row ) {
+			if ( $product === $row['id'] ) {
+				return $row;
+			}
+		}
+
+		return null;
 	}
 
 	/**
@@ -450,49 +468,5 @@ final class Rows {
 		}
 
 		return $remote;
-	}
-
-	/**
-	 * Los productos cuya sugerencia está descartada: el último `discarded` es posterior al
-	 * último `undiscarded` (ADR-011 §3).
-	 *
-	 * @param int[] $products Los de acá.
-	 *
-	 * @return array<int, true>
-	 */
-	private static function discarded( array $products ): array {
-		global $wpdb;
-
-		if ( array() === $products ) {
-			return array();
-		}
-
-		$table = Installer::table( 'events' );
-
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$rows = (array) $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT product, kind, MAX( id ) AS id FROM {$table} WHERE kind IN ( %s, %s ) AND product IS NOT NULL GROUP BY product, kind",
-				Events::DISCARDED,
-				Events::UNDISCARDED
-			)
-		);
-		// phpcs:enable
-
-		$last = array();
-
-		foreach ( $rows as $row ) {
-			$last[ (int) $row->product ][ (string) $row->kind ] = (int) $row->id;
-		}
-
-		$discarded = array();
-
-		foreach ( $last as $product => $kinds ) {
-			if ( ( $kinds[ Events::DISCARDED ] ?? 0 ) > ( $kinds[ Events::UNDISCARDED ] ?? 0 ) ) {
-				$discarded[ $product ] = true;
-			}
-		}
-
-		return $discarded;
 	}
 }

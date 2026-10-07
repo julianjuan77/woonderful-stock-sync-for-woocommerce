@@ -126,6 +126,61 @@ final class Copy {
 	}
 
 	/**
+	 * Busca en la copia, por nombre o SKU, el producto de la otra para vincular a mano: sólo
+	 * vinculables —llevan su propio stock, fuera de la papelera— y sin par (ADR-014 §5).
+	 *
+	 * @param string $text  Lo buscado.
+	 * @param int    $limit Cuántos, como mucho.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	public static function search( string $text, int $limit = 20 ): array {
+		global $wpdb;
+
+		$text = trim( $text );
+
+		if ( '' === $text ) {
+			return array();
+		}
+
+		$table = Installer::table( Installer::REMOTE_PRODUCTS );
+		$links = Installer::table( 'links' );
+		$like  = '%' . $wpdb->esc_like( $text ) . '%';
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$rows = (array) $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT r.remote_product, r.parent, r.type, r.sku, r.name, r.stock, r.status, p.name AS parent_name
+				   FROM {$table} r
+				   LEFT JOIN {$table} p ON p.remote_product = r.parent AND r.parent > 0
+				  WHERE r.stock IS NOT NULL AND r.status <> 'trash' AND r.linked = 0
+				    AND r.remote_product NOT IN ( SELECT remote_product FROM {$links} )
+				    AND ( r.name LIKE %s OR r.sku LIKE %s OR p.name LIKE %s )
+				  ORDER BY r.name
+				  LIMIT %d",
+				$like,
+				$like,
+				$like,
+				$limit
+			)
+		);
+		// phpcs:enable
+
+		return array_map(
+			static fn ( $row ) => array(
+				'id'          => (int) $row->remote_product,
+				'parent'      => (int) $row->parent,
+				'parent_name' => null === $row->parent_name ? null : (string) $row->parent_name,
+				'type'        => (string) $row->type,
+				'sku'         => (string) $row->sku,
+				'name'        => (string) $row->name,
+				'stock'       => (int) $row->stock,
+			),
+			$rows
+		);
+	}
+
+	/**
 	 * La vacía: es de la tienda con que estaba emparejada.
 	 */
 	public static function clear(): void {

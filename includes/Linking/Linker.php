@@ -186,6 +186,79 @@ final class Linker {
 	}
 
 	/**
+	 * Reasigna: desvincula y vincula, **en ese orden** (ADR-014 §7). Si vincular falla, el
+	 * producto queda sin vincular: un estado válido, que se puede reintentar.
+	 *
+	 * @param int         $local       Producto de esta tienda.
+	 * @param int         $remote      El nuevo par, de la otra tienda.
+	 * @param int         $seen        El stock de acá que vio el dueño.
+	 * @param int         $remote_seen El stock de allá que vio el dueño.
+	 * @param string|null $reference   Quién lo reasignó.
+	 *
+	 * @return string|\WP_Error Lo que devuelve `link()`, o por qué no se desvinculó.
+	 */
+	public static function reassign( int $local, int $remote, int $seen, int $remote_seen, ?string $reference = null ) {
+		$unlinked = self::unlink( $local );
+
+		if ( is_wp_error( $unlinked ) ) {
+			return $unlinked;
+		}
+
+		return self::link( $local, $remote, $seen, $remote_seen, $reference );
+	}
+
+	/**
+	 * Descarta la sugerencia de un producto: deja de aparecer, pero se puede vincular a mano
+	 * igual (UC-05). Queda en el log, con quién fue (ADR-011 §3).
+	 *
+	 * @param int $local Producto de esta tienda.
+	 *
+	 * @return true|\WP_Error
+	 */
+	public static function discard( int $local ) {
+		$refusal = self::refusal( Peers::only() );
+
+		if ( null !== $refusal ) {
+			return $refusal;
+		}
+
+		if ( ! wc_get_product( $local ) instanceof \WC_Product ) {
+			return new \WP_Error( 'product_missing', __( 'Ese producto no existe en esta tienda.', 'woonderful-stock-sync-for-woocommerce' ) );
+		}
+
+		if ( isset( Events::discarded_among( array( $local ) )[ $local ] ) ) {
+			return new \WP_Error( 'already_discarded', __( 'Ese producto ya estaba descartado.', 'woonderful-stock-sync-for-woocommerce' ) );
+		}
+
+		Events::record( Events::DISCARDED, Events::INFO, $local );
+
+		return true;
+	}
+
+	/**
+	 * Deshace el descarte: el producto vuelve a aparecer con su sugerencia.
+	 *
+	 * @param int $local Producto de esta tienda.
+	 *
+	 * @return true|\WP_Error
+	 */
+	public static function undiscard( int $local ) {
+		$refusal = self::refusal( Peers::only() );
+
+		if ( null !== $refusal ) {
+			return $refusal;
+		}
+
+		if ( ! isset( Events::discarded_among( array( $local ) )[ $local ] ) ) {
+			return new \WP_Error( 'not_discarded', __( 'Ese producto no estaba descartado.', 'woonderful-stock-sync-for-woocommerce' ) );
+		}
+
+		Events::record( Events::UNDISCARDED, Events::INFO, $local );
+
+		return true;
+	}
+
+	/**
 	 * Pregunta por los bootstraps sin respuesta (ADR-008 §5). La llama la pasada.
 	 *
 	 * Preguntar no escribe nada del otro lado: si el bootstrap nunca llegó, no se aplica.
