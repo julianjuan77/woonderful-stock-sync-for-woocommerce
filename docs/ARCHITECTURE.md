@@ -395,6 +395,15 @@ que es como se guardan: un evento de las 00:09 UTC es del día anterior en Bueno
 desde Productos con `#/logs?product=<id>`. Cada entrada llega con su frase: `Events::describe()`
 para los eventos, `Events::movement_text()` para los movimientos —la misma que usa `wp wss log`—.
 
+**Configuración** (`src/screens/Settings.js`): el emparejamiento —generar el código o canjearlo, con
+`Pairing::create_code()` y `Pairing::redeem()`, como `wp wss pairing-code` y `wp wss pair`—, el
+nombre de la tienda, los avisos y la casilla de borrar todo al desinstalar. **Los avisos se validan
+en `Notifier::configure()`**, que usan la pantalla y `wp wss notify`: con un dato malo no guarda
+ninguno. El emparejamiento es un componente aparte (`src/components/Pairing.js`) porque lo usa
+también la configuración inicial. Mientras el código espera, la maestra pregunta `GET /status`
+cada 5 segundos hasta que cambia `peer.paired_at`: comparar con "emparejada" no alcanza para un
+re-emparejamiento, que ya lo estaba.
+
 **El submenú de WordPress** marca la página, no la ruta: la app le pone `current` a la entrada de
 la pantalla abierta.
 

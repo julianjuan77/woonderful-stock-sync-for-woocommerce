@@ -18,6 +18,7 @@ use Woonderful\StockSync\Plugin;
 use Woonderful\StockSync\Reconciliation\Audit;
 use Woonderful\StockSync\Reconciliation\Reconciler;
 use Woonderful\StockSync\Reconciliation\Result;
+use Woonderful\StockSync\Transport\Pairing;
 use Woonderful\StockSync\Transport\Peers;
 
 defined( 'ABSPATH' ) || exit;
@@ -37,6 +38,11 @@ final class Api {
 	public const NAMESPACE = 'wss-admin/v1';
 
 	/**
+	 * La casilla de borrar todo al desinstalar (ADR-003). La lee `uninstall.php`.
+	 */
+	public const OPTION_DELETE_DATA = 'wss_delete_data_on_uninstall';
+
+	/**
 	 * Engancha el registro de las rutas.
 	 */
 	public static function register(): void {
@@ -51,6 +57,10 @@ final class Api {
 			'/status'                                                     => array( 'GET', 'status' ),
 			'/reconcile'                                                  => array( 'POST', 'reconcile' ),
 			'/log'                                                        => array( 'GET', 'log' ),
+			'/settings'                                                   => array( 'GET, POST', 'settings' ),
+			'/store'                                                      => array( 'POST', 'store' ),
+			'/pairing/code'                                               => array( 'POST', 'pairing_code' ),
+			'/pairing/redeem'                                             => array( 'POST', 'pairing_redeem' ),
 			'/discrepancies/(?P<product>\\d+)/(?P<action>accept|restore)' => array( 'POST', 'resolve' ),
 		);
 
@@ -79,7 +89,7 @@ final class Api {
 	 * reconciliación, las discrepancias de las dos y cuántos no sincronizan.
 	 */
 	public static function status(): \WP_REST_Response {
-		$peer  = Peers::only();
+		$peer  = Peers::describe();
 		$state = Peer::current();
 		$last  = Result::last();
 
@@ -92,10 +102,12 @@ final class Api {
 				),
 				'paired'         => null !== $peer,
 				'peer'           => array(
-					'label' => Peers::label(),
-					'state' => $state['state'],
-					'since' => Peer::OK === $state['state'] ? null : Events::local_time( gmdate( 'Y-m-d H:i:s', $state['since'] ) ),
-					'error' => $state['error'],
+					'label'     => $peer['label'] ?? null,
+					// Para saber que un re-emparejamiento terminó: la tienda ya figuraba emparejada.
+					'paired_at' => $peer['paired_at'] ?? null,
+					'state'     => $state['state'],
+					'since'     => Peer::OK === $state['state'] ? null : Events::local_time( gmdate( 'Y-m-d H:i:s', $state['since'] ) ),
+					'error'     => $state['error'],
 				),
 				'reconciliation' => null === $last ? null : self::reconciliation( $last ),
 				'discrepancies'  => array(
@@ -228,6 +240,111 @@ final class Api {
 			'user'    => $user instanceof \WP_User ? $user->display_name : null,
 			'context' => $event ? $entry['context'] : array_intersect_key( $entry, array_flip( array( 'delivery', 'application' ) ) ),
 		);
+	}
+
+	/**
+	 * Los ajustes del dueño: los avisos (ADR-012 §6) y la casilla de borrar todo al desinstalar
+	 * (ADR-003). Con `POST`, cambia lo que venga y los devuelve como quedaron; los avisos, con la
+	 * misma validación que `wp wss notify`.
+	 *
+	 * @param \WP_REST_Request $request Lo que se cambia.
+	 */
+	public static function settings( \WP_REST_Request $request ): \WP_REST_Response|\WP_Error {
+		if ( 'POST' === $request->get_method() ) {
+			$changes = array();
+			$keys    = array(
+				'notify_enabled' => 'enabled',
+				'notify_email'   => 'email',
+				'notify_after'   => 'after',
+			);
+
+			foreach ( $keys as $param => $key ) {
+				if ( null !== $request[ $param ] ) {
+					$changes[ $key ] = 'enabled' === $key ? rest_sanitize_boolean( (string) $request[ $param ] ) : $request[ $param ];
+				}
+			}
+
+			$result = Notifier::configure( $changes );
+
+			if ( is_wp_error( $result ) ) {
+				$result->add_data( array( 'status' => 400 ) );
+
+				return $result;
+			}
+
+			if ( null !== $request['delete_data'] ) {
+				update_option( self::OPTION_DELETE_DATA, rest_sanitize_boolean( (string) $request['delete_data'] ), false );
+			}
+		}
+
+		return new \WP_REST_Response(
+			array(
+				'notify_enabled' => Notifier::enabled(),
+				// Vacío es "el del administrador": la pantalla lo muestra como sugerencia.
+				'notify_email'   => (string) get_option( Notifier::OPTION_EMAIL, '' ),
+				'admin_email'    => (string) get_option( 'admin_email' ),
+				'notify_after'   => Notifier::after_hours(),
+				'delete_data'    => (bool) get_option( self::OPTION_DELETE_DATA, false ),
+			),
+			200
+		);
+	}
+
+	/**
+	 * El nombre de esta tienda, con el que la ve la otra.
+	 *
+	 * @param \WP_REST_Request $request La etiqueta.
+	 */
+	public static function store( \WP_REST_Request $request ): \WP_REST_Response|\WP_Error {
+		$label = sanitize_text_field( (string) $request['label'] );
+
+		if ( '' === $label ) {
+			return new \WP_Error( 'wss_invalid_label', __( 'La tienda necesita un nombre.', 'woonderful-stock-sync-for-woocommerce' ), array( 'status' => 400 ) );
+		}
+
+		update_option( Store::OPTION_LABEL, $label, false );
+
+		return self::status();
+	}
+
+	/**
+	 * Genera un código de emparejamiento: esta tienda va a ser la maestra. Lo mismo que
+	 * `wp wss pairing-code`.
+	 */
+	public static function pairing_code(): \WP_REST_Response|\WP_Error {
+		$code = Pairing::create_code();
+
+		if ( is_wp_error( $code ) ) {
+			$code->add_data( array( 'status' => 409 ) );
+
+			return $code;
+		}
+
+		return new \WP_REST_Response(
+			array(
+				'code'    => $code,
+				'minutes' => (int) ( Pairing::CODE_TTL / MINUTE_IN_SECONDS ),
+			),
+			200
+		);
+	}
+
+	/**
+	 * Canjea el código de la otra: esta tienda va a ser la secundaria. Lo mismo que
+	 * `wp wss pair`.
+	 *
+	 * @param \WP_REST_Request $request El código.
+	 */
+	public static function pairing_redeem( \WP_REST_Request $request ): \WP_REST_Response|\WP_Error {
+		$result = Pairing::redeem( (string) $request['code'] );
+
+		if ( is_wp_error( $result ) ) {
+			$result->add_data( array( 'status' => 400 ) );
+
+			return $result;
+		}
+
+		return self::status();
 	}
 
 	/**

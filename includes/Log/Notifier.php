@@ -172,6 +172,45 @@ final class Notifier {
 	}
 
 	/**
+	 * Cambia los avisos (ADR-012 §6). Valida todo antes de guardar nada: con un dato malo, no
+	 * cambia ninguno.
+	 *
+	 * @param array<string, mixed> $changes `enabled` (bool), `email` ('' vuelve al del
+	 *                                      administrador) y `after` (horas, desde 1). Lo que no
+	 *                                      viene, no se toca.
+	 *
+	 * @return true|\WP_Error
+	 */
+	public static function configure( array $changes ) {
+		if ( isset( $changes['email'] ) ) {
+			$changes['email'] = trim( (string) $changes['email'] );
+
+			if ( '' !== $changes['email'] && ! is_email( $changes['email'] ) ) {
+				/* translators: %s: lo que se pasó. */
+				return new \WP_Error( 'wss_invalid_email', sprintf( __( '"%s" no es un email.', 'woonderful-stock-sync-for-woocommerce' ), $changes['email'] ) );
+			}
+		}
+
+		if ( isset( $changes['after'] ) && ( ! is_numeric( $changes['after'] ) || (int) $changes['after'] < 1 || (string) (int) $changes['after'] !== (string) $changes['after'] ) ) {
+			return new \WP_Error( 'wss_invalid_after', __( 'El plazo es una cantidad de horas, desde 1.', 'woonderful-stock-sync-for-woocommerce' ) );
+		}
+
+		if ( isset( $changes['enabled'] ) ) {
+			update_option( self::OPTION_ENABLED, $changes['enabled'] ? 'yes' : 'no', false );
+		}
+
+		if ( isset( $changes['email'] ) ) {
+			update_option( self::OPTION_EMAIL, $changes['email'], false );
+		}
+
+		if ( isset( $changes['after'] ) ) {
+			update_option( self::OPTION_AFTER, (int) $changes['after'], false );
+		}
+
+		return true;
+	}
+
+	/**
 	 * Si se mandan emails.
 	 */
 	public static function enabled(): bool {

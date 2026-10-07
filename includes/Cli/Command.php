@@ -404,31 +404,28 @@ final class Command {
 	 * @param array<string, string> $assoc_args Lo que se cambia.
 	 */
 	public function notify( array $args, array $assoc_args ): void {
+		$changes = array();
+
 		if ( isset( $assoc_args['enabled'] ) ) {
 			if ( ! in_array( $assoc_args['enabled'], array( 'yes', 'no' ), true ) ) {
 				\WP_CLI::error( __( '--enabled es yes o no.', 'woonderful-stock-sync-for-woocommerce' ) );
 			}
 
-			update_option( Notifier::OPTION_ENABLED, $assoc_args['enabled'], false );
+			$changes['enabled'] = 'yes' === $assoc_args['enabled'];
 		}
 
 		if ( isset( $assoc_args['email'] ) ) {
-			$email = trim( (string) $assoc_args['email'] );
-
-			if ( '' !== $email && ! is_email( $email ) ) {
-				/* translators: %s: lo que se pasó. */
-				\WP_CLI::error( sprintf( __( '"%s" no es un email.', 'woonderful-stock-sync-for-woocommerce' ), $email ) );
-			}
-
-			update_option( Notifier::OPTION_EMAIL, $email, false );
+			$changes['email'] = $assoc_args['email'];
 		}
 
 		if ( isset( $assoc_args['after'] ) ) {
-			if ( ! ctype_digit( (string) $assoc_args['after'] ) || (int) $assoc_args['after'] < 1 ) {
-				\WP_CLI::error( __( '--after es una cantidad de horas, desde 1.', 'woonderful-stock-sync-for-woocommerce' ) );
-			}
+			$changes['after'] = $assoc_args['after'];
+		}
 
-			update_option( Notifier::OPTION_AFTER, (int) $assoc_args['after'], false );
+		$result = Notifier::configure( $changes );
+
+		if ( is_wp_error( $result ) ) {
+			\WP_CLI::error( $result->get_error_message() );
 		}
 
 		\WP_CLI::line(

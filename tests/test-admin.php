@@ -19,6 +19,7 @@ use Woonderful\StockSync\Reconciliation\Audit;
 use Woonderful\StockSync\Reconciliation\Lock;
 use Woonderful\StockSync\Reconciliation\Result;
 use Woonderful\StockSync\Schema\Installer;
+use Woonderful\StockSync\Transport\Pairing;
 use Woonderful\StockSync\Transport\Peers;
 
 /**
@@ -52,6 +53,13 @@ class Test_Admin extends WP_UnitTestCase {
 		delete_option( Peers::OPTION );
 		delete_option( Result::OPTION );
 		delete_option( Lock::OPTION );
+		// En el set_up: el DROP del tear_down confirma lo que escribió el test anterior, y un
+		// borrado después del DROP lo deshace el rollback.
+		delete_option( Notifier::OPTION_ENABLED );
+		delete_option( Notifier::OPTION_EMAIL );
+		delete_option( Notifier::OPTION_AFTER );
+		delete_option( Api::OPTION_DELETE_DATA );
+		delete_option( Pairing::OPTION_PAIRING );
 		update_option( Store::OPTION_FINGERPRINT, Store::fingerprint() );
 		wss_unhook_detector();
 
@@ -265,6 +273,7 @@ class Test_Admin extends WP_UnitTestCase {
 		$data = $this->call( 'GET', '/status' )->get_data();
 
 		$this->assertSame( 'Mayorista', $data['peer']['label'] );
+		$this->assertNotSame( '', $data['peer']['paired_at'] );
 		$this->assertSame( 'Reconciliación de la noche: completa.', $data['reconciliation']['text'] );
 		$this->assertSame( 2, $data['reconciliation']['reopened'] );
 		$this->assertSame( 5, $data['reconciliation']['peer_confirmed'] );
@@ -465,5 +474,119 @@ class Test_Admin extends WP_UnitTestCase {
 		$this->assertSame( 'Alpargata verde', $data['name'] );
 		$this->assertSame( array( 'event', 'movement' ), array_column( $data['items'], 'type' ) );
 		$this->assertSame( 'Acá: venta, -2 (pedido #9)', $data['items'][1]['text'] );
+	}
+
+	/**
+	 * Un pedido a `wss-admin/v1` con parámetros.
+	 *
+	 * @param string               $method El método.
+	 * @param string               $route  La ruta.
+	 * @param array<string, mixed> $params Los parámetros.
+	 */
+	private function send( string $method, string $route, array $params ): WP_REST_Response {
+		$request = new WP_REST_Request( $method, '/wss-admin/v1' . $route );
+
+		foreach ( $params as $key => $value ) {
+			$request->set_param( $key, $value );
+		}
+
+		return $this->server->dispatch( $request );
+	}
+
+	/**
+	 * ADM-17 — Los ajustes: los avisos y la casilla de borrado, por defecto y cambiados. Lo que no
+	 * viene no se toca.
+	 */
+	public function test_the_settings_are_read_and_changed(): void {
+		$this->as_user( 'administrator' );
+
+		$defaults = $this->call( 'GET', '/settings' )->get_data();
+
+		$this->assertTrue( $defaults['notify_enabled'] );
+		$this->assertSame( '', $defaults['notify_email'] );
+		$this->assertSame( get_option( 'admin_email' ), $defaults['admin_email'] );
+		$this->assertSame( 24, $defaults['notify_after'] );
+		$this->assertFalse( $defaults['delete_data'] );
+
+		$changed = $this->send(
+			'POST',
+			'/settings',
+			array(
+				'notify_enabled' => false,
+				'notify_email'   => 'deposito@example.org',
+				'delete_data'    => true,
+			)
+		)->get_data();
+
+		$this->assertFalse( $changed['notify_enabled'] );
+		$this->assertSame( 'deposito@example.org', $changed['notify_email'] );
+		$this->assertSame( 24, $changed['notify_after'] );
+		$this->assertTrue( $changed['delete_data'] );
+		$this->assertTrue( (bool) get_option( 'wss_delete_data_on_uninstall' ), 'la que lee uninstall.php' );
+	}
+
+	/**
+	 * ADM-18 — **Con un dato malo no se guarda ninguno**: ni el email, ni lo que venía bien al
+	 * lado.
+	 */
+	public function test_a_bad_setting_saves_nothing(): void {
+		$this->as_user( 'administrator' );
+
+		$response = $this->send(
+			'POST',
+			'/settings',
+			array(
+				'notify_enabled' => false,
+				'notify_email'   => 'no-es-un-email',
+			)
+		);
+
+		$this->assertSame( 400, $response->get_status() );
+		$this->assertSame( 'wss_invalid_email', $response->get_data()['code'] );
+		$this->assertTrue( Notifier::enabled() );
+		$this->assertSame( 'wss_invalid_after', $this->send( 'POST', '/settings', array( 'notify_after' => '0' ) )->get_data()['code'] );
+		$this->assertSame( 24, Notifier::after_hours() );
+	}
+
+	/**
+	 * ADM-19 — El nombre de la tienda se cambia, y vacío no.
+	 */
+	public function test_the_store_label_is_changed(): void {
+		$this->as_user( 'administrator' );
+
+		$this->assertSame( 'Minorista', $this->send( 'POST', '/store', array( 'label' => ' Minorista ' ) )->get_data()['store']['label'] );
+		$this->assertSame( 400, $this->send( 'POST', '/store', array( 'label' => '  ' ) )->get_status() );
+		$this->assertSame( 'Minorista', Store::label() );
+	}
+
+	/**
+	 * ADM-20 — Generar el código desde la pantalla es lo mismo que `wp wss pairing-code`: lleva
+	 * esta tienda y queda pendiente de canje.
+	 */
+	public function test_a_pairing_code_is_created(): void {
+		$this->as_user( 'administrator' );
+		// Fuera de un entorno local, el código pide https.
+		add_filter( 'option_home', static fn () => 'https://example.org' );
+
+		$data = $this->call( 'POST', '/pairing/code' )->get_data();
+
+		$this->assertSame( Store::id(), Pairing::decode( $data['code'] )['id'] );
+		$this->assertSame( Pairing::decode( $data['code'] )['c'], Pairing::pending_code() );
+		$this->assertSame( 15, $data['minutes'] );
+
+		remove_all_filters( 'option_home' );
+	}
+
+	/**
+	 * ADM-21 — Canjear algo que no es un código vuelve con su motivo, sin emparejar.
+	 */
+	public function test_a_bad_code_is_refused(): void {
+		$this->as_user( 'administrator' );
+
+		$response = $this->send( 'POST', '/pairing/redeem', array( 'code' => 'cualquier-cosa' ) );
+
+		$this->assertSame( 400, $response->get_status() );
+		$this->assertSame( 'wss_pairing_invalid', $response->get_data()['code'] );
+		$this->assertNull( Peers::only() );
 	}
 }

@@ -83,19 +83,24 @@ final class Peers {
 	}
 
 	/**
-	 * El nombre de la otra tienda, como se lo dio al emparejarse; su identificador si no
-	 * dio uno.
+	 * Cómo se llama la otra tienda —el nombre que dio al emparejarse, o su identificador— y
+	 * cuándo se emparejó, o null si no hay una.
+	 *
+	 * @return array{label: string, paired_at: string}|null
 	 */
-	public static function label(): string {
+	public static function describe(): ?array {
 		$peer = self::only();
 
 		if ( null === $peer ) {
-			return '';
+			return null;
 		}
 
 		$stored = (array) ( (array) get_option( self::OPTION, array() ) )[ $peer['store'] ];
 
-		return is_string( $stored['label'] ?? null ) && '' !== $stored['label'] ? $stored['label'] : $peer['store'];
+		return array(
+			'label'     => is_string( $stored['label'] ?? null ) && '' !== $stored['label'] ? $stored['label'] : $peer['store'],
+			'paired_at' => is_string( $stored['paired_at'] ?? null ) ? $stored['paired_at'] : '',
+		);
 	}
 
 	/**

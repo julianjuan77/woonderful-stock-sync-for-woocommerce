@@ -1013,7 +1013,7 @@ una vuelta vieja con los avisos apagados, `NOT-10`; sin `link_unresolved`, `NOT-
 marcado sin mandarse, `NOT-17`; la pregunta a `/health` sin firma, `PER-07`; el plazo fijo,
 `NOT-12`.
 
-## [`tests/test-admin.php`](test-admin.php) — la base de la interfaz, Resumen y Registros
+## [`tests/test-admin.php`](test-admin.php) — la base de la interfaz, Resumen, Registros y Configuración
 
 | ID | Caso | Esperado |
 | --- | --- | --- |
@@ -1033,6 +1033,11 @@ marcado sin mandarse, `NOT-17`; la pregunta a `/health` sin firma, `PER-07`; el 
 | `ADM-14` | Registros, con un evento viejo y uno con causa | La frase, la hora del sitio, el nombre del producto, la causa en castellano y quién fue; filtrado por nivel |
 | `ADM-15` | **Filtrar por fecha un evento de las 00:09 UTC, en Buenos Aires** | Cae en el día anterior: las fechas del filtro son días del sitio |
 | `ADM-16` | Con `product`, el historial | Sus movimientos y sus eventos juntos, cada uno con su frase, y el nombre del producto |
+| `ADM-17` | Los ajustes, por defecto y cambiados | Avisos encendidos, sin email propio —el del administrador como sugerencia—, 24 horas, sin borrar al desinstalar; lo que no viene no se toca, y la casilla queda en la opción que lee `uninstall.php` |
+| `ADM-18` | **Un email que no es, al lado de un cambio bueno** | `400 wss_invalid_email`, y no se guarda ninguno; un plazo de 0, `wss_invalid_after` |
+| `ADM-19` | El nombre de la tienda, y vacío | Se guarda recortado; vacío, `400` |
+| `ADM-20` | Generar el código desde la pantalla | Lleva esta tienda, queda pendiente de canje y vale 15 minutos |
+| `ADM-21` | Canjear algo que no es un código | `400 wss_pairing_invalid`, sin emparejar |
 
 ## [`src/__tests__/routing.test.js`](../src/__tests__/routing.test.js) — las pantallas por `#/ruta`
 
