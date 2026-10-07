@@ -182,7 +182,7 @@ es lo normal: loguearlo en cada pasada sería ruido.
 | 8.1 | La base: `@wordpress/scripts`, el menú, la app con la sidebar y el diseño copiados de woonderful-sync, `wss-admin/v1` con su permiso (ADR-013 §1, §2, §4, §5) | ✅ | `7de76d8` | `ADM-01`…`ADM-06`, `routing.test.js` |
 | 8.2 | Resumen: el estado de la otra, la última reconciliación y la manual, las discrepancias de las dos y cómo resolverlas (ADR-013 §3) | ✅ | `7922efc` | `ADM-07`…`ADM-13` |
 | 8.3 | Registros: el log, filtros y paginado, desde `Logs.js` (ADR-013 §3) | ✅ | `7922efc` | `ADM-14`…`ADM-16` |
-| 8.4 | Configuración: el emparejamiento, los avisos, la casilla de borrado (ADR-013 §3) | ✅ | | `ADM-17`…`ADM-21` |
+| 8.4 | Configuración: el emparejamiento, los avisos, la casilla de borrado (ADR-013 §3) | ✅ | `3f3899c` | `ADM-17`…`ADM-21` |
 | 8.5 | La copia del catálogo de la otra: la tabla, el refresco, `GET /products` con tipo y padre (ADR-014 §1, §2) | ⬜ | | |
 | 8.6 | Productos: las filas, los motivos y la sugerencia, filtros y búsqueda (ADR-014 §3, §4) | ⬜ | | |
 | 8.7 | Vincular a mano, desvincular, reasignar, descartar (ADR-014 §5, §7) | ⬜ | | |
