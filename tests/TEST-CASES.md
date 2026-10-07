@@ -480,7 +480,7 @@ cae `UNI-07`.
 
 | ID | Caso | Resultado esperado |
 |---|---|---|
-| `HLT-01` | **Un GET firmado, sin cuerpo** | 200 con `store`, `label`, `version`, `api` y `suspended` en `null` |
+| `HLT-01` | **Un GET firmado, sin cuerpo** | 200 con `store`, `label`, `version`, `api`, `suspended` en `null` y `admin_url` |
 | `HLT-02` | El mismo GET en un clon | 200, con `suspended: cloned_site` |
 | `HLT-03` | La tabla de nonces rota | 200, con `suspended: unhealthy_schema`: no `wss_replayed_nonce` |
 | `HLT-04` | El mismo request dos veces | 200 las dos, y ningún nonce anotado |
@@ -959,6 +959,7 @@ sin el filtro de causa cae `EVT-04`.
 | `PER-06` | La causa | Nada, `peer_unreachable` o `peer_rejected`, según el estado |
 | `PER-07` | Preguntarle si anda | Un `GET /health` **firmado**, con 10 segundos de espera, y anota lo que conteste |
 | `PER-08` | **El envío, el catálogo, la reconciliación y la pregunta por un bootstrap** | Los cuatro anotan el estado |
+| `PER-09` | `Peer::health()` con un 200, y con un 401 | Vuelve lo que dijo la otra; con el 401, un error. Las dos anotan el estado |
 
 Verificado rompiéndolo: sin la excepción del 409 cae `PER-04`; escribiendo en cada respuesta caen
 `PER-01` y `PER-02`; un 4xx como caída cae `PER-03`; "volvió" sin haber avisado cae `PER-05`;
@@ -1053,6 +1054,7 @@ marcado sin mandarse, `NOT-17`; la pregunta a `/health` sin firma, `PER-07`; el 
 | `ADM-27` | **Vincular, desvincular, reasignar y descartar desde la secundaria** | `403 wss_not_master` en los cinco: se rechaza en el servidor (ADR-013 §5) |
 | `ADM-28` | Descartar, y desvincular | Cada uno devuelve la fila como quedó |
 | `ADM-29` | La masiva, en la maestra y en la secundaria | En la maestra, lo que va a vincular; en la secundaria, `403` |
+| `ADM-30` | **La otra, preguntada en el momento; y con un enlace `javascript:`** | Su nombre y el enlace a su pantalla; el que no es http ni https, `null` |
 
 ## [`src/__tests__/routing.test.js`](../src/__tests__/routing.test.js) — las pantallas por `#/ruta`
 

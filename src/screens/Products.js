@@ -249,6 +249,9 @@ export default function Products( { apiFetch, navigate, status } ) {
 
 	return (
 		<div>
+			{ status && ! status.store.master && (
+				<MasterNotice apiFetch={ apiFetch } status={ status } />
+			) }
 			<div className="woon-toolbar">
 				<input
 					className="woon-search"
@@ -681,5 +684,45 @@ function RowActions( { row, actions } ) {
 				</button>
 			) }
 		</span>
+	);
+}
+
+// La secundaria no vincula: dice desde dónde se hace, con el enlace a la maestra (UC-05).
+function MasterNotice( { apiFetch, status } ) {
+	const [ peer, setPeer ] = useState( null );
+
+	useEffect( () => {
+		apiFetch( { path: '/peer' } )
+			.then( setPeer )
+			.catch( () => setPeer( {} ) );
+	}, [ apiFetch ] );
+
+	const label = peer?.label || status.peer.label;
+
+	return (
+		<div className="woon-notice woon-notice--info">
+			<p>
+				{ sprintf(
+					/* translators: %s: la tienda maestra. */
+					__(
+						'Esta tienda es la secundaria: la vinculación se hace desde %s, la maestra. Acá se ve en modo lectura.',
+						'woonderful-stock-sync-for-woocommerce'
+					),
+					label
+				) }{ ' ' }
+				{ peer?.admin_url && (
+					<a href={ `${ peer.admin_url }#/products` }>
+						{ sprintf(
+							/* translators: %s: la tienda maestra. */
+							__(
+								'Ir a Productos en %s',
+								'woonderful-stock-sync-for-woocommerce'
+							),
+							label
+						) }
+					</a>
+				) }
+			</p>
+		</div>
 	);
 }

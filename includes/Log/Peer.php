@@ -130,23 +130,45 @@ final class Peer {
 	 * el estado diría "caída" de una tienda que volvió hace rato (ADR-012 §2).
 	 */
 	public static function probe(): void {
+		self::health();
+	}
+
+	/**
+	 * Lo que dice `GET /health` de la otra —su nombre, su versión, dónde está su pantalla—, y
+	 * anota la respuesta. La secundaria lo usa para el enlace a la maestra (ADR-013 §6).
+	 *
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	public static function health() {
 		$peer = Peers::only();
 
 		if ( null === $peer ) {
-			return;
+			return new \WP_Error( 'wss_not_paired', __( 'Esta tienda no está emparejada con otra.', 'woonderful-stock-sync-for-woocommerce' ) );
 		}
 
-		self::observe(
-			wp_remote_get(
-				untrailingslashit( $peer['rest_url'] ) . '/health',
-				array(
-					'headers'     => Signature::headers( Store::id(), $peer['secret'], 'GET', self::HEALTH_ROUTE, array(), '' ),
-					// Corto: mientras la otra está caída, el tick pregunta cada minuto.
-					'timeout'     => Pairing::CALLBACK_TIMEOUT,
-					'redirection' => 0,
-				)
+		$response = wp_remote_get(
+			untrailingslashit( $peer['rest_url'] ) . '/health',
+			array(
+				'headers'     => Signature::headers( Store::id(), $peer['secret'], 'GET', self::HEALTH_ROUTE, array(), '' ),
+				// Corto: mientras la otra está caída, el tick pregunta cada minuto.
+				'timeout'     => Pairing::CALLBACK_TIMEOUT,
+				'redirection' => 0,
 			)
 		);
+
+		self::observe( $response );
+
+		if ( is_wp_error( $response ) ) {
+			return $response;
+		}
+
+		$payload = json_decode( (string) wp_remote_retrieve_body( $response ), true );
+
+		if ( 200 !== (int) wp_remote_retrieve_response_code( $response ) || ! is_array( $payload ) ) {
+			return new \WP_Error( 'wss_health_failed', 'HTTP ' . (int) wp_remote_retrieve_response_code( $response ) );
+		}
+
+		return $payload;
 	}
 
 	/**

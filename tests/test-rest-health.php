@@ -94,7 +94,8 @@ class Test_Rest_Health extends WP_UnitTestCase {
 	}
 
 	/**
-	 * HLT-01 — Un GET firmado responde quién es, qué versión corre y que no está suspendida.
+	 * HLT-01 — Un GET firmado responde quién es, qué versión corre, que no está suspendida y dónde
+	 * está su pantalla: la secundaria enlaza a la de la maestra (ADR-013 §6).
 	 */
 	public function test_a_signed_request_gets_the_store_state(): void {
 		$response = $this->server->dispatch( $this->request() );
@@ -107,6 +108,7 @@ class Test_Rest_Health extends WP_UnitTestCase {
 				'version'   => VERSION,
 				'api'       => 'wss/v1',
 				'suspended' => null,
+				'admin_url' => admin_url( 'admin.php?page=woonderful-stock-sync' ),
 			),
 			$response->get_data()
 		);

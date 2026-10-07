@@ -9,6 +9,7 @@ declare( strict_types = 1 );
 
 namespace Woonderful\StockSync\Rest;
 
+use Woonderful\StockSync\Admin\Page;
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Plugin;
 use Woonderful\StockSync\Transport\Pairing;
@@ -18,7 +19,8 @@ use const Woonderful\StockSync\VERSION;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * `GET /wss/v1/health`: identidad, versión y si está suspendida (ADR-001 §4).
+ * `GET /wss/v1/health`: identidad, versión, si está suspendida y dónde está su pantalla (ADR-001
+ * §4, ADR-013 §6).
  */
 final class Health {
 
@@ -80,6 +82,8 @@ final class Health {
 				'version'   => VERSION,
 				'api'       => Movements::NAMESPACE,
 				'suspended' => Plugin::suspension_reason(),
+				// La secundaria muestra el enlace a la pantalla de la maestra (ADR-013 §6).
+				'admin_url' => admin_url( 'admin.php?page=' . Page::SLUG ),
 			),
 			200
 		);

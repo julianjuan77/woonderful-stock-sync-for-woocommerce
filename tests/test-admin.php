@@ -870,4 +870,38 @@ class Test_Admin extends WP_UnitTestCase {
 		$this->assertSame( 403, $this->call( 'GET', '/link/bulk' )->get_status() );
 		$this->assertSame( 403, $this->send( 'POST', '/link/bulk', array( 'pairs' => array() ) )->get_status() );
 	}
+
+	/**
+	 * ADM-30 — **La otra, preguntada en el momento: su nombre y el enlace a su pantalla.** Un
+	 * enlace que no es http ni https no llega a la pantalla.
+	 */
+	public function test_the_peer_is_asked_for_its_screen(): void {
+		$this->as_user( 'administrator' );
+		Peers::pair( self::REMOTE_STORE, 'https://otra.test/wp-json/wss/v1', 'secreto', 'Mayorista', Peers::MASTER );
+
+		$url = 'https://otra.test/wp-admin/admin.php?page=woonderful-stock-sync';
+		add_filter(
+			'pre_http_request',
+			static function () use ( &$url ) {
+				return array(
+					'response' => array( 'code' => 200 ),
+					'body'     => (string) wp_json_encode(
+						array(
+							'label'     => 'Mayorista',
+							'admin_url' => $url,
+						)
+					),
+				);
+			}
+		);
+
+		$data = $this->call( 'GET', '/peer' )->get_data();
+
+		$this->assertSame( 'Mayorista', $data['label'] );
+		$this->assertSame( $url, $data['admin_url'] );
+
+		$url = 'javascript:alert(1)';
+
+		$this->assertNull( $this->call( 'GET', '/peer' )->get_data()['admin_url'] );
+	}
 }

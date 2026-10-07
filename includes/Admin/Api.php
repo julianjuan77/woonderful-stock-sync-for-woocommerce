@@ -77,6 +77,7 @@ final class Api {
 			'/discard'                        => array( 'POST', 'discard' ),
 			'/undiscard'                      => array( 'POST', 'undiscard' ),
 			'/link/bulk'                      => array( 'GET, POST', 'link_bulk' ),
+			'/peer'                           => array( 'GET', 'peer' ),
 			'/discrepancies/(?P<product>\\d+)/(?P<action>accept|restore)' => array( 'POST', 'resolve' ),
 		);
 
@@ -489,6 +490,32 @@ final class Api {
 	 */
 	public static function undiscard( \WP_REST_Request $request ): \WP_REST_Response|\WP_Error {
 		return self::acted( (int) $request['local'], Linker::undiscard( (int) $request['local'] ) );
+	}
+
+	/**
+	 * La otra tienda, preguntada en el momento: su nombre y dónde está su pantalla. La
+	 * secundaria lo usa para decir que la vinculación se hace desde la maestra, con el enlace
+	 * (ADR-013 §6). Una versión vieja del otro lado no manda `admin_url`: va null.
+	 */
+	public static function peer(): \WP_REST_Response|\WP_Error {
+		$health = Peer::health();
+
+		if ( is_wp_error( $health ) ) {
+			$health->add_data( array( 'status' => 'wss_not_paired' === $health->get_error_code() ? 409 : 502 ) );
+
+			return $health;
+		}
+
+		$url = is_string( $health['admin_url'] ?? null ) ? esc_url_raw( $health['admin_url'], array( 'http', 'https' ) ) : '';
+
+		return new \WP_REST_Response(
+			array(
+				'label'     => is_string( $health['label'] ?? null ) ? sanitize_text_field( $health['label'] ) : null,
+				// Sólo http o https: lo que manda la otra termina en un enlace.
+				'admin_url' => '' === $url ? null : $url,
+			),
+			200
+		);
 	}
 
 	/**

@@ -295,4 +295,26 @@ class Test_Peer extends WP_UnitTestCase {
 		Linker::resolve_uncertain();
 		$this->assertSame( Peer::UNREACHABLE, Peer::current()['state'], 'la pregunta por un bootstrap' );
 	}
+
+	/**
+	 * PER-09 — Lo que dice `GET /health` de la otra vuelve entero, y anota el estado; una
+	 * respuesta que no es un 200, un error.
+	 */
+	public function test_health_returns_what_the_other_says(): void {
+		$this->reply = $this->http(
+			200,
+			array(
+				'label'     => 'Mayorista',
+				'admin_url' => 'https://otra.test/wp-admin/admin.php?page=woonderful-stock-sync',
+			)
+		);
+
+		$this->assertSame( 'Mayorista', Peer::health()['label'] );
+		$this->assertSame( Peer::OK, Peer::current()['state'] );
+
+		$this->reply = $this->http( 401, array( 'code' => 'wss_bad_signature' ) );
+
+		$this->assertSame( 'wss_health_failed', Peer::health()->get_error_code() );
+		$this->assertSame( Peer::REJECTED, Peer::current()['state'] );
+	}
 }

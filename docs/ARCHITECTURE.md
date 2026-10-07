@@ -180,8 +180,9 @@ estado. Los vínculos salen de una consulta, y al catálogo se le pregunta de a 
 responde, o no hay socia, los vinculados siguen vinculados**, y `remote_error` dice por qué. Una
 tanda que falla deja sin saber sólo a los suyos. `wp wss status <ids>` lo muestra.
 
-**`GET /health`** (`Rest\Health`, ADR-001 §4) responde `store`, `label`, `version`, `api` y
-`suspended` —`null`, `cloned_site` o `unhealthy_schema`—. Se registra **antes de la guarda**:
+**`GET /health`** (`Rest\Health`, ADR-001 §4) responde `store`, `label`, `version`, `api`,
+`suspended` —`null`, `cloned_site` o `unhealthy_schema`— y `admin_url`, la pantalla del plugin
+(ADR-013 §6). Se registra **antes de la guarda**:
 un sitio suspendido responde igual, para que la otra tienda pueda explicar por qué no le
 llegan movimientos. Autentica sin anotar el nonce: sólo lee, y tiene que responder aunque la
 tabla de nonces esté rota.
@@ -450,6 +451,12 @@ duplicado; el de allá existe, está publicado, lleva su stock, no tiene par y s
 coincide. Cada par se vincula por separado con `Linker::link()` y los stocks recién leídos: uno que
 falla no corta la tanda. Vuelven los vinculados y los omitidos con su motivo en castellano.
 Reintentar no duplica: lo ya vinculado vuelve omitido, `already_linked`.
+
+**La secundaria, en modo lectura** (ADR-013 §6): ve lo mismo, sin las acciones —que el servidor
+igual le rechaza—, y Productos dice que la vinculación se hace desde la maestra, nombrándola y con
+el enlace a su pantalla. Lo pide al abrir: `GET /peer` llama a `Peer::health()`, el `GET /health`
+de la otra —el mismo de `Peer::probe()`—, y devuelve su `label` y su `admin_url`, **sólo si es
+http o https**: lo que manda la otra termina en un enlace.
 
 **El submenú de WordPress** marca la página, no la ruta: la app le pone `current` a la entrada de
 la pantalla abierta.

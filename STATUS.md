@@ -2,7 +2,7 @@
 
 > Plugin: `woonderful-stock-sync-for-woocommerce` | WP 6.5+ | PHP 8.1+ | WooCommerce 9.1+
 > Repo: [woonderful-stock-sync-for-woocommerce](https://github.com/julianjuan77/woonderful-stock-sync-for-woocommerce)
-> Creado: 2026-09-20 · Última sesión: 2026-10-07 — los ADRs de la interfaz (ADR-013, con la configuración inicial, y ADR-014) la base de la interfaz (8.1), Resumen (8.2), Registros (8.3), Configuración (8.4) la copia del catálogo de la otra (8.5) y las filas de Productos (8.6), sus acciones (8.7) y la vinculación masiva (8.8). Antes, 2026-10-06 — los ADRs del log (ADR-011) y de los avisos (ADR-012), y el bloque 10 entero: la tabla del log, el estado de la otra tienda, los eventos de cada pieza, los pares rotos, la purga y los avisos por email
+> Creado: 2026-09-20 · Última sesión: 2026-10-07 — los ADRs de la interfaz (ADR-013, con la configuración inicial, y ADR-014) la base de la interfaz (8.1), Resumen (8.2), Registros (8.3), Configuración (8.4) la copia del catálogo de la otra (8.5) y las filas de Productos (8.6), sus acciones (8.7) la vinculación masiva (8.8) y la secundaria en modo lectura (8.9). Antes, 2026-10-06 — los ADRs del log (ADR-011) y de los avisos (ADR-012), y el bloque 10 entero: la tabla del log, el estado de la otra tienda, los eventos de cada pieza, los pares rotos, la purga y los avisos por email
 
 Sincroniza el stock entre dos tiendas WooCommerce propias que despachan del mismo depósito.
 Pool único, sin reparto: lo que se vende en una descuenta en las dos.
@@ -40,7 +40,8 @@ el log con filtros y el historial de un producto— y la 8.4 —Configuración: 
 nombre, los avisos y la casilla de borrado— y la 8.5 —la copia del catálogo de la otra, `wss_remote_products`, esquema 4—.
 Hecha la 8.6 —las filas de Productos, con los dos lados, los motivos, la sugerencia, filtros y
 búsqueda— y la 8.7 —vincular a mano, desvincular, reasignar y descartar—. También la 8.8, la
-vinculación masiva. Sigue la 8.9: la secundaria en modo lectura, con el enlace a la maestra. El JavaScript se
+vinculación masiva. Y la 8.9, la secundaria en
+modo lectura. Sigue la 8.10, la configuración inicial. El JavaScript se
 compila con `npm run build` y se prueba con `npm run lint:js` y `npm run test:unit`, desde la
 carpeta del plugin.
 
@@ -190,7 +191,7 @@ es lo normal: loguearlo en cada pasada sería ruido.
 | 8.6 | Productos: las filas, los motivos y la sugerencia, filtros y búsqueda (ADR-014 §3, §4) | ✅ | `04dac1f` | `ROW-01`…`ROW-08`, `ADM-23` |
 | 8.7 | Vincular a mano, desvincular, reasignar, descartar (ADR-014 §5, §7) | ✅ | `0aa3f0a` | `LNK-16`…`LNK-19`, `ADM-24`…`ADM-28` |
 | 8.8 | La vinculación masiva (ADR-014 §6) | ✅ | `30cd414` | `BLK-01`…`BLK-05`, `ADM-29` |
-| 8.9 | La secundaria en modo lectura, con el enlace a la maestra (`GET /health` con `admin_url`) (ADR-013 §6) | ⬜ | | |
+| 8.9 | La secundaria en modo lectura, con el enlace a la maestra (`GET /health` con `admin_url`) (ADR-013 §6) | ✅ | PENDIENTE | `HLT-01`, `PER-09`, `ADM-30` |
 | 8.10 | La configuración inicial: el asistente en pasos, los requisitos, el nombre y el rol, el emparejamiento, los avisos, y el email de prueba (ADR-013 §3, revisado) | ⬜ | | |
 
 **El diseño parte de woonderful-sync** (pedido de Julián, 2026-10-06): los mismos logos (`assets/brand/`), la misma disposición —sidebar con logo, pantallas como `src/screens/Logs.js`— y los mismos colores y estilos (`src/style.scss`, clases `woon-*`).
