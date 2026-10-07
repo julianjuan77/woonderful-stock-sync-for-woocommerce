@@ -441,6 +441,16 @@ sin vincular. Descartar y deshacerlo son `Linker::discard()` y `undiscard()`, qu
 que usan también las filas. **Cada acción devuelve la fila como quedó** (`Rows::one()`), y la
 pantalla la reemplaza.
 
+**La vinculación masiva** (`Catalog\Bulk`, `src/components/BulkModal.js`), sólo en la maestra.
+`GET /link/bulk` dice qué va a vincular —los pares con sugerencia— y cuántos ambiguos quedan
+aparte; la pantalla avisa que todos arrancan con el stock de la maestra. Al confirmar, la app
+manda **tandas de 20** a `POST /link/bulk`. Cada tanda pide los 20 de allá con `include` y
+**revalida cada par en el momento**: la fila de acá sigue sin vincular, sin descartar y sin SKU
+duplicado; el de allá existe, está publicado, lleva su stock, no tiene par y su SKU todavía
+coincide. Cada par se vincula por separado con `Linker::link()` y los stocks recién leídos: uno que
+falla no corta la tanda. Vuelven los vinculados y los omitidos con su motivo en castellano.
+Reintentar no duplica: lo ya vinculado vuelve omitido, `already_linked`.
+
 **El submenú de WordPress** marca la página, no la ruta: la app le pone `current` a la entrada de
 la pantalla abierta.
 

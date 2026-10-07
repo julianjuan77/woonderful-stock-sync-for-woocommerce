@@ -1052,6 +1052,7 @@ marcado sin mandarse, `NOT-17`; la pregunta a `/health` sin firma, `PER-07`; el 
 | `ADM-26` | **Vincular con un stock que cambió, y después con el bueno** | `409 stock_changed` sin vincular; después, la fila vinculada como quedó |
 | `ADM-27` | **Vincular, desvincular, reasignar y descartar desde la secundaria** | `403 wss_not_master` en los cinco: se rechaza en el servidor (ADR-013 §5) |
 | `ADM-28` | Descartar, y desvincular | Cada uno devuelve la fila como quedó |
+| `ADM-29` | La masiva, en la maestra y en la secundaria | En la maestra, lo que va a vincular; en la secundaria, `403` |
 
 ## [`src/__tests__/routing.test.js`](../src/__tests__/routing.test.js) — las pantallas por `#/ruta`
 
@@ -1146,3 +1147,15 @@ Los productos de otros tests sobreviven al rollback: cada test filtra por una ma
 
 Mutaciones: sugerir uno de allá que ya tiene par cae `ROW-04`; comparar sin recortar, `ROW-03`;
 ignorar el duplicado de acá, `ROW-04`.
+
+## [`tests/test-bulk.php`](test-bulk.php) — la vinculación masiva (ADR-014 §6)
+
+| ID | Caso | Esperado |
+| --- | --- | --- |
+| `BLK-01` | Un par con sugerencia | Está entre los que propone la masiva; los ambiguos se cuentan aparte |
+| `BLK-02` | **Dos pares** | Los dos vinculados, con el stock de acá de la base: arrancan con el de la maestra |
+| `BLK-03` | **Seis pares: allá uno se borró, otro está en la papelera, otro ya tiene par, otro cambió de SKU; acá uno se descartó** | Se omiten con su motivo y no cortan la tanda: el sexto se vincula |
+| `BLK-04` | La misma tanda dos veces | La segunda no duplica: `already_linked` |
+| `BLK-05` | 21 pares | `wss_bad_request`, sin vincular ninguno |
+
+Mutaciones: sin revisar el SKU fresco, o el vinculado allá, cae `BLK-03`.

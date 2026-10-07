@@ -855,4 +855,19 @@ class Test_Admin extends WP_UnitTestCase {
 		$this->assertSame( 'discarded', $this->send( 'POST', '/discard', array( 'local' => $loose ) )->get_data()['row']['motive'] );
 		$this->assertSame( 'unlinked', $this->send( 'POST', '/unlink', array( 'local' => $linked ) )->get_data()['row']['state'] );
 	}
+
+	/**
+	 * ADM-29 — La masiva desde la pantalla: lo que va a vincular; desde la secundaria, `403`.
+	 */
+	public function test_the_bulk_link_is_only_for_the_master(): void {
+		$this->as_user( 'administrator' );
+		$this->as_master();
+
+		$this->assertArrayHasKey( 'pairs', $this->call( 'GET', '/link/bulk' )->get_data() );
+
+		Peers::pair( self::REMOTE_STORE, 'https://otra.test/wp-json/wss/v1', 'secreto', 'Mayorista', Peers::MASTER );
+
+		$this->assertSame( 403, $this->call( 'GET', '/link/bulk' )->get_status() );
+		$this->assertSame( 403, $this->send( 'POST', '/link/bulk', array( 'pairs' => array() ) )->get_status() );
+	}
 }

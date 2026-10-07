@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import Pagination from '../components/Pagination';
 import LinkModal from '../components/LinkModal';
+import BulkModal from '../components/BulkModal';
 
 const STATE_FILTERS = [
 	{
@@ -88,6 +89,7 @@ export default function Products( { apiFetch, navigate, status } ) {
 	const [ error, setError ] = useState( null );
 	const [ refreshing, setRefreshing ] = useState( null );
 	const [ modal, setModal ] = useState( null );
+	const [ bulk, setBulk ] = useState( false );
 	const [ notice, setNotice ] = useState( null );
 	const autoRefreshed = useRef( false );
 
@@ -274,6 +276,18 @@ export default function Products( { apiFetch, navigate, status } ) {
 					) ) }
 				</div>
 				<div className="woon-toolbar__actions">
+					{ status?.store?.master && (
+						<button
+							className="woon-btn woon-btn--primary woon-btn--sm"
+							onClick={ () => setBulk( true ) }
+							disabled={ null !== refreshing }
+						>
+							{ __(
+								'Vinculación masiva',
+								'woonderful-stock-sync-for-woocommerce'
+							) }
+						</button>
+					) }
 					<button
 						className="woon-btn woon-btn--ghost woon-btn--sm"
 						onClick={ refresh }
@@ -368,6 +382,17 @@ export default function Products( { apiFetch, navigate, status } ) {
 				<div className={ `woon-notice woon-notice--${ notice.type }` }>
 					<p>{ notice.text }</p>
 				</div>
+			) }
+			{ bulk && (
+				<BulkModal
+					apiFetch={ apiFetch }
+					onClose={ ( result ) => {
+						setBulk( false );
+						if ( result ) {
+							load();
+						}
+					} }
+				/>
 			) }
 			{ modal && (
 				<LinkModal

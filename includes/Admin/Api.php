@@ -9,6 +9,7 @@ declare( strict_types = 1 );
 
 namespace Woonderful\StockSync\Admin;
 
+use Woonderful\StockSync\Catalog\Bulk;
 use Woonderful\StockSync\Catalog\Copy;
 use Woonderful\StockSync\Catalog\Rows;
 use Woonderful\StockSync\Detector\Detector;
@@ -75,6 +76,7 @@ final class Api {
 			'/reassign'                       => array( 'POST', 'reassign' ),
 			'/discard'                        => array( 'POST', 'discard' ),
 			'/undiscard'                      => array( 'POST', 'undiscard' ),
+			'/link/bulk'                      => array( 'GET, POST', 'link_bulk' ),
 			'/discrepancies/(?P<product>\\d+)/(?P<action>accept|restore)' => array( 'POST', 'resolve' ),
 		);
 
@@ -487,6 +489,46 @@ final class Api {
 	 */
 	public static function undiscard( \WP_REST_Request $request ): \WP_REST_Response|\WP_Error {
 		return self::acted( (int) $request['local'], Linker::undiscard( (int) $request['local'] ) );
+	}
+
+	/**
+	 * La vinculación masiva (ADR-014 §6). Con `GET`, lo que va a vincular: los pares con
+	 * sugerencia, y cuántos ambiguos quedan aparte. Con `POST`, una tanda de hasta 20 en
+	 * `pairs`, cada par revalidado en el momento; vuelven los vinculados y los omitidos con su
+	 * motivo.
+	 *
+	 * @param \WP_REST_Request $request Los pares, en un `POST`.
+	 */
+	public static function link_bulk( \WP_REST_Request $request ): \WP_REST_Response|\WP_Error {
+		if ( ! Peers::this_is_master() ) {
+			return new \WP_Error( 'wss_not_master', __( 'Vincular se hace desde la tienda maestra.', 'woonderful-stock-sync-for-woocommerce' ), array( 'status' => 403 ) );
+		}
+
+		if ( 'GET' === $request->get_method() ) {
+			return new \WP_REST_Response( Bulk::preview(), 200 );
+		}
+
+		$pairs = array();
+
+		foreach ( (array) $request['pairs'] as $pair ) {
+			$pair    = (array) $pair;
+			$pairs[] = array(
+				'local'  => (int) ( $pair['local'] ?? 0 ),
+				'remote' => (int) ( $pair['remote'] ?? 0 ),
+			);
+		}
+
+		$result = Bulk::link( $pairs );
+
+		if ( is_wp_error( $result ) ) {
+			$code = $result->get_error_code();
+
+			$result->add_data( array( 'status' => 'wss_bad_request' === $code ? 400 : ( 'wss_not_paired' === $code ? 409 : 502 ) ) );
+
+			return $result;
+		}
+
+		return new \WP_REST_Response( $result, 200 );
 	}
 
 	/**

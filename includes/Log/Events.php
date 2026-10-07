@@ -400,18 +400,22 @@ final class Events {
 	 */
 	public static function reason_text( string $reason ): string {
 		$texts = array(
-			'local_trashed'             => __( 'está en la papelera', 'woonderful-stock-sync-for-woocommerce' ),
-			'local_missing'             => __( 'se borró', 'woonderful-stock-sync-for-woocommerce' ),
-			'local_not_managing_stock'  => __( 'dejó de llevar su propio stock', 'woonderful-stock-sync-for-woocommerce' ),
-			'not_applied: unknown'      => __( 'a la otra tienda nunca le llegó', 'woonderful-stock-sync-for-woocommerce' ),
-			'not_applied: held'         => __( 'la otra tienda lo retuvo', 'woonderful-stock-sync-for-woocommerce' ),
-			'not_applied: discarded'    => __( 'la otra tienda lo descartó', 'woonderful-stock-sync-for-woocommerce' ),
-			'stock_changed'             => __( 'el stock cambió desde que se miró', 'woonderful-stock-sync-for-woocommerce' ),
-			'already_linked'            => __( 'alguno de los dos productos ya estaba vinculado', 'woonderful-stock-sync-for-woocommerce' ),
-			'product_missing'           => __( 'el producto no existe', 'woonderful-stock-sync-for-woocommerce' ),
+			'local_trashed'              => __( 'está en la papelera', 'woonderful-stock-sync-for-woocommerce' ),
+			'local_missing'              => __( 'se borró', 'woonderful-stock-sync-for-woocommerce' ),
+			'local_not_managing_stock'   => __( 'dejó de llevar su propio stock', 'woonderful-stock-sync-for-woocommerce' ),
+			'not_applied: unknown'       => __( 'a la otra tienda nunca le llegó', 'woonderful-stock-sync-for-woocommerce' ),
+			'not_applied: held'          => __( 'la otra tienda lo retuvo', 'woonderful-stock-sync-for-woocommerce' ),
+			'not_applied: discarded'     => __( 'la otra tienda lo descartó', 'woonderful-stock-sync-for-woocommerce' ),
+			'stock_changed'              => __( 'el stock cambió desde que se miró', 'woonderful-stock-sync-for-woocommerce' ),
+			'already_linked'             => __( 'alguno de los dos productos ya estaba vinculado', 'woonderful-stock-sync-for-woocommerce' ),
+			'product_missing'            => __( 'el producto no existe', 'woonderful-stock-sync-for-woocommerce' ),
 			'product_not_managing_stock' => __( 'el producto no lleva su propio stock', 'woonderful-stock-sync-for-woocommerce' ),
-			'target_missing'            => __( 'el producto de la otra tienda no existe', 'woonderful-stock-sync-for-woocommerce' ),
-			'target_not_managing_stock' => __( 'el producto de la otra tienda no lleva su propio stock', 'woonderful-stock-sync-for-woocommerce' ),
+			'target_missing'             => __( 'el producto de la otra tienda no existe', 'woonderful-stock-sync-for-woocommerce' ),
+			'target_not_managing_stock'  => __( 'el producto de la otra tienda no lleva su propio stock', 'woonderful-stock-sync-for-woocommerce' ),
+			'discarded'                  => __( 'la sugerencia está descartada', 'woonderful-stock-sync-for-woocommerce' ),
+			'duplicate_sku'              => __( 'el SKU se repite: hay que elegir a mano', 'woonderful-stock-sync-for-woocommerce' ),
+			'not_published'              => __( 'alguno de los dos no está publicado', 'woonderful-stock-sync-for-woocommerce' ),
+			'sku_changed'                => __( 'el SKU ya no coincide', 'woonderful-stock-sync-for-woocommerce' ),
 		);
 
 		return $texts[ $reason ] ?? ( '' === $reason ? '?' : $reason );
