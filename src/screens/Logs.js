@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import Pagination from '../components/Pagination';
+import StockChange from '../components/StockChange';
 
 const LEVEL_LABELS = {
 	info: __( 'Info', 'woonderful-stock-sync-for-woocommerce' ),
@@ -328,6 +329,7 @@ export default function Logs( { apiFetch, navigate } ) {
 									>
 										{ entry.text }
 									</span>
+									<StockChange stocks={ entry.stocks } />
 									<span
 										style={ {
 											color: 'var(--woon-text-faint)',

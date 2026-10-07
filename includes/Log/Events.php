@@ -179,7 +179,7 @@ final class Events {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rows = (array) $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT m.created_at, m.origin_store, m.delta, m.reason, m.reference, m.delivery, m.application
+				"SELECT m.created_at, m.origin_store, m.delta, m.reason, m.reference, m.delivery, m.application, m.details
 				   FROM {$movements} m
 				  WHERE ( m.origin_store = %s AND m.origin_product = %d )
 				     OR ( m.origin_store <> %s AND m.link_id IN ( SELECT id FROM {$links} WHERE local_product = %d ) )
@@ -204,6 +204,7 @@ final class Events {
 				'reference'   => null === $row->reference ? null : (string) $row->reference,
 				'delivery'    => null === $row->delivery ? null : (string) $row->delivery,
 				'application' => null === $row->application ? null : (string) $row->application,
+				'stocks'      => self::stocks_of( Store::id() === (string) $row->origin_store, (string) $row->reason, null === $row->details ? null : json_decode( (string) $row->details, true ) ),
 			),
 			$rows
 		);
@@ -261,6 +262,37 @@ final class Events {
 		}
 
 		return $discarded;
+	}
+
+	/**
+	 * El stock de antes y el de después de un movimiento, en esta tienda, o null si no se
+	 * anotó: los movimientos anteriores a que se anotara, y los que no cambiaron el stock de
+	 * acá —uno retenido, un ajuste aceptado—.
+	 *
+	 * El bootstrap trae los suyos de siempre: el stock que tenía cada lado y el de arranque.
+	 *
+	 * @param bool   $own     Si es propio.
+	 * @param string $reason  El motivo.
+	 * @param mixed  $details Lo que guarda la fila en `details`, decodificado.
+	 *
+	 * @return array{0: int, 1: int}|null
+	 */
+	private static function stocks_of( bool $own, string $reason, $details ): ?array {
+		if ( ! is_array( $details ) ) {
+			return null;
+		}
+
+		if ( 'bootstrap' === $reason && isset( $details['base_stock'] ) ) {
+			$before = $own ? ( $details['origin_previous_stock'] ?? null ) : ( $details['target_previous_stock'] ?? null );
+
+			return null === $before ? null : array( (int) $before, (int) $details['base_stock'] );
+		}
+
+		if ( isset( $details['stock_before'], $details['stock_after'] ) ) {
+			return array( (int) $details['stock_before'], (int) $details['stock_after'] );
+		}
+
+		return null;
 	}
 
 	/**
@@ -371,9 +403,11 @@ final class Events {
 	 * La frase de un movimiento del historial, para quien lo lee: de qué tienda, por qué, cuánto
 	 * y con qué referencia.
 	 *
-	 * @param array<string, mixed> $entry Un movimiento de `history()`.
+	 * @param array<string, mixed> $entry  Un movimiento de `history()`.
+	 * @param bool                 $stocks Si suma el stock de antes y el de después: la
+	 *                                     pantalla los muestra aparte.
 	 */
-	public static function movement_text( array $entry ): string {
+	public static function movement_text( array $entry, bool $stocks = true ): string {
 		$reasons = array(
 			'sale'       => __( 'venta', 'woonderful-stock-sync-for-woocommerce' ),
 			'refund'     => __( 'devolución', 'woonderful-stock-sync-for-woocommerce' ),
@@ -382,15 +416,25 @@ final class Events {
 			'unlink'     => __( 'desvinculación', 'woonderful-stock-sync-for-woocommerce' ),
 		);
 		$reason  = (string) ( $entry['reason'] ?? '' );
+		$numbers = $entry['stocks'] ?? null;
+		$where   = true === ( $entry['own'] ?? false ) ? __( 'Acá', 'woonderful-stock-sync-for-woocommerce' ) : __( 'En la otra tienda', 'woonderful-stock-sync-for-woocommerce' );
+		$what    = ( $reasons[ $reason ] ?? $reason ) . ( null === ( $entry['reference'] ?? null ) ? '' : ' (' . $entry['reference'] . ')' );
 
-		return sprintf(
-			/* translators: 1: dónde pasó, 2: el motivo, 3: unidades con signo, 4: la referencia. */
-			__( '%1$s: %2$s, %3$s%4$s', 'woonderful-stock-sync-for-woocommerce' ),
-			true === ( $entry['own'] ?? false ) ? __( 'Acá', 'woonderful-stock-sync-for-woocommerce' ) : __( 'En la otra tienda', 'woonderful-stock-sync-for-woocommerce' ),
-			$reasons[ $reason ] ?? $reason,
-			sprintf( '%+d', (int) ( $entry['delta'] ?? 0 ) ),
-			null === ( $entry['reference'] ?? null ) ? '' : ' (' . $entry['reference'] . ')'
-		);
+		// La pantalla muestra aparte la diferencia con los dos números: no va dos veces.
+		if ( ! $stocks && is_array( $numbers ) ) {
+			/* translators: 1: dónde pasó, 2: el motivo con su referencia. */
+			return sprintf( __( '%1$s: %2$s', 'woonderful-stock-sync-for-woocommerce' ), $where, $what );
+		}
+
+		/* translators: 1: dónde pasó, 2: el motivo con su referencia, 3: unidades con signo. */
+		$text = sprintf( __( '%1$s: %2$s, %3$s', 'woonderful-stock-sync-for-woocommerce' ), $where, $what, sprintf( '%+d', (int) ( $entry['delta'] ?? 0 ) ) );
+
+		if ( ! is_array( $numbers ) ) {
+			return $text;
+		}
+
+		/* translators: 1: el texto del movimiento, 2: stock de antes, 3: stock de después. */
+		return sprintf( __( '%1$s · stock %2$d → %3$d', 'woonderful-stock-sync-for-woocommerce' ), $text, (int) $numbers[0], (int) $numbers[1] );
 	}
 
 	/**

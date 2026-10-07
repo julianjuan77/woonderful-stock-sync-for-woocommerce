@@ -412,6 +412,13 @@ que es como se guardan: un evento de las 00:09 UTC es del día anterior en Bueno
 desde Productos con `#/logs?product=<id>`. Cada entrada llega con su frase: `Events::describe()`
 para los eventos, `Events::movement_text()` para los movimientos —la misma que usa `wp wss log`—.
 
+**Cada movimiento que cambió el stock de acá guarda el de antes y el de después** en `details`
+(`stock_before`, `stock_after`): el detector los pasa a `Ledger::record()`, y `apply()` los anota al
+aplicar uno recibido. `details` no viaja a la otra tienda —`Sender` arma lo que manda campo por
+campo—. El bootstrap ya traía los suyos: el stock que tenía cada lado y el de arranque. El historial
+los muestra como "−1 (4 → 3)", en verde o rojo; los movimientos anteriores a esto, y los que no
+cambiaron el stock de acá —uno retenido, un ajuste aceptado—, sólo con la diferencia.
+
 **Configuración** (`src/screens/Settings.js`): el emparejamiento —generar el código o canjearlo, con
 `Pairing::create_code()` y `Pairing::redeem()`, como `wp wss pairing-code` y `wp wss pair`—, el
 nombre de la tienda, los avisos y la casilla de borrar todo al desinstalar. **Los avisos se validan

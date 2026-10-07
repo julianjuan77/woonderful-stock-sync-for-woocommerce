@@ -475,7 +475,7 @@ class Test_Admin extends WP_UnitTestCase {
 
 		$this->assertSame( 'Alpargata verde', $data['name'] );
 		$this->assertSame( array( 'event', 'movement' ), array_column( $data['items'], 'type' ) );
-		$this->assertSame( 'Acá: venta, -2 (pedido #9)', $data['items'][1]['text'] );
+		$this->assertSame( 'Acá: venta (pedido #9), -2', $data['items'][1]['text'] );
 	}
 
 	/**

@@ -252,7 +252,12 @@ final class Api {
 			'at'      => Events::local_time( (string) $entry['at'] ),
 			'level'   => $event ? $entry['level'] : null,
 			'kind'    => $event ? $entry['kind'] : null,
-			'text'    => $event ? Events::describe( $entry ) : Events::movement_text( $entry ),
+			'text'    => $event ? Events::describe( $entry ) : Events::movement_text( $entry, false ),
+			// El stock de antes y el de después, si cambió: la pantalla los muestra aparte.
+			'stocks'  => $event || ! is_array( $entry['stocks'] ?? null ) ? null : array(
+				'before' => (int) $entry['stocks'][0],
+				'after'  => (int) $entry['stocks'][1],
+			),
 			'product' => $event ? $entry['product'] : null,
 			'name'    => $event && null !== $entry['product'] ? self::product_name( (int) $entry['product'] ) : null,
 			'cause'   => $event && null !== $entry['cause'] ? Events::cause_text( (string) $entry['cause'] ) : null,

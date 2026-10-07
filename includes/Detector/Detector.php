@@ -100,7 +100,8 @@ final class Detector {
 			return;
 		}
 
-		$movement_id = Ledger::record( $product_id, self::stock_in_db( $product_id ) - $before );
+		$after       = self::stock_in_db( $product_id );
+		$movement_id = Ledger::record( $product_id, $after - $before, 'adjustment', null, array( $before, $after ) );
 
 		if ( null !== $movement_id ) {
 			self::$recorded[ $product_id ] = $movement_id;

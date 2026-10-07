@@ -494,4 +494,26 @@ class Test_Detector extends WP_UnitTestCase {
 		$this->assertSame( array( array( $parent_id, -2 ) ), $this->movements() );
 		$this->assertSame( array( array( 'sale', 'pedido #' . $order->get_order_number() ) ), $this->stamps() );
 	}
+
+	/**
+	 * DET-19 — **El movimiento guarda el stock de antes y el de después**: el historial los
+	 * muestra.
+	 */
+	public function test_the_stock_before_and_after_is_kept(): void {
+		global $wpdb;
+
+		$product_id = $this->create_product( 10 );
+
+		wc_update_product_stock( $product_id, 2, 'decrease' );
+
+		$details = json_decode( (string) $wpdb->get_var( 'SELECT details FROM ' . Installer::table( 'movements' ) . ' ORDER BY id DESC LIMIT 1' ), true ); // phpcs:ignore WordPress.DB
+
+		$this->assertSame(
+			array(
+				'stock_before' => 10,
+				'stock_after'  => 8,
+			),
+			$details
+		);
+	}
 }

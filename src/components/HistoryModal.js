@@ -1,5 +1,6 @@
 import { useState, useEffect } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
+import StockChange from './StockChange';
 
 // El historial de un producto en un pop-up: sus movimientos y sus eventos, sin salir de
 // Productos (UC-03).
@@ -98,6 +99,7 @@ export default function HistoryModal( { apiFetch, row, onClose } ) {
 										>
 											{ entry.text }
 										</span>
+										<StockChange stocks={ entry.stocks } />
 										<span
 											style={ {
 												color: 'var(--woon-text-faint)',

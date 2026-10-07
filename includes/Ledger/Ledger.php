@@ -9,6 +9,7 @@ declare( strict_types = 1 );
 
 namespace Woonderful\StockSync\Ledger;
 
+use Woonderful\StockSync\Detector\Detector;
 use Woonderful\StockSync\Detector\Guard;
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Linking\Links;
@@ -274,10 +275,10 @@ final class Ledger {
 			return 0;
 		}
 
-		$ids          = array();
-		$consolidate  = array();
-		$purged_upto  = array();
-		$own_store    = Store::id();
+		$ids         = array();
+		$consolidate = array();
+		$purged_upto = array();
+		$own_store   = Store::id();
 
 		foreach ( $purgeable as $row ) {
 			$ids[] = (int) $row->id;
@@ -351,9 +352,9 @@ final class Ledger {
 		$peers = (array) get_option( 'wss_peers', array() );
 
 		foreach ( $purged_upto as $store => $seq ) {
-			$peer                     = (array) ( $peers[ $store ] ?? array() );
-			$peer['purged_through']   = max( (int) ( $peer['purged_through'] ?? 0 ), $seq );
-			$peers[ $store ]          = $peer;
+			$peer                   = (array) ( $peers[ $store ] ?? array() );
+			$peer['purged_through'] = max( (int) ( $peer['purged_through'] ?? 0 ), $seq );
+			$peers[ $store ]        = $peer;
 		}
 
 		update_option( 'wss_peers', $peers, false );
@@ -603,7 +604,13 @@ final class Ledger {
 					// llegar al hook.
 					Guard::expect( $guarded );
 
+					$row_id = (int) $wpdb->insert_id;
+					$before = Detector::stock_in_db( $guarded );
+
 					wc_update_product_stock( $local, abs( $delta ), $delta < 0 ? 'decrease' : 'increase' );
+
+					// El de antes y el de después, para el historial: con la fila bloqueada, son éstos.
+					$wpdb->update( Installer::table( 'movements' ), array( 'details' => self::stocks_json( $before, Detector::stock_in_db( $guarded ) ) ), array( 'id' => $row_id ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 				}
 
 				return array( true, $state );
@@ -969,17 +976,17 @@ final class Ledger {
 		$inserted = $wpdb->insert(
 			$table,
 			array(
-				'origin_store'    => Store::id(),
-				'delta'           => 0,
-				'reason'          => self::BOOTSTRAP,
-				'reference'       => $reference,
-				'details'         => wp_json_encode( $details ),
-				'created_at'      => $now,
-				'origin_product'  => $product,
-				'delivery'        => self::SYNCING,
-				'next_attempt_at' => $now,
+				'origin_store'     => Store::id(),
+				'delta'            => 0,
+				'reason'           => self::BOOTSTRAP,
+				'reference'        => $reference,
+				'details'          => wp_json_encode( $details ),
+				'created_at'       => $now,
+				'origin_product'   => $product,
+				'delivery'         => self::SYNCING,
+				'next_attempt_at'  => $now,
 				'first_attempt_at' => $now,
-				'attempts'        => 1,
+				'attempts'         => 1,
 			)
 		);
 
@@ -1177,16 +1184,33 @@ final class Ledger {
 	}
 
 	/**
+	 * El stock de antes y el de después de un movimiento, como se guardan en `details`.
+	 *
+	 * @param int $before El de antes.
+	 * @param int $after  El de después.
+	 */
+	private static function stocks_json( int $before, int $after ): string {
+		return (string) wp_json_encode(
+			array(
+				'stock_before' => $before,
+				'stock_after'  => $after,
+			)
+		);
+	}
+
+	/**
 	 * Registra un movimiento propio.
 	 *
 	 * @param int         $product_id ID del producto en esta tienda.
 	 * @param int         $delta      Unidades, con signo.
 	 * @param string      $reason     Motivo; el detector lo estampa después si lo sabe.
 	 * @param string|null $reference  Con qué se audita: el número de pedido, etc.
+	 * @param int[]|null  $stocks     El stock de antes y el de después, si cambió: el
+	 *                                historial los muestra. Quedan en `details`, que no viaja.
 	 *
 	 * @return int|null ID del movimiento, o null si no había nada que registrar.
 	 */
-	public static function record( int $product_id, int $delta, string $reason = 'adjustment', ?string $reference = null ): ?int {
+	public static function record( int $product_id, int $delta, string $reason = 'adjustment', ?string $reference = null, ?array $stocks = null ): ?int {
 		if ( 0 === $delta ) {
 			return null;
 		}
@@ -1221,6 +1245,7 @@ final class Ledger {
 				'origin_product'  => $product_id,
 				'delivery'        => 'pending',
 				'next_attempt_at' => gmdate( 'Y-m-d H:i:s', $now + self::DELIVERY_DELAY ),
+				'details'         => null === $stocks ? null : self::stocks_json( $stocks[0], $stocks[1] ),
 			)
 		);
 

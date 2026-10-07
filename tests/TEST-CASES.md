@@ -1176,3 +1176,11 @@ Mutaciones: sin revisar el SKU fresco, o el vinculado allá, cae `BLK-03`.
 | `REQ-05` | Una tabla que falta, y una copia del sitio | No pasan; la tabla, nombrada |
 | `REQ-06` | `http` fuera de un entorno local | No pasa |
 | `REQ-07` | **La pasada: hace un minuto, hace una hora, nunca** | Sólo la de hace un minuto pasa |
+
+## El stock de antes y el de después
+
+| ID | Caso | Esperado |
+| --- | --- | --- |
+| `DET-19` | Una venta de 2 con stock 10 | El movimiento guarda 10 y 8 en `details` |
+| `LED-61` | **Uno recibido que se aplica, y uno que se retiene** | El aplicado guarda el de antes y el de después; el retenido, nada: acá no cambió |
+| `EVT-11` | **Un bootstrap, una venta con los números y una sin** | El historial los muestra —el bootstrap con el de acá y el de arranque—; sin anotar, sólo la diferencia. En pantalla, la diferencia no va dos veces |

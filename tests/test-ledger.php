@@ -1428,4 +1428,31 @@ class Test_Ledger extends WP_UnitTestCase {
 		$this->assertSame( Ledger::HELD, Ledger::apply( $this->incoming( 789, -2 ) ) );
 		$this->assertSame( 10, $this->stock_of( $parent_id ), 'el padre no se toca' );
 	}
+
+	/**
+	 * LED-61 — **Uno recibido que se aplica guarda el stock de antes y el de después**; uno
+	 * retenido, no: no cambió nada acá.
+	 */
+	public function test_an_applied_movement_keeps_the_stock_before_and_after(): void {
+		global $wpdb;
+
+		$product_id = $this->create_product( 10 );
+		$this->link_product( $product_id, 789, 77 );
+
+		Ledger::apply( $this->incoming( 789, -2 ) );
+
+		$table = Installer::table( 'movements' );
+
+		$this->assertSame(
+			array(
+				'stock_before' => 10,
+				'stock_after'  => 8,
+			),
+			json_decode( (string) $wpdb->get_var( "SELECT details FROM {$table} WHERE origin_seq = 77" ), true ) // phpcs:ignore WordPress.DB
+		);
+
+		Ledger::apply( $this->incoming( 999, -1, array( 'seq' => 78 ) ) );
+
+		$this->assertNull( $wpdb->get_var( "SELECT details FROM {$table} WHERE origin_seq = 78" ) ); // phpcs:ignore WordPress.DB
+	}
 }

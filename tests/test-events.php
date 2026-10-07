@@ -209,7 +209,7 @@ class Test_Events extends WP_UnitTestCase {
 	 * Un motivo que no se conoce va como vino.
 	 */
 	public function test_reasons_and_outcomes_are_readable(): void {
-		$broken = Events::describe(
+		$broken     = Events::describe(
 			array(
 				'kind'    => Events::PAIR_BROKEN,
 				'product' => 13,
@@ -241,5 +241,35 @@ class Test_Events extends WP_UnitTestCase {
 		$this->assertSame( '2026-10-06 21:09:06', Events::local_time( '2026-10-07 00:09:06' ) );
 
 		delete_option( 'timezone_string' );
+	}
+
+	/**
+	 * EVT-11 — **El historial muestra el stock de antes y el de después** cuando se anotó: de
+	 * un movimiento, o de un bootstrap —el que tenía cada lado y el de arranque—. Sin anotar,
+	 * sólo la diferencia.
+	 */
+	public function test_the_history_shows_stock_before_and_after(): void {
+		global $wpdb;
+
+		$movements = Installer::table( 'movements' );
+		$base      = array(
+			'origin_store'   => Store::id(),
+			'generation'     => 1,
+			'origin_product' => 12,
+			'delivery'       => 'confirmed',
+		);
+
+		$wpdb->insert( $movements, $base + array( 'origin_seq' => 1, 'delta' => 0, 'reason' => 'bootstrap', 'created_at' => '2026-10-01 09:00:00', 'details' => '{"target_product":900,"base_stock":6,"origin_previous_stock":6,"target_previous_stock":4}' ) ); // phpcs:ignore WordPress.DB, WordPress.Arrays.ArrayDeclarationSpacing.AssociativeArrayFound
+		$wpdb->insert( $movements, $base + array( 'origin_seq' => 2, 'delta' => -2, 'reason' => 'sale', 'created_at' => '2026-10-01 10:00:00', 'details' => '{"stock_before":6,"stock_after":4}' ) ); // phpcs:ignore WordPress.DB, WordPress.Arrays.ArrayDeclarationSpacing.AssociativeArrayFound
+		$wpdb->insert( $movements, $base + array( 'origin_seq' => 3, 'delta' => -1, 'reason' => 'sale', 'created_at' => '2026-10-01 11:00:00' ) ); // phpcs:ignore WordPress.DB, WordPress.Arrays.ArrayDeclarationSpacing.AssociativeArrayFound
+
+		$history = Events::history( 12 );
+
+		$this->assertNull( $history[0]['stocks'] );
+		$this->assertSame( array( 6, 4 ), $history[1]['stocks'] );
+		$this->assertSame( array( 6, 6 ), $history[2]['stocks'], 'el bootstrap propio: el de acá, y el de arranque' );
+		$this->assertSame( 'Acá: venta, -2 · stock 6 → 4', Events::movement_text( $history[1] ) );
+		$this->assertSame( 'Acá: venta', Events::movement_text( $history[1], false ), 'la pantalla muestra la diferencia aparte' );
+		$this->assertSame( 'Acá: venta, -1', Events::movement_text( $history[0] ) );
 	}
 }
