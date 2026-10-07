@@ -186,7 +186,7 @@ es lo normal: loguearlo en cada pasada sería ruido.
 | 8.3 | Registros: el log, filtros y paginado, desde `Logs.js` (ADR-013 §3) | ✅ | `7922efc` | `ADM-14`…`ADM-16` |
 | 8.4 | Configuración: el emparejamiento, los avisos, la casilla de borrado (ADR-013 §3) | ✅ | `3f3899c` | `ADM-17`…`ADM-21` |
 | 8.5 | La copia del catálogo de la otra: la tabla, el refresco, `GET /products` con tipo y padre (ADR-014 §1, §2) | ✅ | `ab90495` | `CPY-01`…`CPY-07`, `PRD-15`, `PRD-16`, `SCH-16`, `ADM-22` |
-| 8.6 | Productos: las filas, los motivos y la sugerencia, filtros y búsqueda (ADR-014 §3, §4) | ✅ | PENDIENTE | `ROW-01`…`ROW-08`, `ADM-23` |
+| 8.6 | Productos: las filas, los motivos y la sugerencia, filtros y búsqueda (ADR-014 §3, §4) | ✅ | `04dac1f` | `ROW-01`…`ROW-08`, `ADM-23` |
 | 8.7 | Vincular a mano, desvincular, reasignar, descartar (ADR-014 §5, §7) | ⬜ | | |
 | 8.8 | La vinculación masiva (ADR-014 §6) | ⬜ | | |
 | 8.9 | La secundaria en modo lectura, con el enlace a la maestra (`GET /health` con `admin_url`) (ADR-013 §6) | ⬜ | | |
