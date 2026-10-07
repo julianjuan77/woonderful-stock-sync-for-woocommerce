@@ -177,7 +177,7 @@ es lo normal: loguearlo en cada pasada sería ruido.
 
 | | Tarea | Estado | Commit | Tests |
 |---|---|---|---|---|
-| 8.1 | La base: `@wordpress/scripts`, el menú, la app con la sidebar y el diseño copiados de woonderful-sync, `wss-admin/v1` con su permiso (ADR-013 §1, §2, §4, §5) | ✅ | | `ADM-01`…`ADM-06`, `routing.test.js` |
+| 8.1 | La base: `@wordpress/scripts`, el menú, la app con la sidebar y el diseño copiados de woonderful-sync, `wss-admin/v1` con su permiso (ADR-013 §1, §2, §4, §5) | ✅ | `7de76d8` | `ADM-01`…`ADM-06`, `routing.test.js` |
 | 8.2 | Resumen: el estado de la otra, la última reconciliación y la manual, las discrepancias de las dos y cómo resolverlas (ADR-013 §3) | ⬜ | | |
 | 8.3 | Registros: el log, filtros y paginado, desde `Logs.js` (ADR-013 §3) | ⬜ | | |
 | 8.4 | Configuración: el emparejamiento, los avisos, la casilla de borrado (ADR-013 §3) | ⬜ | | |
