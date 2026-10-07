@@ -162,7 +162,7 @@ export default function Pairing( {
 								{ sprintf(
 									/* translators: %d: minutos. */
 									__(
-										'Pegalo en Configuración de la otra tienda. Vale %d minutos y para un solo canje. Esta pantalla se actualiza sola cuando la otra lo canjee.',
+										'En la otra tienda, elegí "Esta es la secundaria: pegar el código" y pegalo ahí. Vale %d minutos y para un solo canje. Esta pantalla se actualiza sola cuando la otra lo canjee.',
 										'woonderful-stock-sync-for-woocommerce'
 									),
 									code.minutes
