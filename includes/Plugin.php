@@ -9,6 +9,8 @@ declare( strict_types = 1 );
 
 namespace Woonderful\StockSync;
 
+use Woonderful\StockSync\Admin\Api;
+use Woonderful\StockSync\Admin\Page;
 use Woonderful\StockSync\Cli\Command;
 use Woonderful\StockSync\Detector\Detector;
 use Woonderful\StockSync\Identity\Store;
@@ -76,6 +78,15 @@ final class Plugin {
 		Pass::register();
 		Schedule::register();
 		Health::register();
+
+		// La interfaz también antes de la guarda: un sitio suspendido tiene que poder mostrar
+		// por qué, y re-emparejarse desde la pantalla.
+		Api::register();
+
+		if ( is_admin() ) {
+			Page::register();
+		}
+
 		Pair::register();
 		Auth::register();
 

@@ -1,0 +1,1972 @@
+/* Sin recursos externos (WordPress.org/privacidad): tipografía con stack de sistema. */
+
+/* ── Tokens ───────────────────────────────────────────────────────────── */
+.woon-root {
+	--woon-primary: #6b2fd9;
+	--woon-primary-600: #5a24bc;
+	--woon-primary-700: #4a1c9e;
+	--woon-deep: #2a1052;
+	--woon-light: #c9a8ff;
+	--woon-light-soft: #ede4ff;
+	--woon-spark: #ffd66b;
+	--woon-paper: #f7f4ff;
+	--woon-ink: #0f0820;
+
+	--woon-success: #1f8a5b;
+	--woon-success-bg: #e6f4ee;
+	--woon-warning: #b26a00;
+	--woon-warning-bg: #fbf0dc;
+	--woon-danger: #b22626;
+	--woon-danger-bg: #fbe9e9;
+	--woon-info: #2a6fdb;
+	--woon-info-bg: #e7f0fc;
+
+	--woon-text: #1a1226;
+	--woon-text-muted: #6b6478;
+	--woon-text-faint: #9a93a8;
+	--woon-border: #e4dff0;
+	--woon-border-strong: #cfc7e0;
+	--woon-surface: #fff;
+	--woon-surface-2: #faf8ff;
+	--woon-surface-sunken: #f1edfa;
+
+	--woon-font-display: "Bricolage Grotesque", system-ui, -apple-system, "Segoe UI", roboto, sans-serif;
+	--woon-font-body: "DM Sans", system-ui, -apple-system, "Segoe UI", roboto, sans-serif;
+	--woon-font-mono: "JetBrains Mono", ui-monospace, sfmono-regular, menlo, monospace;
+
+	--woon-fs-display: 28px;
+	--woon-fs-h2: 20px;
+	--woon-fs-h3: 16px;
+	--woon-fs-body: 14px;
+	--woon-fs-sm: 13px;
+	--woon-fs-xs: 11px;
+
+	--woon-lh-tight: 1.2;
+	--woon-lh-body: 1.55;
+
+	--woon-sp-1: 4px;
+	--woon-sp-2: 8px;
+	--woon-sp-3: 12px;
+	--woon-sp-4: 16px;
+	--woon-sp-5: 24px;
+	--woon-sp-6: 32px;
+	--woon-sp-7: 48px;
+	--woon-sp-8: 64px;
+
+	--woon-radius-sm: 6px;
+	--woon-radius-md: 10px;
+	--woon-radius-lg: 16px;
+	--woon-radius-pill: 999px;
+
+	--woon-shadow-sm: 0 1px 2px rgba(42, 16, 82, 0.06), 0 1px 3px rgba(42, 16, 82, 0.08);
+	--woon-shadow-md: 0 4px 12px rgba(42, 16, 82, 0.08), 0 2px 4px rgba(42, 16, 82, 0.06);
+	--woon-shadow-lg: 0 12px 32px rgba(42, 16, 82, 0.14);
+	--woon-ring: 0 0 0 3px rgba(107, 47, 217, 0.28);
+
+	--woon-ease: cubic-bezier(0.2, 0.6, 0.2, 1);
+	--woon-dur: 0.16s;
+}
+
+/* ── WP admin frame overrides ─────────────────────────────────────────── */
+#woonderful-sync-app,
+#woonderful-sync-app .wrap {
+	margin: 0 !important;
+	padding: 0 !important;
+}
+
+/* ── Root layout ──────────────────────────────────────────────────────── */
+/* stylelint-disable-next-line no-duplicate-selectors -- bloque de layout, separado a propósito del bloque de tokens */
+.woon-root {
+	display: flex;
+	min-height: calc(100vh - 32px);
+	background: var(--woon-paper);
+	font-family: var(--woon-font-body);
+	color: var(--woon-text);
+	font-size: var(--woon-fs-body);
+	line-height: var(--woon-lh-body);
+	-webkit-font-smoothing: antialiased;
+
+	*,
+	*::before,
+	*::after {
+		box-sizing: border-box;
+	}
+
+	h1,
+	h2,
+	h3,
+	h4 {
+		margin: 0;
+	}
+
+	p {
+		margin: 0;
+	}
+}
+
+/* ── Sidebar ──────────────────────────────────────────────────────────── */
+.woon-sidebar {
+	width: 220px;
+	flex-shrink: 0;
+	background: var(--woon-deep);
+	display: flex;
+	flex-direction: column;
+	position: sticky;
+	top: 32px;
+	height: calc(100vh - 32px);
+	overflow-y: auto;
+
+	&__logo {
+		display: flex;
+		align-items: center;
+		gap: var(--woon-sp-2);
+		padding: 18px 16px 14px;
+		border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+		flex-shrink: 0;
+	}
+
+	&__logo-img {
+		height: 20px;
+		width: auto;
+		max-width: 130px;
+		flex-shrink: 0;
+	}
+
+	&__badge {
+		font-family: var(--woon-font-mono);
+		font-size: 9px;
+		font-weight: 500;
+		letter-spacing: 0.14em;
+		text-transform: uppercase;
+		color: var(--woon-light);
+		background: rgba(201, 168, 255, 0.15);
+		padding: 2px 7px;
+		border-radius: 4px;
+		flex-shrink: 0;
+	}
+
+	&__nav {
+		padding: 8px;
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+}
+
+/* ── Nav items ────────────────────────────────────────────────────────── */
+.woon-nav-item {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 9px 12px;
+	border-radius: var(--woon-radius-sm);
+	border: none;
+	background: transparent;
+	color: rgba(247, 244, 255, 0.7);
+	font-family: var(--woon-font-body);
+	font-size: 13.5px;
+	font-weight: 500;
+	cursor: pointer;
+	transition: background var(--woon-dur) var(--woon-ease), color var(--woon-dur) var(--woon-ease);
+	text-align: left;
+	width: 100%;
+
+	&:hover {
+		background: rgba(255, 255, 255, 0.08);
+		color: #f7f4ff;
+	}
+
+	&--active {
+		background: rgba(201, 168, 255, 0.18);
+		color: #fff;
+
+		.woon-nav-item__icon {
+			opacity: 1;
+		}
+	}
+
+	&__icon {
+		width: 18px;
+		height: 18px;
+		flex-shrink: 0;
+		opacity: 0.8;
+	}
+
+	&:focus-visible {
+		outline: none;
+		box-shadow: 0 0 0 2px rgba(201, 168, 255, 0.5);
+	}
+}
+
+.woon-nav-badge {
+	margin-left: auto;
+	min-width: 20px;
+	height: 20px;
+	padding: 0 6px;
+	border-radius: 10px;
+	background: rgba(255, 255, 255, 0.18);
+	color: #fff;
+	font-size: 11px;
+	font-weight: 600;
+	line-height: 20px;
+	text-align: center;
+
+	&--conflict {
+		background: #e53e3e;
+		color: #fff;
+	}
+}
+
+/* ── Main content ─────────────────────────────────────────────────────── */
+.woon-main {
+	flex: 1;
+	min-width: 0;
+	overflow-y: auto;
+}
+
+.woon-page {
+	padding: 28px;
+	max-width: 1400px;
+}
+
+/* ── Botones ──────────────────────────────────────────────────────────── */
+.woon-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--woon-sp-2);
+	min-height: 40px;
+	padding: 0 var(--woon-sp-4);
+	font-family: var(--woon-font-body);
+	font-size: var(--woon-fs-body);
+	font-weight: 600;
+	border-radius: var(--woon-radius-sm);
+	border: 1px solid transparent;
+	cursor: pointer;
+	transition:
+		background var(--woon-dur) var(--woon-ease),
+		border-color var(--woon-dur) var(--woon-ease),
+		box-shadow var(--woon-dur) var(--woon-ease);
+	text-decoration: none;
+	line-height: 1;
+	white-space: nowrap;
+
+	&:focus-visible {
+		outline: none;
+		box-shadow: var(--woon-ring);
+	}
+
+	&[disabled] {
+		opacity: 0.55;
+		cursor: not-allowed;
+	}
+
+	&--primary {
+		background: var(--woon-primary);
+		color: #fff;
+
+		&:hover:not([disabled]) {
+			background: var(--woon-primary-600);
+		}
+
+		&:active:not([disabled]) {
+			background: var(--woon-primary-700);
+		}
+	}
+
+	&--secondary {
+		background: var(--woon-light-soft);
+		color: var(--woon-primary-700);
+		border-color: var(--woon-light);
+
+		&:hover:not([disabled]) {
+			background: #e3d6ff;
+		}
+	}
+
+	&--ghost {
+		background: transparent;
+		color: var(--woon-text);
+		border-color: var(--woon-border);
+
+		&:hover:not([disabled]) {
+			border-color: var(--woon-border-strong);
+			background: var(--woon-surface-2);
+		}
+	}
+
+	&--danger {
+		background: var(--woon-danger);
+		color: #fff;
+
+		&:hover:not([disabled]) {
+			background: #9a1f1f;
+		}
+	}
+
+	&--sm {
+		min-height: 32px;
+		padding: 0 var(--woon-sp-3);
+		font-size: var(--woon-fs-sm);
+	}
+}
+
+/* ── Card ─────────────────────────────────────────────────────────────── */
+.woon-card {
+	background: var(--woon-surface);
+	border: 1px solid var(--woon-border);
+	border-radius: var(--woon-radius-md);
+	box-shadow: var(--woon-shadow-sm);
+	overflow: hidden;
+
+	&__head {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		gap: var(--woon-sp-3);
+		padding: var(--woon-sp-4) var(--woon-sp-5);
+		border-bottom: 1px solid var(--woon-border);
+	}
+
+	&__title {
+		font-family: var(--woon-font-body);
+		font-weight: 600;
+		font-size: var(--woon-fs-h3);
+		color: var(--woon-ink);
+	}
+
+	&__body {
+		padding: var(--woon-sp-5);
+	}
+
+	&__foot {
+		padding: var(--woon-sp-4) var(--woon-sp-5);
+		border-top: 1px solid var(--woon-border);
+		background: var(--woon-surface-2);
+		display: flex;
+		justify-content: flex-end;
+		gap: var(--woon-sp-2);
+	}
+}
+
+/* ── Badges ───────────────────────────────────────────────────────────── */
+.woon-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	height: 22px;
+	padding: 0 10px;
+	border-radius: var(--woon-radius-pill);
+	font-size: var(--woon-fs-xs);
+	font-weight: 600;
+	letter-spacing: 0.02em;
+	background: var(--woon-surface-sunken);
+	color: var(--woon-text-muted);
+	white-space: nowrap;
+
+	&--success,
+	&--active {
+		background: var(--woon-success-bg);
+		color: var(--woon-success);
+	}
+
+	&--warning,
+	&--pending,
+	&--paused {
+		background: var(--woon-warning-bg);
+		color: var(--woon-warning);
+	}
+
+	&--danger,
+	&--error {
+		background: var(--woon-danger-bg);
+		color: var(--woon-danger);
+	}
+
+	&--info,
+	&--printed {
+		background: var(--woon-info-bg);
+		color: var(--woon-info);
+	}
+
+	&--brand,
+	&--conflict {
+		background: var(--woon-light-soft);
+		color: var(--woon-primary-700);
+	}
+
+	&--muted,
+	&--skipped,
+	&--superseded {
+		background: var(--woon-surface-sunken);
+		color: var(--woon-text-faint);
+		font-weight: 500;
+	}
+}
+
+/* ── Avisos ───────────────────────────────────────────────────────────── */
+.woon-notice {
+	display: flex;
+	gap: var(--woon-sp-3);
+	align-items: flex-start;
+	padding: var(--woon-sp-3) var(--woon-sp-4);
+	border-radius: var(--woon-radius-sm);
+	border: 1px solid var(--woon-border);
+	border-left-width: 4px;
+	background: var(--woon-surface);
+	font-size: var(--woon-fs-sm);
+	margin-bottom: var(--woon-sp-4);
+
+	p {
+		line-height: var(--woon-lh-body);
+	}
+
+	&--info {
+		border-left-color: var(--woon-info);
+		background: var(--woon-info-bg);
+	}
+
+	&--success {
+		border-left-color: var(--woon-success);
+		background: var(--woon-success-bg);
+	}
+
+	&--warning {
+		border-left-color: var(--woon-warning);
+		background: var(--woon-warning-bg);
+	}
+
+	&--danger,
+	&--error {
+		border-left-color: var(--woon-danger);
+		background: var(--woon-danger-bg);
+	}
+}
+
+/* ── Formularios ──────────────────────────────────────────────────────── */
+.woon-field {
+	display: grid;
+	grid-template-columns: 200px minmax(0, 1fr);
+	gap: var(--woon-sp-4);
+	padding: var(--woon-sp-4) 0;
+	border-bottom: 1px solid var(--woon-border);
+
+	&:last-child {
+		border-bottom: 0;
+	}
+
+	@media (max-width: 782px) {
+		grid-template-columns: 1fr;
+		gap: var(--woon-sp-2);
+	}
+}
+
+.woon-label {
+	font-weight: 600;
+	font-size: var(--woon-fs-body);
+	color: var(--woon-ink);
+	padding-top: 10px;
+}
+
+.woon-help {
+	margin-top: var(--woon-sp-2);
+	color: var(--woon-text-muted);
+	font-size: var(--woon-fs-sm);
+}
+
+.woon-input,
+.woon-select {
+	width: 100%;
+	max-width: 420px;
+	min-height: 40px;
+	padding: 0 var(--woon-sp-3);
+	font-family: var(--woon-font-body);
+	font-size: var(--woon-fs-body);
+	color: var(--woon-text);
+	background: var(--woon-surface);
+	border: 1px solid var(--woon-border);
+	border-radius: var(--woon-radius-sm);
+	transition:
+		border-color var(--woon-dur) var(--woon-ease),
+		box-shadow var(--woon-dur) var(--woon-ease);
+
+	&:focus {
+		outline: none;
+		border-color: var(--woon-primary);
+		box-shadow: var(--woon-ring);
+	}
+
+	&::placeholder {
+		color: var(--woon-text-faint);
+	}
+
+	&[disabled] {
+		background: var(--woon-surface-sunken);
+		color: var(--woon-text-faint);
+	}
+
+	&--sm {
+		min-height: 34px;
+		font-size: var(--woon-fs-sm);
+		max-width: 220px;
+	}
+}
+
+/* Toggle / switch */
+.woon-switch {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--woon-sp-3);
+	cursor: pointer;
+
+	input {
+		position: absolute;
+		opacity: 0;
+		pointer-events: none;
+	}
+
+	&__track {
+		width: 44px;
+		height: 26px;
+		border-radius: var(--woon-radius-pill);
+		background: var(--woon-border-strong);
+		position: relative;
+		transition: background var(--woon-dur) var(--woon-ease);
+		flex: none;
+	}
+
+	&__thumb {
+		position: absolute;
+		top: 3px;
+		left: 3px;
+		width: 20px;
+		height: 20px;
+		border-radius: 50%;
+		background: #fff;
+		box-shadow: var(--woon-shadow-sm);
+		transition: transform var(--woon-dur) var(--woon-ease);
+	}
+
+	input:checked + &__track {
+		background: var(--woon-primary);
+	}
+
+	input:checked + &__track &__thumb {
+		transform: translateX(18px);
+	}
+
+	input:focus-visible + &__track {
+		box-shadow: var(--woon-ring);
+	}
+}
+
+/* ── Tabla ────────────────────────────────────────────────────────────── */
+.woon-table {
+	width: 100%;
+	border-collapse: collapse;
+	background: var(--woon-surface);
+	border: 1px solid var(--woon-border);
+	border-radius: var(--woon-radius-md);
+	overflow: hidden;
+
+	th {
+		text-align: left;
+		font-family: var(--woon-font-mono);
+		font-size: var(--woon-fs-xs);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--woon-text-muted);
+		background: var(--woon-surface-2);
+		padding: var(--woon-sp-3) var(--woon-sp-4);
+		border-bottom: 1px solid var(--woon-border);
+	}
+
+	td {
+		padding: var(--woon-sp-3) var(--woon-sp-4);
+		border-bottom: 1px solid var(--woon-border);
+		font-size: var(--woon-fs-body);
+		vertical-align: middle;
+	}
+
+	tr:last-child td {
+		border-bottom: 0;
+	}
+
+	tbody tr:hover {
+		background: var(--woon-surface-2);
+	}
+}
+
+/* ── Estado vacío ─────────────────────────────────────────────────────── */
+.woon-empty {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	text-align: center;
+	gap: var(--woon-sp-3);
+	padding: var(--woon-sp-8) var(--woon-sp-5);
+	background: var(--woon-surface);
+	border: 1px dashed var(--woon-border-strong);
+	border-radius: var(--woon-radius-md);
+
+	&__title {
+		font-family: var(--woon-font-display);
+		font-weight: 600;
+		font-size: var(--woon-fs-h2);
+		color: var(--woon-ink);
+	}
+
+	&__text {
+		color: var(--woon-text-muted);
+		font-size: var(--woon-fs-sm);
+		max-width: 360px;
+	}
+}
+
+/* ── Footnote ─────────────────────────────────────────────────────────── */
+
+/* p.woon-footnote: iguala la especificidad del reset `.woon-root p { margin: 0 }`
+   (0,1,1) — con .woon-footnote solo, el reset pisaba el margin-top. */
+p.woon-footnote {
+	margin-top: var(--woon-sp-5);
+	color: var(--woon-text-muted);
+	font-size: var(--woon-fs-xs);
+	text-align: right;
+}
+
+/* ── Loading ──────────────────────────────────────────────────────────── */
+.woon-loading {
+	display: flex;
+	align-items: center;
+	gap: var(--woon-sp-3);
+	padding: var(--woon-sp-6) var(--woon-sp-5);
+	color: var(--woon-text-muted);
+	font-size: var(--woon-fs-sm);
+
+	&::before {
+		content: "";
+		display: block;
+		width: 20px;
+		height: 20px;
+		border: 2px solid var(--woon-light);
+		border-top-color: var(--woon-primary);
+		border-radius: 50%;
+		animation: woon-spin 0.7s linear infinite;
+		flex: none;
+	}
+}
+
+@keyframes woon-spin {
+
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+/* ── Modal ────────────────────────────────────────────────────────────── */
+.woon-overlay {
+	position: fixed;
+	inset: 0;
+	background: rgba(42, 16, 82, 0.45);
+	z-index: 9999;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	backdrop-filter: blur(2px);
+}
+
+.woon-modal {
+	background: var(--woon-surface);
+	border-radius: var(--woon-radius-lg);
+	box-shadow: var(--woon-shadow-lg);
+	width: 600px;
+	max-width: 95vw;
+	max-height: 85vh;
+	display: flex;
+	flex-direction: column;
+
+	&--sm {
+		width: 420px;
+	}
+
+	&__head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: var(--woon-sp-5);
+		border-bottom: 1px solid var(--woon-border);
+
+		h2 {
+			font-family: var(--woon-font-body);
+			font-weight: 600;
+			font-size: var(--woon-fs-h3);
+			color: var(--woon-ink);
+		}
+	}
+
+	&__close {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 32px;
+		height: 32px;
+		background: none;
+		border: none;
+		border-radius: var(--woon-radius-sm);
+		cursor: pointer;
+		color: var(--woon-text-muted);
+		font-size: 18px;
+		line-height: 1;
+		transition: background var(--woon-dur) var(--woon-ease);
+
+		&:hover {
+			background: var(--woon-surface-sunken);
+			color: var(--woon-ink);
+		}
+	}
+
+	&__body {
+		padding: var(--woon-sp-5);
+		overflow-y: auto;
+		flex: 1;
+	}
+
+	&__subtitle {
+		color: var(--woon-text-muted);
+		font-size: var(--woon-fs-sm);
+		margin-bottom: var(--woon-sp-4);
+	}
+
+	&__search {
+		display: flex;
+		gap: var(--woon-sp-2);
+		margin-bottom: var(--woon-sp-4);
+
+		.woon-input {
+			flex: 1;
+			max-width: none;
+		}
+	}
+
+	&__foot {
+		display: flex;
+		align-items: center;
+		justify-content: flex-end;
+		gap: var(--woon-sp-2);
+		padding: var(--woon-sp-4) var(--woon-sp-5);
+		border-top: 1px solid var(--woon-border);
+		background: var(--woon-surface-2);
+	}
+}
+
+/* ── Toolbar ──────────────────────────────────────────────────────────── */
+.woon-toolbar {
+	display: flex;
+	align-items: center;
+	gap: var(--woon-sp-3);
+	margin-bottom: var(--woon-sp-5);
+	flex-wrap: wrap;
+
+	&__actions {
+		display: flex;
+		align-items: center;
+		gap: var(--woon-sp-2);
+		margin-left: auto;
+	}
+}
+
+.woon-search {
+	min-width: 260px;
+	max-width: 320px;
+	min-height: 40px;
+	padding: 0 var(--woon-sp-3);
+	font-family: var(--woon-font-body);
+	font-size: var(--woon-fs-body);
+	color: var(--woon-text);
+	background: var(--woon-surface);
+	border: 1px solid var(--woon-border);
+	border-radius: var(--woon-radius-sm);
+	transition: border-color var(--woon-dur) var(--woon-ease), box-shadow var(--woon-dur) var(--woon-ease);
+
+	&:focus {
+		outline: none;
+		border-color: var(--woon-primary);
+		box-shadow: var(--woon-ring);
+	}
+}
+
+.woon-filters {
+	display: flex;
+	gap: var(--woon-sp-1);
+	flex-wrap: wrap;
+}
+
+.woon-filter {
+	appearance: none;
+	background: transparent;
+	border: 1px solid var(--woon-border);
+	border-radius: var(--woon-radius-pill);
+	padding: 0 var(--woon-sp-3);
+	height: 32px;
+	font-family: var(--woon-font-body);
+	font-size: var(--woon-fs-sm);
+	font-weight: 500;
+	color: var(--woon-text-muted);
+	cursor: pointer;
+	transition: all var(--woon-dur) var(--woon-ease);
+
+	&:hover {
+		border-color: var(--woon-border-strong);
+		color: var(--woon-ink);
+	}
+
+	&--active {
+		background: var(--woon-light-soft);
+		border-color: var(--woon-light);
+		color: var(--woon-primary-700);
+		font-weight: 600;
+	}
+}
+
+/* ── Bulk actions ─────────────────────────────────────────────────────── */
+.woon-bulk {
+	display: flex;
+	align-items: center;
+	gap: var(--woon-sp-3);
+	padding: var(--woon-sp-2) var(--woon-sp-4);
+	background: var(--woon-light-soft);
+	border: 1px solid var(--woon-light);
+	border-radius: var(--woon-radius-sm);
+	font-size: var(--woon-fs-sm);
+	font-weight: 500;
+	color: var(--woon-primary-700);
+}
+
+/* ── Dashboard cards ──────────────────────────────────────────────────── */
+.woon-dashboard {
+
+	&__cards {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+		gap: var(--woon-sp-4);
+		margin-bottom: var(--woon-sp-6);
+
+		&--sm {
+			grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+			max-width: 520px;
+		}
+
+		&--cols-3 {
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+			max-width: 760px;
+
+			@media (max-width: 782px) {
+				grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+			}
+		}
+	}
+
+	&__sync {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: var(--woon-sp-5);
+	}
+
+	&__section {
+		padding-top: var(--woon-sp-5);
+		border-top: 1px solid var(--woon-border);
+
+		& + & {
+			margin-top: var(--woon-sp-2);
+		}
+	}
+
+	&__section-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: var(--woon-sp-4);
+	}
+
+	&__section-title {
+		font-size: var(--woon-fs-h3);
+		font-weight: 600;
+		color: var(--woon-ink);
+	}
+}
+
+.woon-stat-card {
+	background: var(--woon-surface);
+	border: 1px solid var(--woon-border);
+	border-radius: var(--woon-radius-md);
+	padding: var(--woon-sp-5);
+	box-shadow: var(--woon-shadow-sm);
+	transition: box-shadow var(--woon-dur) var(--woon-ease), border-color var(--woon-dur) var(--woon-ease);
+	text-align: center;
+
+	&--clickable {
+		cursor: pointer;
+
+		&:hover {
+			border-color: var(--woon-border-strong);
+			box-shadow: var(--woon-shadow-md);
+		}
+	}
+
+	&--urgent {
+		border-color: var(--woon-danger);
+		background: var(--woon-danger-bg);
+
+		.woon-stat-card__value {
+			color: var(--woon-danger);
+		}
+	}
+
+	&--warning {
+		border-color: var(--woon-warning);
+		background: var(--woon-warning-bg);
+
+		.woon-stat-card__value {
+			color: var(--woon-warning);
+		}
+	}
+
+	&__value {
+		font-family: var(--woon-font-display);
+		font-size: 36px;
+		font-weight: 600;
+		letter-spacing: -0.02em;
+		color: var(--woon-ink);
+		line-height: 1;
+		margin-bottom: var(--woon-sp-2);
+	}
+
+	&__label {
+		font-size: var(--woon-fs-sm);
+		color: var(--woon-text-muted);
+	}
+}
+
+/* ── Logs ─────────────────────────────────────────────────────────────── */
+.woon-log-list {
+	display: flex;
+	flex-direction: column;
+	gap: var(--woon-sp-1);
+}
+
+.woon-log-entry {
+	background: var(--woon-surface);
+	border: 1px solid var(--woon-border);
+	border-left-width: 4px;
+	border-radius: var(--woon-radius-sm);
+	overflow: hidden;
+
+	&--success {
+		border-left-color: var(--woon-success);
+	}
+
+	&--error {
+		border-left-color: var(--woon-danger);
+	}
+
+	&--conflict {
+		border-left-color: var(--woon-warning);
+	}
+
+	&__summary {
+		display: flex;
+		align-items: center;
+		gap: var(--woon-sp-3);
+		padding: var(--woon-sp-3) var(--woon-sp-4);
+		cursor: pointer;
+		background: transparent;
+
+		&:hover {
+			background: var(--woon-surface-2);
+		}
+	}
+
+	&__toggle {
+		margin-left: auto;
+		color: var(--woon-text-faint);
+		font-size: 12px;
+	}
+
+	&__detail {
+		padding: var(--woon-sp-5);
+		border-top: 1px solid var(--woon-border);
+		background: var(--woon-surface-sunken);
+	}
+
+	&__error {
+		color: var(--woon-danger);
+		font-size: var(--woon-fs-sm);
+		margin-bottom: var(--woon-sp-3);
+	}
+
+	&__note {
+		color: var(--woon-text-muted);
+		font-size: var(--woon-fs-sm);
+		margin-bottom: var(--woon-sp-3);
+	}
+}
+
+.woon-log-moved-toggle {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--woon-sp-2);
+	font-size: var(--woon-fs-sm);
+	color: var(--woon-text-muted);
+	cursor: pointer;
+	user-select: none;
+}
+
+.woon-log-conflict-resolution {
+	display: flex;
+	gap: var(--woon-sp-6);
+	padding: var(--woon-sp-3) var(--woon-sp-4);
+	background: var(--woon-surface);
+	border: 1px solid var(--woon-border);
+	border-radius: var(--woon-radius-sm);
+	margin-bottom: var(--woon-sp-4);
+	font-size: var(--woon-fs-sm);
+
+	&__item {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+
+	&__label {
+		color: var(--woon-text-faint);
+		font-size: var(--woon-fs-xs);
+	}
+
+
+	&__grid {
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		gap: var(--woon-sp-3);
+		margin-bottom: var(--woon-sp-4);
+		font-size: var(--woon-fs-sm);
+		background: var(--woon-surface);
+		border: 1px solid var(--woon-border);
+		border-radius: var(--woon-radius-sm);
+		padding: var(--woon-sp-3) var(--woon-sp-4);
+	}
+
+	&__code {
+		background: var(--woon-deep);
+		color: var(--woon-paper);
+		padding: var(--woon-sp-4);
+		border-radius: var(--woon-radius-sm);
+		overflow: auto;
+		font-family: var(--woon-font-mono);
+		font-size: var(--woon-fs-xs);
+		max-height: 280px;
+		line-height: 1.7;
+
+		&:not(:last-child) {
+			margin-bottom: var(--woon-sp-3);
+		}
+	}
+
+	summary {
+		cursor: pointer;
+		font-size: var(--woon-fs-sm);
+		font-weight: 600;
+		color: var(--woon-primary);
+		margin-bottom: var(--woon-sp-2);
+		user-select: none;
+
+		&:hover {
+			color: var(--woon-primary-600);
+		}
+	}
+}
+
+/* ── Settings ─────────────────────────────────────────────────────────── */
+.woon-settings {
+	max-width: 760px;
+}
+
+/* ── Conflictos ───────────────────────────────────────────────────────── */
+.woon-conflict {
+	background: var(--woon-surface);
+	border: 1px solid var(--woon-border);
+	border-left: 4px solid var(--woon-warning);
+	border-radius: var(--woon-radius-md);
+	margin-bottom: var(--woon-sp-4);
+	box-shadow: var(--woon-shadow-sm);
+	overflow: hidden;
+
+	&--resolved {
+		border-left-color: var(--woon-success);
+		opacity: 0.8;
+	}
+
+	&__head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: var(--woon-sp-4) var(--woon-sp-5);
+		background: var(--woon-surface-2);
+		border-bottom: 1px solid var(--woon-border);
+	}
+
+	&__id {
+		display: flex;
+		align-items: center;
+		gap: var(--woon-sp-2);
+		font-weight: 600;
+		color: var(--woon-ink);
+	}
+
+	&__date {
+		font-size: var(--woon-fs-xs);
+		font-family: var(--woon-font-mono);
+		color: var(--woon-text-muted);
+	}
+
+	&__info {
+		padding: var(--woon-sp-5);
+	}
+
+	&__grid {
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		gap: var(--woon-sp-3);
+		background: var(--woon-surface-sunken);
+		border-radius: var(--woon-radius-sm);
+		padding: var(--woon-sp-4);
+	}
+
+	&__stat {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
+
+	&__stat-label {
+		font-size: var(--woon-fs-xs);
+		font-family: var(--woon-font-mono);
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--woon-text-faint);
+	}
+
+	&__stat-value {
+		font-family: var(--woon-font-display);
+		font-size: 22px;
+		font-weight: 600;
+		color: var(--woon-ink);
+
+		&--wc {
+			color: #7952b3;
+		}
+
+		&--ml {
+			color: var(--woon-warning);
+		}
+	}
+
+	&__resolve {
+		padding: var(--woon-sp-4) var(--woon-sp-5);
+		border-top: 1px solid var(--woon-border);
+		background: var(--woon-warning-bg);
+	}
+
+	&__resolve-label {
+		font-size: var(--woon-fs-sm);
+		font-weight: 600;
+		color: var(--woon-warning);
+		margin-bottom: var(--woon-sp-3);
+	}
+
+	&__actions {
+		display: flex;
+		gap: var(--woon-sp-2);
+		flex-wrap: wrap;
+	}
+
+	&__custom {
+		display: flex;
+		gap: var(--woon-sp-2);
+		align-items: center;
+		margin-top: var(--woon-sp-3);
+
+		.woon-input {
+			width: 120px;
+			max-width: 120px;
+		}
+	}
+
+	&__resolved {
+		padding: var(--woon-sp-3) var(--woon-sp-5);
+		display: flex;
+		align-items: center;
+		gap: var(--woon-sp-3);
+		font-size: var(--woon-fs-sm);
+		color: var(--woon-text-muted);
+	}
+}
+
+/* ── ML item results (link modal) ─────────────────────────────────────── */
+
+/* ── Mercado Libre search source branding ─────────────────────────────── */
+.woon-ml-source {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 10px;
+
+	&__label {
+		font-size: var(--woon-fs-sm);
+		color: var(--woon-text-muted);
+	}
+
+	&__badge {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		padding: 4px 10px 4px 5px;
+		background: #ffe600;
+		border-radius: 6px;
+		font-size: var(--woon-fs-sm);
+		font-weight: 700;
+		color: #1a1a1a;
+		line-height: 1;
+		letter-spacing: 0.01em;
+		white-space: nowrap;
+		user-select: none;
+	}
+
+	&__btn {
+		appearance: none;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: 6px;
+		padding: 0 var(--woon-sp-4);
+		height: 38px;
+		border: none;
+		border-radius: var(--woon-radius-sm);
+		font-size: var(--woon-fs-sm);
+		font-weight: 600;
+		cursor: pointer;
+		white-space: nowrap;
+		transition: background var(--woon-dur) var(--woon-ease), opacity var(--woon-dur);
+		background: #3483fa;
+		color: #fff;
+
+		&:hover:not(:disabled) {
+			background: #2968c8;
+		}
+
+		&:disabled {
+			opacity: 0.55;
+			cursor: not-allowed;
+		}
+	}
+}
+
+.woon-ml-results {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: var(--woon-sp-1);
+	max-height: 320px;
+	overflow-y: auto;
+}
+
+.woon-ml-result {
+	display: flex;
+	align-items: center;
+	gap: var(--woon-sp-3);
+	padding: var(--woon-sp-3) var(--woon-sp-4);
+	border: 1px solid var(--woon-border);
+	border-radius: var(--woon-radius-sm);
+	cursor: pointer;
+	transition: all var(--woon-dur) var(--woon-ease);
+
+	&:hover {
+		background: var(--woon-surface-2);
+		border-color: var(--woon-border-strong);
+	}
+
+	&--selected {
+		background: var(--woon-light-soft);
+		border-color: var(--woon-primary);
+	}
+
+	&__thumb {
+		width: 48px;
+		height: 48px;
+		object-fit: cover;
+		border-radius: var(--woon-radius-sm);
+		border: 1px solid var(--woon-border);
+		flex: none;
+	}
+
+	&__info {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		font-size: var(--woon-fs-sm);
+
+		strong {
+			color: var(--woon-ink);
+			font-weight: 600;
+		}
+
+		small {
+			color: var(--woon-text-muted);
+			font-family: var(--woon-font-mono);
+			font-size: var(--woon-fs-xs);
+		}
+	}
+}
+
+/* ── Stock edit ───────────────────────────────────────────────────────── */
+.woon-stock-edit {
+	display: flex;
+	gap: var(--woon-sp-2);
+	align-items: center;
+	margin-top: var(--woon-sp-3);
+
+	.woon-select {
+		flex: 1;
+		max-width: none;
+	}
+
+	.woon-input {
+		width: 90px;
+		max-width: 90px;
+	}
+}
+
+/* ── AI suggestions panel ─────────────────────────────────────────────── */
+.woon-ai-panel {
+	background: var(--woon-light-soft);
+	border: 1px solid var(--woon-light);
+	border-radius: var(--woon-radius-md);
+	padding: var(--woon-sp-5);
+	margin-bottom: var(--woon-sp-5);
+
+	&__head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: var(--woon-sp-3);
+
+		h3 {
+			font-family: var(--woon-font-body);
+			font-weight: 600;
+			font-size: var(--woon-fs-h3);
+			color: var(--woon-primary-700);
+		}
+	}
+
+	&__help {
+		color: var(--woon-text-muted);
+		font-size: var(--woon-fs-sm);
+		margin-bottom: var(--woon-sp-4);
+	}
+}
+
+/* ── Paginación ───────────────────────────────────────────────────────── */
+.woon-pagination {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: var(--woon-sp-2);
+	margin-top: var(--woon-sp-5);
+	padding-top: var(--woon-sp-4);
+	border-top: 1px solid var(--woon-border);
+
+	&__info {
+		font-size: var(--woon-fs-sm);
+		color: var(--woon-text-muted);
+		margin-right: var(--woon-sp-2);
+	}
+
+	&__controls {
+		display: flex;
+		align-items: center;
+		gap: var(--woon-sp-1);
+	}
+
+	&__current {
+		font-size: var(--woon-fs-sm);
+		font-family: var(--woon-font-mono);
+		color: var(--woon-text-muted);
+		padding: 0 var(--woon-sp-2);
+	}
+}
+
+/* ── Muted text ───────────────────────────────────────────────────────── */
+.woon-muted {
+	color: var(--woon-text-faint);
+	font-size: var(--woon-fs-sm);
+}
+
+/* ── Variation match modal ────────────────────────────────────────────── */
+.woon-modal--wide,
+.woon-modal--lg {
+	width: 840px;
+}
+
+.woon-match-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--woon-sp-3);
+	padding: var(--woon-sp-2) var(--woon-sp-3);
+	background: var(--woon-surface-2);
+	border: 1px solid var(--woon-border);
+	border-radius: var(--woon-radius-sm);
+	margin-bottom: var(--woon-sp-4);
+	font-size: var(--woon-fs-sm);
+}
+
+.woon-match-grid {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: var(--woon-sp-4);
+	min-height: 280px;
+}
+
+.woon-match-col {
+	display: flex;
+	flex-direction: column;
+
+	&__head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding-bottom: var(--woon-sp-2);
+		margin-bottom: var(--woon-sp-2);
+		border-bottom: 2px solid var(--woon-border-strong);
+		font-size: var(--woon-fs-xs);
+		font-weight: 700;
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		color: var(--woon-text-muted);
+	}
+
+	&__filter {
+		margin-bottom: var(--woon-sp-2);
+		font-size: var(--woon-fs-sm);
+	}
+
+	&__body {
+		display: flex;
+		flex-direction: column;
+		gap: var(--woon-sp-2);
+		flex: 1;
+	}
+}
+
+// Producto/variación sin gestión de inventario en WC: fila gris + signo de pregunta.
+.woon-qmark {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 15px;
+	height: 15px;
+	margin-left: var(--woon-sp-1);
+	border: 1px solid var(--woon-border-strong);
+	border-radius: 50%;
+	background: var(--woon-surface-sunken);
+	color: var(--woon-text-muted);
+	font-size: 10px;
+	font-weight: 700;
+	line-height: 1;
+	flex: none;
+	vertical-align: middle;
+	cursor: help;
+}
+
+.woon-row--no-stock > td {
+	color: var(--woon-text-faint);
+
+	strong,
+	a {
+		color: var(--woon-text-faint);
+	}
+}
+
+.woon-var-card.woon-var-card--no-stock {
+	background: var(--woon-surface-sunken);
+	cursor: not-allowed;
+
+	.woon-var-card__info {
+		color: var(--woon-text-faint);
+
+		strong {
+			color: var(--woon-text-faint);
+		}
+	}
+}
+
+.woon-var-card {
+	position: relative;
+	display: flex;
+	align-items: center;
+	gap: var(--woon-sp-2);
+	padding: 10px var(--woon-sp-3);
+	background: var(--woon-surface);
+	border: 1.5px solid var(--woon-border);
+	border-radius: var(--woon-radius-md);
+	transition:
+		border-color var(--woon-dur) var(--woon-ease),
+		background   var(--woon-dur) var(--woon-ease),
+		box-shadow   var(--woon-dur) var(--woon-ease),
+		opacity      var(--woon-dur) var(--woon-ease);
+
+	&--wc {
+		cursor: grab;
+
+		&:active {
+			cursor: grabbing;
+		}
+
+		&:hover:not(.woon-var-card--dragging) {
+			border-color: var(--woon-border-strong);
+			box-shadow: var(--woon-shadow-sm);
+		}
+	}
+
+	&__grip {
+		color: var(--woon-text-faint);
+		font-size: 16px;
+		line-height: 1;
+		flex-shrink: 0;
+		user-select: none;
+	}
+
+	&__info {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+
+		strong {
+			font-size: var(--woon-fs-sm);
+			font-weight: 600;
+			color: var(--woon-text);
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+
+		small {
+			font-size: var(--woon-fs-xs);
+			color: var(--woon-text-muted);
+			font-family: var(--woon-font-mono);
+		}
+	}
+
+	&__partner {
+		display: block;
+		font-size: var(--woon-fs-xs);
+		color: var(--woon-success);
+		font-weight: 600;
+		margin-top: 2px;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	&__unpair {
+		flex-shrink: 0;
+		width: 22px;
+		height: 22px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: none;
+		border: none;
+		border-radius: 50%;
+		cursor: pointer;
+		color: var(--woon-text-faint);
+		font-size: 18px;
+		line-height: 1;
+		transition: background var(--woon-dur), color var(--woon-dur);
+
+		&:hover {
+			background: var(--woon-danger-bg);
+			color: var(--woon-danger);
+		}
+	}
+
+	&__drop-hint {
+		flex-shrink: 0;
+		font-size: var(--woon-fs-xs);
+		color: var(--woon-primary);
+		font-weight: 600;
+		white-space: nowrap;
+		animation: woon-pulse 1.2s ease-in-out infinite;
+	}
+
+	/* States */
+	&--dragging {
+		opacity: 0.38;
+		cursor: grabbing;
+	}
+
+	&--paired {
+		border-color: var(--woon-success);
+		background: var(--woon-success-bg);
+	}
+
+	&--droppable {
+		border-style: dashed;
+		border-color: var(--woon-light);
+	}
+
+	&--over {
+		border-style: solid;
+		border-color: var(--woon-primary);
+		background: var(--woon-light-soft);
+		box-shadow: var(--woon-ring);
+	}
+
+	&--taken {
+		opacity: 0.55;
+		cursor: default;
+		pointer-events: none;
+		border-color: var(--woon-border);
+		background: var(--woon-surface-sunken);
+	}
+}
+
+@keyframes woon-pulse {
+
+	0%,
+	100% {
+		opacity: 1;
+	}
+
+	50% {
+		opacity: 0.45;
+	}
+}
+
+// Inline link-style button (no background, no border)
+.woon-btn-link {
+	appearance: none;
+	background: none;
+	border: none;
+	padding: 0;
+	cursor: pointer;
+	color: var(--woon-muted);
+	text-decoration: underline;
+	font-size: var(--woon-fs-xs);
+
+	&:hover {
+		color: var(--woon-primary);
+	}
+}
+
+/* ── Botón tamaño grande ─────────────────────────────────────────────── */
+.woon-btn--lg {
+	min-height: 48px;
+	padding: 0 var(--woon-sp-6, 24px);
+	font-size: var(--woon-fs-h3);
+}
+
+/* ── Check list (compartido por Setup y Settings) ────────────────────── */
+.woon-check-list {
+	display: flex;
+	flex-direction: column;
+	gap: var(--woon-sp-1);
+}
+
+.woon-check-item {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--woon-sp-3);
+	padding: var(--woon-sp-3) var(--woon-sp-4);
+	border-radius: var(--woon-radius-sm);
+	background: var(--woon-surface-2);
+	border: 1px solid var(--woon-border);
+
+	&--compact {
+		padding: var(--woon-sp-2) var(--woon-sp-3);
+		background: transparent;
+		border: none;
+		gap: var(--woon-sp-2);
+	}
+
+	&__icon {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 22px;
+		height: 22px;
+		border-radius: 50%;
+		font-size: var(--woon-fs-sm);
+		font-weight: 700;
+		flex-shrink: 0;
+		margin-top: 1px;
+
+		&--pass {
+			background: var(--woon-success-bg);
+			color: var(--woon-success);
+		}
+
+		&--fail {
+			background: var(--woon-danger-bg);
+			color: var(--woon-danger);
+		}
+
+		&--warn {
+			background: var(--woon-warning-bg);
+			color: var(--woon-warning);
+		}
+	}
+
+	&__content {
+		flex: 1;
+		min-width: 0;
+	}
+
+	&__label {
+		font-size: var(--woon-fs-body);
+		font-weight: 500;
+		color: var(--woon-ink);
+	}
+
+	&__value {
+		color: var(--woon-text-muted);
+		font-size: var(--woon-fs-sm);
+	}
+
+	&__fix {
+		margin-top: var(--woon-sp-1);
+		font-size: var(--woon-fs-sm);
+		color: var(--woon-text-muted);
+		line-height: var(--woon-lh-body);
+
+		&--inline {
+			display: block;
+			margin-top: var(--woon-sp-1);
+		}
+	}
+}
+
+/* ── System check summary (en Settings) ─────────────────────────────── */
+.woon-syscheck {
+	border-radius: var(--woon-radius-sm);
+	border: 1px solid var(--woon-border);
+	overflow: hidden;
+
+	&--ok {
+		border-left: 4px solid var(--woon-success);
+	}
+
+	&--warn {
+		border-left: 4px solid var(--woon-warning);
+	}
+
+	&--fail {
+		border-left: 4px solid var(--woon-danger);
+	}
+
+	&__toggle {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		width: 100%;
+		padding: var(--woon-sp-3) var(--woon-sp-4);
+		background: var(--woon-surface-2);
+		border: none;
+		cursor: pointer;
+		font-size: var(--woon-fs-sm);
+		font-weight: 500;
+		color: var(--woon-text);
+		text-align: left;
+
+		&:hover {
+			background: var(--woon-surface-sunken);
+		}
+	}
+
+	&__arrow {
+		font-size: var(--woon-fs-xs);
+		color: var(--woon-text-muted);
+	}
+
+	&__list {
+		padding: var(--woon-sp-2) var(--woon-sp-3);
+		border-top: 1px solid var(--woon-border);
+		background: var(--woon-surface);
+	}
+}
+
+/* ── Setup wizard ────────────────────────────────────────────────────── */
+.woon-setup {
+	max-width: 680px;
+	margin: 0 auto;
+
+	&__header {
+		text-align: center;
+		margin-bottom: var(--woon-sp-6, 24px);
+	}
+
+	&__title {
+		font-family: var(--woon-font-display);
+		font-size: var(--woon-fs-display);
+		font-weight: 600;
+		color: var(--woon-ink);
+		margin: 0 0 var(--woon-sp-2);
+	}
+
+	&__subtitle {
+		color: var(--woon-text-muted);
+		font-size: var(--woon-fs-body);
+		margin: 0;
+	}
+
+	&__stepper {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0;
+		margin-bottom: var(--woon-sp-6, 24px);
+	}
+
+	&__stepper-item {
+		display: flex;
+		align-items: center;
+		gap: var(--woon-sp-2);
+		padding: var(--woon-sp-2) var(--woon-sp-4);
+		font-size: var(--woon-fs-sm);
+		color: var(--woon-text-faint);
+		position: relative;
+
+		&::after {
+			content: "";
+			position: absolute;
+			right: -1px;
+			top: 50%;
+			transform: translateY(-50%);
+			width: 1px;
+			height: 60%;
+			background: var(--woon-border);
+		}
+
+		&:last-child::after {
+			display: none;
+		}
+
+		&--active {
+			color: var(--woon-primary);
+			font-weight: 600;
+
+			.woon-setup__stepper-num {
+				background: var(--woon-primary);
+				color: #fff;
+				border-color: var(--woon-primary);
+			}
+		}
+
+		&--done {
+			color: var(--woon-success);
+
+			.woon-setup__stepper-num {
+				background: var(--woon-success-bg);
+				color: var(--woon-success);
+				border-color: var(--woon-success);
+			}
+		}
+	}
+
+	&__stepper-num {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 24px;
+		height: 24px;
+		border-radius: 50%;
+		font-size: var(--woon-fs-sm);
+		font-weight: 700;
+		border: 2px solid var(--woon-border);
+		background: var(--woon-surface-sunken);
+		color: var(--woon-text-faint);
+		flex-shrink: 0;
+	}
+
+	&__stepper-label {
+		white-space: nowrap;
+	}
+
+	&__card {
+		margin-bottom: var(--woon-sp-5);
+	}
+
+	&__callback-url {
+		display: block;
+		padding: var(--woon-sp-2) var(--woon-sp-3);
+		background: var(--woon-surface-sunken);
+		border: 1px solid var(--woon-border);
+		border-radius: var(--woon-radius-sm);
+		font-family: var(--woon-font-mono);
+		font-size: var(--woon-fs-sm);
+		color: var(--woon-text);
+		word-break: break-all;
+		user-select: all;
+	}
+
+	&__connect-action {
+		text-align: center;
+		padding: var(--woon-sp-5) 0;
+	}
+
+	&__success {
+		text-align: center;
+		padding: var(--woon-sp-8, 48px) var(--woon-sp-5);
+	}
+
+	&__success-icon {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 72px;
+		height: 72px;
+		border-radius: 50%;
+		background: var(--woon-success-bg);
+		color: var(--woon-success);
+		font-size: 36px;
+		font-weight: 700;
+		margin-bottom: var(--woon-sp-4);
+	}
+
+	&__success-title {
+		font-family: var(--woon-font-display);
+		font-size: var(--woon-fs-display);
+		font-weight: 600;
+		color: var(--woon-ink);
+		margin: 0 0 var(--woon-sp-3);
+	}
+}
+
+/* ── Banner: sincronización pendiente de activación ─────────────────── */
+.woon-sync-pending-banner {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--woon-sp-4);
+	margin: var(--woon-sp-4) var(--woon-sp-6) 0;
+	border-radius: var(--woon-radius-sm);
+
+	span {
+		flex: 1;
+	}
+}

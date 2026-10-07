@@ -347,7 +347,9 @@ woonderful-stock-sync-for-woocommerce/
 │   ├── Detector/                               # ADR-006
 │   ├── Linking/                                # pendiente de ADR
 │   └── Reconciliation/                         # ADR-009, ADR-010
-├── admin/                                      # Sólo se carga con is_admin()
+│   ├── Admin/                                  # La página y wss-admin/v1 (ADR-013)
+├── src/                                        # La app en React; build/ es lo compilado
+├── assets/brand/                               # El logo y los íconos de Woonderful
 ├── docs/
 └── tests/
 ```
@@ -361,8 +363,23 @@ carga de la tienda, así que ahí no va ninguna consulta que se pueda evitar: lo
 solo —el motor de las tablas, la versión del esquema— se calcula al instalar o al migrar y se
 guarda en una opción **autocargada**. `PLG-09` lo verifica contando consultas.
 
-**Regla de dependencias:** `includes/` no conoce `admin/`; `admin/` consume `includes/`.
-Nada de `includes/` imprime HTML.
+**La interfaz** (ADR-013). Una app en React, copiada en estructura y diseño de woonderful-sync:
+`src/index.js` arma la sidebar y elige la pantalla por `#/ruta` (`src/routing.js`); `src/style.scss`
+es el de woonderful-sync, con sus tokens y clases `woon-*`; el logo y los íconos están en
+`assets/brand/`. Se compila con `npm run build` a `build/`, **que se sube al repo**: el ZIP lo
+necesita. El `package-lock.json` es el de woonderful-sync, para usar las mismas herramientas —con
+otras versiones, el lint de JavaScript no carga—.
+
+`Admin\Page` registra el menú —con `manage_woocommerce`— y encola la app sólo en sus páginas, con
+el nonce de `wp_rest`. `Admin\Api` registra `wss-admin/v1`: cada endpoint pide
+`manage_woocommerce` y llama a las mismas clases que WP-CLI. Las dos se enganchan antes de la
+guarda: un sitio suspendido tiene que poder mostrar por qué.
+
+**Lint y tests del JavaScript**, desde la carpeta del plugin: `npm run lint:js`,
+`npm run lint:style` y `npm run test:unit`. No pasan por `make`: corren con el Node de la máquina.
+
+**Regla de dependencias:** sólo `Admin\Page` imprime HTML —el contenedor donde se monta la app—;
+el resto de `includes/` no.
 
 **El detector lee el stock de la base, nunca del objeto del producto.** `Detector` engancha
 los pares `before`/`set` de producto y variación y en cada uno hace un `SELECT` directo a

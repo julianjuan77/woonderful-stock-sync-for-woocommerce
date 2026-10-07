@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <title>Woonderful · Ícono / monograma</title>
+  
+  <rect width="1024" height="1024" rx="224" ry="224" fill="#2A1052"></rect>
+  
+  <g stroke="#F7F4FF" stroke-width="58" fill="none">
+    <circle cx="370" cy="540" r="170"></circle>
+    <circle cx="660" cy="540" r="170"></circle>
+  </g>
+  
+  <g transform="translate(700 220)">
+    <path d="M70 0 L84 56 L140 70 L84 84 L70 140 L56 84 L0 70 L56 56 Z" fill="#FFD66B"></path>
+    <circle cx="70" cy="70" r="9" fill="#2A1052" fill-opacity="0.5"></circle>
+  </g>
+</svg>

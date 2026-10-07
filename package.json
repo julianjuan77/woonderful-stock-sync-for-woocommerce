@@ -1,0 +1,16 @@
+{
+	"name": "woonderful-stock-sync-for-woocommerce",
+	"version": "0.1.0",
+	"description": "Sincronización de stock entre dos tiendas WooCommerce",
+	"private": true,
+	"scripts": {
+		"build": "wp-scripts build src/index.js --output-path=build",
+		"start": "wp-scripts start src/index.js --output-path=build",
+		"lint:js": "wp-scripts lint-js src/",
+		"lint:style": "wp-scripts lint-style 'src/**/*.scss'",
+		"test:unit": "wp-scripts test-unit-js --testPathPattern=src/"
+	},
+	"devDependencies": {
+		"@wordpress/scripts": "^30.0.0"
+	}
+}

@@ -1,6 +1,5 @@
 /vendor/
 /node_modules/
-/build/
 /dist/
 .phpunit.result.cache
 .phpcs-cache

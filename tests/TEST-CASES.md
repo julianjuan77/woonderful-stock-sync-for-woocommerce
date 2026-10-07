@@ -1013,6 +1013,23 @@ una vuelta vieja con los avisos apagados, `NOT-10`; sin `link_unresolved`, `NOT-
 marcado sin mandarse, `NOT-17`; la pregunta a `/health` sin firma, `PER-07`; el plazo fijo,
 `NOT-12`.
 
+## [`tests/test-admin.php`](test-admin.php) — la base de la interfaz
+
+| ID | Caso | Esperado |
+| --- | --- | --- |
+| `ADM-01` | `wss-admin/v1` sin sesión, y con un suscriptor | `401` y `403`: pide `manage_woocommerce` en el servidor (ADR-013 §5) |
+| `ADM-02` | Un gestor de la tienda, con la otra caída | Ve el estado: esta tienda, emparejada, maestra, y la otra caída con desde cuándo |
+| `ADM-03` | Sin emparejar | `paired: false`: la app abre la configuración inicial |
+| `ADM-04` | El menú | Pide `manage_woocommerce`, con una entrada por pantalla |
+| `ADM-05` | La app en otra página del admin, y en la suya | Sólo en la suya, con el nonce |
+| `ADM-06` | **`boot()` con el sitio suspendido** | Engancha igual la interfaz: tiene que poder mostrar por qué |
+
+## [`src/__tests__/routing.test.js`](../src/__tests__/routing.test.js) — las pantallas por `#/ruta`
+
+Con `npm run test:unit`. Elige la pantalla de la ruta —también con parámetros—, vuelve al
+resumen con una ruta que no existe, y la sidebar tiene las cuatro pantallas sin la configuración
+inicial.
+
 ## Cómo se prueba algo que no deja rastro en el estado final
 
 Tres casos de esta suite no se pueden verificar mirando cómo queda la base, porque lo que

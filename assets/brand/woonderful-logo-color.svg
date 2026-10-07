@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 260" width="1200" height="260">
+  <title>Woonderful · Logo primario (sparkle)</title>
+  <defs>
+    
+  </defs>
+  
+  <text x="20" y="200" class="w-word" fill="#0F0820">W<tspan fill="#6B2FD9">oo</tspan>nderful</text>
+  
+  <g transform="translate(355 30)">
+    <path d="M45 0 L54 36 L90 45 L54 54 L45 90 L36 54 L0 45 L36 36 Z" fill="#FFD66B"></path>
+    <circle cx="45" cy="45" r="5" fill="#0F0820" fill-opacity="0.35"></circle>
+  </g>
+</svg>

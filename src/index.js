@@ -1,0 +1,258 @@
+import { createRoot, useState, useEffect } from '@wordpress/element';
+import { __, sprintf } from '@wordpress/i18n';
+import apiFetch from '@wordpress/api-fetch';
+import Dashboard from './screens/Dashboard';
+import Products from './screens/Products';
+import Logs from './screens/Logs';
+import Settings from './screens/Settings';
+import Setup from './screens/Setup';
+import { NAV, screenFromHash } from './routing';
+import './style.scss';
+
+apiFetch.use( apiFetch.createNonceMiddleware( window.wssAdmin?.nonce ) );
+
+const NS = '/wss-admin/v1';
+
+// Las rutas de la app van al namespace del admin, separado del que usan las tiendas entre
+// sí (ADR-013 §4).
+const wssFetch = ( options ) => {
+	if ( typeof options.path === 'string' && ! options.url ) {
+		return apiFetch( { ...options, path: `${ NS }${ options.path }` } );
+	}
+	return apiFetch( options );
+};
+
+const SCREENS = {
+	dashboard: {
+		component: Dashboard,
+		label: __( 'Resumen', 'woonderful-stock-sync-for-woocommerce' ),
+		icon: IconDashboard,
+	},
+	products: {
+		component: Products,
+		label: __( 'Productos', 'woonderful-stock-sync-for-woocommerce' ),
+		icon: IconProducts,
+	},
+	logs: {
+		component: Logs,
+		label: __( 'Registros', 'woonderful-stock-sync-for-woocommerce' ),
+		icon: IconLogs,
+	},
+	settings: {
+		component: Settings,
+		label: __( 'Configuración', 'woonderful-stock-sync-for-woocommerce' ),
+		icon: IconSettings,
+	},
+	setup: {
+		component: Setup,
+		label: __(
+			'Configuración inicial',
+			'woonderful-stock-sync-for-woocommerce'
+		),
+		icon: IconSettings,
+	},
+};
+
+const App = () => {
+	const [ currentScreen, setCurrentScreen ] = useState( () =>
+		screenFromHash( window.location.hash )
+	);
+	const [ status, setStatus ] = useState( null );
+
+	useEffect( () => {
+		const onHashChange = () =>
+			setCurrentScreen( screenFromHash( window.location.hash ) );
+		window.addEventListener( 'hashchange', onHashChange );
+		return () => window.removeEventListener( 'hashchange', onHashChange );
+	}, [] );
+
+	const navigate = ( screen, params ) => {
+		const query = params
+			? `?${ new URLSearchParams( params ).toString() }`
+			: '';
+		window.location.hash = `/${ screen }${ query }`;
+		setCurrentScreen( screen );
+	};
+
+	useEffect( () => {
+		wssFetch( { path: '/status' } )
+			.then( ( st ) => {
+				setStatus( st );
+				// La configuración inicial, mientras la tienda no esté emparejada (ADR-013 §3).
+				if (
+					! st.paired &&
+					'dashboard' === currentScreen &&
+					! window.sessionStorage.getItem( 'wss_setup_skipped' )
+				) {
+					navigate( 'setup' );
+				}
+			} )
+			.catch( () => {} );
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [] );
+
+	const Screen = SCREENS[ currentScreen ]?.component || Dashboard;
+	const peerDown = status && 'ok' !== status.peer?.state;
+
+	return (
+		<div className="woon-root">
+			<aside className="woon-sidebar">
+				<div className="woon-sidebar__logo">
+					<WoonderfulLogo />
+					<span className="woon-sidebar__badge">Stock</span>
+				</div>
+
+				<nav className="woon-sidebar__nav">
+					{ NAV.map( ( key ) => ( { key, ...SCREENS[ key ] } ) ).map(
+						( { key, label, icon: Icon } ) => (
+							<button
+								key={ key }
+								className={ `woon-nav-item ${
+									currentScreen === key
+										? 'woon-nav-item--active'
+										: ''
+								}` }
+								onClick={ () => navigate( key ) }
+							>
+								<Icon className="woon-nav-item__icon" />
+								{ label }
+							</button>
+						)
+					) }
+				</nav>
+			</aside>
+
+			<main className="woon-main">
+				{ peerDown && (
+					<div className="woon-notice woon-notice--warning">
+						{ sprintf(
+							/* translators: %s: desde cuándo. */
+							__(
+								'La otra tienda no responde desde %s. Los stocks pueden verse descuadrados: la cola y la reconciliación lo reparan solas cuando vuelva.',
+								'woonderful-stock-sync-for-woocommerce'
+							),
+							status.peer.since
+						) }
+					</div>
+				) }
+				<div className="woon-page">
+					<Screen
+						apiFetch={ wssFetch }
+						navigate={ navigate }
+						status={ status }
+					/>
+				</div>
+			</main>
+		</div>
+	);
+};
+
+const container = document.getElementById( 'wss-admin-app' );
+if ( container ) {
+	createRoot( container ).render( <App /> );
+}
+
+/* ── Logo e íconos, los de woonderful-sync ──────────────────────────── */
+
+function WoonderfulLogo() {
+	return (
+		<svg
+			xmlns="http://www.w3.org/2000/svg"
+			viewBox="0 0 1200 260"
+			className="woon-sidebar__logo-img"
+			role="img"
+			aria-label="Woonderful"
+		>
+			<text
+				x="20"
+				y="200"
+				fill="#F7F4FF"
+				fontFamily='"Bricolage Grotesque", sans-serif'
+				fontSize="195"
+				fontWeight="600"
+			>
+				Woonderful
+			</text>
+			<g transform="translate(355 30)">
+				<path
+					d="M45 0 L54 36 L90 45 L54 54 L45 90 L36 54 L0 45 L36 36 Z"
+					fill="#F7F4FF"
+				/>
+			</g>
+		</svg>
+	);
+}
+
+function IconDashboard( { className } ) {
+	return (
+		<svg
+			className={ className }
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="2"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+		>
+			<rect x="3" y="3" width="7" height="7" />
+			<rect x="14" y="3" width="7" height="7" />
+			<rect x="14" y="14" width="7" height="7" />
+			<rect x="3" y="14" width="7" height="7" />
+		</svg>
+	);
+}
+
+function IconProducts( { className } ) {
+	return (
+		<svg
+			className={ className }
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="2"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+		>
+			<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+			<polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+			<line x1="12" y1="22.08" x2="12" y2="12" />
+		</svg>
+	);
+}
+
+function IconLogs( { className } ) {
+	return (
+		<svg
+			className={ className }
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="2"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+		>
+			<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+			<polyline points="14 2 14 8 20 8" />
+			<line x1="16" y1="13" x2="8" y2="13" />
+			<line x1="16" y1="17" x2="8" y2="17" />
+			<polyline points="10 9 9 9 8 9" />
+		</svg>
+	);
+}
+
+function IconSettings( { className } ) {
+	return (
+		<svg
+			className={ className }
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="2"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+		>
+			<circle cx="12" cy="12" r="3" />
+			<path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+		</svg>
+	);
+}

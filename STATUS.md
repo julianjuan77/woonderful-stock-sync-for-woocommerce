@@ -2,7 +2,7 @@
 
 > Plugin: `woonderful-stock-sync-for-woocommerce` | WP 6.5+ | PHP 8.1+ | WooCommerce 9.1+
 > Repo: [woonderful-stock-sync-for-woocommerce](https://github.com/julianjuan77/woonderful-stock-sync-for-woocommerce)
-> Creado: 2026-09-20 · Última sesión: 2026-10-06 — los ADRs del log (ADR-011) y de los avisos (ADR-012), y el bloque 10 entero: la tabla del log, el estado de la otra tienda, los eventos de cada pieza, los pares rotos, la purga y los avisos por email
+> Creado: 2026-09-20 · Última sesión: 2026-10-07 — los ADRs de la interfaz (ADR-013, con la configuración inicial, y ADR-014) y la base de la interfaz (8.1). Antes, 2026-10-06 — los ADRs del log (ADR-011) y de los avisos (ADR-012), y el bloque 10 entero: la tabla del log, el estado de la otra tienda, los eventos de cada pieza, los pares rotos, la purga y los avisos por email
 
 Sincroniza el stock entre dos tiendas WooCommerce propias que despachan del mismo depósito.
 Pool único, sin reparto: lo que se vende en una descuenta en las dos.
@@ -24,7 +24,7 @@ git show 2668a7a --stat      # qué archivos tocó y cuántas líneas
 git show 2668a7a             # el diff completo
 ```
 
-Y para correr sólo los tests de una pieza, en vez de los 475:
+Y para correr sólo los tests de una pieza, en vez de los 481:
 
 ```bash
 make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS="--filter Test_Ledger"
@@ -34,8 +34,10 @@ make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS=
 
 ## 🔄 En progreso
 
-Nada. Los ADRs de la interfaz (ADR-013 y ADR-014) están aprobados: falta programarla, el bloque
-8, partiendo del diseño de woonderful-sync.
+El bloque 8, la interfaz. La 8.1 —la base— está hecha: la app abre en `sandbox` con la sidebar y
+el diseño de woonderful-sync, y las pantallas son esqueletos que se llenan en las tareas que
+siguen. El JavaScript se compila con `npm run build` y se prueba con `npm run lint:js` y
+`npm run test:unit`, desde la carpeta del plugin.
 
 Los emails de los sitios de prueba se ven en el Mailhog de cada uno: `sandbox` en 8250,
 `sandbox-b` en 8270.
@@ -175,7 +177,7 @@ es lo normal: loguearlo en cada pasada sería ruido.
 
 | | Tarea | Estado | Commit | Tests |
 |---|---|---|---|---|
-| 8.1 | La base: `@wordpress/scripts`, el menú, la app con la sidebar y el diseño copiados de woonderful-sync, `wss-admin/v1` con su permiso (ADR-013 §1, §2, §4, §5) | ⬜ | | |
+| 8.1 | La base: `@wordpress/scripts`, el menú, la app con la sidebar y el diseño copiados de woonderful-sync, `wss-admin/v1` con su permiso (ADR-013 §1, §2, §4, §5) | ✅ | | `ADM-01`…`ADM-06`, `routing.test.js` |
 | 8.2 | Resumen: el estado de la otra, la última reconciliación y la manual, las discrepancias de las dos y cómo resolverlas (ADR-013 §3) | ⬜ | | |
 | 8.3 | Registros: el log, filtros y paginado, desde `Logs.js` (ADR-013 §3) | ⬜ | | |
 | 8.4 | Configuración: el emparejamiento, los avisos, la casilla de borrado (ADR-013 §3) | ⬜ | | |
