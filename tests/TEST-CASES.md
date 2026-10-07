@@ -933,6 +933,8 @@ visto cae `AUD-17`; sin la tercera pregunta caen `RCL-17` y `RCL-18`; ignorando 
 | `EVT-06` | **Eventos de hace 91 días: uno común, un descarte, un deshacer, un aviso; y uno de hace 89** | La purga borra sólo el común (ADR-011 §6) |
 | `EVT-07` | Cada tipo | Tiene su frase, no el nombre interno |
 | `EVT-08` | Un movimiento recibido de la otra para el producto | Entra en su historial, por el vínculo |
+| `EVT-09` | Un par roto, una reconciliación, un motivo desconocido | En castellano —"está en la papelera", "de la noche", "no se pudo mirar"—; el desconocido, como vino |
+| `EVT-10` | Una fecha del log, en Buenos Aires | Se muestra en la hora del sitio, no en UTC |
 
 Verificado rompiéndolo: guardando el usuario 0 cae `EVT-01`; sin restaurar los errores cae
 `EVT-03`; purgando todo cae `EVT-06`; el historial sin el libro cae `EVT-05`; en orden viejo o
@@ -996,6 +998,7 @@ Los emails se atrapan con `pre_wp_mail`; `GET /health` lo contesta el test.
 | `NOT-18` | Descartado y después deshecho el descarte | Vuelve al resumen |
 | `NOT-19` | **El email de la caída falla durante 15 minutos** | Dos intentos —a los 0 y a los 10—, un solo `notify_failed`, y sale cuando el correo anda (ADR-012 §7) |
 | `NOT-20` | **El correo roto durante tres ventanas, después anda, y se rompe de nuevo** | Un `notify_failed` por incidente, no por ventana |
+| `NOT-21` | Un solo producto sin sincronizar, y un par roto | "1 producto", en singular; y el motivo en castellano |
 
 Verificado rompiéndolo: avisando lo que el dueño miraba cae `NOT-01`; lo atribuido a la caída,
 `NOT-03`; sin la ventana, `NOT-02` y `NOT-11`; sin los 30 minutos, `NOT-05`; avisando la caída

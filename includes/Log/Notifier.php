@@ -142,17 +142,25 @@ final class Notifier {
 			$lines[] = sprintf( __( '…y otros %d.', 'woonderful-stock-sync-for-woocommerce' ), count( $new ) - self::LIST_LIMIT );
 		}
 
-		$body = sprintf(
-			/* translators: 1: productos nuevos, 2: total pendiente, 3: horas, 4: la lista. */
-			__( "Hay %1\$d productos nuevos en esta tienda que llevan más de %3\$d horas sin vincular, así que su stock no se sincroniza con la otra. En total, %2\$d están así.\n\n%4\$s\n\nCada producto se avisa una sola vez. Vinculalo, o descartalo si no tiene que sincronizar.", 'woonderful-stock-sync-for-woocommerce' ),
+		$intro = sprintf(
+			/* translators: 1: cuántos, 2: horas. */
+			_n(
+				'Hay %1$d producto nuevo en esta tienda que lleva más de %2$d horas sin vincular, así que su stock no se sincroniza con la otra.',
+				'Hay %1$d productos nuevos en esta tienda que llevan más de %2$d horas sin vincular, así que su stock no se sincroniza con la otra.',
+				count( $new ),
+				'woonderful-stock-sync-for-woocommerce'
+			),
 			count( $new ),
-			count( $pending ),
-			self::after_hours(),
-			implode( "\n", $lines )
+			self::after_hours()
 		);
 
+		/* translators: %d: el total. */
+		$total = sprintf( _n( 'En total, %d está así.', 'En total, %d están así.', count( $pending ), 'woonderful-stock-sync-for-woocommerce' ), count( $pending ) );
+
+		$body = $intro . ' ' . $total . "\n\n" . implode( "\n", $lines ) . "\n\n" . __( 'Cada producto se avisa una sola vez. Vinculalo, o descartalo si no tiene que sincronizar.', 'woonderful-stock-sync-for-woocommerce' );
+
 		/* translators: %d: cuántos. */
-		$sent = self::send( $state, sprintf( __( '%d productos sin sincronizar', 'woonderful-stock-sync-for-woocommerce' ), count( $new ) ), $body, 'unsynced', $now );
+		$sent = self::send( $state, sprintf( _n( '%d producto sin sincronizar', '%d productos sin sincronizar', count( $new ), 'woonderful-stock-sync-for-woocommerce' ), count( $new ) ), $body, 'unsynced', $now );
 
 		self::save( $state );
 
@@ -433,7 +441,7 @@ final class Notifier {
 		foreach ( array_slice( $pending, 0, self::LIST_LIMIT ) as $item ) {
 			$product = wc_get_product( (int) $item['product'] );
 			$name    = $product instanceof \WC_Product ? $product->get_name() : '';
-			$lines[] = trim( sprintf( '- %s (#%d) %s', $name, (int) $item['product'], '' === $item['reason'] ? '' : '— ' . $item['reason'] ) );
+			$lines[] = trim( sprintf( '- %s (#%d) %s', $name, (int) $item['product'], '' === $item['reason'] ? '' : '— ' . Events::reason_text( $item['reason'] ) ) );
 		}
 
 		if ( count( $pending ) > self::LIST_LIMIT ) {

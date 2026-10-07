@@ -369,14 +369,14 @@ final class Command {
 
 		if ( isset( $assoc_args['product'] ) ) {
 			foreach ( Events::history( (int) $assoc_args['product'], $limit ) as $entry ) {
-				\WP_CLI::line( $entry['at'] . '  ' . ( 'event' === $entry['type'] ? Events::describe( $entry ) : self::movement_line( $entry ) ) );
+				\WP_CLI::line( Events::local_time( $entry['at'] ) . '  ' . ( 'event' === $entry['type'] ? Events::describe( $entry ) : self::movement_line( $entry ) ) );
 			}
 
 			return;
 		}
 
 		foreach ( Events::list( array(), 1, $limit )['items'] as $event ) {
-			\WP_CLI::line( $event['at'] . '  ' . strtoupper( (string) $event['level'] ) . '  ' . Events::describe( $event ) );
+			\WP_CLI::line( Events::local_time( $event['at'] ) . '  ' . strtoupper( (string) $event['level'] ) . '  ' . Events::describe( $event ) );
 		}
 	}
 

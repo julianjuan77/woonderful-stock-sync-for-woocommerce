@@ -246,7 +246,7 @@ final class Events {
 				return sprintf( __( 'Se vinculó el producto %1$s con el %2$s de la otra tienda.', 'woonderful-stock-sync-for-woocommerce' ), $product, (string) ( $context['remote'] ?? '?' ) );
 			case self::LINK_FAILED:
 				/* translators: 1: producto, 2: motivo. */
-				return sprintf( __( 'No se pudo vincular el producto %1$s: %2$s.', 'woonderful-stock-sync-for-woocommerce' ), $product, (string) ( $context['reason'] ?? '?' ) );
+				return sprintf( __( 'No se pudo vincular el producto %1$s: %2$s.', 'woonderful-stock-sync-for-woocommerce' ), $product, self::reason_text( (string) ( $context['reason'] ?? '' ) ) );
 			case self::UNLINKED:
 				/* translators: %s: producto. */
 				return sprintf( __( 'Se desvinculó el producto %s.', 'woonderful-stock-sync-for-woocommerce' ), $product );
@@ -277,7 +277,7 @@ final class Events {
 				return sprintf( __( 'La base rechazó una escritura del libro: %s.', 'woonderful-stock-sync-for-woocommerce' ), (string) ( $context['error'] ?? '?' ) );
 			case self::RECONCILED:
 				/* translators: 1: quién la lanzó, 2: cómo terminó. */
-				return sprintf( __( 'Reconciliación (%1$s): %2$s.', 'woonderful-stock-sync-for-woocommerce' ), (string) ( $context['trigger'] ?? '?' ), (string) ( $context['outcome'] ?? '?' ) );
+				return sprintf( __( 'Reconciliación %1$s: %2$s.', 'woonderful-stock-sync-for-woocommerce' ), self::trigger_text( (string) ( $context['trigger'] ?? '' ) ), self::outcome_text( (string) ( $context['outcome'] ?? '' ) ) );
 			case self::DISCREPANCY_OPENED:
 				/* translators: 1: producto, 2: lo que dice el libro, 3: lo que hay. */
 				return sprintf( __( 'Discrepancia en el producto %1$s: el libro dice %2$d, hay %3$d.', 'woonderful-stock-sync-for-woocommerce' ), $product, (int) ( $context['expected'] ?? 0 ), (int) ( $context['found'] ?? 0 ) );
@@ -295,7 +295,7 @@ final class Events {
 				return sprintf( __( 'Se borró el vínculo del producto %s: la maestra no lo tenía.', 'woonderful-stock-sync-for-woocommerce' ), $product );
 			case self::PAIR_BROKEN:
 				/* translators: 1: producto, 2: por qué. */
-				return sprintf( __( 'Se rompió el par del producto %1$s: %2$s.', 'woonderful-stock-sync-for-woocommerce' ), $product, (string) ( $context['reason'] ?? '?' ) );
+				return sprintf( __( 'Se rompió el par del producto %1$s: %2$s.', 'woonderful-stock-sync-for-woocommerce' ), $product, self::reason_text( (string) ( $context['reason'] ?? '' ) ) );
 			case self::PAIR_RESTORED:
 				/* translators: %s: producto. */
 				return sprintf( __( 'El par del producto %s volvió a estar bien.', 'woonderful-stock-sync-for-woocommerce' ), $product );
@@ -308,6 +308,72 @@ final class Events {
 		}
 
 		return (string) $event['kind'];
+	}
+
+	/**
+	 * Un motivo, para quien lo lee. Uno que no se conoce va como vino: es mejor que nada.
+	 *
+	 * @param string $reason El motivo, como lo guarda el evento.
+	 */
+	public static function reason_text( string $reason ): string {
+		$texts = array(
+			'local_trashed'             => __( 'está en la papelera', 'woonderful-stock-sync-for-woocommerce' ),
+			'local_missing'             => __( 'se borró', 'woonderful-stock-sync-for-woocommerce' ),
+			'local_not_managing_stock'  => __( 'dejó de llevar su propio stock', 'woonderful-stock-sync-for-woocommerce' ),
+			'not_applied: unknown'      => __( 'a la otra tienda nunca le llegó', 'woonderful-stock-sync-for-woocommerce' ),
+			'not_applied: held'         => __( 'la otra tienda lo retuvo', 'woonderful-stock-sync-for-woocommerce' ),
+			'not_applied: discarded'    => __( 'la otra tienda lo descartó', 'woonderful-stock-sync-for-woocommerce' ),
+			'stock_changed'             => __( 'el stock cambió desde que se miró', 'woonderful-stock-sync-for-woocommerce' ),
+			'already_linked'            => __( 'alguno de los dos productos ya estaba vinculado', 'woonderful-stock-sync-for-woocommerce' ),
+			'product_missing'           => __( 'el producto no existe', 'woonderful-stock-sync-for-woocommerce' ),
+			'product_not_managing_stock' => __( 'el producto no lleva su propio stock', 'woonderful-stock-sync-for-woocommerce' ),
+			'target_missing'            => __( 'el producto de la otra tienda no existe', 'woonderful-stock-sync-for-woocommerce' ),
+			'target_not_managing_stock' => __( 'el producto de la otra tienda no lleva su propio stock', 'woonderful-stock-sync-for-woocommerce' ),
+		);
+
+		return $texts[ $reason ] ?? ( '' === $reason ? '?' : $reason );
+	}
+
+	/**
+	 * Quién lanzó una reconciliación, para quien lo lee.
+	 *
+	 * @param string $trigger Una de las constantes de `Result`.
+	 */
+	private static function trigger_text( string $trigger ): string {
+		$texts = array(
+			'nightly' => __( 'de la noche', 'woonderful-stock-sync-for-woocommerce' ),
+			'manual'  => __( 'manual', 'woonderful-stock-sync-for-woocommerce' ),
+			'import'  => __( 'al cerrar una importación', 'woonderful-stock-sync-for-woocommerce' ),
+			'peer'    => __( 'lanzada por la otra tienda', 'woonderful-stock-sync-for-woocommerce' ),
+		);
+
+		return $texts[ $trigger ] ?? $trigger;
+	}
+
+	/**
+	 * Cómo terminó una reconciliación, para quien lo lee.
+	 *
+	 * @param string $outcome Una de las constantes de `Result`.
+	 */
+	private static function outcome_text( string $outcome ): string {
+		$texts = array(
+			'done'        => __( 'completa', 'woonderful-stock-sync-for-woocommerce' ),
+			'unreachable' => __( 'la otra tienda no respondió, no se pudo mirar', 'woonderful-stock-sync-for-woocommerce' ),
+			'busy'        => __( 'había otra en curso', 'woonderful-stock-sync-for-woocommerce' ),
+		);
+
+		return $texts[ $outcome ] ?? $outcome;
+	}
+
+	/**
+	 * Una fecha del log, guardada en UTC, en la hora del sitio.
+	 *
+	 * @param string $utc La fecha en UTC.
+	 */
+	public static function local_time( string $utc ): string {
+		$time = strtotime( $utc . ' UTC' );
+
+		return false === $time ? $utc : (string) wp_date( 'Y-m-d H:i:s', $time );
 	}
 
 	/**

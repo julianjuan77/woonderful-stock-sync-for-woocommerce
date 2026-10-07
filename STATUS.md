@@ -24,7 +24,7 @@ git show 2668a7a --stat      # qué archivos tocó y cuántas líneas
 git show 2668a7a             # el diff completo
 ```
 
-Y para correr sólo los tests de una pieza, en vez de los 472:
+Y para correr sólo los tests de una pieza, en vez de los 475:
 
 ```bash
 make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS="--filter Test_Ledger"
@@ -37,8 +37,8 @@ make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS=
 Nada. El bloque 10, el log y los avisos, está completo. Lo que sigue espera un ADR: la interfaz
 (1.11), que parte del diseño de woonderful-sync (ver el bloque 8).
 
-**Falta probar los avisos entre las dos tiendas de verdad** —una caída de 30 minutos, el resumen
-de la noche— y ver los emails en el Mailhog de cada sitio (`sandbox` 8250, `sandbox-b` 8270).
+Los emails de los sitios de prueba se ven en el Mailhog de cada uno: `sandbox` en 8250,
+`sandbox-b` en 8270.
 
 **Para probar entre dos tiendas:** `sandbox` (8150, maestra) y `sandbox-b` (8170) están
 emparejadas con rol. Con `DISABLE_WP_CRON` la pasada no corre sola: se dispara con
@@ -145,6 +145,7 @@ es lo normal: loguearlo en cada pasada sería ruido.
 |---|---|---|
 | E.1 | Dos tiendas locales que se hablan: `sandbox` y `sandbox-b`, con `PEER_NETWORK=1` (wp-restore `019585b`). Emparejadas con `wp wss pairing-code` / `wp wss pair`; una venta en A descuenta en B y un ajuste en B descuenta en A, sin eco. El vínculo se armó a mano: la vinculación es 6.1 | ✅ |
 | E.2 | La reconciliación entre `sandbox` y `sandbox-b` (2026-10-06): una pasada limpia; una venta abandonada que vuelve a la cola y llega; un ACK perdido que se confirma sin reenviar; una escritura por fuera del plugin que la fase 2 abre a la segunda revisión y la maestra ve en la siguiente; `discrepancy accept` que viaja (a los 10 s de la espera); un vínculo huérfano que la secundaria borra; y `discrepancy restore` sin movimiento | ✅ |
+| E.3 | Los avisos entre `sandbox` y `sandbox-b` (2026-10-06), con Mailhog: `sandbox-b` apagada, la venta no sale y se registra la caída; a los 29 minutos nada, a los 30 el aviso —el primer intento falló y el reintento esperó la ventana—; al volver, "volvió" y la venta entregada. El resumen de la noche lista los sin vincular una vez. Un producto a la papelera en `sandbox-b`: su aviso de par roto, y `pair_restored` al volver. Encontró que en wp-restore `wp_mail()` fallaba —remitente `wordpress@localhost`—, arreglado en su mu-plugin de Mailhog; y textos en código interno, fechas en UTC y "1 productos", arreglados | ✅ |
 
 ### 6. La vinculación — `includes/Linking/`
 

@@ -203,4 +203,43 @@ class Test_Events extends WP_UnitTestCase {
 		$this->assertFalse( $history[0]['own'] );
 		$this->assertSame( -3, $history[0]['delta'] );
 	}
+
+	/**
+	 * EVT-09 — **Los motivos, quién lanzó y cómo terminó, en castellano**: no el código interno.
+	 * Un motivo que no se conoce va como vino.
+	 */
+	public function test_reasons_and_outcomes_are_readable(): void {
+		$broken = Events::describe(
+			array(
+				'kind'    => Events::PAIR_BROKEN,
+				'product' => 13,
+				'context' => array( 'reason' => 'local_trashed' ),
+			)
+		);
+		$reconciled = Events::describe(
+			array(
+				'kind'    => Events::RECONCILED,
+				'product' => null,
+				'context' => array(
+					'trigger' => 'nightly',
+					'outcome' => 'unreachable',
+				),
+			)
+		);
+
+		$this->assertSame( 'Se rompió el par del producto 13: está en la papelera.', $broken );
+		$this->assertSame( 'Reconciliación de la noche: la otra tienda no respondió, no se pudo mirar.', $reconciled );
+		$this->assertSame( 'HTTP 418', Events::reason_text( 'HTTP 418' ) );
+	}
+
+	/**
+	 * EVT-10 — Las fechas del log, guardadas en UTC, se muestran en la hora del sitio.
+	 */
+	public function test_times_are_shown_in_the_site_time(): void {
+		update_option( 'timezone_string', 'America/Argentina/Buenos_Aires' );
+
+		$this->assertSame( '2026-10-06 21:09:06', Events::local_time( '2026-10-07 00:09:06' ) );
+
+		delete_option( 'timezone_string' );
+	}
 }

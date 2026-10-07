@@ -572,4 +572,20 @@ class Test_Notifier extends WP_UnitTestCase {
 
 		$this->assertCount( 2, Events::list( array( 'kind' => Events::NOTIFY_FAILED ) )['items'] );
 	}
+
+	/**
+	 * NOT-21 — **Con un solo producto, en singular**; y el motivo de un par roto, en castellano.
+	 */
+	public function test_one_product_is_singular_and_reasons_are_readable(): void {
+		$this->product( 30 );
+		Notifier::digest();
+
+		Events::record( Events::PAIR_BROKEN, Events::WARNING, 5, array( 'reason' => 'local_trashed' ) );
+		Notifier::tick();
+
+		$this->assertStringContainsString( '1 producto sin sincronizar', $this->mails[0]['subject'] );
+		$this->assertStringContainsString( 'Hay 1 producto nuevo', $this->mails[0]['message'] );
+		$this->assertStringContainsString( 'En total, 1 está así.', $this->mails[0]['message'] );
+		$this->assertStringContainsString( '— está en la papelera', $this->mails[1]['message'] );
+	}
 }
