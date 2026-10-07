@@ -683,7 +683,6 @@ function StepNotify( { apiFetch, onContinue, onBack, onSkip } ) {
 								}
 							/>
 						</div>
-						<TestEmail apiFetch={ apiFetch } />
 					</>
 				) }
 				<Actions
