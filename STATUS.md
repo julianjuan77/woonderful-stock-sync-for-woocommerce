@@ -24,7 +24,7 @@ git show 2668a7a --stat      # qué archivos tocó y cuántas líneas
 git show 2668a7a             # el diff completo
 ```
 
-Y para correr sólo los tests de una pieza, en vez de los 531:
+Y para correr sólo los tests de una pieza, en vez de los 533:
 
 ```bash
 make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS="--filter Test_Ledger"
@@ -191,7 +191,7 @@ es lo normal: loguearlo en cada pasada sería ruido.
 | 8.6 | Productos: las filas, los motivos y la sugerencia, filtros y búsqueda (ADR-014 §3, §4) | ✅ | `04dac1f` | `ROW-01`…`ROW-08`, `ADM-23` |
 | 8.7 | Vincular a mano, desvincular, reasignar, descartar (ADR-014 §5, §7) | ✅ | `0aa3f0a` | `LNK-16`…`LNK-19`, `ADM-24`…`ADM-28` |
 | 8.8 | La vinculación masiva (ADR-014 §6) | ✅ | `30cd414` | `BLK-01`…`BLK-05`, `ADM-29` |
-| 8.9 | La secundaria en modo lectura, con el enlace a la maestra (`GET /health` con `admin_url`) (ADR-013 §6) | ✅ | PENDIENTE | `HLT-01`, `PER-09`, `ADM-30` |
+| 8.9 | La secundaria en modo lectura, con el enlace a la maestra (`GET /health` con `admin_url`) (ADR-013 §6) | ✅ | `66565f4` | `HLT-01`, `PER-09`, `ADM-30` |
 | 8.10 | La configuración inicial: el asistente en pasos, los requisitos, el nombre y el rol, el emparejamiento, los avisos, y el email de prueba (ADR-013 §3, revisado) | ⬜ | | |
 
 **El diseño parte de woonderful-sync** (pedido de Julián, 2026-10-06): los mismos logos (`assets/brand/`), la misma disposición —sidebar con logo, pantallas como `src/screens/Logs.js`— y los mismos colores y estilos (`src/style.scss`, clases `woon-*`).
