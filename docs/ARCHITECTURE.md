@@ -416,7 +416,7 @@ para los eventos, `Events::movement_text()` para los movimientos —la misma que
 (`stock_before`, `stock_after`): el detector los pasa a `Ledger::record()`, y `apply()` los anota al
 aplicar uno recibido. `details` no viaja a la otra tienda —`Sender` arma lo que manda campo por
 campo—. El bootstrap ya traía los suyos: el stock que tenía cada lado y el de arranque. El historial
-los muestra como "−1 (4 → 3)", en verde o rojo; los movimientos anteriores a esto, y los que no
+los muestra como "−1 (4 → 3)", sin verde ni rojo —un descuento no es un error—; los movimientos anteriores a esto, y los que no
 cambiaron el stock de acá —uno retenido, un ajuste aceptado—, sólo con la diferencia.
 
 **Configuración** (`src/screens/Settings.js`): el emparejamiento —generar el código o canjearlo, con

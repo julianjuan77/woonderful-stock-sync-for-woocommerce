@@ -1,19 +1,13 @@
 import { __ } from '@wordpress/i18n';
 
-// El stock de antes y el de después de un movimiento, como en woonderful-sync: la diferencia
-// con su signo y color, y los dos números.
+// El stock de antes y el de después de un movimiento: la diferencia con su signo, y los dos
+// números. Sin verde ni rojo: un descuento no es un error.
 export default function StockChange( { stocks } ) {
 	if ( ! stocks ) {
 		return null;
 	}
 
 	const delta = stocks.after - stocks.before;
-	let color = 'var(--woon-text-muted)';
-	if ( delta > 0 ) {
-		color = 'var(--woon-success)';
-	} else if ( delta < 0 ) {
-		color = 'var(--woon-danger)';
-	}
 
 	return (
 		<span
@@ -26,7 +20,7 @@ export default function StockChange( { stocks } ) {
 				fontSize: 'var(--woon-fs-sm)',
 				fontWeight: 600,
 				whiteSpace: 'nowrap',
-				color,
+				color: 'var(--woon-ink)',
 			} }
 		>
 			{ `${ delta > 0 ? '+' : '' }${ delta } (${ stocks.before } → ${
