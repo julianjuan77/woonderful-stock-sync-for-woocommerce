@@ -9,6 +9,8 @@ declare( strict_types = 1 );
 
 namespace Woonderful\StockSync\Transport;
 
+use Woonderful\StockSync\Catalog\Copy;
+
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -60,6 +62,13 @@ final class Peers {
 	 *                         `secondary` si lo canjeó (ADR-008 §2).
 	 */
 	public static function pair( string $store, string $rest_url, string $secret, string $label, string $role ): void {
+		$before = self::only();
+
+		// La copia del catálogo es de la tienda anterior (ADR-014 §1).
+		if ( null !== $before && $before['store'] !== $store ) {
+			Copy::clear();
+		}
+
 		$peers = array();
 
 		foreach ( (array) get_option( self::OPTION, array() ) as $key => $peer ) {

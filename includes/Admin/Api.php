@@ -9,6 +9,7 @@ declare( strict_types = 1 );
 
 namespace Woonderful\StockSync\Admin;
 
+use Woonderful\StockSync\Catalog\Copy;
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Linking\Links;
 use Woonderful\StockSync\Log\Events;
@@ -61,6 +62,7 @@ final class Api {
 			'/store'                                                      => array( 'POST', 'store' ),
 			'/pairing/code'                                               => array( 'POST', 'pairing_code' ),
 			'/pairing/redeem'                                             => array( 'POST', 'pairing_redeem' ),
+			'/catalog/refresh'                                            => array( 'POST', 'catalog_refresh' ),
 			'/discrepancies/(?P<product>\\d+)/(?P<action>accept|restore)' => array( 'POST', 'resolve' ),
 		);
 
@@ -345,6 +347,25 @@ final class Api {
 		}
 
 		return self::status();
+	}
+
+	/**
+	 * Una página del refresco de la copia del catálogo de la otra, con su avance. La app pide
+	 * una por request: con 5.000 productos son 50 requests cortos (ADR-014 §1).
+	 *
+	 * @param \WP_REST_Request $request La página, desde 1.
+	 */
+	public static function catalog_refresh( \WP_REST_Request $request ): \WP_REST_Response|\WP_Error {
+		$result = Copy::refresh_page( max( 1, (int) $request['page'] ) );
+
+		if ( is_wp_error( $result ) ) {
+			// Sin emparejar es de acá; lo demás, que la otra no contestó bien.
+			$result->add_data( array( 'status' => 'wss_not_paired' === $result->get_error_code() ? 409 : 502 ) );
+
+			return $result;
+		}
+
+		return new \WP_REST_Response( $result, 200 );
 	}
 
 	/**

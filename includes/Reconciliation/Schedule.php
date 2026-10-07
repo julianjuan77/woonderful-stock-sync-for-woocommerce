@@ -9,6 +9,7 @@ declare( strict_types = 1 );
 
 namespace Woonderful\StockSync\Reconciliation;
 
+use Woonderful\StockSync\Catalog\Copy;
 use Woonderful\StockSync\Ledger\Ledger;
 use Woonderful\StockSync\Log\Events;
 use Woonderful\StockSync\Log\Notifier;
@@ -110,8 +111,9 @@ final class Schedule {
 
 	/**
 	 * La noche: agenda la siguiente; si esta tienda es la maestra, reconcilia; y en las dos,
-	 * revisa los pares rotos (ADR-011 §7), purga el libro y el log (ADR-004 §4, ADR-011 §6) y
-	 * manda el resumen de lo que no sincroniza (ADR-012 §3).
+	 * revisa los pares rotos (ADR-011 §7), purga el libro y el log (ADR-004 §4, ADR-011 §6),
+	 * manda el resumen de lo que no sincroniza (ADR-012 §3) y refresca la copia del catálogo de
+	 * la otra, para que la mañana arranque con ella al día (ADR-014 §1).
 	 *
 	 * La siguiente se agenda primero: si la reconciliación muriera a mitad, la noche de
 	 * mañana igual corre. Sin `unique`, porque Action Scheduler cuenta como agendada a esta
@@ -131,6 +133,7 @@ final class Schedule {
 		Pairs::check();
 		self::purge();
 		Notifier::digest();
+		Copy::refresh();
 	}
 
 	/**

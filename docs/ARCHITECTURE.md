@@ -15,7 +15,7 @@ _(pendiente de ADR-004)_ se completan cuando se apruebe el esquema.
 
 > ADR-001 (dos ejes de estado), ADR-002 (identidad y numeración), ADR-004 (esquema).
 
-Tres tablas propias, con el prefijo de WordPress más `wss_`:
+Cinco tablas propias, con el prefijo de WordPress más `wss_`:
 
 | Tabla | Qué guarda |
 |---|---|
@@ -26,6 +26,7 @@ Tres tablas propias, con el prefijo de WordPress más `wss_`:
 repite, así que un movimiento de una época anterior no puede colarse como vigente.
 | `{prefix}wss_nonces` | Los nonces vistos, para rechazar un request reenviado |
 | `{prefix}wss_events` | El log: lo que pasa y no es un movimiento —acciones del dueño, intentos fallidos, la otra tienda que se cae, reconciliaciones, discrepancias, pares rotos—. El texto se arma al mostrarlo (`Log\Events::describe()`). 90 días, salvo el descarte y lo avisado (ADR-011). Escriben: `Linker` —cada intento, `link_unresolved` una vez por bootstrap con la marca `unresolved` en su `last_error`—, `Sender` —lo abandonado salvo con la otra caída, y `ledger_error`, con lo que deja `Ledger::last_claim()`—, `Reconciler` y `Rest\Reconcile` —`reconciled`, cada tienda la suya—, `Audit` y `Books` |
+| `{prefix}wss_remote_products` | **La copia del catálogo de la otra tienda**, para que Productos filtre y cuente sobre todo él (ADR-014 §1): su producto, el padre, el tipo, el SKU, el nombre, el stock —`NULL` si no lleva el suyo—, el estado, si está vinculado allá y cuándo se vio. **No es un dato del dueño**: no entra en la salud del esquema —sin ella el stock se sincroniza igual—, se vacía al emparejarse con otra tienda y se borra siempre al desinstalar. Desde la versión 4 del esquema |
 
 **El libro es también la cola** (ADR-001): no hay tabla de pendientes. Cada movimiento propio
 lleva en su fila el estado de entrega, y eso es lo único que dice qué falta entregar.
@@ -159,6 +160,15 @@ de WooCommerce, así que uno que no vuelve ya no existe. Hasta 100 IDs por reque
 nonce. Se registra después de la guarda. `linked` y el stock salen de una consulta por página.
 Del otro lado, `Transport\Catalog::fetch()` lo llama con la query en texto —la misma que firma—,
 reparte `include` de a 100, no pide nada con una lista vacía y descarta las entradas mal armadas.
+Cada producto lleva también **`type` y `parent`** (ADR-014 §2), para agrupar las variaciones; una
+versión vieja del otro lado no los manda, y `fetch()` los completa con `''` y `0`.
+
+**`Catalog\Copy`** mantiene `wss_remote_products`. `refresh_page()` trae una página de 100 y la
+guarda con un solo `INSERT … ON DUPLICATE KEY UPDATE`; la página 1 anota cuándo empezó el refresco
+(`wss_catalog_run`), y la última borra lo que no se vio desde entonces y anota cuándo terminó
+(`wss_catalog_refreshed_at`). **Un refresco cortado a mitad no borra nada.** La pantalla lo pide de
+a una página por request (`POST /catalog/refresh`) y lo refresca al abrirse si tiene más de 10
+minutos; la noche lo hace entero, en las dos tiendas (`refresh()`).
 
 **El estado de sincronización** (`Linking\State::of()`, ADR-005 §1) se calcula al mostrarlo,
 nunca se guarda: `unlinked` sin fila; `uncertain` si el bootstrap del vínculo sigue sin
@@ -315,7 +325,7 @@ compatible; quitar uno o cambiarle el significado es `wss/v2`.
 | `wss_site_fingerprint` | `sha256( get_option( 'home' ) )` al emparejar, con esquema. Detecta el clon (ADR-001, ADR-007) |
 | `wss_peers` | Por tienda remota: URL, identificador, secreto, etiqueta, **su rol** —`master` o `secondary`, ADR-008 §2—, fecha del emparejamiento y **hasta qué secuencia suya purgamos** (ADR-004) |
 | `wss_schema_version` | Versión del esquema, para las migraciones. **Autocargada**: `maybe_upgrade()` la lee en cada request |
-| `wss_schema_healthy` | Si las tres tablas existen y admiten transacciones. **Autocargada**: la guarda de arranque la lee en cada request |
+| `wss_schema_healthy` | Si las cuatro tablas del núcleo —todas menos la copia del catálogo— existen y admiten transacciones. **Autocargada**: la guarda de arranque la lee en cada request |
 | `wss_delete_data_on_uninstall` | La casilla de ADR-003. Desmarcada de fábrica |
 | `wss_pairing` | El código que emitió esta tienda y su vencimiento (15 min), del lado de la maestra. Se guarda entero: para verificar un HMAC hace falta la clave. Se borra al primer canje exitoso y siempre al desinstalar |
 | `wss_redeeming` | El código que esta tienda está canjeando, la maestra y el vencimiento (2 min), del lado de la secundaria. Se borra al terminar el canje y siempre al desinstalar |
@@ -326,6 +336,7 @@ compatible; quitar uno o cambiarle el significado es `wss/v2`.
 | `wss_notify_state` | Lo que los avisos recuerdan: hasta qué evento del log se leyó, la ventana de cada causa con lo que se juntó, y la cuenta del día. Se borra siempre |
 | `wss_reconciling` | El candado de la reconciliación: `<token>\|<vence>`, 15 minutos. Se toma con `INSERT IGNORE`, o con un `UPDATE` que sólo pisa el valor vencido; se suelta con un `DELETE` que sólo borra el propio. Siempre con SQL directo, nunca con `get_option()` (ADR-009 §4). Se borra siempre al desinstalar |
 | `wss_last_reconciliation` | Cómo terminó la última reconciliación en esta tienda: cuándo, quién la lanzó, `done`, `unreachable` o `busy`, y qué hizo. No autocargada (ADR-009 §7). Se borra siempre al desinstalar |
+| `wss_catalog_run` · `wss_catalog_refreshed_at` | Cuándo empezó el refresco de la copia del catálogo que está en curso, y cuándo terminó el último completo. No autocargadas. Se borran siempre al desinstalar, y al emparejarse con otra tienda (ADR-014 §1) |
 
 ### Hooks para terceros
 
@@ -346,8 +357,10 @@ woonderful-stock-sync-for-woocommerce/
 │   ├── Ledger/                                 # el libro
 │   ├── Detector/                               # ADR-006
 │   ├── Linking/                                # pendiente de ADR
-│   └── Reconciliation/                         # ADR-009, ADR-010
-│   ├── Admin/                                  # La página y wss-admin/v1 (ADR-013)
+│   ├── Reconciliation/                         # ADR-009, ADR-010
+│   ├── Log/                                    # ADR-011, ADR-012
+│   ├── Catalog/                                # La copia del catálogo de la otra (ADR-014)
+│   └── Admin/                                  # La página y wss-admin/v1 (ADR-013)
 ├── src/                                        # La app en React; build/ es lo compilado
 ├── assets/brand/                               # El logo y los íconos de Woonderful
 ├── docs/

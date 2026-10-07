@@ -2,7 +2,7 @@
 
 > Plugin: `woonderful-stock-sync-for-woocommerce` | WP 6.5+ | PHP 8.1+ | WooCommerce 9.1+
 > Repo: [woonderful-stock-sync-for-woocommerce](https://github.com/julianjuan77/woonderful-stock-sync-for-woocommerce)
-> Creado: 2026-09-20 · Última sesión: 2026-10-07 — los ADRs de la interfaz (ADR-013, con la configuración inicial, y ADR-014) la base de la interfaz (8.1), Resumen (8.2), Registros (8.3) y Configuración (8.4). Antes, 2026-10-06 — los ADRs del log (ADR-011) y de los avisos (ADR-012), y el bloque 10 entero: la tabla del log, el estado de la otra tienda, los eventos de cada pieza, los pares rotos, la purga y los avisos por email
+> Creado: 2026-09-20 · Última sesión: 2026-10-07 — los ADRs de la interfaz (ADR-013, con la configuración inicial, y ADR-014) la base de la interfaz (8.1), Resumen (8.2), Registros (8.3), Configuración (8.4) y la copia del catálogo de la otra (8.5). Antes, 2026-10-06 — los ADRs del log (ADR-011) y de los avisos (ADR-012), y el bloque 10 entero: la tabla del log, el estado de la otra tienda, los eventos de cada pieza, los pares rotos, la purga y los avisos por email
 
 Sincroniza el stock entre dos tiendas WooCommerce propias que despachan del mismo depósito.
 Pool único, sin reparto: lo que se vende en una descuenta en las dos.
@@ -37,7 +37,8 @@ make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS=
 El bloque 8, la interfaz. Hechas la 8.1 —la base—, la 8.2 —Resumen: la otra tienda, la última
 reconciliación y la manual, las discrepancias de las dos y cómo resolverlas— la 8.3 —Registros:
 el log con filtros y el historial de un producto— y la 8.4 —Configuración: el emparejamiento, el
-nombre, los avisos y la casilla de borrado—. Sigue la 8.5, la copia del catálogo de la otra. El JavaScript se
+nombre, los avisos y la casilla de borrado— y la 8.5 —la copia del catálogo de la otra, `wss_remote_products`, esquema 4—.
+Sigue la 8.6, las filas de Productos. El JavaScript se
 compila con `npm run build` y se prueba con `npm run lint:js` y `npm run test:unit`, desde la
 carpeta del plugin.
 
@@ -183,7 +184,7 @@ es lo normal: loguearlo en cada pasada sería ruido.
 | 8.2 | Resumen: el estado de la otra, la última reconciliación y la manual, las discrepancias de las dos y cómo resolverlas (ADR-013 §3) | ✅ | `7922efc` | `ADM-07`…`ADM-13` |
 | 8.3 | Registros: el log, filtros y paginado, desde `Logs.js` (ADR-013 §3) | ✅ | `7922efc` | `ADM-14`…`ADM-16` |
 | 8.4 | Configuración: el emparejamiento, los avisos, la casilla de borrado (ADR-013 §3) | ✅ | `3f3899c` | `ADM-17`…`ADM-21` |
-| 8.5 | La copia del catálogo de la otra: la tabla, el refresco, `GET /products` con tipo y padre (ADR-014 §1, §2) | ⬜ | | |
+| 8.5 | La copia del catálogo de la otra: la tabla, el refresco, `GET /products` con tipo y padre (ADR-014 §1, §2) | ✅ | | `CPY-01`…`CPY-07`, `PRD-15`, `PRD-16`, `SCH-16`, `ADM-22` |
 | 8.6 | Productos: las filas, los motivos y la sugerencia, filtros y búsqueda (ADR-014 §3, §4) | ⬜ | | |
 | 8.7 | Vincular a mano, desvincular, reasignar, descartar (ADR-014 §5, §7) | ⬜ | | |
 | 8.8 | La vinculación masiva (ADR-014 §6) | ⬜ | | |

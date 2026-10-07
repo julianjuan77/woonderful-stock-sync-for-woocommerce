@@ -32,6 +32,10 @@ if ( is_array( $wss_peers ) ) {
 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- no hay API de WordPress para borrar una tabla, y el nombre sale de $wpdb->prefix, no de una entrada.
 $wpdb->query( "DROP TABLE IF EXISTS {$wss_prefix}nonces" );
 
+// La copia del catálogo de la otra tampoco es un dato del dueño: se vuelve a traer (ADR-014).
+// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- ídem.
+$wpdb->query( "DROP TABLE IF EXISTS {$wss_prefix}remote_products" );
+
 // Ni la hora del control de la pasada, ni la del último envío fallido, ni la reconciliación
 // —su candado y su último resultado—, ni el estado de la otra tienda o de los avisos, ni un
 // código de emparejamiento vivo son datos del dueño (ADR-003).
@@ -43,6 +47,8 @@ delete_option( 'wss_peer_state' );
 delete_option( 'wss_notify_state' );
 delete_option( 'wss_pairing' );
 delete_option( 'wss_redeeming' );
+delete_option( 'wss_catalog_run' );
+delete_option( 'wss_catalog_refreshed_at' );
 
 if ( ! get_option( 'wss_delete_data_on_uninstall', false ) ) {
 	return;

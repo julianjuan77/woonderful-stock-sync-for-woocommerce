@@ -18,10 +18,11 @@ final class Installer {
 
 	/**
 	 * La versión del esquema. La 2 suma las cuatro columnas de la discrepancia a `wss_links`
-	 * (ADR-010 §4); la 3, la tabla `wss_events` y `broken_since` (ADR-011). `dbDelta` agrega
-	 * sin tocar las filas.
+	 * (ADR-010 §4); la 3, la tabla `wss_events` y `broken_since` (ADR-011); la 4, la copia del
+	 * catálogo de la otra, `wss_remote_products` (ADR-014). `dbDelta` agrega sin tocar las
+	 * filas.
 	 */
-	public const SCHEMA_VERSION = 3;
+	public const SCHEMA_VERSION = 4;
 
 	public const OPTION_VERSION = 'wss_schema_version';
 
@@ -34,9 +35,16 @@ final class Installer {
 	private const TABLES = array( 'movements', 'links', 'nonces', 'events' );
 
 	/**
+	 * La copia del catálogo de la otra tienda (ADR-014 §1). Se crea con las demás, pero no
+	 * entra en la salud del esquema: es una caché de la pantalla, y sin ella el stock se
+	 * sincroniza igual.
+	 */
+	public const REMOTE_PRODUCTS = 'remote_products';
+
+	/**
 	 * Nombre completo de una de las tablas del plugin.
 	 *
-	 * @param string $name Nombre corto: movements, links o nonces.
+	 * @param string $name Nombre corto: movements, links, nonces, events o remote_products.
 	 */
 	public static function table( string $name ): string {
 		global $wpdb;
@@ -175,6 +183,7 @@ final class Installer {
 		$links     = self::table( 'links' );
 		$nonces    = self::table( 'nonces' );
 		$events    = self::table( 'events' );
+		$remote    = self::table( self::REMOTE_PRODUCTS );
 
 		return array(
 			// origin_seq admite NULL a propósito: la secuencia de un movimiento propio es
@@ -248,6 +257,22 @@ final class Installer {
 				PRIMARY KEY  (id),
 				KEY by_product (product,created_at),
 				KEY by_date (created_at)
+			) ENGINE=InnoDB {$charset_collate};",
+
+			// Sin la tienda de origen: es la de la otra única, y re-emparejar la vacía.
+			"CREATE TABLE {$remote} (
+				remote_product bigint(20) unsigned NOT NULL,
+				parent bigint(20) unsigned NOT NULL DEFAULT 0,
+				type varchar(32) NOT NULL DEFAULT '',
+				sku varchar(100) NOT NULL DEFAULT '',
+				name varchar(255) NOT NULL DEFAULT '',
+				stock int(11) DEFAULT NULL,
+				status varchar(20) NOT NULL DEFAULT '',
+				linked tinyint(1) NOT NULL DEFAULT 0,
+				seen_at datetime NOT NULL,
+				PRIMARY KEY  (remote_product),
+				KEY parent (parent),
+				KEY sku (sku)
 			) ENGINE=InnoDB {$charset_collate};",
 		);
 	}

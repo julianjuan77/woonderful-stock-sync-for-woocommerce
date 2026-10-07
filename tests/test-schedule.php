@@ -57,13 +57,13 @@ class Test_Schedule extends WP_UnitTestCase {
 		Schedule::unschedule();
 
 		// La otra tienda no contesta: alcanza para ver que se lanzó una reconciliación.
-		add_filter( 'pre_http_request', array( $this, 'unreachable' ) );
+		add_filter( 'pre_http_request', array( $this, 'unreachable' ), 10, 3 );
 	}
 
 	public function tear_down(): void {
 		global $wpdb;
 
-		remove_filter( 'pre_http_request', array( $this, 'unreachable' ) );
+		remove_filter( 'pre_http_request', array( $this, 'unreachable' ), 10 );
 		Schedule::unschedule();
 
 		// Las filas del log, no la tabla: el DROP de las otras confirma el borrado, y una
@@ -106,10 +106,17 @@ class Test_Schedule extends WP_UnitTestCase {
 	}
 
 	/**
-	 * Hace de una tienda que no contesta.
+	 * Hace de una tienda que no contesta. Cuenta sólo las preguntas de la reconciliación: la
+	 * noche también refresca el catálogo, en las dos tiendas.
+	 *
+	 * @param mixed  $preempt Lo que traía el filtro.
+	 * @param mixed  $args    Los argumentos del request.
+	 * @param string $url     A dónde iba.
 	 */
-	public function unreachable(): WP_Error {
-		++$this->asked;
+	public function unreachable( $preempt, $args, string $url ): WP_Error {
+		if ( str_contains( $url, '/reconcile' ) ) {
+			++$this->asked;
+		}
 
 		return new WP_Error( 'http_request_failed', 'cURL error 7: no responde' );
 	}

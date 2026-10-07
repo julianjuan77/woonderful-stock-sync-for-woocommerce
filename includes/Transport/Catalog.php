@@ -111,9 +111,24 @@ final class Catalog {
 		}
 
 		return array(
-			'products' => array_values( array_filter( $payload['products'], array( self::class, 'is_well_formed' ) ) ),
+			'products' => array_map( array( self::class, 'with_defaults' ), array_values( array_filter( $payload['products'], array( self::class, 'is_well_formed' ) ) ) ),
 			'total'    => (int) ( $payload['total'] ?? 0 ),
 		);
+	}
+
+	/**
+	 * El tipo y el padre, que suma ADR-014 §2: una versión vieja del otro lado no los manda, y
+	 * se toman como un producto suelto de tipo desconocido.
+	 *
+	 * @param array<string, mixed> $product Una entrada bien formada.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private static function with_defaults( array $product ): array {
+		$product['type']   = is_string( $product['type'] ?? null ) ? $product['type'] : '';
+		$product['parent'] = is_int( $product['parent'] ?? null ) && $product['parent'] > 0 ? $product['parent'] : 0;
+
+		return $product;
 	}
 
 	/**

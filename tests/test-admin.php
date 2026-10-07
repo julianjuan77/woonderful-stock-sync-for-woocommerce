@@ -589,4 +589,35 @@ class Test_Admin extends WP_UnitTestCase {
 		$this->assertSame( 'wss_pairing_invalid', $response->get_data()['code'] );
 		$this->assertNull( Peers::only() );
 	}
+
+	/**
+	 * ADM-22 — El refresco de la copia, desde la pantalla: una página con su avance; sin
+	 * emparejar, `409`; con la otra caída, `502`.
+	 */
+	public function test_the_catalog_is_refreshed_page_by_page(): void {
+		$this->as_user( 'administrator' );
+
+		$this->assertSame( 409, $this->send( 'POST', '/catalog/refresh', array( 'page' => 1 ) )->get_status() );
+
+		$this->as_master();
+		add_filter(
+			'pre_http_request',
+			static fn () => array(
+				'response' => array( 'code' => 200 ),
+				'body'     => (string) wp_json_encode(
+					array(
+						'products' => array(),
+						'total'    => 0,
+					)
+				),
+			)
+		);
+
+		$this->assertSame( array( 'page' => 1, 'pages' => 1, 'total' => 0, 'done' => true ), $this->send( 'POST', '/catalog/refresh', array( 'page' => 1 ) )->get_data() ); // phpcs:ignore WordPress.Arrays.ArrayDeclarationSpacing.AssociativeArrayFound
+
+		remove_all_filters( 'pre_http_request' );
+		add_filter( 'pre_http_request', static fn () => new WP_Error( 'http_request_failed', 'no responde' ) );
+
+		$this->assertSame( 502, $this->send( 'POST', '/catalog/refresh', array( 'page' => 1 ) )->get_status() );
+	}
 }

@@ -37,7 +37,7 @@ class Test_Installer extends WP_UnitTestCase {
 	public function tear_down(): void {
 		global $wpdb;
 
-		foreach ( array( 'movements', 'links', 'nonces', 'events' ) as $name ) {
+		foreach ( array( 'movements', 'links', 'nonces', 'events', Installer::REMOTE_PRODUCTS ) as $name ) {
 			$table = Installer::table( $name );
 			$wpdb->query( "DROP TABLE IF EXISTS {$table}" ); // phpcs:ignore WordPress.DB
 		}
@@ -93,7 +93,7 @@ class Test_Installer extends WP_UnitTestCase {
 	/**
 	 * SCH-01 — install() sobre una base limpia crea las cuatro tablas.
 	 */
-	public function test_install_creates_the_four_tables(): void {
+	public function test_install_creates_the_five_tables(): void {
 		Installer::install();
 
 		$tables = $this->existing_tables();
@@ -107,6 +107,7 @@ class Test_Installer extends WP_UnitTestCase {
 				Installer::table( 'links' ),
 				Installer::table( 'movements' ),
 				Installer::table( 'nonces' ),
+				Installer::table( Installer::REMOTE_PRODUCTS ),
 			),
 			$tables
 		);
@@ -142,7 +143,7 @@ class Test_Installer extends WP_UnitTestCase {
 	 *
 	 * SCH-02
 	 */
-	public function test_the_four_tables_are_innodb(): void {
+	public function test_the_five_tables_are_innodb(): void {
 		Installer::install();
 
 		$this->assertSame(
@@ -151,6 +152,7 @@ class Test_Installer extends WP_UnitTestCase {
 				Installer::table( 'links' )     => 'InnoDB',
 				Installer::table( 'movements' ) => 'InnoDB',
 				Installer::table( 'nonces' )    => 'InnoDB',
+				Installer::table( Installer::REMOTE_PRODUCTS ) => 'InnoDB',
 			),
 			$this->engines()
 		);
@@ -171,7 +173,7 @@ class Test_Installer extends WP_UnitTestCase {
 
 		$statements = (array) $definitions->invoke( null, '' );
 
-		$this->assertCount( 4, $statements );
+		$this->assertCount( 5, $statements );
 
 		foreach ( $statements as $sql ) {
 			$this->assertStringContainsString( 'ENGINE=InnoDB', (string) $sql );
@@ -364,6 +366,7 @@ class Test_Installer extends WP_UnitTestCase {
 				Installer::table( 'links' ),
 				Installer::table( 'movements' ),
 				Installer::table( 'nonces' ),
+				Installer::table( Installer::REMOTE_PRODUCTS ),
 			),
 			$tables
 		);
@@ -468,5 +471,20 @@ class Test_Installer extends WP_UnitTestCase {
 		}
 
 		$this->assertSame( '5', $wpdb->get_var( "SELECT base_stock FROM {$links} WHERE local_product = 1" ) ); // phpcs:ignore WordPress.DB
+	}
+
+	/**
+	 * SCH-16 — **Sin la copia del catálogo, el esquema sigue sano**: es una caché de la
+	 * pantalla, y el stock se sincroniza igual (ADR-014).
+	 */
+	public function test_a_missing_copy_does_not_suspend(): void {
+		global $wpdb;
+
+		Installer::install();
+
+		$table = Installer::table( Installer::REMOTE_PRODUCTS );
+		$wpdb->query( "DROP TABLE {$table}" ); // phpcs:ignore WordPress.DB
+
+		$this->assertSame( array(), Installer::unhealthy_tables() );
 	}
 }

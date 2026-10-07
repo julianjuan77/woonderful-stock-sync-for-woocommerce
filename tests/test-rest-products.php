@@ -165,6 +165,8 @@ class Test_Rest_Products extends WP_UnitTestCase {
 				'stock'  => 9,
 				'status' => 'publish',
 				'linked' => true,
+				'type'   => 'simple',
+				'parent' => 0,
 			),
 			$products[ $managed ]
 		);
@@ -518,5 +520,41 @@ class Test_Rest_Products extends WP_UnitTestCase {
 		);
 
 		$this->assertSame( array( 7 ), array_column( Catalog::fetch( 1, 100, array( 7, 8 ) )['products'], 'id' ) );
+	}
+
+	/**
+	 * PRD-15 — **Cada producto viaja con su tipo y su padre**: la pantalla de la otra agrupa
+	 * las variaciones bajo el suyo (ADR-014 §2).
+	 */
+	public function test_type_and_parent_travel(): void {
+		$parent = new WC_Product_Variable();
+		$parent->set_name( 'Alpargata' );
+		$parent_id = (int) $parent->save();
+
+		$variation = new WC_Product_Variation();
+		$variation->set_parent_id( $parent_id );
+		$variation->set_manage_stock( true );
+		$variation->set_stock_quantity( 4 );
+		$variation_id = (int) $variation->save();
+
+		$products = $this->products( array( 'include' => $parent_id . ',' . $variation_id ) );
+
+		$this->assertSame( 'variable', $products[ $parent_id ]['type'] );
+		$this->assertSame( 0, $products[ $parent_id ]['parent'] );
+		$this->assertSame( 'variation', $products[ $variation_id ]['type'] );
+		$this->assertSame( $parent_id, $products[ $variation_id ]['parent'] );
+	}
+
+	/**
+	 * PRD-16 — Una versión vieja del otro lado no manda tipo ni padre: el producto se toma como
+	 * suelto, de tipo desconocido, y no se descarta.
+	 */
+	public function test_an_old_peer_without_type_is_read_as_loose(): void {
+		$this->fake_catalog();
+
+		$product = Catalog::fetch( 1, 100, array( 7 ) )['products'][0];
+
+		$this->assertSame( '', $product['type'] );
+		$this->assertSame( 0, $product['parent'] );
 	}
 }

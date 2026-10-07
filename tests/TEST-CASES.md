@@ -206,6 +206,7 @@ mientras escribía la función.
 | `SCH-13` | Sin resultado guardado —un sitio que actualiza desde antes del control— | Mira las tablas una vez, en vez de dar por buena la ausencia del dato |
 | `SCH-14` | El esquema está roto y no había resultado guardado | El resultado **malo** queda guardado: con un booleano no se guardaba y la consulta cara se repetía en cada request |
 | `SCH-15` | **Una tabla de vínculos de la versión 1, con una fila** | Migrar agrega las cuatro columnas de la discrepancia y conserva la fila (ADR-010 §4) |
+| `SCH-16` | **Sin la copia del catálogo** | El esquema sigue sano: es una caché de la pantalla (ADR-014) |
 
 ## [`tests/test-store.php`](test-store.php) — la identidad
 
@@ -267,7 +268,7 @@ varios tests sin chocar.
 | ID | Caso | Resultado esperado |
 |---|---|---|
 | `UNI-01` | Casilla en falso | El secreto de `wss_peers` se va; la URL y el identificador quedan |
-| `UNI-02` | Casilla en falso | Sólo se borra la tabla de nonces, y el libro, los vínculos y el log **conservan sus filas** |
+| `UNI-02` | Casilla en falso | Sólo se borran la tabla de nonces y la copia del catálogo, y el libro, los vínculos y el log **conservan sus filas** |
 | `UNI-03` | Casilla en falso | Quedan la identidad, la versión de esquema, la huella, la etiqueta y las tres opciones de los avisos |
 | `UNI-04` | Casilla marcada | No queda ninguna tabla |
 | `UNI-05` | Casilla marcada | No queda ninguna de las diez opciones |
@@ -654,6 +655,8 @@ Verificado rompiéndolo, con seis cambios: sin revisar el stock propio (`LNK-02`
 | `PRD-12` | `fetch()` con una lista vacía | No pide nada: el endpoint devolvería el catálogo entero |
 | `PRD-13` | `fetch()` con 150 IDs | Dos requests, y vuelven los 150 juntos |
 | `PRD-14` | `fetch()` recibe una entrada con el `id` como texto, y algo que no es un producto | Se descartan |
+| `PRD-15` | Un variable y su variación | Viajan con su `type`, y la variación con su `parent` (ADR-014 §2) |
+| `PRD-16` | Una versión vieja del otro lado, sin `type` ni `parent` | `fetch()` la toma como suelta, de tipo desconocido, y no la descarta |
 
 Los SKU llevan un sufijo por corrida y `PRD-04` recorre el catálogo entero: el `CREATE TABLE`
 del `set_up` confirma la transacción, y los productos de un test quedan para el siguiente.
@@ -1038,6 +1041,7 @@ marcado sin mandarse, `NOT-17`; la pregunta a `/health` sin firma, `PER-07`; el 
 | `ADM-19` | El nombre de la tienda, y vacío | Se guarda recortado; vacío, `400` |
 | `ADM-20` | Generar el código desde la pantalla | Lleva esta tienda, queda pendiente de canje y vale 15 minutos |
 | `ADM-21` | Canjear algo que no es un código | `400 wss_pairing_invalid`, sin emparejar |
+| `ADM-22` | El refresco de la copia desde la pantalla | Una página con su avance; sin emparejar `409`, con la otra caída `502` |
 
 ## [`src/__tests__/routing.test.js`](../src/__tests__/routing.test.js) — las pantallas por `#/ruta`
 
@@ -1103,3 +1107,14 @@ la suite de WordPress abre para cada test.
 | 2026-09-27 | Ningún test leía el aviso de esquema roto, ni verificaba que los `add_action` del arranque estuvieran puestos: los tests llaman a `boot()` a mano |
 | 2026-09-27 | Ningún test miraba que el resultado del control de esquema quedara **guardado**. Con un booleano nunca se guardaba el caso malo, y el cacheo que evita la consulta cara no funcionaba — pero como la función devolvía el valor correcto, todo pasaba en verde |
 | 2026-10-06 | `AUD-01` no tenía recibidos aplicados de otro vínculo ni de otra generación: sin los paréntesis del `OR`, la cuenta sumaba lo de todos los vínculos y pasaba igual. Ningún test veía que la maestra purgara de noche (`SCD-03`), ni un `restore` que baja (`AUD-19`). `RCN-11`, `RCL-15` y `RCL-18` corrían sin vínculos y comparaban contra ceros |
+## [`tests/test-copy.php`](test-copy.php) — la copia del catálogo de la otra (ADR-014 §1)
+
+| ID | Caso | Esperado |
+| --- | --- | --- |
+| `CPY-01` | **Un catálogo de 150, de a una página por llamada** | Cada página con su avance; la variación con su padre, su tipo y stock `NULL`; al terminar, la copia tiene los 150 y anota cuándo |
+| `CPY-02` | **Un refresco completo, con uno que ya no está allá y otro que cambió** | Se borra el que no está; el otro, pisado |
+| `CPY-03` | **Un refresco que se corta en la página 2** | No borra nada, ni se da por hecho |
+| `CPY-04` | Seguir un refresco que no empezó | `wss_refresh_not_started`, sin escribir |
+| `CPY-05` | Un catálogo vacío allá | La copia queda vacía |
+| `CPY-06` | Pasados 10 minutos | Vieja: la pantalla la refresca al abrirse |
+| `CPY-07` | **Emparejarse con otra tienda, y con la misma** | Con otra se vacía; con la misma, no |

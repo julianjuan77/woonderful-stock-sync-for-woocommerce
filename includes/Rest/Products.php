@@ -213,6 +213,9 @@ final class Products {
 			'stock'  => $own_stock ? ( $stocks[ $id ] ?? 0 ) : null,
 			'status' => (string) $product->get_status( 'edit' ),
 			'linked' => in_array( $id, $linked, true ),
+			// Para agrupar las variaciones bajo su padre en la pantalla (ADR-014 §2).
+			'type'   => (string) $product->get_type(),
+			'parent' => (int) $product->get_parent_id( 'edit' ),
 		);
 	}
 
