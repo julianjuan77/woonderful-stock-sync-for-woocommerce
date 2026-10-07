@@ -2,7 +2,7 @@
 
 > Plugin: `woonderful-stock-sync-for-woocommerce` | WP 6.5+ | PHP 8.1+ | WooCommerce 9.1+
 > Repo: [woonderful-stock-sync-for-woocommerce](https://github.com/julianjuan77/woonderful-stock-sync-for-woocommerce)
-> Creado: 2026-09-20 · Última sesión: 2026-10-07 — el bloque 8 entero, la interfaz: de la base (8.1) a la configuración inicial (8.10).1), Resumen (8.2), Registros (8.3), Configuración (8.4) la copia del catálogo de la otra (8.5) y las filas de Productos (8.6), sus acciones (8.7) la vinculación masiva (8.8) la secundaria en modo lectura (8.9) y la configuración inicial (8.10): el bloque 8 completo. Antes, 2026-10-06 — los ADRs del log (ADR-011) y de los avisos (ADR-012), y el bloque 10 entero: la tabla del log, el estado de la otra tienda, los eventos de cada pieza, los pares rotos, la purga y los avisos por email
+> Creado: 2026-09-20 · Última sesión: 2026-10-07 — los ADRs de la interfaz (ADR-013, con la configuración inicial, y ADR-014) y el bloque 8 entero: de la base (8.1) a la configuración inicial (8.10). Antes, 2026-10-06 — los ADRs del log (ADR-011) y de los avisos (ADR-012), y el bloque 10 entero: la tabla del log, el estado de la otra tienda, los eventos de cada pieza, los pares rotos, la purga y los avisos por email
 
 Sincroniza el stock entre dos tiendas WooCommerce propias que despachan del mismo depósito.
 Pool único, sin reparto: lo que se vende en una descuenta en las dos.
