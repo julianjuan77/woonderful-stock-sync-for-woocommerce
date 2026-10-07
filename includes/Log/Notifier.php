@@ -211,6 +211,17 @@ final class Notifier {
 	}
 
 	/**
+	 * Un email de prueba al destinatario de los avisos: un hosting sin correo no avisa nada
+	 * (ADR-013 §3). Sale aunque los avisos estén apagados, y no cuenta para el tope del día.
+	 */
+	public static function test(): bool {
+		return self::mail(
+			__( 'Email de prueba', 'woonderful-stock-sync-for-woocommerce' ),
+			__( 'Si leés esto, los avisos de Woonderful Stock Sync llegan a esta casilla.', 'woonderful-stock-sync-for-woocommerce' )
+		);
+	}
+
+	/**
 	 * Si se mandan emails.
 	 */
 	public static function enabled(): bool {

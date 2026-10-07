@@ -78,6 +78,8 @@ final class Api {
 			'/undiscard'                      => array( 'POST', 'undiscard' ),
 			'/link/bulk'                      => array( 'GET, POST', 'link_bulk' ),
 			'/peer'                           => array( 'GET', 'peer' ),
+			'/requirements'                   => array( 'GET', 'requirements' ),
+			'/test-email'                     => array( 'POST', 'test_email' ),
 			'/discrepancies/(?P<product>\\d+)/(?P<action>accept|restore)' => array( 'POST', 'resolve' ),
 		);
 
@@ -490,6 +492,27 @@ final class Api {
 	 */
 	public static function undiscard( \WP_REST_Request $request ): \WP_REST_Response|\WP_Error {
 		return self::acted( (int) $request['local'], Linker::undiscard( (int) $request['local'] ) );
+	}
+
+	/**
+	 * Los requisitos, cada uno con su resultado (ADR-013 §3).
+	 */
+	public static function requirements(): \WP_REST_Response {
+		return new \WP_REST_Response( array( 'items' => Requirements::check() ), 200 );
+	}
+
+	/**
+	 * Un email de prueba al destinatario de los avisos. Que salga no quiere decir que llegue:
+	 * la pantalla le pide al dueño que lo mire.
+	 */
+	public static function test_email(): \WP_REST_Response {
+		return new \WP_REST_Response(
+			array(
+				'sent' => Notifier::test(),
+				'to'   => Notifier::recipient(),
+			),
+			200
+		);
 	}
 
 	/**

@@ -904,4 +904,34 @@ class Test_Admin extends WP_UnitTestCase {
 
 		$this->assertNull( $this->call( 'GET', '/peer' )->get_data()['admin_url'] );
 	}
+
+	/**
+	 * ADM-31 — **El email de prueba sale al destinatario de los avisos**, aunque estén apagados.
+	 */
+	public function test_a_test_email_is_sent(): void {
+		$this->as_user( 'administrator' );
+		Notifier::configure(
+			array(
+				'enabled' => false,
+				'email'   => 'deposito@example.org',
+			)
+		);
+		reset_phpmailer_instance();
+
+		$data = $this->call( 'POST', '/test-email' )->get_data();
+
+		$this->assertTrue( $data['sent'] );
+		$this->assertSame( 'deposito@example.org', $data['to'] );
+		$this->assertSame( 'deposito@example.org', tests_retrieve_phpmailer_instance()->get_recipient( 'to' )->address );
+	}
+
+	/**
+	 * ADM-32 — Los requisitos, desde la pantalla.
+	 */
+	public function test_the_requirements_are_listed(): void {
+		$this->as_user( 'administrator' );
+		add_filter( 'pre_http_request', static fn () => new WP_Error( 'http_request_failed', 'x' ) );
+
+		$this->assertCount( 8, $this->call( 'GET', '/requirements' )->get_data()['items'] );
+	}
 }

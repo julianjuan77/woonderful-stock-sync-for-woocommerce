@@ -1055,6 +1055,8 @@ marcado sin mandarse, `NOT-17`; la pregunta a `/health` sin firma, `PER-07`; el 
 | `ADM-28` | Descartar, y desvincular | Cada uno devuelve la fila como quedó |
 | `ADM-29` | La masiva, en la maestra y en la secundaria | En la maestra, lo que va a vincular; en la secundaria, `403` |
 | `ADM-30` | **La otra, preguntada en el momento; y con un enlace `javascript:`** | Su nombre y el enlace a su pantalla; el que no es http ni https, `null` |
+| `ADM-31` | **El email de prueba, con los avisos apagados** | Sale igual, al destinatario de los avisos |
+| `ADM-32` | Los requisitos desde la pantalla | Los ocho |
 
 ## [`src/__tests__/routing.test.js`](../src/__tests__/routing.test.js) — las pantallas por `#/ruta`
 
@@ -1161,3 +1163,15 @@ ignorar el duplicado de acá, `ROW-04`.
 | `BLK-05` | 21 pares | `wss_bad_request`, sin vincular ninguno |
 
 Mutaciones: sin revisar el SKU fresco, o el vinculado allá, cae `BLK-03`.
+
+## [`tests/test-requirements.php`](test-requirements.php) — los requisitos de la configuración inicial (ADR-013 §3)
+
+| ID | Caso | Esperado |
+| --- | --- | --- |
+| `REQ-01` | Los críticos | Versiones, tablas, no ser una copia, HTTPS y la API REST; los ocho en total |
+| `REQ-02` | Lo que se cumple y lo que no | Sólo lo que no se cumple trae cómo arreglarlo |
+| `REQ-03` | El correo | Ni sí ni no: no se sabe sin probar |
+| `REQ-04` | **La propia API REST: rechazo `wss_`, 403 de otro plugin, error de red** | Responde sólo con el primero; el 403 dice cuál fue |
+| `REQ-05` | Una tabla que falta, y una copia del sitio | No pasan; la tabla, nombrada |
+| `REQ-06` | `http` fuera de un entorno local | No pasa |
+| `REQ-07` | **La pasada: hace un minuto, hace una hora, nunca** | Sólo la de hace un minuto pasa |

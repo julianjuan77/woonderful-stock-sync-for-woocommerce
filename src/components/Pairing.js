@@ -2,8 +2,13 @@ import { useState, useEffect } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 
 // Generar el código o canjearlo. La usan Configuración y la configuración inicial.
-export default function Pairing( { apiFetch, status, onStatus } ) {
-	const [ mode, setMode ] = useState( null );
+export default function Pairing( {
+	apiFetch,
+	status,
+	onStatus,
+	fixedMode = null,
+} ) {
+	const [ mode, setMode ] = useState( fixedMode );
 	const [ code, setCode ] = useState( null );
 	const [ pasted, setPasted ] = useState( '' );
 	const [ busy, setBusy ] = useState( false );
@@ -81,45 +86,51 @@ export default function Pairing( { apiFetch, status, onStatus } ) {
 				</div>
 			) }
 
-			<div
-				style={ { display: 'flex', gap: '8px', marginBottom: '16px' } }
-			>
-				<button
-					className={ `woon-btn ${
-						'master' === mode
-							? 'woon-btn--primary'
-							: 'woon-btn--secondary'
-					}` }
-					onClick={ () => setMode( 'master' ) }
+			{ ! fixedMode && (
+				<div
+					style={ {
+						display: 'flex',
+						gap: '8px',
+						marginBottom: '16px',
+					} }
 				>
-					{ __(
-						'Esta es la maestra: generar el código',
-						'woonderful-stock-sync-for-woocommerce'
-					) }
-				</button>
-				<button
-					className={ `woon-btn ${
-						'secondary' === mode
-							? 'woon-btn--primary'
-							: 'woon-btn--secondary'
-					}` }
-					onClick={ () => setMode( 'secondary' ) }
-				>
-					{ __(
-						'Esta es la secundaria: pegar el código',
-						'woonderful-stock-sync-for-woocommerce'
-					) }
-				</button>
-			</div>
+					<button
+						className={ `woon-btn ${
+							'master' === mode
+								? 'woon-btn--primary'
+								: 'woon-btn--secondary'
+						}` }
+						onClick={ () => setMode( 'master' ) }
+					>
+						{ __(
+							'Esta es la maestra: generar el código',
+							'woonderful-stock-sync-for-woocommerce'
+						) }
+					</button>
+					<button
+						className={ `woon-btn ${
+							'secondary' === mode
+								? 'woon-btn--primary'
+								: 'woon-btn--secondary'
+						}` }
+						onClick={ () => setMode( 'secondary' ) }
+					>
+						{ __(
+							'Esta es la secundaria: pegar el código',
+							'woonderful-stock-sync-for-woocommerce'
+						) }
+					</button>
+				</div>
+			) }
 
 			{ 'master' === mode && (
-				<div className="woon-field">
-					<div className="woon-help">
+				<div>
+					<p className="woon-muted" style={ { marginBottom: 12 } }>
 						{ __(
 							'La maestra es la que manda: al vincular, el stock que queda es el suyo, y la vinculación se hace desde acá.',
 							'woonderful-stock-sync-for-woocommerce'
 						) }
-					</div>
+					</p>
 					{ code ? (
 						<>
 							<div style={ { display: 'flex', gap: '8px' } }>

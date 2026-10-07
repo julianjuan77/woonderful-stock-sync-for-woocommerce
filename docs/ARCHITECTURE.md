@@ -458,6 +458,19 @@ el enlace a su pantalla. Lo pide al abrir: `GET /peer` llama a `Peer::health()`,
 de la otra —el mismo de `Peer::probe()`—, y devuelve su `label` y su `admin_url`, **sólo si es
 http o https**: lo que manda la otra termina en un enlace.
 
+**La configuración inicial** (`src/screens/Setup.js`, como el de woonderful-sync): requisitos,
+esta tienda —nombre y rol—, emparejar, avisos y listo, con "configurar más tarde" en cada paso. Se
+abre sola mientras la tienda no está emparejada, y desde Configuración. **`Admin\Requirements`**
+revisa ocho cosas; las críticas no dejan avanzar: WooCommerce 9.1 o más —la de PHP la impone
+WordPress con `Requires PHP`—, las tablas sanas, no ser una copia, HTTPS salvo en local, y **la
+API REST respondiendo**: se pide la propia `GET /health` sin firma, y un rechazo `wss_` dice que el
+pedido llegó; un 403 de otro plugin o un error de red, que algo la bloquea. Las recomendadas: la
+pasada corrió en los últimos 10 minutos —según la última ejecución completa en la tabla de Action
+Scheduler, porque la pasada no lo anota—, PHP-FPM o LiteSpeed (`Express::finisher()`), y el correo,
+que no se sabe sin probar: `POST /test-email` (`Notifier::test()`) manda uno al destinatario de los
+avisos, aunque estén apagados. El paso de emparejar usa el mismo `Pairing.js` de Configuración, con
+el modo fijado por el rol, y al terminar prueba la conexión con `GET /peer`.
+
 **El submenú de WordPress** marca la página, no la ruta: la app le pone `current` a la entrada de
 la pantalla abierta.
 
