@@ -184,6 +184,7 @@ es lo normal: loguearlo en cada pasada sería ruido.
 | 8.7 | Vincular a mano, desvincular, reasignar, descartar (ADR-014 §5, §7) | ⬜ | | |
 | 8.8 | La vinculación masiva (ADR-014 §6) | ⬜ | | |
 | 8.9 | La secundaria en modo lectura, con el enlace a la maestra (`GET /health` con `admin_url`) (ADR-013 §6) | ⬜ | | |
+| 8.10 | La configuración inicial: el asistente en pasos, los requisitos, el nombre y el rol, el emparejamiento, los avisos, y el email de prueba (ADR-013 §3, revisado) | ⬜ | | |
 
 **El diseño parte de woonderful-sync** (pedido de Julián, 2026-10-06): los mismos logos (`assets/brand/`), la misma disposición —sidebar con logo, pantallas como `src/screens/Logs.js`— y los mismos colores y estilos (`src/style.scss`, clases `woon-*`).
 
@@ -216,7 +217,7 @@ La fuente es `docs/DECISIONS.md`. Acá sólo el índice de las aprobadas.
 | ADR-010 | Reconciliación, fase 2: cada tienda compara su stock contra su propio libro; se confirma a los 2 minutos; cuatro columnas en `wss_links`; dos acciones para resolver. Corrige el SPEC UC-06 | 2026-10-05 |
 | ADR-011 | El log: una tabla `wss_events` para lo que no es un movimiento —acciones del dueño, intentos fallidos, caídas y rechazos de la otra tienda, reconciliaciones, discrepancias, pares rotos—; el texto se arma al mostrarlo; 90 días, salvo el descarte y lo ya avisado. Revisado el 2026-10-06: el 409 no es un rechazo, y `link_failed` dice si salió solo | 2026-10-06 |
 | ADR-012 | Los avisos por email: cada tienda de lo suyo; lo que no sincroniza en el resumen de la noche, una vez por producto; los errores en el momento; la caída y el rechazo a los 30 minutos; ventana de 10 minutos por causa; un tick por minuto; tope de 10 por día. Corrige el SPEC UC-08 | 2026-10-06 |
-| ADR-013 | La interfaz: una app en React igual a la de woonderful-sync —sidebar, `#/ruta`, tokens y clases `woon-*` copiados—; Resumen, Productos, Registros y Configuración; un namespace `wss-admin/v1` con nonce y `manage_woocommerce`; la secundaria en modo lectura con el enlace a la maestra | 2026-10-07 |
+| ADR-013 | La interfaz: una app en React igual a la de woonderful-sync —sidebar, `#/ruta`, tokens y clases `woon-*` copiados—; Resumen, Productos, Registros y Configuración; un namespace `wss-admin/v1` con nonce y `manage_woocommerce`; la secundaria en modo lectura con el enlace a la maestra. Revisado el 2026-10-07: la configuración inicial, con los requisitos | 2026-10-07 |
 | ADR-014 | La vinculación en la pantalla: una copia del catálogo de la otra (`wss_remote_products`) que se refresca; filas con los dos lados, motivos y sugerencia por SKU; filtros y búsqueda en el servidor; vincular a mano mirando el stock en el momento; masiva de a 20 revalidando; reasignar, descartar | 2026-10-07 |
 
 El 2026-09-28 el SPEC §5 subió el mínimo de WooCommerce de 8.2 a 9.1: es la versión que trae

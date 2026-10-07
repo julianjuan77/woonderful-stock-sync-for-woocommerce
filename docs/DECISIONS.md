@@ -3572,6 +3572,9 @@ que lo dispara.
 ## ADR-013 — La interfaz: la app, sus pantallas y cómo habla con el servidor
 
 Estado: Aprobada · 2026-10-07 · aprobada por Julián
+Revisado: 2026-10-07 — aprobado por Julián. Suma la configuración inicial: un asistente en pasos
+que revisa lo que el plugin necesita para funcionar, nombra la tienda, la empareja y configura
+los avisos. Ver §3.
 Temas: rest-api, capabilities, dependencias, modulos
 Cubre: admin/_.php, src/_, build/_, assets/brand/_, package.json, includes/Rest/Health.php
 
@@ -3625,6 +3628,36 @@ uno se pasa a mano al otro.
 | **Registros** | El log, con filtros por nivel, tipo y fecha, paginado de a 50, y filas que se expanden: la `Logs.js` de woonderful-sync adaptada. El historial de un producto se abre desde su fila en Productos | Igual |
 | **Configuración** | El emparejamiento —generar el código, o canjearlo—, los avisos por email (ADR-012 §6), y la casilla de borrar todo al desinstalar (ADR-003) | Igual |
 
+#### La configuración inicial
+
+Un asistente en pasos, como el `Setup.js` de woonderful-sync: con la barra que marca en qué paso
+se está, y "configurar más tarde" en cada uno. **Se abre solo mientras la tienda no está
+emparejada**; los requisitos se pueden volver a revisar desde Configuración.
+
+1. **Requisitos.** Cada uno con su resultado, si es crítico o recomendado, y cómo arreglarlo.
+   Los críticos no dejan avanzar; los recomendados se avisan y dejan seguir.
+
+   | Requisito | Tipo | Por qué |
+   | --- | --- | --- |
+   | PHP 8.1 o más, y WooCommerce 9.1 o más activo | Crítico | El mínimo del SPEC §5 |
+   | Las tablas del plugin creadas y en InnoDB | Crítico | Sin transacciones, el stock queda mal contado (ADR-004) |
+   | No es una copia de otro sitio | Crítico | Una copia no sincroniza (ADR-001 §1) |
+   | HTTPS, salvo en un entorno local | Crítico | El emparejamiento lo exige |
+   | La API REST responde desde afuera | Crítico | Si un plugin de seguridad la bloquea, la otra tienda no puede mandar nada. Se prueba con un request a `GET /health` de la propia tienda |
+   | La pasada corrió en los últimos minutos | Recomendado | Sin visitas, WP-Cron no la dispara: hace falta un cron real |
+   | PHP-FPM o LiteSpeed | Recomendado | Sin eso, la venta espera a la pasada en vez de salir al terminar el request (ADR-006 §5) |
+   | El correo sale | Recomendado | Con un botón "mandar email de prueba": un hosting sin correo no avisa nada (ADR-012) |
+
+2. **Esta tienda:** el nombre con que la ve la otra, y el rol: maestra o secundaria.
+3. **Emparejar.** La maestra genera el código y espera; la secundaria lo pega. Al terminar se
+   prueba la conexión con `GET /health`.
+4. **Avisos:** el email y el plazo (ADR-012 §6).
+5. **Listo.** La maestra va a Productos, donde la vinculación masiva propone los pares; la
+   secundaria va a Resumen.
+
+Cada paso usa las clases que ya existen; lo nuevo es el chequeo de requisitos y el email de
+prueba.
+
 **Si la otra tienda no responde, un aviso arriba de todo, en todas las pantallas**, con desde
 cuándo (UC-05). Sin él, los stocks descuadrados de Productos parecerían un problema de cada
 producto.
@@ -3660,6 +3693,9 @@ forma de autenticarse.
 | `POST /discrepancies/<producto>/accept` · `/restore` | Resolver una discrepancia de esta tienda |
 | `GET` · `POST /settings` | Los avisos y la casilla de borrado |
 | `POST /pairing/code` · `/pairing/redeem` | Generar el código, o canjearlo |
+| `GET /requirements` | Los requisitos, cada uno con su resultado |
+| `POST /store` | El nombre de esta tienda |
+| `POST /test-email` | Mandar un email de prueba al destinatario de los avisos |
 | Los de Productos | En el ADR-014 |
 
 **Cada endpoint hace lo mismo que su comando de WP-CLI**, llamando a la misma clase: la pantalla
