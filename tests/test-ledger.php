@@ -19,7 +19,7 @@ use Woonderful\StockSync\Schema\Installer;
 class Test_Ledger extends WP_UnitTestCase {
 
 	/**
-	 * El vínculo que arma set_up() para el producto 123.
+	 * El vínculo que arma set_up() para el producto `PRODUCT`.
 	 *
 	 * @var int
 	 */
@@ -29,6 +29,12 @@ class Test_Ledger extends WP_UnitTestCase {
 	 * La otra tienda de la malla.
 	 */
 	private const REMOTE_STORE = 'b1b1b1b1-0000-4000-8000-000000000000';
+
+	/**
+	 * El producto que vincula set_up(). Alto a propósito: los productos de los tests sobreviven
+	 * al rollback, y uno creado con el mismo ID chocaría contra este vínculo.
+	 */
+	private const PRODUCT = 900123;
 
 	/**
 	 * Secuencias para los movimientos de prueba.
@@ -51,7 +57,7 @@ class Test_Ledger extends WP_UnitTestCase {
 
 		wss_unhook_detector();
 
-		$this->link_id = $this->link_product( 123, 456, 77 );
+		$this->link_id = $this->link_product( self::PRODUCT, 456, 77 );
 	}
 
 	public function tear_down(): void {
@@ -372,7 +378,7 @@ class Test_Ledger extends WP_UnitTestCase {
 					'delta'           => -1,
 					'reason'          => 'sale',
 					'created_at'      => gmdate( 'Y-m-d H:i:s', time() - 60 ),
-					'origin_product'  => 123,
+					'origin_product'  => self::PRODUCT,
 					'delivery'        => 'pending',
 					'next_attempt_at' => gmdate( 'Y-m-d H:i:s', time() - 30 ),
 				),
@@ -1006,7 +1012,7 @@ class Test_Ledger extends WP_UnitTestCase {
 	 * LED-01 — Un cambio de un producto vinculado escribe una fila con sus datos.
 	 */
 	public function test_it_writes_a_row_for_a_linked_product(): void {
-		$movement_id = Ledger::record( 123, -2, 'sale', 'pedido #4512' );
+		$movement_id = Ledger::record( self::PRODUCT, -2, 'sale', 'pedido #4512' );
 
 		$this->assertIsInt( $movement_id );
 
@@ -1014,7 +1020,7 @@ class Test_Ledger extends WP_UnitTestCase {
 
 		$this->assertSame( Store::id(), $movement->origin_store );
 		$this->assertSame( -2, (int) $movement->delta );
-		$this->assertSame( 123, (int) $movement->origin_product );
+		$this->assertSame( self::PRODUCT, (int) $movement->origin_product );
 		$this->assertSame( $this->link_id, (int) $movement->link_id );
 		$this->assertSame( 'sale', $movement->reason );
 		$this->assertSame( 'pedido #4512', $movement->reference );
@@ -1027,7 +1033,7 @@ class Test_Ledger extends WP_UnitTestCase {
 	 * LED-02
 	 */
 	public function test_the_sequence_ends_up_equal_to_the_row_id(): void {
-		$movement_id = Ledger::record( 123, -1 );
+		$movement_id = Ledger::record( self::PRODUCT, -1 );
 
 		$this->assertSame( $movement_id, (int) $this->movement( $movement_id )->origin_seq );
 	}
@@ -1052,7 +1058,7 @@ class Test_Ledger extends WP_UnitTestCase {
 		};
 
 		add_filter( 'query', $watch );
-		Ledger::record( 123, -1 );
+		Ledger::record( self::PRODUCT, -1 );
 		remove_filter( 'query', $watch );
 
 		$position = static function ( callable $matches ) use ( $queries ): int {
@@ -1082,7 +1088,7 @@ class Test_Ledger extends WP_UnitTestCase {
 	 * LED-03 — El movimiento toma la generación vigente del vínculo.
 	 */
 	public function test_it_takes_the_generation_from_the_link(): void {
-		$movement_id = Ledger::record( 123, -1 );
+		$movement_id = Ledger::record( self::PRODUCT, -1 );
 
 		$this->assertSame( 77, (int) $this->movement( $movement_id )->generation );
 	}
@@ -1091,7 +1097,7 @@ class Test_Ledger extends WP_UnitTestCase {
 	 * LED-04 — Nace pendiente de entrega y sin intentos.
 	 */
 	public function test_it_is_born_pending_with_no_attempts(): void {
-		$movement = $this->movement( (int) Ledger::record( 123, -1 ) );
+		$movement = $this->movement( (int) Ledger::record( self::PRODUCT, -1 ) );
 
 		$this->assertSame( 'pending', $movement->delivery );
 		$this->assertSame( 0, (int) $movement->attempts );
@@ -1105,7 +1111,7 @@ class Test_Ledger extends WP_UnitTestCase {
 	 * LED-05
 	 */
 	public function test_it_is_not_deliverable_right_away(): void {
-		$movement = $this->movement( (int) Ledger::record( 123, -1 ) );
+		$movement = $this->movement( (int) Ledger::record( self::PRODUCT, -1 ) );
 
 		// Dos aserciones y no una: la primera dice que el código usa la constante, la
 		// segunda que la constante es la que decidimos. Comparar la fila contra la
@@ -1122,7 +1128,7 @@ class Test_Ledger extends WP_UnitTestCase {
 	 * LED-06 — El motivo por defecto es `adjustment`: cambió el stock y no hay documento.
 	 */
 	public function test_the_default_reason_is_adjustment(): void {
-		$movement = $this->movement( (int) Ledger::record( 123, 5 ) );
+		$movement = $this->movement( (int) Ledger::record( self::PRODUCT, 5 ) );
 
 		$this->assertSame( 'adjustment', $movement->reason );
 		$this->assertNull( $movement->reference );
@@ -1150,7 +1156,7 @@ class Test_Ledger extends WP_UnitTestCase {
 		add_filter( 'query', $break_the_update );
 		$wpdb->suppress_errors( true );
 
-		$result = Ledger::record( 123, -1 );
+		$result = Ledger::record( self::PRODUCT, -1 );
 
 		$wpdb->suppress_errors( false );
 		remove_filter( 'query', $break_the_update );
@@ -1171,7 +1177,7 @@ class Test_Ledger extends WP_UnitTestCase {
 	 * LED-08 — Un delta de cero no es un cambio.
 	 */
 	public function test_a_zero_delta_writes_nothing(): void {
-		$this->assertNull( Ledger::record( 123, 0 ) );
+		$this->assertNull( Ledger::record( self::PRODUCT, 0 ) );
 		$this->assertSame( 0, $this->count_movements() );
 	}
 
@@ -1179,7 +1185,7 @@ class Test_Ledger extends WP_UnitTestCase {
 	 * LED-52 — Estampar completa el motivo y la referencia de un movimiento pendiente.
 	 */
 	public function test_stamping_completes_a_pending_movement(): void {
-		$movement_id = (int) Ledger::record( 123, -2 );
+		$movement_id = (int) Ledger::record( self::PRODUCT, -2 );
 
 		Ledger::stamp( $movement_id, 'sale', 'pedido #4512' );
 
@@ -1196,7 +1202,7 @@ class Test_Ledger extends WP_UnitTestCase {
 	public function test_stamping_leaves_a_movement_in_flight_alone(): void {
 		global $wpdb;
 
-		$movement_id = (int) Ledger::record( 123, -2 );
+		$movement_id = (int) Ledger::record( self::PRODUCT, -2 );
 		$wpdb->update( Installer::table( 'movements' ), array( 'delivery' => 'in_flight' ), array( 'id' => $movement_id ) ); // phpcs:ignore WordPress.DB
 
 		Ledger::stamp( $movement_id, 'sale', 'pedido #4512' );
@@ -1240,7 +1246,7 @@ class Test_Ledger extends WP_UnitTestCase {
 	 * LED-55
 	 */
 	public function test_a_long_reference_is_truncated(): void {
-		$movement_id = (int) Ledger::record( 123, -2 );
+		$movement_id = (int) Ledger::record( self::PRODUCT, -2 );
 
 		Ledger::stamp( $movement_id, 'sale', str_repeat( 'x', 150 ) );
 
