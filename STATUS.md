@@ -34,8 +34,9 @@ make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS=
 
 ## 🔄 En progreso
 
-Nada. El bloque 10, el log y los avisos, está completo. Lo que sigue espera un ADR: la interfaz
-(1.11), que parte del diseño de woonderful-sync (ver el bloque 8).
+1.11, la interfaz: el ADR-013 —la estructura— está aprobado; falta el ADR-014, la vinculación
+(sugerencias por SKU, masiva, reasignar, descartar, variaciones). Parte del diseño de
+woonderful-sync (ver el bloque 8).
 
 Los emails de los sitios de prueba se ven en el Mailhog de cada uno: `sandbox` en 8250,
 `sandbox-b` en 8270.
@@ -67,7 +68,7 @@ Leyenda: ✅ hecho · 🔄 en curso · ⬜ pendiente · 🔒 bloqueado
 | 1.8 | ADR-007 — Qué se hashea en la huella del sitio | ✅ |
 | 1.9 | ADR — Reconciliación (UC-06): las dos fases, el candado, el cierre de una importación. ADR-009 (fase 1) y ADR-010 (fase 2) | ✅ |
 | 1.10 | ADR — Log de acciones y avisos (UC-03, UC-08). ADR-011 (el log) y ADR-012 (los avisos) | ✅ |
-| 1.11 | ADR — Interfaz (UC-05): pantalla de vinculación y de ajustes | ⬜ |
+| 1.11 | ADR — Interfaz (UC-05): pantalla de vinculación y de ajustes. La estructura en ADR-013 (aprobado); falta la vinculación, ADR-014 | 🔄 |
 
 ### 2. Cimientos
 
@@ -222,6 +223,7 @@ La fuente es `docs/DECISIONS.md`. Acá sólo el índice de las aprobadas.
 | ADR-010 | Reconciliación, fase 2: cada tienda compara su stock contra su propio libro; se confirma a los 2 minutos; cuatro columnas en `wss_links`; dos acciones para resolver. Corrige el SPEC UC-06 | 2026-10-05 |
 | ADR-011 | El log: una tabla `wss_events` para lo que no es un movimiento —acciones del dueño, intentos fallidos, caídas y rechazos de la otra tienda, reconciliaciones, discrepancias, pares rotos—; el texto se arma al mostrarlo; 90 días, salvo el descarte y lo ya avisado. Revisado el 2026-10-06: el 409 no es un rechazo, y `link_failed` dice si salió solo | 2026-10-06 |
 | ADR-012 | Los avisos por email: cada tienda de lo suyo; lo que no sincroniza en el resumen de la noche, una vez por producto; los errores en el momento; la caída y el rechazo a los 30 minutos; ventana de 10 minutos por causa; un tick por minuto; tope de 10 por día. Corrige el SPEC UC-08 | 2026-10-06 |
+| ADR-013 | La interfaz: una app en React igual a la de woonderful-sync —sidebar, `#/ruta`, tokens y clases `woon-*` copiados—; Resumen, Productos, Registros y Configuración; un namespace `wss-admin/v1` con nonce y `manage_woocommerce`; la secundaria en modo lectura con el enlace a la maestra | 2026-10-07 |
 
 El 2026-09-28 el SPEC §5 subió el mínimo de WooCommerce de 8.2 a 9.1: es la versión que trae
 el hook que estampa las cancelaciones (ADR-006 §2).

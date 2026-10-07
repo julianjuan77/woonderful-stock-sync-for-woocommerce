@@ -3566,3 +3566,146 @@ que lo dispara.
 | --- | --- |
 | Las sugerencias por SKU y el descarte | ADR de la interfaz (tarea 1.11) |
 | La pantalla de ajustes de estas tres opciones | ADR de la interfaz (tarea 1.11) |
+
+---
+
+## ADR-013 — La interfaz: la app, sus pantallas y cómo habla con el servidor
+
+Estado: Aprobada · 2026-10-07 · aprobada por Julián
+Temas: rest-api, capabilities, dependencias, modulos
+Cubre: admin/_.php, src/_, build/_, assets/brand/_, package.json, includes/Rest/Health.php
+
+### En pocas palabras
+
+Una app en React, **igual a la de woonderful-sync**: la misma sidebar con el logo, las mismas
+pantallas por `#/ruta`, los mismos colores y estilos. Habla con el servidor por un namespace
+REST propio del admin, separado del que usan las tiendas entre sí.
+
+Cuatro pantallas: **Resumen**, **Productos**, **Registros** y **Configuración**. La lógica de la
+vinculación —sugerencias, masiva, reasignar, descartar— va en el ADR-014.
+
+---
+
+### 1. Cómo se construye
+
+| Opción | Por qué sí o por qué no |
+| --- | --- |
+| **A — Una app en React, como woonderful-sync** ✅ | El mismo diseño y la misma estructura: se copian los tokens, los estilos y componentes como el paginado. Y hay cosas que lo necesitan: buscar el producto de la otra tienda desde una fila, desplegar variaciones, vincular sin recargar (UC-05). El SPEC pide React (§2). Contra: un paso de build, y lo compilado viaja en el plugin |
+| B — Pantallas clásicas de WordPress en PHP, con el CSS de woonderful | Sin build. Pero se aparta de woonderful-sync, y buscar en la otra tienda sin salir de la fila o vincular sin recargar se vuelven JavaScript suelto |
+| C — Mixta: ajustes en PHP, productos y log en React | Dos formas de hacer lo mismo, y dos estilos que mantener |
+
+**Cómo, igual que woonderful-sync:**
+
+- `@wordpress/scripts` compila `src/` a `build/`. **`build/` se sube al repo**: el ZIP de
+  distribución lo necesita. `src/` viaja también: WordPress.org pide que el código compilado
+  tenga su fuente disponible, y llevarla en el ZIP es la forma más simple.
+- Un menú propio en el admin, con el ícono de Woonderful, y una sola página que monta la app.
+- Las pantallas se eligen por `#/ruta`, sin recargar.
+- Las traducciones de la app, con `wp_set_script_translations()`.
+- Tests de JavaScript con `wp-scripts test-unit-js`, como los de woonderful-sync.
+
+### 2. El diseño
+
+**Se copia el de woonderful-sync**, no se diseña de nuevo: los tokens de color, tipografía y
+espaciado de `style.scss`, las clases `woon-*`, la sidebar, el logo y los íconos de
+`assets/brand/`. **Sin recursos externos** —ni fuentes de Google ni CDN—, como allá: la
+tipografía cae al stack del sistema. Es lo que pide WordPress.org, y lo que ya hace el otro
+plugin.
+
+**Se copia, no se comparte.** Extraer el diseño a una librería común —como `woonderful-license`—
+tiene sentido cuando haya un tercer plugin; con dos, una copia es más simple. Lo que cambie en
+uno se pasa a mano al otro.
+
+### 3. Las pantallas
+
+| Pantalla | Qué muestra | En la secundaria |
+| --- | --- | --- |
+| **Resumen** | Cómo está la otra tienda —y desde cuándo, si está caída—, la última reconciliación con lo que hizo, las discrepancias de **las dos** tiendas en un solo lugar, y lo que no sincroniza | Igual, con lo suyo |
+| **Productos** | La vinculación: el catálogo de la maestra, cada fila con los dos lados (ADR-014) | En modo lectura |
+| **Registros** | El log, con filtros por nivel, tipo y fecha, paginado de a 50, y filas que se expanden: la `Logs.js` de woonderful-sync adaptada. El historial de un producto se abre desde su fila en Productos | Igual |
+| **Configuración** | El emparejamiento —generar el código, o canjearlo—, los avisos por email (ADR-012 §6), y la casilla de borrar todo al desinstalar (ADR-003) | Igual |
+
+**Si la otra tienda no responde, un aviso arriba de todo, en todas las pantallas**, con desde
+cuándo (UC-05). Sin él, los stocks descuadrados de Productos parecerían un problema de cada
+producto.
+
+**La reconciliación manual** se lanza desde Resumen, en la maestra (UC-06). Hace lo mismo que
+`wp wss reconcile`, y dice "no se pudo mirar" cuando la otra no responde.
+
+**Resolver una discrepancia** —"el stock de acá está bien" o "el libro está bien" (ADR-010 §6)—
+se hace desde Resumen, en la tienda donde está. Resolver las de la otra tienda desde la maestra
+necesita un endpoint nuevo entre tiendas: no entra en v1. Resumen las muestra, y dice que se
+resuelven desde la otra.
+
+### 4. Cómo habla con el servidor
+
+**Un namespace REST propio del admin, `wss-admin/v1`**, separado de `wss/v1`:
+
+| | `wss/v1` | `wss-admin/v1` |
+| --- | --- | --- |
+| Quién lo llama | La otra tienda | La app, en el navegador del dueño |
+| Cómo se autentica | Firma HMAC con el secreto (ADR-001) | La cookie de WordPress y su nonce (`wp_rest`) |
+| Permiso | — | `manage_woocommerce` en **cada** endpoint |
+
+Mezclarlos obligaría a cada endpoint a saber quién lo llama. Separados, cada uno tiene una sola
+forma de autenticarse.
+
+**Los endpoints de `wss-admin/v1`:**
+
+| Endpoint | Para qué |
+| --- | --- |
+| `GET /status` | Todo lo de Resumen: rol, estado de la otra, última reconciliación, discrepancias, cuántos no sincronizan |
+| `GET /log` | El log, filtrado y paginado; con `product`, el historial (ADR-011 §8) |
+| `POST /reconcile` | La reconciliación manual. Sólo en la maestra |
+| `POST /discrepancies/<producto>/accept` · `/restore` | Resolver una discrepancia de esta tienda |
+| `GET` · `POST /settings` | Los avisos y la casilla de borrado |
+| `POST /pairing/code` · `/pairing/redeem` | Generar el código, o canjearlo |
+| Los de Productos | En el ADR-014 |
+
+**Cada endpoint hace lo mismo que su comando de WP-CLI**, llamando a la misma clase: la pantalla
+no tiene lógica propia. Si algo anda por WP-CLI, anda por la pantalla.
+
+### 5. Los permisos
+
+- **`manage_woocommerce`**, como woonderful-sync y como pide UC-05. Se verifica en cada
+  endpoint, no sólo en el menú: un botón oculto no es un permiso (UC-05).
+- **Un usuario sin el permiso no ve el menú.**
+- **Lo que sólo hace la maestra se rechaza en el servidor**, aunque la pantalla de la secundaria
+  no muestre el botón: vincular, desvincular, reasignar, descartar y la reconciliación manual
+  (UC-05, UC-06). Es la misma guarda que ya usan `Linker` y `wp wss reconcile`.
+
+### 6. La secundaria: modo lectura, con el enlace a la maestra
+
+UC-05 pide que la secundaria diga que la vinculación se hace desde la otra tienda,
+**nombrándola y con el enlace directo**. La secundaria sabe el nombre de la maestra —lo guardó al
+emparejarse—, pero no la dirección de su admin.
+
+**`GET /health` suma dos campos: `admin_url` y la etiqueta.** La secundaria se los pregunta a la
+maestra al abrir la pantalla. Sumar campos dentro de `wss/v1` está permitido (ADR-001 §4): una
+versión vieja del otro lado los ignora.
+
+---
+
+### Qué cambia en otros ADRs
+
+| ADR | Qué cambia |
+| --- | --- |
+| ADR-001 §4 | `GET /health` suma `admin_url` |
+| ADR-000 | Suma `@wordpress/scripts` como dependencia de desarrollo, y la carpeta `build/` versionada |
+
+### Lo que se vuelve más difícil
+
+- **Un paso de build.** Un cambio en `src/` sin compilar no se ve. Va a la lista de lo que se
+  revisa antes de cada release.
+- **El diseño vive en dos plugins.** Un cambio de marca hay que pasarlo a mano.
+
+### Los riesgos que quedan
+
+- **Resolver las discrepancias de la secundaria desde la maestra no entra en v1**: se resuelven
+  desde la tienda donde están.
+
+### Lo que no cubre
+
+| Qué | Dónde va |
+| --- | --- |
+| Las sugerencias por SKU y sus motivos, la vinculación masiva, reasignar, descartar, las variaciones | ADR-014 |
