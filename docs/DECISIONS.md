@@ -3709,3 +3709,192 @@ versión vieja del otro lado los ignora.
 | Qué | Dónde va |
 | --- | --- |
 | Las sugerencias por SKU y sus motivos, la vinculación masiva, reasignar, descartar, las variaciones | ADR-014 |
+
+---
+
+## ADR-014 — La vinculación en la pantalla
+
+Estado: Aprobada · 2026-10-07 · aprobada por Julián
+Temas: db-schema, rest-api, uninstall, modulos
+Cubre: includes/Linking/_.php, includes/Catalog/_.php, includes/Rest/Products.php, admin/_.php, src/screens/Products.js, includes/Schema/Installer.php, uninstall.php
+
+### En pocas palabras
+
+Cada tienda guarda **una copia del catálogo de la otra**, que se refresca. Con esa copia, la
+pantalla de Productos arma cada fila con los dos lados, sugiere el par por SKU, filtra por estado
+y por motivo sobre todo el catálogo, y vincula de a uno o en masa.
+
+La copia puede estar unos minutos atrasada, y no es un riesgo: **todo lo que escribe vuelve a
+mirar los dos lados en el momento** (ADR-008 §3, UC-05).
+
+---
+
+### 1. La copia del catálogo de la otra tienda
+
+| Opción | Por qué sí o por qué no |
+| --- | --- |
+| A — Preguntar sólo por las filas que se ven | Liviano y al día. Pero los filtros y la masiva necesitan el catálogo entero: "¿cuántos tienen sugerencia?" no se contesta mirando una página |
+| **B — Una copia, que se refresca** ✅ | Filtros, conteos y masiva sobre todo el catálogo, rápidos. Atrasada unos minutos, pero lo que escribe revalida en el momento. Contra: una tabla más |
+| C — Traer el catálogo entero cada vez | Sin copia. Pero con 5.000 productos son 50 pedidos cada vez que el dueño entra |
+
+**La tabla, `wss_remote_products`:** el producto de la otra, su padre si es una variación, el
+tipo, el SKU, el nombre, el stock —o `NULL` si no lleva el suyo—, el estado (publicado, papelera…),
+si está vinculado allá, y cuándo se vio.
+
+**Cuándo se refresca:**
+
+- **Al abrir la pantalla, si tiene más de 10 minutos.** La app la pide de a una página por
+  request —100 productos— y muestra el avance: con 5.000 son 50 requests cortos, no uno largo que
+  se corte por tiempo.
+- **Con un botón "actualizar"**, cuando el dueño cambió algo en la otra tienda y no quiere
+  esperar.
+- **De noche**, en las dos tiendas, para que la mañana arranque con la copia al día.
+
+**Lo que ya no está allá se borra.** Cada refresco completo marca lo que vio; al terminar, lo que
+no vio se borra. Un refresco cortado a mitad no borra nada.
+
+**Es de las dos tiendas, no sólo de la maestra.** La secundaria también la necesita, para mostrar
+lo mismo en modo lectura —por ejemplo, que un producto suyo no tiene con quién vincularse en la
+maestra (UC-05)—.
+
+**Si se re-empareja con otra tienda, la copia se vacía**: es de la tienda anterior.
+
+### 2. `GET /products` suma el tipo y el padre
+
+Para agrupar las variaciones bajo su padre (UC-05). Sumar campos dentro de `wss/v1` está
+permitido: una versión vieja del otro lado los ignora (ADR-001 §4).
+
+### 3. Las filas
+
+**La unidad vinculable es un producto simple o una variación que lleva su propio stock** (UC-03,
+ADR-005). El producto variable es una fila que se despliega, sin acciones propias.
+
+**Una fila por cada vinculable de esta tienda**, con los dos lados:
+
+```
+Alpargata verde 39   SKU ALP-V39   stock 6   │   Alpargata verde 39   SKU alp-v-39   stock 6   vinculado
+Alpargata negra 41   SKU ALP-N41   stock 4   │   sugerencia: Alpargata negra 41 (#88)            sin vincular
+Ojota azul           —             stock 3   │                                                   sin vincular · sin SKU
+```
+
+**El estado** es el de ADR-005 §1 —vinculado, sin vincular, suspendido con su motivo, incierto—,
+calculado con la copia en vez de preguntarle a la otra en el momento.
+
+**El motivo de un sin vincular**, en este orden:
+
+| Motivo | Cuándo |
+| --- | --- |
+| Sugerencia descartada | El dueño la descartó (sólo se ve si se activa "mostrar descartados") |
+| Sin SKU | El de acá no tiene SKU |
+| SKU duplicado | El SKU se repite entre los vinculables de acá, o entre los de allá |
+| Sin coincidencia | Ningún vinculable de allá tiene ese SKU |
+| Con sugerencia | Uno solo de allá tiene ese SKU, sin vincular |
+
+**El SKU se compara sin espacios a los costados y sin distinguir mayúsculas**: `alp-v39` y
+`ALP-V39 ` son el mismo. Así no se pierde una sugerencia por cómo se tipeó el SKU en cada tienda;
+y si eso junta dos que el dueño consideraba distintos, aparece como SKU duplicado, no como un
+par equivocado.
+
+**El stock en el padre.** Si un producto variable lleva el stock en el padre, sus variaciones no
+llevan el suyo, y no hay nada que vincular. La fila lo dice —"el stock está en el padre:
+llevalo a cada variación"— en vez de mostrarlo como un sin vincular más.
+
+### 4. Filtros y búsqueda
+
+- **Por estado:** todos, con sugerencia, **sin vincular** —el que más se usa—, vinculados,
+  suspendidos.
+- **Por motivo:** sin SKU, SKU duplicado, sin coincidencia, en papelera.
+- **"Mostrar descartados"**, un control en la barra de filtros, **apagado al abrir la pantalla**.
+  Encendido, aparecen las filas descartadas y el motivo "sugerencia descartada". Es lo que el SPEC
+  dejó pendiente: va en la barra de filtros porque es un filtro, y no se guarda porque lo normal
+  es no verlas (UC-05).
+- **La búsqueda** mira el nombre y el SKU **de los dos lados**, y encuentra también lo
+  descartado (UC-05).
+
+**Se calcula del lado del servidor, sobre todo el catálogo**, y la app recibe una página de 50.
+
+### 5. Vincular a mano
+
+1. Desde la fila, el dueño **busca el producto de la otra** por nombre o SKU, en la copia: sólo
+   vinculables sin vincular. El SKU no hace falta (UC-05).
+2. Antes de confirmar, la pantalla **pide ese producto a la otra en el momento**
+   (`GET /products?include=`): uno solo, para mostrar su stock real. Y muestra los dos stocks y
+   **cuál va a quedar**: el de la maestra (UC-05, UC-07).
+3. Al confirmar, `Linker::link()` con los dos stocks que vio. Si alguno cambió, lo rechaza
+   (ADR-008 §3) y la pantalla vuelve al paso 2.
+
+La fila se actualiza con lo que devuelve el servidor, no con lo que se esperaba (UC-05).
+
+### 6. La vinculación masiva
+
+1. La pantalla dice **cuántos pares sin ambigüedad** va a vincular —los "con sugerencia", sin
+   descartar— y avisa que **todos arrancan con el stock de la maestra**. Los ambiguos —SKU
+   duplicado— quedan aparte, para resolver de a uno (UC-05).
+2. Al confirmar, la app los manda **en tandas de 20**. Por cada tanda, el servidor **vuelve a
+   validar cada par en el momento**: que los dos sigan publicados y sin vincular, que el SKU siga
+   sin ambigüedad, que no se haya descartado. Para eso pide los 20 de allá con
+   `GET /products?include=`, frescos (UC-05).
+3. Cada par se vincula por separado, con `Linker::link()` y los stocks recién leídos. Uno que
+   falla no corta la tanda.
+4. Al terminar, la pantalla muestra **los vinculados y los omitidos con su motivo**.
+
+Reintentar no duplica: un par ya vinculado vuelve como omitido, `already_linked` (ADR-001).
+
+**Lo que dice UC-08 sobre los emails:** una masiva que falla con la otra tienda caída no manda
+ningún email, porque el dueño la está mirando. Ya es así: `link_failed` de algo que el dueño hizo
+no se avisa (ADR-012 §2).
+
+### 7. Reasignar, desvincular, descartar
+
+- **Desvincular** pide confirmación y avisa que el producto deja de sincronizar; el stock no se
+  toca (UC-05). Es `Linker::unlink()`.
+- **Reasignar** es desvincular y vincular, **en ese orden** (UC-05). Si el segundo paso falla,
+  el producto queda sin vincular: un estado válido y reintentable.
+- **Descartar** la sugerencia y **deshacer el descarte** escriben `discarded` y `undiscarded` en
+  el log, con el usuario (ADR-011 §3). Descartar no impide vincular a mano (UC-05).
+
+Todo esto es **sólo de la maestra**, verificado en el servidor (ADR-013 §5).
+
+### 8. Los endpoints
+
+En `wss-admin/v1` (ADR-013 §4):
+
+| Endpoint | Para qué |
+| --- | --- |
+| `GET /products` | Las filas: filtros, búsqueda, página de 50 |
+| `POST /catalog/refresh` | Una página del refresco de la copia, con su avance |
+| `GET /catalog/search` | Buscar el producto de la otra para vincular a mano |
+| `GET /catalog/fresh/<id>` | El de la otra en el momento, antes de confirmar |
+| `POST /link` · `/unlink` · `/reassign` | Vincular, desvincular y reasignar uno |
+| `POST /link/bulk` | Una tanda de la masiva |
+| `POST /discard` · `/undiscard` | Descartar y deshacer |
+
+---
+
+### Qué cambia en otros ADRs
+
+| ADR | Qué cambia |
+| --- | --- |
+| ADR-004 | Una quinta tabla, `wss_remote_products`. Sube la versión del esquema |
+| ADR-001 §4 | `GET /products` suma `type` y `parent` |
+| ADR-003 | `wss_remote_products` es una copia de otra tienda, no un dato del dueño: se borra siempre |
+| ADR-005 §1 | En la pantalla, el estado se calcula con la copia; `wp wss status` sigue preguntando en el momento |
+
+### Lo que se vuelve más difícil
+
+- **El cálculo de las filas es lo más pesado de la pantalla**: cruza los vinculables de acá, los
+  vínculos, la copia y los descartes, para todo el catálogo, en cada página. Con miles de
+  productos hay que medirlo; si pesa, se guarda el resultado unos minutos.
+- **Una copia que se refresca** suma un estado más que puede estar atrasado. Lo cubre que todo lo
+  que escribe revalide.
+
+### Los riesgos que quedan
+
+- **La copia puede tener hasta 10 minutos**: una sugerencia que ya no vale se ve hasta el próximo
+  refresco. Al vincularla, la revalidación la rechaza con su motivo.
+
+### Lo que no cubre
+
+| Qué | Dónde va |
+| --- | --- |
+| Cómo se ven las pantallas | El código: se copia de woonderful-sync (ADR-013 §2) |

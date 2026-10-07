@@ -34,9 +34,8 @@ make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS=
 
 ## 🔄 En progreso
 
-1.11, la interfaz: el ADR-013 —la estructura— está aprobado; falta el ADR-014, la vinculación
-(sugerencias por SKU, masiva, reasignar, descartar, variaciones). Parte del diseño de
-woonderful-sync (ver el bloque 8).
+Nada. Los ADRs de la interfaz (ADR-013 y ADR-014) están aprobados: falta programarla, el bloque
+8, partiendo del diseño de woonderful-sync.
 
 Los emails de los sitios de prueba se ven en el Mailhog de cada uno: `sandbox` en 8250,
 `sandbox-b` en 8270.
@@ -68,7 +67,7 @@ Leyenda: ✅ hecho · 🔄 en curso · ⬜ pendiente · 🔒 bloqueado
 | 1.8 | ADR-007 — Qué se hashea en la huella del sitio | ✅ |
 | 1.9 | ADR — Reconciliación (UC-06): las dos fases, el candado, el cierre de una importación. ADR-009 (fase 1) y ADR-010 (fase 2) | ✅ |
 | 1.10 | ADR — Log de acciones y avisos (UC-03, UC-08). ADR-011 (el log) y ADR-012 (los avisos) | ✅ |
-| 1.11 | ADR — Interfaz (UC-05): pantalla de vinculación y de ajustes. La estructura en ADR-013 (aprobado); falta la vinculación, ADR-014 | 🔄 |
+| 1.11 | ADR — Interfaz (UC-05): pantalla de vinculación y de ajustes. ADR-013 (la estructura) y ADR-014 (la vinculación) | ✅ |
 
 ### 2. Cimientos
 
@@ -172,27 +171,21 @@ es lo normal: loguearlo en cada pasada sería ruido.
 | 7.6 | La tercera pregunta, y `wp wss discrepancies`, `accept` y `restore` (ADR-010 §6–§7) | ✅ | `b156ddf` | `AUD-14`…`AUD-18`, `RCN-11`, `RCN-12`, `RCL-17`, `RCL-18`, `CLI-13`…`CLI-15` |
 | 7.7 | La purga nocturna: `Ledger::purge()` existe y nada la llama (ADR-004 §4) | ✅ | `e307214` | `SCD-14`…`SCD-16` |
 
-### 8. La interfaz — `admin/`
-
-| | Tarea | Estado |
-|---|---|---|
-| 8.1 | Pantalla de ajustes: emparejamiento, estado del canal, la casilla de borrado | 🔒 1.11 |
-| 8.2 | Pantalla de vinculación: sugerencias por SKU, vinculación masiva, estado por producto | 🔒 1.11 |
-
-**El diseño parte de woonderful-sync** (pedido de Julián, 2026-10-06): los mismos logos (`assets/brand/`), la misma disposición —sidebar con logo, pantallas como `src/screens/Logs.js`— y los mismos colores y estilos (`src/style.scss`, clases `woon-*`).
-
-### 10. El log y los avisos — `includes/Log/`
+### 8. La interfaz — `admin/`, `src/`
 
 | | Tarea | Estado | Commit | Tests |
 |---|---|---|---|---|
-| 10.1 | La tabla `wss_events` y `Log\Events::record()`: el texto se arma al mostrarlo, y si escribir falla no corta nada (ADR-011 §2, §7) | ✅ | `84b8783` | `EVT-01`…`EVT-07`, `UNI-11`, `EVT-08` |
-| 10.2 | El estado de la otra tienda en `wss_peer_state`: caída, rechazo —sin el 409— y vuelta, sólo el cambio (ADR-011 §4) | ✅ | `886f9ac` | `PER-01`…`PER-08` |
-| 10.3 | Los eventos de cada pieza: vincular, fallar, desvincular, `link_unresolved`, `abandoned`, `ledger_error`, `reconciled`, las discrepancias, `link_removed` (ADR-011 §3, §7) | ✅ | `c4cbdd9` | `LNK-12`…`LNK-15`, `SND-19`…`SND-21`, `BOK-19`, `RCN-13`, `RCL-19`, `AUD-20` |
-| 10.4 | El par roto: `broken_since` en `wss_links`, revisado de noche en cada tienda (ADR-011 §7) | ✅ | `f801f3b` | `PAI-01`…`PAI-04`, `SCD-18` |
-| 10.5 | La purga de 90 días que respeta el descarte y lo avisado, y `wp wss log` (ADR-011 §6, §8) | ✅ | `f801f3b` | `EVT-06`, `CLI-16`, `CLI-17`, `SCD-18` |
-| 10.6 | `Notifier`: el tick de cada minuto, las ventanas por causa, lo atribuido a la caída, el tope de 10 por día (ADR-012 §2, §4, §5) | ✅ | `f801f3b` | `NOT-01`…`NOT-12`, `PAS-09`, `NOT-16`, `NOT-19`, `NOT-20` |
-| 10.7 | El resumen de la noche de lo que no sincroniza, una vez por producto (ADR-012 §3, §4) | ✅ | `f801f3b` | `NOT-13`…`NOT-15`, `SCD-18`, `NOT-17`, `NOT-18` |
-| 10.8 | Las tres opciones y `wp wss notify`; el email que no sale (ADR-012 §6, §7) | ✅ | `f801f3b` | `NOT-11`, `NOT-12`, `CLI-18`, `CLI-19` |
+| 8.1 | La base: `@wordpress/scripts`, el menú, la app con la sidebar y el diseño copiados de woonderful-sync, `wss-admin/v1` con su permiso (ADR-013 §1, §2, §4, §5) | ⬜ | | |
+| 8.2 | Resumen: el estado de la otra, la última reconciliación y la manual, las discrepancias de las dos y cómo resolverlas (ADR-013 §3) | ⬜ | | |
+| 8.3 | Registros: el log, filtros y paginado, desde `Logs.js` (ADR-013 §3) | ⬜ | | |
+| 8.4 | Configuración: el emparejamiento, los avisos, la casilla de borrado (ADR-013 §3) | ⬜ | | |
+| 8.5 | La copia del catálogo de la otra: la tabla, el refresco, `GET /products` con tipo y padre (ADR-014 §1, §2) | ⬜ | | |
+| 8.6 | Productos: las filas, los motivos y la sugerencia, filtros y búsqueda (ADR-014 §3, §4) | ⬜ | | |
+| 8.7 | Vincular a mano, desvincular, reasignar, descartar (ADR-014 §5, §7) | ⬜ | | |
+| 8.8 | La vinculación masiva (ADR-014 §6) | ⬜ | | |
+| 8.9 | La secundaria en modo lectura, con el enlace a la maestra (`GET /health` con `admin_url`) (ADR-013 §6) | ⬜ | | |
+
+**El diseño parte de woonderful-sync** (pedido de Julián, 2026-10-06): los mismos logos (`assets/brand/`), la misma disposición —sidebar con logo, pantallas como `src/screens/Logs.js`— y los mismos colores y estilos (`src/style.scss`, clases `woon-*`).
 
 ### 9. Publicación
 
@@ -224,6 +217,7 @@ La fuente es `docs/DECISIONS.md`. Acá sólo el índice de las aprobadas.
 | ADR-011 | El log: una tabla `wss_events` para lo que no es un movimiento —acciones del dueño, intentos fallidos, caídas y rechazos de la otra tienda, reconciliaciones, discrepancias, pares rotos—; el texto se arma al mostrarlo; 90 días, salvo el descarte y lo ya avisado. Revisado el 2026-10-06: el 409 no es un rechazo, y `link_failed` dice si salió solo | 2026-10-06 |
 | ADR-012 | Los avisos por email: cada tienda de lo suyo; lo que no sincroniza en el resumen de la noche, una vez por producto; los errores en el momento; la caída y el rechazo a los 30 minutos; ventana de 10 minutos por causa; un tick por minuto; tope de 10 por día. Corrige el SPEC UC-08 | 2026-10-06 |
 | ADR-013 | La interfaz: una app en React igual a la de woonderful-sync —sidebar, `#/ruta`, tokens y clases `woon-*` copiados—; Resumen, Productos, Registros y Configuración; un namespace `wss-admin/v1` con nonce y `manage_woocommerce`; la secundaria en modo lectura con el enlace a la maestra | 2026-10-07 |
+| ADR-014 | La vinculación en la pantalla: una copia del catálogo de la otra (`wss_remote_products`) que se refresca; filas con los dos lados, motivos y sugerencia por SKU; filtros y búsqueda en el servidor; vincular a mano mirando el stock en el momento; masiva de a 20 revalidando; reasignar, descartar | 2026-10-07 |
 
 El 2026-09-28 el SPEC §5 subió el mínimo de WooCommerce de 8.2 a 9.1: es la versión que trae
 el hook que estampa las cancelaciones (ADR-006 §2).
