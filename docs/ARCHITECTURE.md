@@ -431,7 +431,11 @@ vincular, en este orden: en la papelera, descartado, sin SKU, SKU duplicado —a
 coincidencia —ninguno allá, o el único ya tiene par—, con sugerencia. **El SKU se compara sin
 espacios a los costados y sin mayúsculas** (`Rows::normalize()`). Un variable que lleva el stock en
 el padre tiene su propia fila, que lo dice. Lo descartado se esconde salvo con "mostrar
-descartados". Si la copia tiene más de 10 minutos, la pantalla la refresca al abrirse.
+descartados". Si la copia tiene más de 10 minutos, la pantalla la refresca al abrirse. Todos los filtros —estado, motivo, mostrar
+descartados— son botones, como en woonderful-sync. **Las filas con sugerencia se pueden tildar** —de
+a una, por padre o toda la página— y se vinculan con la misma masiva, pasándole sólo esos pares. El
+nombre de un producto abre su historial en un pop-up (`src/components/HistoryModal.js`), sin salir
+de la pantalla.
 
 **Las acciones de Productos**, sólo en la maestra —y rechazadas en el servidor fuera de ella, con
 `403 wss_not_master`—: vincular a mano, desvincular, reasignar, descartar y deshacer el descarte.

@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from '@wordpress/element';
-import { __, sprintf } from '@wordpress/i18n';
+import { __, sprintf, _n } from '@wordpress/i18n';
 import Pagination from '../components/Pagination';
 import LinkModal from '../components/LinkModal';
 import BulkModal from '../components/BulkModal';
+import HistoryModal from '../components/HistoryModal';
 
 const STATE_FILTERS = [
 	{
@@ -77,7 +78,7 @@ const initialState = () => {
 	return STATE_FILTERS.some( ( f ) => f.value === state ) ? state : 'all';
 };
 
-export default function Products( { apiFetch, navigate, status } ) {
+export default function Products( { apiFetch, status } ) {
 	const [ data, setData ] = useState( null );
 	const [ page, setPage ] = useState( 1 );
 	const [ state, setState ] = useState( initialState );
@@ -90,6 +91,8 @@ export default function Products( { apiFetch, navigate, status } ) {
 	const [ refreshing, setRefreshing ] = useState( null );
 	const [ modal, setModal ] = useState( null );
 	const [ bulk, setBulk ] = useState( false );
+	const [ selected, setSelected ] = useState( {} );
+	const [ history, setHistory ] = useState( null );
 	const [ notice, setNotice ] = useState( null );
 	const autoRefreshed = useRef( false );
 
@@ -247,6 +250,26 @@ export default function Products( { apiFetch, navigate, status } ) {
 
 	const counts = data?.counts ?? {};
 
+	// Sólo se tildan las que tienen sugerencia: es lo que vincula la masiva (ADR-014 §6).
+	const selectable = actions
+		? ( data?.rows ?? [] ).filter( ( r ) => 'suggestion' === r.motive )
+		: [];
+	const toggle = ( rows, on ) =>
+		setSelected( ( prev ) => {
+			const next = { ...prev };
+			rows.forEach( ( r ) => {
+				if ( on ) {
+					next[ r.id ] = { local: r.id, remote: r.suggestion.id };
+				} else {
+					delete next[ r.id ];
+				}
+			} );
+			return next;
+		} );
+	const allOn = ( rows ) =>
+		rows.length > 0 && rows.every( ( r ) => selected[ r.id ] );
+	const picked = Object.values( selected );
+
 	return (
 		<div>
 			{ status && ! status.store.master && (
@@ -305,45 +328,46 @@ export default function Products( { apiFetch, navigate, status } ) {
 			</div>
 
 			<div className="woon-toolbar" style={ { marginTop: '-8px' } }>
-				<select
-					className="woon-select"
-					style={ { maxWidth: 220 } }
-					value={ motive }
-					onChange={ ( e ) => {
-						setMotive( e.target.value );
+				<div className="woon-filters">
+					{ [
+						[
+							'',
+							__(
+								'Todos los motivos',
+								'woonderful-stock-sync-for-woocommerce'
+							),
+						],
+						...Object.entries( MOTIVES ),
+					].map( ( [ v, l ] ) => (
+						<button
+							key={ v || 'all' }
+							className={ `woon-filter ${
+								motive === v ? 'woon-filter--active' : ''
+							}` }
+							onClick={ () => {
+								setMotive( v );
+								setPage( 1 );
+							} }
+						>
+							{ l }
+						</button>
+					) ) }
+				</div>
+				<button
+					className={ `woon-filter ${
+						showDiscarded ? 'woon-filter--active' : ''
+					}` }
+					aria-pressed={ showDiscarded }
+					onClick={ () => {
+						setShowDiscarded( ! showDiscarded );
 						setPage( 1 );
 					} }
 				>
-					<option value="">
-						{ __(
-							'Todos los motivos',
-							'woonderful-stock-sync-for-woocommerce'
-						) }
-					</option>
-					{ Object.entries( MOTIVES ).map( ( [ v, l ] ) => (
-						<option key={ v } value={ v }>
-							{ l }
-						</option>
-					) ) }
-				</select>
-				<label
-					className="woon-log-moved-toggle"
-					htmlFor="wss-show-discarded"
-				>
-					<input
-						id="wss-show-discarded"
-						type="checkbox"
-						checked={ showDiscarded }
-						onChange={ ( e ) => {
-							setShowDiscarded( e.target.checked );
-							setPage( 1 );
-						} }
-					/>
 					{ __(
 						'Mostrar descartados',
 						'woonderful-stock-sync-for-woocommerce'
 					) }
-				</label>
+				</button>
 				{ data?.catalog?.age !== null && data?.catalog && (
 					<span
 						className="woon-muted"
@@ -389,12 +413,21 @@ export default function Products( { apiFetch, navigate, status } ) {
 			{ bulk && (
 				<BulkModal
 					apiFetch={ apiFetch }
+					pairs={ 'selected' === bulk ? picked : null }
 					onClose={ ( result ) => {
 						setBulk( false );
 						if ( result ) {
+							setSelected( {} );
 							load();
 						}
 					} }
+				/>
+			) }
+			{ history && (
+				<HistoryModal
+					apiFetch={ apiFetch }
+					row={ history }
+					onClose={ () => setHistory( null ) }
 				/>
 			) }
 			{ modal && (
@@ -432,10 +465,63 @@ export default function Products( { apiFetch, navigate, status } ) {
 				</div>
 			) }
 
+			{ picked.length > 0 && (
+				<div className="woon-bulk" style={ { marginBottom: 12 } }>
+					<span>
+						{ sprintf(
+							/* translators: %d: cuántos. */
+							_n(
+								'%d seleccionado',
+								'%d seleccionados',
+								picked.length,
+								'woonderful-stock-sync-for-woocommerce'
+							),
+							picked.length
+						) }
+					</span>
+					<button
+						className="woon-btn woon-btn--primary woon-btn--sm"
+						onClick={ () => setBulk( 'selected' ) }
+					>
+						{ __(
+							'Vincular seleccionados',
+							'woonderful-stock-sync-for-woocommerce'
+						) }
+					</button>
+					<button
+						className="woon-btn woon-btn--ghost woon-btn--sm"
+						onClick={ () => setSelected( {} ) }
+					>
+						{ __(
+							'Quitar selección',
+							'woonderful-stock-sync-for-woocommerce'
+						) }
+					</button>
+				</div>
+			) }
 			{ data && data.rows.length > 0 && (
 				<table className="woon-table">
 					<thead>
 						<tr>
+							{ actions && (
+								<th style={ { width: 1 } }>
+									<input
+										type="checkbox"
+										aria-label={ __(
+											'Seleccionar todas las sugerencias de la página',
+											'woonderful-stock-sync-for-woocommerce'
+										) }
+										disabled={ 0 === selectable.length }
+										checked={ allOn( selectable ) }
+										onChange={ ( e ) =>
+											toggle(
+												selectable,
+												e.target.checked
+											)
+										}
+									/>
+								</th>
+							) }
 							<th>
 								{ __(
 									'Esta tienda',
@@ -466,6 +552,14 @@ export default function Products( { apiFetch, navigate, status } ) {
 									'woonderful-stock-sync-for-woocommerce'
 								) }
 							</th>
+							{ actions && (
+								<th>
+									{ __(
+										'Acciones',
+										'woonderful-stock-sync-for-woocommerce'
+									) }
+								</th>
+							) }
 						</tr>
 					</thead>
 					<tbody>
@@ -476,29 +570,34 @@ export default function Products( { apiFetch, navigate, status } ) {
 								( ! previous || previous.group !== row.group );
 							return [
 								header && (
-									<tr key={ `g${ row.group }` }>
-										<td
-											colSpan={ actions ? 6 : 5 }
-											style={ {
-												fontWeight: 600,
-												background:
-													'var(--woon-surface-2)',
-											} }
-										>
-											{ row.parent_name ??
-												`#${ row.parent }` }
-										</td>
-									</tr>
+									<GroupRow
+										key={ `g${ row.group }` }
+										row={ row }
+										columns={ actions ? 7 : 5 }
+										selectable={
+											actions
+												? selectable.filter(
+														( r ) =>
+															r.group ===
+															row.group
+												  )
+												: null
+										}
+										allOn={ allOn }
+										toggle={ toggle }
+									/>
 								),
 								<Row
 									key={ row.id }
 									row={ row }
 									actions={ actions }
-									onHistory={ () =>
-										navigate( 'logs', {
-											product: row.id,
-										} )
+									selected={ !! selected[ row.id ] }
+									onSelect={
+										'suggestion' === row.motive
+											? ( on ) => toggle( [ row ], on )
+											: null
 									}
+									onHistory={ () => setHistory( row ) }
 								/>,
 							];
 						} ) }
@@ -518,11 +617,30 @@ export default function Products( { apiFetch, navigate, status } ) {
 	);
 }
 
-function Row( { row, actions, onHistory } ) {
+function Row( { row, actions, selected, onSelect, onHistory } ) {
 	const [ badge, label ] = STATE_BADGE[ row.state ] ?? [ 'muted', row.state ];
 	const other = row.remote ?? row.suggestion;
 	return (
 		<tr>
+			{ actions && (
+				<td>
+					{ onSelect && (
+						<input
+							type="checkbox"
+							aria-label={ sprintf(
+								/* translators: %s: el producto. */
+								__(
+									'Seleccionar %s',
+									'woonderful-stock-sync-for-woocommerce'
+								),
+								row.name
+							) }
+							checked={ selected }
+							onChange={ ( e ) => onSelect( e.target.checked ) }
+						/>
+					) }
+				</td>
+			) }
 			<td style={ { paddingLeft: row.parent > 0 ? 32 : undefined } }>
 				<button
 					className="woon-btn-link"
@@ -724,5 +842,44 @@ function MasterNotice( { apiFetch, status } ) {
 				) }
 			</p>
 		</div>
+	);
+}
+
+// El padre de unas variaciones: una fila propia, distinta de la cabecera, con la casilla que
+// tilda todas sus variaciones con sugerencia.
+function GroupRow( { row, columns, selectable, allOn, toggle } ) {
+	return (
+		<tr className="wss-group-row">
+			{ selectable && (
+				<td>
+					{ selectable.length > 0 && (
+						<input
+							type="checkbox"
+							aria-label={ sprintf(
+								/* translators: %s: el producto. */
+								__(
+									'Seleccionar las variaciones de %s',
+									'woonderful-stock-sync-for-woocommerce'
+								),
+								row.parent_name
+							) }
+							checked={ allOn( selectable ) }
+							onChange={ ( e ) =>
+								toggle( selectable, e.target.checked )
+							}
+						/>
+					) }
+				</td>
+			) }
+			<td colSpan={ selectable ? columns - 1 : columns }>
+				<strong>{ row.parent_name ?? `#${ row.parent }` }</strong>{ ' ' }
+				<span className="woon-badge woon-badge--muted">
+					{ __(
+						'Variable',
+						'woonderful-stock-sync-for-woocommerce'
+					) }
+				</span>
+			</td>
+		</tr>
 	);
 }

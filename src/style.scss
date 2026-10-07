@@ -1970,3 +1970,16 @@ p.woon-footnote {
 		flex: 1;
 	}
 }
+
+/* ── Stock Sync: el padre de unas variaciones en Productos ─────────────── */
+
+/* Fondo blanco y borde arriba: con el gris de la cabecera, se confundía con ella. */
+.woon-table .wss-group-row td {
+	background: var(--woon-surface);
+	border-top: 2px solid var(--woon-border-strong);
+	padding-top: var(--woon-sp-4);
+}
+
+.woon-table tbody tr.wss-group-row:hover {
+	background: transparent;
+}

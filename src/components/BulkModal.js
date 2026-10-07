@@ -5,17 +5,23 @@ const BATCH = 20;
 
 // La vinculación masiva: cuántos pares, el aviso del stock de la maestra, las tandas de 20 con
 // su avance, y al final los vinculados y los omitidos con su motivo (ADR-014 §6).
-export default function BulkModal( { apiFetch, onClose } ) {
-	const [ preview, setPreview ] = useState( null );
+// Con `pairs`, vincula sólo los elegidos en la tabla; sin, todos los que tienen sugerencia.
+export default function BulkModal( { apiFetch, pairs = null, onClose } ) {
+	const [ preview, setPreview ] = useState(
+		pairs ? { pairs, ambiguous: 0 } : null
+	);
 	const [ progress, setProgress ] = useState( null );
 	const [ result, setResult ] = useState( null );
 	const [ error, setError ] = useState( null );
 
 	useEffect( () => {
+		if ( pairs ) {
+			return;
+		}
 		apiFetch( { path: '/link/bulk' } )
 			.then( setPreview )
 			.catch( ( e ) => setError( e?.message ) );
-	}, [ apiFetch ] );
+	}, [ apiFetch, pairs ] );
 
 	const run = async () => {
 		const linked = [];
