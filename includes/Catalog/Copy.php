@@ -181,6 +181,27 @@ final class Copy {
 	}
 
 	/**
+	 * Anota en la copia lo que un vínculo acaba de cambiar allá, sin esperar al próximo
+	 * refresco: que el producto tiene par y, al vincular, el stock con que quedó —el de la
+	 * maestra—. Si no, Productos mostraría el stock de antes de vincular hasta 10 minutos.
+	 *
+	 * @param int      $remote El producto de la otra tienda.
+	 * @param bool     $linked Si quedó vinculado.
+	 * @param int|null $stock  El stock con que quedó, o null para no tocarlo.
+	 */
+	public static function note( int $remote, bool $linked, ?int $stock = null ): void {
+		global $wpdb;
+
+		$columns = array( 'linked' => $linked ? 1 : 0 );
+
+		if ( null !== $stock ) {
+			$columns['stock'] = $stock;
+		}
+
+		$wpdb->update( Installer::table( Installer::REMOTE_PRODUCTS ), $columns, array( 'remote_product' => $remote ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	}
+
+	/**
 	 * La vacía: es de la tienda con que estaba emparejada.
 	 */
 	public static function clear(): void {

@@ -583,4 +583,31 @@ class Test_Linker extends WP_UnitTestCase {
 
 		$this->assertSame( 'wss_not_master', Linker::discard( $this->product( 10 ) )->get_error_code() );
 	}
+
+	/**
+	 * LNK-20 — **Vincular anota en la copia que el de allá tiene par y quedó con el stock de la
+	 * maestra**; desvincular, que ya no tiene par. Sin esperar al refresco: si no, Productos
+	 * mostraba el stock de antes de vincular.
+	 */
+	public function test_linking_updates_the_copy(): void {
+		global $wpdb;
+
+		$table = Installer::table( Installer::REMOTE_PRODUCTS );
+		$wpdb->query( "DELETE FROM {$table}" ); // phpcs:ignore WordPress.DB
+		$wpdb->insert( $table, array( 'remote_product' => 900, 'stock' => 4, 'linked' => 0, 'seen_at' => gmdate( 'Y-m-d H:i:s' ) ) ); // phpcs:ignore WordPress.DB, WordPress.Arrays.ArrayDeclarationSpacing.AssociativeArrayFound
+
+		$local = $this->product( 6 );
+		$this->other_answers( 'received' );
+
+		Linker::link( $local, 900, 6, 4 );
+
+		$row = $wpdb->get_row( "SELECT stock, linked FROM {$table} WHERE remote_product = 900" ); // phpcs:ignore WordPress.DB
+
+		$this->assertSame( '6', $row->stock );
+		$this->assertSame( '1', $row->linked );
+
+		Linker::unlink( $local );
+
+		$this->assertSame( '0', $wpdb->get_var( "SELECT linked FROM {$table} WHERE remote_product = 900" ) ); // phpcs:ignore WordPress.DB
+	}
 }

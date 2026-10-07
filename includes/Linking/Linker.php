@@ -9,6 +9,7 @@ declare( strict_types = 1 );
 
 namespace Woonderful\StockSync\Linking;
 
+use Woonderful\StockSync\Catalog\Copy;
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Ledger\Ledger;
 use Woonderful\StockSync\Log\Events;
@@ -71,6 +72,8 @@ final class Linker {
 			);
 		} elseif ( 'confirmed' === $result ) {
 			Events::record( Events::LINKED, Events::INFO, $local, array( 'remote' => $remote ) );
+			// Allá quedó con el stock de la maestra, que es éste.
+			Copy::note( $remote, true, $seen );
 		}
 
 		return $result;
@@ -172,13 +175,17 @@ final class Linker {
 			return $refusal;
 		}
 
-		if ( null === Links::for_product( $local ) ) {
+		$link = Links::for_product( $local );
+
+		if ( null === $link ) {
 			return new \WP_Error( 'not_linked', __( 'Ese producto no está vinculado.', 'woonderful-stock-sync-for-woocommerce' ) );
 		}
 
 		if ( null === Ledger::record_unlink( $local ) ) {
 			return new \WP_Error( 'not_stored', __( 'No se pudo escribir el desvincular.', 'woonderful-stock-sync-for-woocommerce' ) );
 		}
+
+		Copy::note( (int) $link->remote_product, false );
 
 		Events::record( Events::UNLINKED, Events::INFO, $local );
 

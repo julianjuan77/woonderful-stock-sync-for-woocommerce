@@ -636,6 +636,7 @@ Esta tienda hace de maestra; la otra la hace `pre_http_request`.
 | `LNK-17` | **Reasignar, y el nuevo par se rechaza** | Queda sin vincular: estado válido y reintentable. Sin vínculo, `not_linked` |
 | `LNK-18` | Descartar dos veces, deshacer dos veces | Una vez cada uno en el log; lo repetido, `already_discarded` y `not_discarded` |
 | `LNK-19` | Descartar desde la secundaria | `wss_not_master` |
+| `LNK-20` | **Vincular, con la copia diciendo stock 4 y sin par; después desvincular** | La copia queda con el stock de la maestra y con par, sin esperar al refresco; al desvincular, sin par |
 
 Verificado rompiéndolo, con seis cambios: sin revisar el stock propio (`LNK-02`) o la maestra
 (`LNK-02`); el timeout como fallido (`LNK-04`, `LNK-06`); el 5xx como fallido (`LNK-05`); el

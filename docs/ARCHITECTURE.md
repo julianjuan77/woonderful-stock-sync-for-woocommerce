@@ -168,7 +168,10 @@ guarda con un solo `INSERT … ON DUPLICATE KEY UPDATE`; la página 1 anota cuá
 (`wss_catalog_run`), y la última borra lo que no se vio desde entonces y anota cuándo terminó
 (`wss_catalog_refreshed_at`). **Un refresco cortado a mitad no borra nada.** La pantalla lo pide de
 a una página por request (`POST /catalog/refresh`) y lo refresca al abrirse si tiene más de 10
-minutos; la noche lo hace entero, en las dos tiendas (`refresh()`).
+minutos; la noche lo hace entero, en las dos tiendas (`refresh()`). **Vincular y desvincular la corrigen en el momento**
+(`Copy::note()`, desde `Linker`): el de allá queda con par y con el stock de la maestra, o sin par.
+Sin eso, Productos mostraba el stock de antes de vincular hasta el próximo refresco. Un bootstrap
+incierto que se confirma después lo corrige el refresco.
 
 **El estado de sincronización** (`Linking\State::of()`, ADR-005 §1) se calcula al mostrarlo,
 nunca se guarda: `unlinked` sin fila; `uncertain` si el bootstrap del vínculo sigue sin
