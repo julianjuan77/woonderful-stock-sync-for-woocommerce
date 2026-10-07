@@ -24,7 +24,7 @@ git show 2668a7a --stat      # qué archivos tocó y cuántas líneas
 git show 2668a7a             # el diff completo
 ```
 
-Y para correr sólo los tests de una pieza, en vez de los 516:
+Y para correr sólo los tests de una pieza, en vez de los 525:
 
 ```bash
 make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS="--filter Test_Ledger"
@@ -188,7 +188,7 @@ es lo normal: loguearlo en cada pasada sería ruido.
 | 8.4 | Configuración: el emparejamiento, los avisos, la casilla de borrado (ADR-013 §3) | ✅ | `3f3899c` | `ADM-17`…`ADM-21` |
 | 8.5 | La copia del catálogo de la otra: la tabla, el refresco, `GET /products` con tipo y padre (ADR-014 §1, §2) | ✅ | `ab90495` | `CPY-01`…`CPY-07`, `PRD-15`, `PRD-16`, `SCH-16`, `ADM-22` |
 | 8.6 | Productos: las filas, los motivos y la sugerencia, filtros y búsqueda (ADR-014 §3, §4) | ✅ | `04dac1f` | `ROW-01`…`ROW-08`, `ADM-23` |
-| 8.7 | Vincular a mano, desvincular, reasignar, descartar (ADR-014 §5, §7) | ✅ | PENDIENTE | `LNK-16`…`LNK-19`, `ADM-24`…`ADM-28` |
+| 8.7 | Vincular a mano, desvincular, reasignar, descartar (ADR-014 §5, §7) | ✅ | `0aa3f0a` | `LNK-16`…`LNK-19`, `ADM-24`…`ADM-28` |
 | 8.8 | La vinculación masiva (ADR-014 §6) | ⬜ | | |
 | 8.9 | La secundaria en modo lectura, con el enlace a la maestra (`GET /health` con `admin_url`) (ADR-013 §6) | ⬜ | | |
 | 8.10 | La configuración inicial: el asistente en pasos, los requisitos, el nombre y el rol, el emparejamiento, los avisos, y el email de prueba (ADR-013 §3, revisado) | ⬜ | | |
