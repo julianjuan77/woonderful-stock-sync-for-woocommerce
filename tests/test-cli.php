@@ -448,7 +448,7 @@ class Test_Cli extends WP_UnitTestCase {
 
 		$this->assertCount( 2, WP_CLI::$out );
 		$this->assertStringContainsString( 'Se desvinculó el producto 12.', WP_CLI::$out[0] );
-		$this->assertStringContainsString( 'acá -2 sale (pedido #9)', WP_CLI::$out[1] );
+		$this->assertStringContainsString( 'Acá: venta, -2 (pedido #9)', WP_CLI::$out[1] );
 	}
 
 	/**

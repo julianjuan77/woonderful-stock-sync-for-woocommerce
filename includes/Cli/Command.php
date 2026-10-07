@@ -369,7 +369,7 @@ final class Command {
 
 		if ( isset( $assoc_args['product'] ) ) {
 			foreach ( Events::history( (int) $assoc_args['product'], $limit ) as $entry ) {
-				\WP_CLI::line( Events::local_time( $entry['at'] ) . '  ' . ( 'event' === $entry['type'] ? Events::describe( $entry ) : self::movement_line( $entry ) ) );
+				\WP_CLI::line( Events::local_time( $entry['at'] ) . '  ' . ( 'event' === $entry['type'] ? Events::describe( $entry ) : Events::movement_text( $entry ) ) );
 			}
 
 			return;
@@ -439,21 +439,6 @@ final class Command {
 				Notifier::recipient(),
 				Notifier::after_hours()
 			)
-		);
-	}
-
-	/**
-	 * Un movimiento del historial, en una línea.
-	 *
-	 * @param array<string, mixed> $entry El movimiento.
-	 */
-	private static function movement_line( array $entry ): string {
-		return sprintf(
-			'%s %+d %s%s',
-			$entry['own'] ? __( 'acá', 'woonderful-stock-sync-for-woocommerce' ) : __( 'de la otra', 'woonderful-stock-sync-for-woocommerce' ),
-			(int) $entry['delta'],
-			(string) $entry['reason'],
-			null === $entry['reference'] ? '' : ' (' . $entry['reference'] . ')'
 		);
 	}
 }

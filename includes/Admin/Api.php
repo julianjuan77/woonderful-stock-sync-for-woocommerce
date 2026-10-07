@@ -10,9 +10,14 @@ declare( strict_types = 1 );
 namespace Woonderful\StockSync\Admin;
 
 use Woonderful\StockSync\Identity\Store;
+use Woonderful\StockSync\Linking\Links;
 use Woonderful\StockSync\Log\Events;
+use Woonderful\StockSync\Log\Notifier;
 use Woonderful\StockSync\Log\Peer;
 use Woonderful\StockSync\Plugin;
+use Woonderful\StockSync\Reconciliation\Audit;
+use Woonderful\StockSync\Reconciliation\Reconciler;
+use Woonderful\StockSync\Reconciliation\Result;
 use Woonderful\StockSync\Transport\Peers;
 
 defined( 'ABSPATH' ) || exit;
@@ -42,15 +47,24 @@ final class Api {
 	 * Registra las rutas.
 	 */
 	public static function register_routes(): void {
-		register_rest_route(
-			self::NAMESPACE,
-			'/status',
-			array(
-				'methods'             => 'GET',
-				'callback'            => array( self::class, 'status' ),
-				'permission_callback' => array( self::class, 'can_manage' ),
-			)
+		$routes = array(
+			'/status'                                                     => array( 'GET', 'status' ),
+			'/reconcile'                                                  => array( 'POST', 'reconcile' ),
+			'/log'                                                        => array( 'GET', 'log' ),
+			'/discrepancies/(?P<product>\\d+)/(?P<action>accept|restore)' => array( 'POST', 'resolve' ),
 		);
+
+		foreach ( $routes as $route => $route_args ) {
+			register_rest_route(
+				self::NAMESPACE,
+				$route,
+				array(
+					'methods'             => $route_args[0],
+					'callback'            => array( self::class, $route_args[1] ),
+					'permission_callback' => array( self::class, 'can_manage' ),
+				)
+			);
+		}
 	}
 
 	/**
@@ -61,29 +75,237 @@ final class Api {
 	}
 
 	/**
-	 * Lo que la app necesita al cargar: esta tienda, la otra, y si está emparejada.
-	 *
-	 * Lo de Resumen se completa en la tarea 8.2.
+	 * Lo que la app necesita al cargar, y todo lo de Resumen: esta tienda, la otra, la última
+	 * reconciliación, las discrepancias de las dos y cuántos no sincronizan.
 	 */
 	public static function status(): \WP_REST_Response {
 		$peer  = Peers::only();
 		$state = Peer::current();
+		$last  = Result::last();
 
 		return new \WP_REST_Response(
 			array(
-				'store'     => array(
+				'store'          => array(
 					'label'     => Store::label(),
 					'master'    => Peers::this_is_master(),
 					'suspended' => Plugin::suspension_reason(),
 				),
-				'paired'    => null !== $peer,
-				'peer'      => array(
+				'paired'         => null !== $peer,
+				'peer'           => array(
+					'label' => Peers::label(),
 					'state' => $state['state'],
 					'since' => Peer::OK === $state['state'] ? null : Events::local_time( gmdate( 'Y-m-d H:i:s', $state['since'] ) ),
 					'error' => $state['error'],
 				),
+				'reconciliation' => null === $last ? null : self::reconciliation( $last ),
+				'discrepancies'  => array(
+					'own'  => array_map( array( self::class, 'own_discrepancy' ), Audit::open() ),
+					// Sólo la maestra las conoce, y sólo si la última llegó a preguntarlas.
+					'peer' => isset( $last['details']['peer_discrepancies'] ) ? array_map( array( self::class, 'peer_discrepancy' ), (array) $last['details']['peer_discrepancies'] ) : null,
+				),
+				'unsynced'       => count( Notifier::unsynced( time() ) ),
 			),
 			200
 		);
+	}
+
+	/**
+	 * La reconciliación manual: lo mismo que `wp wss reconcile`. Sólo en la maestra.
+	 */
+	public static function reconcile(): \WP_REST_Response|\WP_Error {
+		if ( null !== Plugin::suspension_reason() ) {
+			return new \WP_Error( 'wss_suspended', __( 'La sincronización está suspendida en esta tienda: no se reconcilia.', 'woonderful-stock-sync-for-woocommerce' ), array( 'status' => 409 ) );
+		}
+
+		if ( ! Peers::this_is_master() ) {
+			return new \WP_Error( 'wss_not_master', __( 'La reconciliación se lanza desde la tienda maestra.', 'woonderful-stock-sync-for-woocommerce' ), array( 'status' => 403 ) );
+		}
+
+		if ( Result::BUSY === Reconciler::run( Result::MANUAL )['outcome'] ) {
+			return new \WP_Error( 'wss_busy', __( 'Hay una reconciliación en curso, en esta tienda o en la otra. Probá de nuevo en unos minutos.', 'woonderful-stock-sync-for-woocommerce' ), array( 'status' => 409 ) );
+		}
+
+		// "No se pudo mirar" no es un error del pedido: es un resultado, y se muestra como tal.
+		return self::status();
+	}
+
+	/**
+	 * Resuelve una discrepancia de esta tienda: lo mismo que `wp wss discrepancy`.
+	 *
+	 * @param \WP_REST_Request $request El producto y la acción.
+	 */
+	public static function resolve( \WP_REST_Request $request ): \WP_REST_Response|\WP_Error {
+		$product = (int) $request['product'];
+		$result  = 'accept' === $request['action'] ? Audit::accept( $product ) : Audit::restore( $product );
+
+		if ( is_wp_error( $result ) ) {
+			$result->add_data( array( 'status' => 409 ) );
+
+			return $result;
+		}
+
+		return self::status();
+	}
+
+	/**
+	 * El log, filtrado y paginado de a 50; con `product`, el historial de ese producto: sus
+	 * movimientos y sus eventos, juntos (ADR-011 §8). Lo mismo que `wp wss log`.
+	 *
+	 * Las fechas del filtro son días del sitio, `AAAA-MM-DD`, y se pasan a UTC, que es como se
+	 * guardan.
+	 *
+	 * @param \WP_REST_Request $request Los filtros y la página.
+	 */
+	public static function log( \WP_REST_Request $request ): \WP_REST_Response {
+		$product = (int) $request['product'];
+
+		if ( $product > 0 ) {
+			$items = array_map( array( self::class, 'entry' ), Events::history( $product, 100 ) );
+
+			return new \WP_REST_Response(
+				array(
+					'items' => $items,
+					'total' => count( $items ),
+					'name'  => self::product_name( $product ),
+				),
+				200
+			);
+		}
+
+		$filters = array();
+
+		foreach ( array( 'level', 'kind' ) as $key ) {
+			if ( is_string( $request[ $key ] ) && '' !== $request[ $key ] ) {
+				$filters[ $key ] = sanitize_key( $request[ $key ] );
+			}
+		}
+
+		$bounds = array(
+			'since' => array( 'from', '00:00:00' ),
+			'until' => array( 'to', '23:59:59' ),
+		);
+
+		foreach ( $bounds as $key => $bound ) {
+			$day = (string) $request[ $bound[0] ];
+
+			if ( 1 === preg_match( '/^\d{4}-\d{2}-\d{2}$/', $day ) ) {
+				$filters[ $key ] = get_gmt_from_date( $day . ' ' . $bound[1] );
+			}
+		}
+
+		$list = Events::list( $filters, max( 1, (int) $request['page'] ), 50 );
+
+		return new \WP_REST_Response(
+			array(
+				'items' => array_map( array( self::class, 'entry' ), $list['items'] ),
+				'total' => $list['total'],
+			),
+			200
+		);
+	}
+
+	/**
+	 * Una entrada del log o del historial, con su frase, en la hora del sitio.
+	 *
+	 * @param array<string, mixed> $entry Un evento, o un movimiento del historial.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private static function entry( array $entry ): array {
+		$event = 'movement' !== ( $entry['type'] ?? 'event' );
+		$user  = $event && null !== $entry['user_id'] ? get_userdata( (int) $entry['user_id'] ) : false;
+
+		return array(
+			'id'      => $event ? (int) $entry['id'] : null,
+			'type'    => $event ? 'event' : 'movement',
+			'at'      => Events::local_time( (string) $entry['at'] ),
+			'level'   => $event ? $entry['level'] : null,
+			'kind'    => $event ? $entry['kind'] : null,
+			'text'    => $event ? Events::describe( $entry ) : Events::movement_text( $entry ),
+			'product' => $event ? $entry['product'] : null,
+			'name'    => $event && null !== $entry['product'] ? self::product_name( (int) $entry['product'] ) : null,
+			'cause'   => $event && null !== $entry['cause'] ? Events::cause_text( (string) $entry['cause'] ) : null,
+			'user'    => $user instanceof \WP_User ? $user->display_name : null,
+			'context' => $event ? $entry['context'] : array_intersect_key( $entry, array_flip( array( 'delivery', 'application' ) ) ),
+		);
+	}
+
+	/**
+	 * La última reconciliación, para mostrarla.
+	 *
+	 * @param array{at: string, trigger: string, outcome: string, details: array<string, mixed>} $last La de `Result::last()`.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private static function reconciliation( array $last ): array {
+		$details = $last['details'];
+
+		return array(
+			'at'             => Events::local_time( $last['at'] ),
+			'outcome'        => $last['outcome'],
+			'text'           => Events::describe(
+				array(
+					'kind'    => Events::RECONCILED,
+					'product' => null,
+					'context' => $last,
+				)
+			),
+			'reopened'       => (int) ( $details['reopened'] ?? 0 ),
+			'confirmed'      => (int) ( $details['confirmed'] ?? 0 ),
+			'peer_reopened'  => (int) ( $details['peer_reopened'] ?? 0 ),
+			'peer_confirmed' => (int) ( $details['peer_confirmed'] ?? 0 ),
+		);
+	}
+
+	/**
+	 * Una discrepancia de acá, con el nombre del producto.
+	 *
+	 * @param array{product: int, expected: int, found: int, since: string, seen_at: string} $open Una de `Audit::open()`.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private static function own_discrepancy( array $open ): array {
+		return array(
+			'product'  => $open['product'],
+			'name'     => self::product_name( $open['product'] ),
+			'expected' => $open['expected'],
+			'found'    => $open['found'],
+			'since'    => Events::local_time( $open['since'] ),
+		);
+	}
+
+	/**
+	 * Una discrepancia de la otra tienda, con el producto de acá con que está vinculado.
+	 *
+	 * @param mixed $open Una de `Audit::open()` de la otra, como llegó.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private static function peer_discrepancy( $open ): array {
+		$open   = (array) $open;
+		$remote = (int) ( $open['product'] ?? 0 );
+		$peer   = Peers::only();
+		$link   = null === $peer ? null : Links::for_remote_product( $peer['store'], $remote );
+		$local  = null === $link ? null : (int) $link->local_product;
+
+		return array(
+			'product'  => $remote,
+			'local'    => $local,
+			'name'     => null === $local ? null : self::product_name( $local ),
+			'expected' => (int) ( $open['expected'] ?? 0 ),
+			'found'    => (int) ( $open['found'] ?? 0 ),
+			'since'    => is_string( $open['since'] ?? null ) ? Events::local_time( $open['since'] ) : null,
+		);
+	}
+
+	/**
+	 * El nombre de un producto de acá, o null si ya no existe.
+	 *
+	 * @param int $product El producto.
+	 */
+	private static function product_name( int $product ): ?string {
+		$found = wc_get_product( $product );
+
+		return $found instanceof \WC_Product ? $found->get_name() : null;
 	}
 }

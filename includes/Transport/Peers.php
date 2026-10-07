@@ -83,6 +83,22 @@ final class Peers {
 	}
 
 	/**
+	 * El nombre de la otra tienda, como se lo dio al emparejarse; su identificador si no
+	 * dio uno.
+	 */
+	public static function label(): string {
+		$peer = self::only();
+
+		if ( null === $peer ) {
+			return '';
+		}
+
+		$stored = (array) ( (array) get_option( self::OPTION, array() ) )[ $peer['store'] ];
+
+		return is_string( $stored['label'] ?? null ) && '' !== $stored['label'] ? $stored['label'] : $peer['store'];
+	}
+
+	/**
 	 * La tienda a la que se le mandan los movimientos, o null si no hay una sola lista.
 	 *
 	 * El SPEC fija exactamente dos tiendas (§5), así que hay una sola a quien mandarle. Con

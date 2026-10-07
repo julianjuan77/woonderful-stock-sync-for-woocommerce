@@ -98,7 +98,8 @@ final class Events {
 	/**
 	 * Los eventos, de lo más nuevo a lo más viejo, filtrados y paginados.
 	 *
-	 * @param array<string, mixed> $filters  `product`, `kind`, `level`, `cause`, `after_id`.
+	 * @param array<string, mixed> $filters  `product`, `kind`, `level`, `cause`, `after_id`, y
+	 *                                       `since` y `until`, fechas UTC inclusive.
 	 * @param int                  $page     La página, desde 1.
 	 * @param int                  $per_page Cuántos, hasta 100.
 	 *
@@ -121,6 +122,16 @@ final class Events {
 		if ( isset( $filters['product'] ) ) {
 			$where[]  = 'product = %d';
 			$values[] = (int) $filters['product'];
+		}
+
+		if ( isset( $filters['since'] ) ) {
+			$where[]  = 'created_at >= %s';
+			$values[] = (string) $filters['since'];
+		}
+
+		if ( isset( $filters['until'] ) ) {
+			$where[]  = 'created_at <= %s';
+			$values[] = (string) $filters['until'];
 		}
 
 		if ( isset( $filters['after_id'] ) ) {
@@ -311,6 +322,32 @@ final class Events {
 	}
 
 	/**
+	 * La frase de un movimiento del historial, para quien lo lee: de qué tienda, por qué, cuánto
+	 * y con qué referencia.
+	 *
+	 * @param array<string, mixed> $entry Un movimiento de `history()`.
+	 */
+	public static function movement_text( array $entry ): string {
+		$reasons = array(
+			'sale'       => __( 'venta', 'woonderful-stock-sync-for-woocommerce' ),
+			'refund'     => __( 'devolución', 'woonderful-stock-sync-for-woocommerce' ),
+			'adjustment' => __( 'ajuste', 'woonderful-stock-sync-for-woocommerce' ),
+			'bootstrap'  => __( 'stock inicial del vínculo', 'woonderful-stock-sync-for-woocommerce' ),
+			'unlink'     => __( 'desvinculación', 'woonderful-stock-sync-for-woocommerce' ),
+		);
+		$reason  = (string) ( $entry['reason'] ?? '' );
+
+		return sprintf(
+			/* translators: 1: dónde pasó, 2: el motivo, 3: unidades con signo, 4: la referencia. */
+			__( '%1$s: %2$s, %3$s%4$s', 'woonderful-stock-sync-for-woocommerce' ),
+			true === ( $entry['own'] ?? false ) ? __( 'Acá', 'woonderful-stock-sync-for-woocommerce' ) : __( 'En la otra tienda', 'woonderful-stock-sync-for-woocommerce' ),
+			$reasons[ $reason ] ?? $reason,
+			sprintf( '%+d', (int) ( $entry['delta'] ?? 0 ) ),
+			null === ( $entry['reference'] ?? null ) ? '' : ' (' . $entry['reference'] . ')'
+		);
+	}
+
+	/**
 	 * Un motivo, para quien lo lee. Uno que no se conoce va como vino: es mejor que nada.
 	 *
 	 * @param string $reason El motivo, como lo guarda el evento.
@@ -332,6 +369,20 @@ final class Events {
 		);
 
 		return $texts[ $reason ] ?? ( '' === $reason ? '?' : $reason );
+	}
+
+	/**
+	 * A qué se atribuye algo que falló, para quien lo lee (ADR-011 §5).
+	 *
+	 * @param string $cause La `cause` del evento.
+	 */
+	public static function cause_text( string $cause ): string {
+		$texts = array(
+			self::PEER_UNREACHABLE => __( 'la otra tienda no respondía', 'woonderful-stock-sync-for-woocommerce' ),
+			self::PEER_REJECTED    => __( 'la otra tienda rechazaba los pedidos', 'woonderful-stock-sync-for-woocommerce' ),
+		);
+
+		return $texts[ $cause ] ?? $cause;
 	}
 
 	/**

@@ -375,6 +375,29 @@ el nonce de `wp_rest`. `Admin\Api` registra `wss-admin/v1`: cada endpoint pide
 `manage_woocommerce` y llama a las mismas clases que WP-CLI. Las dos se enganchan antes de la
 guarda: un sitio suspendido tiene que poder mostrar por qué.
 
+**Las pantallas no guardan su propio estado del servidor.** Cada acción —reconciliar, resolver una
+discrepancia— devuelve el `GET /status` nuevo, y la app lo reemplaza entero: la pantalla muestra lo
+que dice el servidor, no lo que esperaba que pasara.
+
+**Resumen** (`src/screens/Dashboard.js`) sale entero de `GET /status`: la otra tienda con su
+nombre (`Peers::label()`), la última reconciliación (`Result::last()`, con la frase de
+`Events::describe()`), las discrepancias de acá (`Audit::open()`) y las de la otra —las que trajo
+la última reconciliación, `null` si no llegó a preguntarlas—, y cuántos no sincronizan, con la misma
+cuenta que el resumen de la noche (`Notifier::unsynced()`). `POST /reconcile` y
+`POST /discrepancies/<producto>/accept|restore` llaman a `Reconciler` y `Audit` como
+`wp wss reconcile` y `wp wss discrepancy`. Que la otra no responda no es un error del pedido:
+vuelve `200` con "no se pudo mirar".
+
+**Registros** (`src/screens/Logs.js`, la de woonderful-sync adaptada) pide `GET /log`: de a 50,
+filtrado por nivel, tipo y fecha. **Las fechas del filtro son días del sitio** y se pasan a UTC,
+que es como se guardan: un evento de las 00:09 UTC es del día anterior en Buenos Aires. Con
+`product`, el historial del producto (`Events::history()`), que se abre desde una fila del log o
+desde Productos con `#/logs?product=<id>`. Cada entrada llega con su frase: `Events::describe()`
+para los eventos, `Events::movement_text()` para los movimientos —la misma que usa `wp wss log`—.
+
+**El submenú de WordPress** marca la página, no la ruta: la app le pone `current` a la entrada de
+la pantalla abierta.
+
 **Lint y tests del JavaScript**, desde la carpeta del plugin: `npm run lint:js`,
 `npm run lint:style` y `npm run test:unit`. No pasan por `make`: corren con el Node de la máquina.
 

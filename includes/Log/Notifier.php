@@ -467,7 +467,7 @@ final class Notifier {
 	 *
 	 * @return array<int, array{id: int, name: string, notified: bool}>
 	 */
-	private static function unsynced( int $now ): array {
+	public static function unsynced( int $now ): array {
 		global $wpdb;
 
 		$links  = Installer::table( 'links' );

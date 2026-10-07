@@ -66,6 +66,20 @@ const App = () => {
 		return () => window.removeEventListener( 'hashchange', onHashChange );
 	}, [] );
 
+	// El submenú de WordPress marca la página, no la ruta: sin esto, siempre resalta Resumen.
+	useEffect( () => {
+		document
+			.querySelectorAll(
+				'#toplevel_page_woonderful-stock-sync .wp-submenu a'
+			)
+			.forEach( ( link ) => {
+				const route = link.getAttribute( 'href' ).split( '#/' )[ 1 ];
+				const active = ( route || 'dashboard' ) === currentScreen;
+				link.classList.toggle( 'current', active );
+				link.parentElement.classList.toggle( 'current', active );
+			} );
+	}, [ currentScreen ] );
+
 	const navigate = ( screen, params ) => {
 		const query = params
 			? `?${ new URLSearchParams( params ).toString() }`
@@ -125,14 +139,23 @@ const App = () => {
 			<main className="woon-main">
 				{ peerDown && (
 					<div className="woon-notice woon-notice--warning">
-						{ sprintf(
-							/* translators: %s: desde cuándo. */
-							__(
-								'La otra tienda no responde desde %s. Los stocks pueden verse descuadrados: la cola y la reconciliación lo reparan solas cuando vuelva.',
-								'woonderful-stock-sync-for-woocommerce'
-							),
-							status.peer.since
-						) }
+						{ 'rejected' === status.peer.state
+							? sprintf(
+									/* translators: %s: desde cuándo. */
+									__(
+										'La otra tienda rechaza los pedidos de ésta desde %s. Esperar no lo arregla: revisá el emparejamiento en Configuración.',
+										'woonderful-stock-sync-for-woocommerce'
+									),
+									status.peer.since
+							  )
+							: sprintf(
+									/* translators: %s: desde cuándo. */
+									__(
+										'La otra tienda no responde desde %s. Los stocks pueden verse descuadrados: la cola y la reconciliación lo reparan solas cuando vuelva.',
+										'woonderful-stock-sync-for-woocommerce'
+									),
+									status.peer.since
+							  ) }
 					</div>
 				) }
 				<div className="woon-page">
@@ -140,6 +163,7 @@ const App = () => {
 						apiFetch={ wssFetch }
 						navigate={ navigate }
 						status={ status }
+						onStatus={ setStatus }
 					/>
 				</div>
 			</main>

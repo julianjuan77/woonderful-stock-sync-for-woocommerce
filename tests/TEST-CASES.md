@@ -1013,7 +1013,7 @@ una vuelta vieja con los avisos apagados, `NOT-10`; sin `link_unresolved`, `NOT-
 marcado sin mandarse, `NOT-17`; la pregunta a `/health` sin firma, `PER-07`; el plazo fijo,
 `NOT-12`.
 
-## [`tests/test-admin.php`](test-admin.php) — la base de la interfaz
+## [`tests/test-admin.php`](test-admin.php) — la base de la interfaz, Resumen y Registros
 
 | ID | Caso | Esperado |
 | --- | --- | --- |
@@ -1023,6 +1023,16 @@ marcado sin mandarse, `NOT-17`; la pregunta a `/health` sin firma, `PER-07`; el 
 | `ADM-04` | El menú | Pide `manage_woocommerce`, con una entrada por pantalla |
 | `ADM-05` | La app en otra página del admin, y en la suya | Sólo en la suya, con el nonce |
 | `ADM-06` | **`boot()` con el sitio suspendido** | Engancha igual la interfaz: tiene que poder mostrar por qué |
+| `ADM-07` | Resumen, con una reconciliación, una discrepancia de acá, una de la otra y un producto viejo sin vincular | La reconciliación en castellano con sus números, la de acá con su nombre, la de la otra con el producto de acá con que está vinculada, y `unsynced: 1` |
+| `ADM-08` | La última reconciliación no llegó a preguntar | Las de la otra van `null`, no vacías: no se saben |
+| `ADM-09` | **Reconciliar desde la secundaria, y con el sitio suspendido** | `403 wss_not_master` y `wss_suspended`: se rechaza en el servidor (ADR-013 §5) |
+| `ADM-10` | Reconciliar con otra en curso | `409 wss_busy`, y no guarda nada |
+| `ADM-11` | **Reconciliar con la otra caída** | `200` con "no se pudo mirar": es un resultado, no un error del pedido |
+| `ADM-12` | Aceptar una discrepancia y restaurar otra desde la pantalla | Lo mismo que WP-CLI: el ajuste sin tocar el stock, el stock vuelto al libro; devuelve el estado sin ellas |
+| `ADM-13` | Resolver lo que no está abierto, y una acción que no existe | `409 wss_no_discrepancy`, y `404` |
+| `ADM-14` | Registros, con un evento viejo y uno con causa | La frase, la hora del sitio, el nombre del producto, la causa en castellano y quién fue; filtrado por nivel |
+| `ADM-15` | **Filtrar por fecha un evento de las 00:09 UTC, en Buenos Aires** | Cae en el día anterior: las fechas del filtro son días del sitio |
+| `ADM-16` | Con `product`, el historial | Sus movimientos y sus eventos juntos, cada uno con su frase, y el nombre del producto |
 
 ## [`src/__tests__/routing.test.js`](../src/__tests__/routing.test.js) — las pantallas por `#/ruta`
 
