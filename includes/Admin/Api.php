@@ -10,6 +10,7 @@ declare( strict_types = 1 );
 namespace Woonderful\StockSync\Admin;
 
 use Woonderful\StockSync\Catalog\Copy;
+use Woonderful\StockSync\Catalog\Rows;
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Linking\Links;
 use Woonderful\StockSync\Log\Events;
@@ -55,14 +56,15 @@ final class Api {
 	 */
 	public static function register_routes(): void {
 		$routes = array(
-			'/status'                                                     => array( 'GET', 'status' ),
-			'/reconcile'                                                  => array( 'POST', 'reconcile' ),
-			'/log'                                                        => array( 'GET', 'log' ),
-			'/settings'                                                   => array( 'GET, POST', 'settings' ),
-			'/store'                                                      => array( 'POST', 'store' ),
-			'/pairing/code'                                               => array( 'POST', 'pairing_code' ),
-			'/pairing/redeem'                                             => array( 'POST', 'pairing_redeem' ),
-			'/catalog/refresh'                                            => array( 'POST', 'catalog_refresh' ),
+			'/status'          => array( 'GET', 'status' ),
+			'/reconcile'       => array( 'POST', 'reconcile' ),
+			'/log'             => array( 'GET', 'log' ),
+			'/settings'        => array( 'GET, POST', 'settings' ),
+			'/store'           => array( 'POST', 'store' ),
+			'/pairing/code'    => array( 'POST', 'pairing_code' ),
+			'/pairing/redeem'  => array( 'POST', 'pairing_redeem' ),
+			'/catalog/refresh' => array( 'POST', 'catalog_refresh' ),
+			'/products'        => array( 'GET', 'products' ),
 			'/discrepancies/(?P<product>\\d+)/(?P<action>accept|restore)' => array( 'POST', 'resolve' ),
 		);
 
@@ -347,6 +349,33 @@ final class Api {
 		}
 
 		return self::status();
+	}
+
+	/**
+	 * Las filas de Productos: filtradas y buscadas sobre todo el catálogo, de a 50 (ADR-014 §3,
+	 * §4). Con la edad de la copia: la app la refresca antes si está vieja.
+	 *
+	 * @param \WP_REST_Request $request Los filtros y la página.
+	 */
+	public static function products( \WP_REST_Request $request ): \WP_REST_Response {
+		$state = (string) $request['state'];
+
+		$result = Rows::page(
+			array(
+				'state'          => in_array( $state, Rows::STATES, true ) ? $state : 'all',
+				'motive'         => sanitize_key( (string) $request['motive'] ),
+				'search'         => sanitize_text_field( (string) $request['search'] ),
+				'show_discarded' => rest_sanitize_boolean( (string) $request['show_discarded'] ),
+			),
+			max( 1, (int) $request['page'] )
+		);
+
+		$result['catalog'] = array(
+			'age'   => Copy::age(),
+			'stale' => Copy::is_stale(),
+		);
+
+		return new \WP_REST_Response( $result, 200 );
 	}
 
 	/**

@@ -9,6 +9,7 @@ declare( strict_types = 1 );
 
 use Woonderful\StockSync\Admin\Api;
 use Woonderful\StockSync\Admin\Page;
+use Woonderful\StockSync\Catalog\Copy;
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Linking\Links;
 use Woonderful\StockSync\Log\Events;
@@ -619,5 +620,29 @@ class Test_Admin extends WP_UnitTestCase {
 		add_filter( 'pre_http_request', static fn () => new WP_Error( 'http_request_failed', 'no responde' ) );
 
 		$this->assertSame( 502, $this->send( 'POST', '/catalog/refresh', array( 'page' => 1 ) )->get_status() );
+	}
+
+	/**
+	 * ADM-23 — Productos: las filas de `Rows`, con un estado que no existe tomado como "todos",
+	 * y la edad de la copia para que la app la refresque si está vieja.
+	 */
+	public function test_the_products_come_with_the_age_of_the_copy(): void {
+		$this->as_user( 'administrator' );
+		$this->as_master();
+		$product = $this->linked( 5, 5, 900, 'Alpargata ' . __FUNCTION__ );
+		delete_option( Copy::OPTION_REFRESHED );
+
+		$data = $this->send(
+			'GET',
+			'/products',
+			array(
+				'state'  => 'cualquiera',
+				'search' => __FUNCTION__,
+			)
+		)->get_data();
+
+		$this->assertSame( array( $product ), array_column( $data['rows'], 'id' ) );
+		$this->assertNull( $data['catalog']['age'] );
+		$this->assertTrue( $data['catalog']['stale'] );
 	}
 }

@@ -88,6 +88,30 @@ final class State {
 	}
 
 	/**
+	 * El estado de esos productos de acá, con lo que dice la copia del catálogo de la otra en
+	 * vez de preguntarle (ADR-014 §3). Es el de la pantalla: `wp wss status` sigue preguntando
+	 * en el momento.
+	 *
+	 * @param int[]                            $products Productos de esta tienda.
+	 * @param array<int, array<string, mixed>> $remote   Los de la copia, por ID, con `status` y
+	 *                                                   `stock`.
+	 *
+	 * @return array<int, array{state: string, reason: string|null}>
+	 */
+	public static function from_copy( array $products, array $remote ): array {
+		$links     = Links::for_products( $products );
+		$uncertain = self::uncertain_links();
+		$peer      = Peers::only();
+		$states    = array();
+
+		foreach ( $products as $product ) {
+			$states[ (int) $product ] = self::state_of( (int) $product, $links[ (int) $product ] ?? null, $uncertain, $peer, $remote, array() );
+		}
+
+		return $states;
+	}
+
+	/**
 	 * Le pregunta a la socia por esos productos suyos, de a 100.
 	 *
 	 * Una tanda que falla deja sin saber sólo a los suyos: el resto usa lo que respondió.

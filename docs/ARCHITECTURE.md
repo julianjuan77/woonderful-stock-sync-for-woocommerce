@@ -417,6 +417,18 @@ también la configuración inicial. Mientras el código espera, la maestra pregu
 cada 5 segundos hasta que cambia `peer.paired_at`: comparar con "emparejada" no alcanza para un
 re-emparejamiento, que ya lo estaba.
 
+**Productos** (`src/screens/Products.js`) pide `GET /products`, que arma **`Catalog\Rows`**: una
+fila por cada vinculable de acá —simple o variación que lleva su propio stock—, con los dos lados,
+**calculada sobre todo el catálogo** y devuelta de a 50, con los conteos por estado. Lee los
+productos de acá con una sola consulta SQL —no con `wc_get_products()`, que cargaría miles de
+objetos— y la copia del catálogo de la otra. El estado sale de `State::from_copy()`: las mismas
+reglas que `wp wss status`, pero con la copia en vez de preguntarle a la otra. El motivo de un sin
+vincular, en este orden: en la papelera, descartado, sin SKU, SKU duplicado —acá o allá—, sin
+coincidencia —ninguno allá, o el único ya tiene par—, con sugerencia. **El SKU se compara sin
+espacios a los costados y sin mayúsculas** (`Rows::normalize()`). Un variable que lleva el stock en
+el padre tiene su propia fila, que lo dice. Lo descartado se esconde salvo con "mostrar
+descartados". Si la copia tiene más de 10 minutos, la pantalla la refresca al abrirse.
+
 **El submenú de WordPress** marca la página, no la ruta: la app le pone `current` a la entrada de
 la pantalla abierta.
 

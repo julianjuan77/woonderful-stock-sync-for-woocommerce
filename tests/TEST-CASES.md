@@ -1042,6 +1042,7 @@ marcado sin mandarse, `NOT-17`; la pregunta a `/health` sin firma, `PER-07`; el 
 | `ADM-20` | Generar el código desde la pantalla | Lleva esta tienda, queda pendiente de canje y vale 15 minutos |
 | `ADM-21` | Canjear algo que no es un código | `400 wss_pairing_invalid`, sin emparejar |
 | `ADM-22` | El refresco de la copia desde la pantalla | Una página con su avance; sin emparejar `409`, con la otra caída `502` |
+| `ADM-23` | Productos, con un estado que no existe y la copia sin refrescar nunca | Las filas, como "todos", y la copia vieja: la app la refresca |
 
 ## [`src/__tests__/routing.test.js`](../src/__tests__/routing.test.js) — las pantallas por `#/ruta`
 
@@ -1118,3 +1119,21 @@ la suite de WordPress abre para cada test.
 | `CPY-05` | Un catálogo vacío allá | La copia queda vacía |
 | `CPY-06` | Pasados 10 minutos | Vieja: la pantalla la refresca al abrirse |
 | `CPY-07` | **Emparejarse con otra tienda, y con la misma** | Con otra se vacía; con la misma, no |
+
+## [`tests/test-rows.php`](test-rows.php) — las filas de Productos (ADR-014 §3, §4)
+
+Los productos de otros tests sobreviven al rollback: cada test filtra por una marca propia.
+
+| ID | Caso | Esperado |
+| --- | --- | --- |
+| `ROW-01` | Un vinculado | Los dos lados: el de allá, de la copia |
+| `ROW-02` | **Vinculado, con el de allá en la papelera según la copia** | Suspendido, con el motivo en castellano: el estado sale de la copia |
+| `ROW-03` | **`alp-v39` acá y ` ALP-V39 ` allá, uno solo** | Sugerencia: el SKU se compara sin espacios ni mayúsculas |
+| `ROW-04` | Sin SKU; repetido acá; repetido allá; sin nada allá; el único de allá ya tiene par; en la papelera; sin su propio stock | Cada uno con su motivo; el último no se lista |
+| `ROW-05` | **Una sugerencia descartada, y después el descarte deshecho** | Escondida salvo con "mostrar descartados"; deshecho, vuelve |
+| `ROW-06` | Un variable con dos variaciones, y otro que lleva el stock en el padre | Las variaciones juntas, con el nombre del padre; el otro, con su propia fila que lo dice |
+| `ROW-07` | **Filtros, conteos y búsqueda** | Por estado —"con sugerencia" incluido— y por motivo; la búsqueda encuentra por el nombre de allá |
+| `ROW-08` | 52 filas | De a 50, con el total |
+
+Mutaciones: sugerir uno de allá que ya tiene par cae `ROW-04`; comparar sin recortar, `ROW-03`;
+ignorar el duplicado de acá, `ROW-04`.
