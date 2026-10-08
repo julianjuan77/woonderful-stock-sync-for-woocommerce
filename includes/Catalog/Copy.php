@@ -127,7 +127,8 @@ final class Copy {
 
 	/**
 	 * Busca en la copia, por nombre o SKU, el producto de la otra para vincular a mano: sólo
-	 * vinculables —llevan su propio stock, fuera de la papelera— y sin par (ADR-014 §5).
+	 * vinculables —llevan su propio stock, fuera de la papelera, y no son un padre variable:
+	 * se vincula cada variación— y sin par (ADR-014 §5).
 	 *
 	 * @param string $text  Lo buscado.
 	 * @param int    $limit Cuántos, como mucho.
@@ -153,7 +154,7 @@ final class Copy {
 				"SELECT r.remote_product, r.parent, r.type, r.sku, r.name, r.stock, r.status, p.name AS parent_name
 				   FROM {$table} r
 				   LEFT JOIN {$table} p ON p.remote_product = r.parent AND r.parent > 0
-				  WHERE r.stock IS NOT NULL AND r.status <> 'trash' AND r.linked = 0
+				  WHERE r.stock IS NOT NULL AND r.status <> 'trash' AND r.linked = 0 AND r.type <> 'variable'
 				    AND r.remote_product NOT IN ( SELECT remote_product FROM {$links} )
 				    AND ( r.name LIKE %s OR r.sku LIKE %s OR p.name LIKE %s )
 				  ORDER BY r.name

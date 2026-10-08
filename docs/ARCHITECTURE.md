@@ -161,7 +161,11 @@ nonce. Se registra después de la guarda. `linked` y el stock salen de una consu
 Del otro lado, `Transport\Catalog::fetch()` lo llama con la query en texto —la misma que firma—,
 reparte `include` de a 100, no pide nada con una lista vacía y descarta las entradas mal armadas.
 Cada producto lleva también **`type` y `parent`** (ADR-014 §2), para agrupar las variaciones; una
-versión vieja del otro lado no los manda, y `fetch()` los completa con `''` y `0`.
+versión vieja del otro lado no los manda, y `fetch()` los completa con `''` y `0`. **El `name` de una
+variación lleva sus atributos si su título no los trae** ("Corralera con taco - 34, Crudo"): muchas
+tiendas guardan las variaciones con el título del padre, y del otro lado no se distinguían entre
+sí ni del padre. **Un padre variable no se vincula** —aunque lleve el stock de sus variaciones, lo
+que se vincula es cada una—: no aparece en la búsqueda, ni como sugerencia, ni en la masiva.
 
 **`Catalog\Copy`** mantiene `wss_remote_products`. `refresh_page()` trae una página de 100 y la
 guarda con un solo `INSERT … ON DUPLICATE KEY UPDATE`; la página 1 anota cuándo empezó el refresco

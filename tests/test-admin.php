@@ -725,7 +725,7 @@ class Test_Admin extends WP_UnitTestCase {
 
 	/**
 	 * ADM-24 — **Buscar el de allá para vincular a mano**: en la copia, sólo vinculables sin
-	 * par, por nombre o SKU.
+	 * par —ni un padre variable, aunque lleve el stock de sus variaciones—, por nombre o SKU.
 	 */
 	public function test_the_copy_is_searched_for_linkables(): void {
 		$this->as_user( 'administrator' );
@@ -734,6 +734,7 @@ class Test_Admin extends WP_UnitTestCase {
 		$this->in_copy( 901, array( 'linked' => 1 ) );
 		$this->in_copy( 902, array( 'status' => 'trash' ) );
 		$this->in_copy( 903, array( 'stock' => null ) );
+		$this->in_copy( 905, array( 'type' => 'variable' ) );
 		$this->in_copy(
 			904,
 			array(

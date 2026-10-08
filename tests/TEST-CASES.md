@@ -662,6 +662,7 @@ Verificado rompiéndolo, con seis cambios: sin revisar el stock propio (`LNK-02`
 | `PRD-14` | `fetch()` recibe una entrada con el `id` como texto, y algo que no es un producto | Se descartan |
 | `PRD-15` | Un variable y su variación | Viajan con su `type`, y la variación con su `parent` (ADR-014 §2) |
 | `PRD-16` | Una versión vieja del otro lado, sin `type` ni `parent` | `fetch()` la toma como suelta, de tipo desconocido, y no la descarta |
+| `PRD-17` | **Una variación con el título del padre, y otra con el talle en el título** | La primera viaja como "Corralera con taco - 34"; la segunda, como estaba |
 
 Los SKU llevan un sufijo por corrida y `PRD-04` recorre el catálogo entero: el `CREATE TABLE`
 del `set_up` confirma la transacción, y los productos de un test quedan para el siguiente.
@@ -1049,7 +1050,7 @@ marcado sin mandarse, `NOT-17`; la pregunta a `/health` sin firma, `PER-07`; el 
 | `ADM-21` | Canjear algo que no es un código | `400 wss_pairing_invalid`, sin emparejar |
 | `ADM-22` | El refresco de la copia desde la pantalla | Una página con su avance; sin emparejar `409`, con la otra caída `502` |
 | `ADM-23` | Productos, con un estado que no existe y la copia sin refrescar nunca | Las filas, como "todos", y la copia vieja: la app la refresca |
-| `ADM-24` | Buscar el de allá en la copia | Sólo vinculables sin par —ni vinculado, ni en la papelera, ni sin su stock—, por nombre o SKU |
+| `ADM-24` | Buscar el de allá en la copia | Sólo vinculables sin par —ni vinculado, ni en la papelera, ni sin su stock, ni un padre variable—, por nombre o SKU |
 | `ADM-25` | **El de allá en el momento, antes de confirmar** | Su stock real, el de acá de la base y cuál queda —el de la maestra—; uno que no existe, `404` |
 | `ADM-26` | **Vincular con un stock que cambió, y después con el bueno** | `409 stock_changed` sin vincular; después, la fila vinculada como quedó |
 | `ADM-27` | **Vincular, desvincular, reasignar y descartar desde la secundaria** | `403 wss_not_master` en los cinco: se rechaza en el servidor (ADR-013 §5) |
@@ -1149,6 +1150,7 @@ Los productos de otros tests sobreviven al rollback: cada test filtra por una ma
 | `ROW-06` | Un variable con dos variaciones, y otro que lleva el stock en el padre | Las variaciones juntas, con el nombre del padre; el otro, con su propia fila que lo dice |
 | `ROW-07` | **Filtros, conteos y búsqueda** | Por estado —"con sugerencia" incluido— y por motivo; la búsqueda encuentra por el nombre de allá |
 | `ROW-08` | 52 filas | De a 50, con el total |
+| `ROW-09` | **Un padre variable de allá con el mismo SKU** | No se sugiere: se vincula cada variación |
 
 Mutaciones: sugerir uno de allá que ya tiene par cae `ROW-04`; comparar sin recortar, `ROW-03`;
 ignorar el duplicado de acá, `ROW-04`.

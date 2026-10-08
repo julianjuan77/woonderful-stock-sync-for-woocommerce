@@ -388,8 +388,9 @@ final class Rows {
 	}
 
 	/**
-	 * Los vinculables de allá, por SKU normalizado: llevan su propio stock y no están en la
-	 * papelera.
+	 * Los vinculables de allá, por SKU normalizado: llevan su propio stock, no están en la
+	 * papelera y no son un padre variable —aunque lleve el stock de sus variaciones, lo que se
+	 * vincula es cada variación—.
 	 *
 	 * @param array<int, array<string, mixed>> $remote La copia.
 	 *
@@ -401,7 +402,7 @@ final class Rows {
 		foreach ( $remote as $product ) {
 			$sku = self::normalize( $product['sku'] );
 
-			if ( '' !== $sku && null !== $product['stock'] && 'trash' !== $product['status'] ) {
+			if ( '' !== $sku && null !== $product['stock'] && 'trash' !== $product['status'] && 'variable' !== $product['type'] ) {
 				$by_sku[ $sku ][] = $product;
 			}
 		}

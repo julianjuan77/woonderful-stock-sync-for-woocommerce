@@ -308,4 +308,15 @@ class Test_Rows extends WP_UnitTestCase {
 		$this->assertSame( 52, $second['total'] );
 		$this->assertCount( 2, $second['rows'] );
 	}
+
+	/**
+	 * ROW-09 — **Un padre variable de allá no se sugiere**, aunque tenga el mismo SKU y lleve
+	 * el stock de sus variaciones: lo que se vincula es cada variación.
+	 */
+	public function test_a_variable_parent_is_not_suggested(): void {
+		$product = $this->simple( 'PADRE' );
+		$this->remote( 930, 'PADRE', array( 'type' => 'variable' ) );
+
+		$this->assertSame( Rows::NO_MATCH, $this->rows()[ $product ]['motive'] );
+	}
 }

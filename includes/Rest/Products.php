@@ -209,7 +209,7 @@ final class Products {
 		return array(
 			'id'     => $id,
 			'sku'    => (string) $product->get_sku( 'edit' ),
-			'name'   => (string) $product->get_name( 'edit' ),
+			'name'   => self::name_of( $product ),
 			'stock'  => $own_stock ? ( $stocks[ $id ] ?? 0 ) : null,
 			'status' => (string) $product->get_status( 'edit' ),
 			'linked' => in_array( $id, $linked, true ),
@@ -217,6 +217,25 @@ final class Products {
 			'type'   => (string) $product->get_type(),
 			'parent' => (int) $product->get_parent_id( 'edit' ),
 		);
+	}
+
+	/**
+	 * El nombre con que se muestra: el de una variación, con sus atributos si su título no los
+	 * trae. Muchas tiendas guardan las variaciones con el título del padre, y del otro lado
+	 * "Corralera con taco" no dice qué talle ni qué color es: parece el padre.
+	 *
+	 * @param \WC_Product $product El producto.
+	 */
+	private static function name_of( \WC_Product $product ): string {
+		$name = (string) $product->get_name( 'edit' );
+
+		if ( ! $product instanceof \WC_Product_Variation ) {
+			return $name;
+		}
+
+		$attributes = (string) wc_get_formatted_variation( $product, true, false );
+
+		return '' === $attributes || false !== stripos( $name, $attributes ) ? $name : $name . ' - ' . $attributes;
 	}
 
 	/**

@@ -557,4 +557,47 @@ class Test_Rest_Products extends WP_UnitTestCase {
 		$this->assertSame( '', $product['type'] );
 		$this->assertSame( 0, $product['parent'] );
 	}
+
+	/**
+	 * PRD-17 — **Una variación con el título del padre viaja con sus atributos**: del otro lado,
+	 * "Corralera con taco" a secas parecía el padre. Una que ya los trae en el título, igual.
+	 */
+	public function test_a_variation_travels_with_its_attributes(): void {
+		$talle = new WC_Product_Attribute();
+		$talle->set_name( 'talle' );
+		$talle->set_options( array( '34', '35' ) );
+		$talle->set_variation( true );
+
+		$parent = new WC_Product_Variable();
+		$parent->set_name( 'Corralera con taco' );
+		$parent->set_attributes( array( $talle ) );
+		$parent_id = (int) $parent->save();
+
+		$plain = new WC_Product_Variation();
+		$plain->set_parent_id( $parent_id );
+		$plain->set_attributes( array( 'talle' => '34' ) );
+		$plain_id = (int) $plain->save();
+		wp_update_post(
+			array(
+				'ID'         => $plain_id,
+				'post_title' => 'Corralera con taco',
+			)
+		);
+
+		$named = new WC_Product_Variation();
+		$named->set_parent_id( $parent_id );
+		$named->set_attributes( array( 'talle' => '35' ) );
+		$named_id = (int) $named->save();
+		wp_update_post(
+			array(
+				'ID'         => $named_id,
+				'post_title' => 'Corralera con taco - 35',
+			)
+		);
+
+		$products = $this->products( array( 'include' => $plain_id . ',' . $named_id ) );
+
+		$this->assertSame( 'Corralera con taco - 34', $products[ $plain_id ]['name'] );
+		$this->assertSame( 'Corralera con taco - 35', $products[ $named_id ]['name'] );
+	}
 }

@@ -141,7 +141,7 @@ final class Bulk {
 			return 'not_published';
 		}
 
-		if ( null === $other['stock'] ) {
+		if ( null === $other['stock'] || 'variable' === ( $other['type'] ?? '' ) ) {
 			return 'target_not_managing_stock';
 		}
 
