@@ -437,9 +437,10 @@ reglas que `wp wss status`, pero con la copia en vez de preguntarle a la otra. E
 vincular, en este orden: en la papelera, descartado, sin SKU, SKU duplicado —acá o allá—, sin
 coincidencia —ninguno allá, o el único ya tiene par—, con sugerencia. **El SKU se compara sin
 espacios a los costados y sin mayúsculas** (`Rows::normalize()`). Un variable que lleva el stock en
-el padre tiene su propia fila, que lo dice. Lo descartado se esconde salvo con "mostrar
-descartados". Si la copia tiene más de 10 minutos, la pantalla la refresca al abrirse. Todos los filtros —estado, motivo, mostrar
-descartados— son botones, como en woonderful-sync. **Las filas con sugerencia se pueden tildar** —de
+el padre tiene su propia fila, que lo dice. Lo descartado se esconde salvo pedido o buscado. Si la copia tiene más de 10 minutos, la pantalla la refresca al abrirse. Todos los filtros son botones, como en woonderful-sync.
+**Los motivos aparecen sólo al elegir "Sin vincular"**, que es donde tienen sentido, y "Descartados"
+es uno más: así la vista normal tiene una sola fila de filtros. Lo descartado no se ve salvo con ese
+motivo, o al buscar: la búsqueda lo encuentra (ADR-014 §4). **Las filas con sugerencia se pueden tildar** —de
 a una, por padre o toda la página— y se vinculan con la misma masiva, pasándole sólo esos pares. El
 nombre de un producto abre su historial en un pop-up (`src/components/HistoryModal.js`), sin salir
 de la pantalla.

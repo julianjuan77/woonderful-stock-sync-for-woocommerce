@@ -213,16 +213,22 @@ class Test_Rows extends WP_UnitTestCase {
 	}
 
 	/**
-	 * ROW-05 — **Lo descartado no se ve, salvo con "mostrar descartados"**; deshacer el descarte
-	 * lo devuelve.
+	 * ROW-05 — **Lo descartado no se ve, salvo pedido o buscado**: la búsqueda lo encuentra
+	 * (ADR-014 §4). Deshacer el descarte lo devuelve.
+	 *
+	 * Sin búsqueda se comparan los totales: el log se vacía en cada test, así que el único
+	 * descartado es éste.
 	 */
 	public function test_discarded_rows_are_hidden_until_asked(): void {
 		$product = $this->simple( 'ALP' );
 		$this->remote( 901, 'ALP' );
 		Events::record( Events::DISCARDED, Events::INFO, $product );
 
-		$this->assertArrayNotHasKey( $product, $this->rows() );
-		$this->assertSame( Rows::DISCARDED, $this->rows( array( 'show_discarded' => true ) )[ $product ]['motive'] );
+		$hidden = Rows::page( array() )['total'];
+		$shown  = Rows::page( array( 'show_discarded' => true ) )['total'];
+
+		$this->assertSame( $hidden + 1, $shown );
+		$this->assertSame( Rows::DISCARDED, $this->rows()[ $product ]['motive'], 'la búsqueda lo encuentra' );
 
 		Events::record( Events::UNDISCARDED, Events::INFO, $product );
 

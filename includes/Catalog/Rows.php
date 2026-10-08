@@ -86,13 +86,13 @@ final class Rows {
 	 * @return array{rows: array<int, array<string, mixed>>, total: int, counts: array<string, int>}
 	 */
 	public static function page( array $filters, int $page = 1 ): array {
-		$rows = self::all();
+		$rows   = self::all();
+		$search = self::normalize( (string) ( $filters['search'] ?? '' ) );
 
-		if ( true !== ( $filters['show_discarded'] ?? false ) ) {
+		// Lo descartado no se ve, salvo pedido o buscado: la búsqueda lo encuentra (ADR-014 §4).
+		if ( true !== ( $filters['show_discarded'] ?? false ) && '' === $search ) {
 			$rows = array_filter( $rows, static fn ( array $row ) => self::DISCARDED !== $row['motive'] );
 		}
-
-		$search = self::normalize( (string) ( $filters['search'] ?? '' ) );
 
 		if ( '' !== $search ) {
 			$rows = array_filter( $rows, static fn ( array $row ) => self::matches( $row, $search ) );

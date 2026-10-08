@@ -238,6 +238,7 @@ seguridad y convenciones de código.
 | Qué | Dónde |
 |---|---|
 | Preguntas abiertas de §6 sin cerrar: multisite y volumen real del catálogo | `docs/SPEC.md` |
+| **La suite tarda 15 minutos** (eran 5–6). Los productos que crean los tests sobreviven al rollback —el DROP del tear_down confirma la transacción—, se acumulan corrida tras corrida, y los tests de Productos (`Rows::all()`) recorren el catálogo entero. Probable arreglo: borrar los productos de prueba en el tear_down, o una base de tests nueva por corrida | Visto el 2026-10-07 |
 | El clon servido en la **misma URL por HTTPS** pasa la detección. Declarado, no resuelto | ADR-001 §1, ADR-007 |
 | El auditor de tests ya es un agente del entorno: `.claude/agents/test-auditor.md` | — |
 | `record()` escribiría movimientos con origen vacío si faltara el identificador. Hoy no puede pasar: `boot()` lo genera antes de todo | Auditoría 2026-09-26 |

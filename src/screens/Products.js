@@ -83,7 +83,6 @@ export default function Products( { apiFetch, status } ) {
 	const [ page, setPage ] = useState( 1 );
 	const [ state, setState ] = useState( initialState );
 	const [ motive, setMotive ] = useState( '' );
-	const [ showDiscarded, setShowDiscarded ] = useState( false );
 	const [ search, setSearch ] = useState( '' );
 	const [ query, setQuery ] = useState( '' );
 	const [ loading, setLoading ] = useState( false );
@@ -114,7 +113,8 @@ export default function Products( { apiFetch, status } ) {
 				state,
 				motive,
 				search: query,
-				show_discarded: showDiscarded ? '1' : '',
+				// Los descartados son un motivo más: sólo se piden al elegirlo.
+				show_discarded: 'discarded' === motive ? '1' : '',
 			} );
 			const next = await apiFetch( { path: `/products?${ params }` } );
 			setData( next );
@@ -131,7 +131,7 @@ export default function Products( { apiFetch, status } ) {
 		} finally {
 			setLoading( false );
 		}
-	}, [ apiFetch, page, state, motive, query, showDiscarded ] );
+	}, [ apiFetch, page, state, motive, query ] );
 
 	// La copia se refresca de a una página por request, con el avance (ADR-014 §1).
 	const refresh = useCallback( async () => {
@@ -328,46 +328,49 @@ export default function Products( { apiFetch, status } ) {
 			</div>
 
 			<div className="woon-toolbar" style={ { marginTop: '-8px' } }>
-				<div className="woon-filters">
-					{ [
-						[
-							'',
-							__(
-								'Todos los motivos',
+				{ 'unlinked' === state && (
+					<div
+						className="woon-filters"
+						style={ { alignItems: 'center' } }
+					>
+						<span className="woon-muted">
+							{ __(
+								'Motivo:',
 								'woonderful-stock-sync-for-woocommerce'
-							),
-						],
-						...Object.entries( MOTIVES ),
-					].map( ( [ v, l ] ) => (
-						<button
-							key={ v || 'all' }
-							className={ `woon-filter ${
-								motive === v ? 'woon-filter--active' : ''
-							}` }
-							onClick={ () => {
-								setMotive( v );
-								setPage( 1 );
-							} }
-						>
-							{ l }
-						</button>
-					) ) }
-				</div>
-				<button
-					className={ `woon-filter ${
-						showDiscarded ? 'woon-filter--active' : ''
-					}` }
-					aria-pressed={ showDiscarded }
-					onClick={ () => {
-						setShowDiscarded( ! showDiscarded );
-						setPage( 1 );
-					} }
-				>
-					{ __(
-						'Mostrar descartados',
-						'woonderful-stock-sync-for-woocommerce'
-					) }
-				</button>
+							) }
+						</span>
+						{ [
+							[
+								'',
+								__(
+									'Todos',
+									'woonderful-stock-sync-for-woocommerce'
+								),
+							],
+							...Object.entries( MOTIVES ),
+							[
+								'discarded',
+								__(
+									'Descartados',
+									'woonderful-stock-sync-for-woocommerce'
+								),
+							],
+						].map( ( [ v, l ] ) => (
+							<button
+								key={ v || 'all' }
+								className={ `woon-filter ${
+									motive === v ? 'woon-filter--active' : ''
+								}` }
+								onClick={ () => {
+									setMotive( v );
+									setPage( 1 );
+								} }
+							>
+								{ l }
+							</button>
+						) ) }
+					</div>
+				) }
 				{ data?.catalog?.age !== null && data?.catalog && (
 					<span
 						className="woon-muted"
