@@ -167,7 +167,7 @@ final class Notifier {
 
 		$how = __( 'Para vincularlos, entrá a Stock Sync → Productos y elegí el filtro "Sin vincular".', 'woonderful-stock-sync-for-woocommerce' );
 
-		$once = __( 'Si alguno se vende sólo en esta tienda y no tiene par en la otra, no hace falta hacer nada. Cada producto se avisa una sola vez: este email no se repite por los mismos productos.', 'woonderful-stock-sync-for-woocommerce' );
+		$once = __( 'Si está bien que no se sincronicen, podés ignorar este mensaje. Este email llega una sola vez por producto: no se repetirá, sólo avisaremos si encontramos productos nuevos sin sincronizar.', 'woonderful-stock-sync-for-woocommerce' );
 
 		$body = $intro . ' ' . $why . "\n\n" . $which . "\n" . implode( "\n", $lines ) . "\n\n" . $how . "\n\n" . $once;
 

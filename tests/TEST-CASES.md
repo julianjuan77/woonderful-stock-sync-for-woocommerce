@@ -1200,5 +1200,5 @@ Mutaciones: sin revisar el SKU fresco, o el vinculado allá, cae `BLK-03`.
 | --- | --- | --- |
 | `ROW-10` | **Uno suelto, uno descartado, uno descartado en la papelera, uno vinculado y un padre con el stock** | `Rows::unlinked_count()` da lo mismo que el filtro "Sin vincular" de Productos |
 | `ADM-07` | (ampliado) | `unlinked` del estado es el número del filtro de Productos |
-| `NOT-23` | **El resumen** | Explica por qué importa, dónde se vincula y que si no tiene par no hace falta nada; el pie lleva a Stock Sync; ya no dice que se descarte |
+| `NOT-23` | **El resumen** | Explica por qué importa, dónde se vincula y que si está bien así se puede ignorar; el pie lleva a Stock Sync; ya no dice que se descarte |
 | `NOT-14` | (cambiado) | El email ya no lleva un total |

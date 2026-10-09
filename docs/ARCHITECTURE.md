@@ -297,7 +297,7 @@ mandar:
 vincular desde hace más del plazo —desde que se creó o se desvinculó—, sin descartar, y del que
 no se avisó desde la última vez que quedó sin vincular. Hasta 50 por email. **El email explica de
 qué se trata**: qué productos, por qué importa —el stock no se descuenta en la otra—, dónde se
-vinculan, y que si no tienen par no hace falta hacer nada, porque cada uno se avisa una sola vez.
+vinculan, y que si está bien que no se sincronicen se puede ignorar, porque cada uno se avisa una sola vez.
 No lleva un total: el número de productos sin vincular es uno solo, el de la pantalla.
 "Ya avisé" se guarda como un evento `notified` por producto (ADR-012 §4); **el email deja además
 un solo `digest_sent`**, con cuántos nuevos y cuántos en total. La lista del log no trae los

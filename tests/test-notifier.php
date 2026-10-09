@@ -612,7 +612,7 @@ class Test_Notifier extends WP_UnitTestCase {
 
 	/**
 	 * NOT-23 — **El email explica de qué se trata**: qué productos, por qué importa —el stock no
-	 * se descuenta en la otra—, dónde se vinculan, y que si no tienen par no hace falta nada.
+	 * se descuenta en la otra—, dónde se vinculan, y que si está bien así se puede ignorar.
 	 * El pie lleva al panel de Stock Sync.
 	 */
 	public function test_the_digest_explains_itself(): void {
@@ -623,7 +623,7 @@ class Test_Notifier extends WP_UnitTestCase {
 
 		$this->assertStringContainsString( 'el stock de la otra no se descuenta', $message );
 		$this->assertStringContainsString( 'Stock Sync → Productos', $message );
-		$this->assertStringContainsString( 'no hace falta hacer nada', $message );
+		$this->assertStringContainsString( 'podés ignorar este mensaje', $message );
 		$this->assertStringContainsString( 'admin.php?page=woonderful-stock-sync', $message );
 		$this->assertStringNotContainsString( 'descartalo', $message );
 	}
