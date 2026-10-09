@@ -155,11 +155,23 @@ export default function LinkModal( {
 							{ results && 0 === results.length && (
 								<p className="woon-muted">
 									{ __(
-										'No hay productos sin vincular con ese nombre o SKU en la otra tienda.',
+										'No hay productos con ese nombre o SKU en la otra tienda.',
 										'woonderful-stock-sync-for-woocommerce'
 									) }
 								</p>
 							) }
+							{ results &&
+								results.length > 0 &&
+								results.every( ( item ) => item.linked ) && (
+									<div className="woon-notice woon-notice--info">
+										<p>
+											{ __(
+												'Todos los que coinciden ya están vinculados. Para cambiarlo, primero desvinculalo de la pantalla principal de productos.',
+												'woonderful-stock-sync-for-woocommerce'
+											) }
+										</p>
+									</div>
+								) }
 							{ results && results.length > 0 && (
 								<ul className="woon-ml-results">
 									{ results.map( ( item ) => (
@@ -167,18 +179,31 @@ export default function LinkModal( {
 											<button
 												type="button"
 												className="woon-ml-result"
+												disabled={ item.linked }
 												style={ {
 													width: '100%',
 													textAlign: 'left',
-													background: 'none',
+													background: item.linked
+														? 'var(--woon-surface-sunken)'
+														: 'none',
+													opacity: item.linked
+														? 0.6
+														: 1,
+													cursor: item.linked
+														? 'not-allowed'
+														: 'pointer',
 												} }
 												onClick={ () =>
+													! item.linked &&
 													setPicked( item )
 												}
 											>
 												<span className="woon-ml-result__info">
 													<strong>
-														{ item.parent_name
+														{ item.parent_name &&
+														! item.name.startsWith(
+															item.parent_name
+														)
 															? `${ item.parent_name } — ${ item.name }`
 															: item.name }
 													</strong>
@@ -194,6 +219,28 @@ export default function LinkModal( {
 															item.stock
 														) }
 													</small>
+													{ item.linked && (
+														<small>
+															{ item.linked_to
+																? sprintf(
+																		/* translators: 1: producto de acá, 2: su ID. */
+																		__(
+																			'Ya vinculado con %1$s (#%2$d) de esta tienda',
+																			'woonderful-stock-sync-for-woocommerce'
+																		),
+																		item
+																			.linked_to
+																			.name,
+																		item
+																			.linked_to
+																			.id
+																  )
+																: __(
+																		'Ya vinculado',
+																		'woonderful-stock-sync-for-woocommerce'
+																  ) }
+														</small>
+													) }
 												</span>
 											</button>
 										</li>

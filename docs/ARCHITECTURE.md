@@ -452,7 +452,7 @@ de la pantalla.
 **Las acciones de Productos**, sólo en la maestra —y rechazadas en el servidor fuera de ella, con
 `403 wss_not_master`—: vincular a mano, desvincular, reasignar, descartar y deshacer el descarte.
 Vincular a mano (`src/components/LinkModal.js`) busca el de allá en la copia (`Copy::search()`:
-vinculables sin par), lo pide **en el momento** con `GET /catalog/fresh/<id>?local=` —el de allá
+los vinculables; los que ya tienen par, al final, en gris y con el producto de acá), lo pide **en el momento** con `GET /catalog/fresh/<id>?local=` —el de allá
 con `include`, el de acá de la base— y muestra los dos stocks y cuál queda, el de la maestra. Al
 confirmar manda los dos stocks que vio: si alguno cambió, `409 stock_changed` y vuelve a leerlos.
 Reasignar es `Linker::reassign()`: desvincular y vincular, en ese orden; si vincular falla, queda

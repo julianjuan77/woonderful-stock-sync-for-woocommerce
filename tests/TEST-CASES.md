@@ -1050,7 +1050,7 @@ marcado sin mandarse, `NOT-17`; la pregunta a `/health` sin firma, `PER-07`; el 
 | `ADM-21` | Canjear algo que no es un código | `400 wss_pairing_invalid`, sin emparejar |
 | `ADM-22` | El refresco de la copia desde la pantalla | Una página con su avance; sin emparejar `409`, con la otra caída `502` |
 | `ADM-23` | Productos, con un estado que no existe y la copia sin refrescar nunca | Las filas, como "todos", y la copia vieja: la app la refresca |
-| `ADM-24` | Buscar el de allá en la copia | Sólo vinculables sin par —ni vinculado, ni en la papelera, ni sin su stock, ni un padre variable—, por nombre o SKU |
+| `ADM-24` | **Buscar el de allá en la copia** | Los vinculables —ni en la papelera, ni sin su stock, ni un padre variable—, por nombre o SKU: primero los libres, después los ya vinculados, marcados y con el producto de acá |
 | `ADM-25` | **El de allá en el momento, antes de confirmar** | Su stock real, el de acá de la base y cuál queda —el de la maestra—; uno que no existe, `404` |
 | `ADM-26` | **Vincular con un stock que cambió, y después con el bueno** | `409 stock_changed` sin vincular; después, la fila vinculada como quedó |
 | `ADM-27` | **Vincular, desvincular, reasignar y descartar desde la secundaria** | `403 wss_not_master` en los cinco: se rechaza en el servidor (ADR-013 §5) |

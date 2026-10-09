@@ -126,9 +126,13 @@ final class Copy {
 	}
 
 	/**
-	 * Busca en la copia, por nombre o SKU, el producto de la otra para vincular a mano: sólo
+	 * Busca en la copia, por nombre o SKU, el producto de la otra para vincular a mano: los
 	 * vinculables —llevan su propio stock, fuera de la papelera, y no son un padre variable:
-	 * se vincula cada variación— y sin par (ADR-014 §5).
+	 * se vincula cada variación— (ADR-014 §5).
+	 *
+	 * Primero los libres; después los que ya tienen par, marcados, con el producto de acá con
+	 * que están vinculados. Sin ellos, una búsqueda que sólo coincide con vinculados volvía
+	 * vacía y parecía que no los encontraba.
 	 *
 	 * @param string $text  Lo buscado.
 	 * @param int    $limit Cuántos, como mucho.
@@ -151,13 +155,16 @@ final class Copy {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rows = (array) $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT r.remote_product, r.parent, r.type, r.sku, r.name, r.stock, r.status, p.name AS parent_name
+				"SELECT r.remote_product, r.parent, r.type, r.sku, r.name, r.stock, r.status, p.name AS parent_name,
+				        l.local_product, lp.post_title AS local_name,
+				        ( r.linked = 1 OR l.id IS NOT NULL ) AS taken
 				   FROM {$table} r
 				   LEFT JOIN {$table} p ON p.remote_product = r.parent AND r.parent > 0
-				  WHERE r.stock IS NOT NULL AND r.status <> 'trash' AND r.linked = 0 AND r.type <> 'variable'
-				    AND r.remote_product NOT IN ( SELECT remote_product FROM {$links} )
+				   LEFT JOIN {$links} l ON l.remote_product = r.remote_product
+				   LEFT JOIN {$wpdb->posts} lp ON lp.ID = l.local_product
+				  WHERE r.stock IS NOT NULL AND r.status <> 'trash' AND r.type <> 'variable'
 				    AND ( r.name LIKE %s OR r.sku LIKE %s OR p.name LIKE %s )
-				  ORDER BY r.name
+				  ORDER BY taken, r.name
 				  LIMIT %d",
 				$like,
 				$like,
@@ -176,6 +183,12 @@ final class Copy {
 				'sku'         => (string) $row->sku,
 				'name'        => (string) $row->name,
 				'stock'       => (int) $row->stock,
+				'linked'      => '1' === (string) $row->taken,
+				// Con qué producto de acá: puede no saberse, si lo vinculó allá otra cosa.
+				'linked_to'   => null === $row->local_product ? null : array(
+					'id'   => (int) $row->local_product,
+					'name' => (string) $row->local_name,
+				),
 			),
 			$rows
 		);

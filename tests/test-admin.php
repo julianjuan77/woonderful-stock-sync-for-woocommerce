@@ -724,12 +724,16 @@ class Test_Admin extends WP_UnitTestCase {
 	}
 
 	/**
-	 * ADM-24 — **Buscar el de allá para vincular a mano**: en la copia, sólo vinculables sin
-	 * par —ni un padre variable, aunque lleve el stock de sus variaciones—, por nombre o SKU.
+	 * ADM-24 — **Buscar el de allá para vincular a mano**: en la copia, por nombre o SKU, los
+	 * vinculables —ni en la papelera, ni sin su stock, ni un padre variable—. Primero los
+	 * libres; después los que ya tienen par, marcados y con el producto de acá: sin ellos, una
+	 * búsqueda que sólo coincidía con vinculados volvía vacía.
 	 */
 	public function test_the_copy_is_searched_for_linkables(): void {
 		$this->as_user( 'administrator' );
 		$this->as_master();
+		$local = $this->linked( 5, 5, 906, 'Alpargata de acá' );
+		$this->in_copy( 906 );
 		$this->in_copy( 900 );
 		$this->in_copy( 901, array( 'linked' => 1 ) );
 		$this->in_copy( 902, array( 'status' => 'trash' ) );
@@ -743,7 +747,18 @@ class Test_Admin extends WP_UnitTestCase {
 			)
 		);
 
-		$this->assertSame( array( 900 ), array_column( $this->send( 'GET', '/catalog/search', array( 'q' => 'alpargata' ) )->get_data()['items'], 'id' ) );
+		$items = $this->send( 'GET', '/catalog/search', array( 'q' => 'alpargata' ) )->get_data()['items'];
+
+		$this->assertSame( array( 900, 901, 906 ), array_column( $items, 'id' ) );
+		$this->assertSame( array( false, true, true ), array_column( $items, 'linked' ) );
+		$this->assertNull( $items[1]['linked_to'], 'vinculado allá con algo que acá no se sabe' );
+		$this->assertSame(
+			array(
+				'id'   => $local,
+				'name' => 'Alpargata de acá',
+			),
+			$items[2]['linked_to']
+		);
 		$this->assertSame( array( 904 ), array_column( $this->send( 'GET', '/catalog/search', array( 'q' => 'otro' ) )->get_data()['items'], 'id' ) );
 	}
 
