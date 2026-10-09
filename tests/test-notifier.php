@@ -459,6 +459,28 @@ class Test_Notifier extends WP_UnitTestCase {
 	}
 
 	/**
+	 * NOT-22 — **Cada resumen que sale deja una sola línea en el log**, con cuántos nuevos y
+	 * cuántos en total; uno que no sale, ninguna.
+	 */
+	public function test_each_digest_leaves_one_line(): void {
+		$this->product( 30 );
+		$this->product( 30 );
+		$this->mail_works = false;
+		Notifier::digest();
+
+		$this->assertSame( 0, Events::list( array( 'kind' => Events::DIGEST_SENT ) )['total'] );
+
+		$this->mail_works = true;
+		Notifier::digest();
+
+		$sent = Events::list( array( 'kind' => Events::DIGEST_SENT ) )['items'];
+
+		$this->assertCount( 1, $sent );
+		$this->assertSame( 2, $sent[0]['context']['count'] );
+		$this->assertSame( 2, $sent[0]['context']['total'] );
+	}
+
+	/**
 	 * NOT-15 — **Desvincularlo después es un problema nuevo**: se vuelve a avisar, pasado el
 	 * plazo desde que se desvinculó.
 	 */

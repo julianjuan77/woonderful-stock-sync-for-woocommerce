@@ -168,6 +168,16 @@ final class Notifier {
 			foreach ( $products as $product ) {
 				Events::record( Events::NOTIFIED, Events::INFO, (int) $product );
 			}
+
+			Events::record(
+				Events::DIGEST_SENT,
+				Events::INFO,
+				null,
+				array(
+					'count' => count( $new ),
+					'total' => count( $pending ),
+				)
+			);
 		}
 	}
 

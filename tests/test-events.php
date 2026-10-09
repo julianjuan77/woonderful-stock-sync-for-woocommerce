@@ -160,7 +160,7 @@ class Test_Events extends WP_UnitTestCase {
 		$this->assertSame( 1, Events::purge() );
 		$this->assertEqualsCanonicalizing(
 			array( Events::DISCARDED, Events::UNDISCARDED, Events::NOTIFIED, Events::UNLINKED ),
-			array_column( Events::list()['items'], 'kind' )
+			array_column( Events::list( array( 'product' => 7 ) )['items'], 'kind' )
 		);
 	}
 
@@ -271,5 +271,19 @@ class Test_Events extends WP_UnitTestCase {
 		$this->assertSame( 'Acá: venta, -2 · stock 6 → 4', Events::movement_text( $history[1] ) );
 		$this->assertSame( 'Acá: venta', Events::movement_text( $history[1], false ), 'la pantalla muestra la diferencia aparte' );
 		$this->assertSame( 'Acá: venta, -1', Events::movement_text( $history[0] ) );
+	}
+
+	/**
+	 * EVT-12 — **La lista general no trae las marcas "ya avisé"**: son una por producto avisado,
+	 * y parecían un email cada una. Se ven al pedirlas por tipo, o en la lista de un producto.
+	 */
+	public function test_the_list_hides_the_notified_marks(): void {
+		Events::record( Events::NOTIFIED, Events::INFO, 12 );
+		Events::record( Events::NOTIFIED, Events::INFO, 13 );
+		Events::record( Events::DIGEST_SENT, Events::INFO, null, array( 'count' => 2, 'total' => 2 ) ); // phpcs:ignore WordPress.Arrays.ArrayDeclarationSpacing.AssociativeArrayFound
+
+		$this->assertSame( array( Events::DIGEST_SENT ), array_column( Events::list()['items'], 'kind' ) );
+		$this->assertSame( 2, Events::list( array( 'kind' => Events::NOTIFIED ) )['total'] );
+		$this->assertSame( array( Events::NOTIFIED ), array_column( Events::list( array( 'product' => 12 ) )['items'], 'kind' ) );
 	}
 }

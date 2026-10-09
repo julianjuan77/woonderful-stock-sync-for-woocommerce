@@ -85,7 +85,11 @@ const KIND_LABELS = {
 		'Par restaurado',
 		'woonderful-stock-sync-for-woocommerce'
 	),
-	notified: __( 'Aviso enviado', 'woonderful-stock-sync-for-woocommerce' ),
+	digest_sent: __(
+		'Resumen enviado',
+		'woonderful-stock-sync-for-woocommerce'
+	),
+	notified: __( 'Producto avisado', 'woonderful-stock-sync-for-woocommerce' ),
 	notify_failed: __(
 		'Aviso sin enviar',
 		'woonderful-stock-sync-for-woocommerce'

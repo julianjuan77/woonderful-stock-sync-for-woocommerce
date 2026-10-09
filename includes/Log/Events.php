@@ -48,6 +48,7 @@ final class Events {
 	public const PAIR_RESTORED        = 'pair_restored';
 	public const NOTIFIED             = 'notified';
 	public const NOTIFY_FAILED        = 'notify_failed';
+	public const DIGEST_SENT          = 'digest_sent';
 
 	/**
 	 * Lo que la purga no borra: decisiones y memorias, no eventos (ADR-011 §6).
@@ -98,6 +99,9 @@ final class Events {
 	/**
 	 * Los eventos, de lo más nuevo a lo más viejo, filtrados y paginados.
 	 *
+	 * Sin `product` ni `kind`, no trae las marcas `notified`: son una por producto avisado, y
+	 * el email que las produjo ya es un `digest_sent`.
+	 *
 	 * @param array<string, mixed> $filters  `product`, `kind`, `level`, `cause`, `after_id`, y
 	 *                                       `since` y `until`, fechas UTC inclusive.
 	 * @param int                  $page     La página, desde 1.
@@ -117,6 +121,14 @@ final class Events {
 				$where[]  = "{$column} = %s";
 				$values[] = (string) $filters[ $column ];
 			}
+		}
+
+		// Las marcas de "ya avisé" son la memoria del resumen, una por producto: en la lista
+		// general parecían un email cada una. Se ven al pedirlas, o en el historial de cada
+		// producto; el email queda como un solo `digest_sent`.
+		if ( ! isset( $filters['product'] ) && ( $filters['kind'] ?? '' ) === '' ) {
+			$where[]  = 'kind <> %s';
+			$values[] = self::NOTIFIED;
 		}
 
 		if ( isset( $filters['product'] ) ) {
@@ -391,6 +403,18 @@ final class Events {
 			case self::NOTIFIED:
 				/* translators: %s: producto. */
 				return sprintf( __( 'Se avisó por email que el producto %s no sincroniza.', 'woonderful-stock-sync-for-woocommerce' ), $product );
+			case self::DIGEST_SENT:
+				return sprintf(
+					/* translators: 1: productos nuevos en el resumen, 2: el total sin sincronizar. */
+					_n(
+						'Se mandó por email el resumen de lo que no sincroniza: %1$d producto nuevo (%2$d en total).',
+						'Se mandó por email el resumen de lo que no sincroniza: %1$d productos nuevos (%2$d en total).',
+						(int) ( $context['count'] ?? 0 ),
+						'woonderful-stock-sync-for-woocommerce'
+					),
+					(int) ( $context['count'] ?? 0 ),
+					(int) ( $context['total'] ?? 0 )
+				);
 			case self::NOTIFY_FAILED:
 				/* translators: %s: de qué era el aviso. */
 				return sprintf( __( 'No se pudo mandar un email de aviso (%s).', 'woonderful-stock-sync-for-woocommerce' ), (string) ( $context['about'] ?? '?' ) );

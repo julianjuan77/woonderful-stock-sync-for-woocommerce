@@ -296,6 +296,10 @@ mandar:
 **El resumen de la noche** lista lo que no sincroniza: publicado, con su propio stock, sin
 vincular desde hace más del plazo —desde que se creó o se desvinculó—, sin descartar, y del que
 no se avisó desde la última vez que quedó sin vincular. Hasta 50 por email, con el total.
+"Ya avisé" se guarda como un evento `notified` por producto (ADR-012 §4); **el email deja además
+un solo `digest_sent`**, con cuántos nuevos y cuántos en total. La lista del log no trae los
+`notified` salvo pedidos por tipo o en el historial de un producto: eran una línea por producto y
+parecían un email cada una.
 
 **Como mucho 10 emails por día**: al llegar al tope sale uno último que remite al log. Los
 emails son como los de woonderful-sync: texto plano, asunto con `[Woonderful Stock Sync]`, la
