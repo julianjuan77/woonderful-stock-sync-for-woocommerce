@@ -10,6 +10,7 @@ declare( strict_types = 1 );
 use Woonderful\StockSync\Admin\Api;
 use Woonderful\StockSync\Admin\Page;
 use Woonderful\StockSync\Catalog\Copy;
+use Woonderful\StockSync\Catalog\Rows;
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Linking\Links;
 use Woonderful\StockSync\Log\Events;
@@ -285,7 +286,7 @@ class Test_Admin extends WP_UnitTestCase {
 		$this->assertSame( $mirror, $data['discrepancies']['peer'][0]['local'] );
 		$this->assertSame( 'Ojota azul', $data['discrepancies']['peer'][0]['name'] );
 		$this->assertSame( 6, $data['discrepancies']['peer'][0]['found'] );
-		$this->assertSame( 1, $data['unsynced'] );
+		$this->assertSame( Rows::page( array() )['counts']['unlinked'], $data['unlinked'], 'el mismo número que el filtro de Productos' );
 	}
 
 	/**

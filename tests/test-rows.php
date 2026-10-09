@@ -319,4 +319,30 @@ class Test_Rows extends WP_UnitTestCase {
 
 		$this->assertSame( Rows::NO_MATCH, $this->rows()[ $product ]['motive'] );
 	}
+
+	/**
+	 * ROW-10 — **La cuenta de Resumen es la del filtro "Sin vincular"**, con un descartado, uno
+	 * descartado en la papelera, uno vinculado y un padre que lleva el stock: un solo número.
+	 */
+	public function test_the_unlinked_count_matches_the_filter(): void {
+		$loose     = $this->simple( 'SUELTO' );
+		$discarded = $this->simple( 'DESC' );
+		$trashed   = $this->simple( 'PAPEL', 5, 'trash' );
+		$linked    = $this->simple( 'VINC' );
+		Links::create( $linked, self::REMOTE_STORE, 940, 1, 5 );
+		Events::record( Events::DISCARDED, Events::INFO, $discarded );
+		Events::record( Events::DISCARDED, Events::INFO, $trashed );
+
+		$parent = new WC_Product_Variable();
+		$parent->set_name( $this->run . ' padre' );
+		$parent->set_manage_stock( true );
+		$parent->set_stock_quantity( 9 );
+		$parent_id = (int) $parent->save();
+		$variation = new WC_Product_Variation();
+		$variation->set_parent_id( $parent_id );
+		$variation->save();
+
+		$this->assertSame( Rows::page( array() )['counts'][ State::UNLINKED ], Rows::unlinked_count() );
+		$this->assertArrayHasKey( $loose, $this->rows( array( 'state' => State::UNLINKED ) ) );
+	}
 }

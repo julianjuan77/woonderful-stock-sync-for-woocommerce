@@ -334,7 +334,7 @@ export default function Dashboard( { apiFetch, navigate, status, onStatus } ) {
 				<div className="woon-dashboard__section-header">
 					<h3 className="woon-dashboard__section-title">
 						{ __(
-							'Sin sincronizar',
+							'Vinculación',
 							'woonderful-stock-sync-for-woocommerce'
 						) }
 					</h3>
@@ -342,11 +342,11 @@ export default function Dashboard( { apiFetch, navigate, status, onStatus } ) {
 				<div className="woon-dashboard__cards woon-dashboard__cards--sm">
 					<StatCard
 						title={ __(
-							'Productos sin vincular hace más del plazo',
+							'Productos sin vincular: su stock no se sincroniza',
 							'woonderful-stock-sync-for-woocommerce'
 						) }
-						value={ status.unsynced }
-						warning={ status.unsynced > 0 }
+						value={ status.unlinked }
+						warning={ status.unlinked > 0 }
 						onClick={ () =>
 							navigate( 'products', { state: 'unlinked' } )
 						}

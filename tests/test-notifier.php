@@ -442,8 +442,8 @@ class Test_Notifier extends WP_UnitTestCase {
 	}
 
 	/**
-	 * NOT-14 — Al día siguiente, uno nuevo: el email lista sólo el nuevo, y dice cuántos hay en
-	 * total.
+	 * NOT-14 — Al día siguiente, uno nuevo: el email lista sólo el nuevo. No dice un total: el
+	 * número de productos sin vincular es uno solo, el de la pantalla.
 	 */
 	public function test_the_digest_lists_only_the_new_ones_and_the_total(): void {
 		$first = $this->product( 30 );
@@ -455,7 +455,7 @@ class Test_Notifier extends WP_UnitTestCase {
 		$this->assertCount( 2, $this->mails );
 		$this->assertStringContainsString( "(#{$second})", $this->mails[1]['message'] );
 		$this->assertStringNotContainsString( "(#{$first})", $this->mails[1]['message'] );
-		$this->assertStringContainsString( 'En total, 2', $this->mails[1]['message'] );
+		$this->assertStringNotContainsString( 'En total', $this->mails[1]['message'], 'un solo número: el de la pantalla' );
 	}
 
 	/**
@@ -605,9 +605,26 @@ class Test_Notifier extends WP_UnitTestCase {
 		Events::record( Events::PAIR_BROKEN, Events::WARNING, 5, array( 'reason' => 'local_trashed' ) );
 		Notifier::tick();
 
-		$this->assertStringContainsString( '1 producto sin sincronizar', $this->mails[0]['subject'] );
-		$this->assertStringContainsString( 'Hay 1 producto nuevo', $this->mails[0]['message'] );
-		$this->assertStringContainsString( 'En total, 1 está así.', $this->mails[0]['message'] );
+		$this->assertStringContainsString( '1 producto sin vincular', $this->mails[0]['subject'] );
+		$this->assertStringContainsString( 'hay 1 producto que todavía no está vinculado', $this->mails[0]['message'] );
 		$this->assertStringContainsString( '— está en la papelera', $this->mails[1]['message'] );
+	}
+
+	/**
+	 * NOT-23 — **El email explica de qué se trata**: qué productos, por qué importa —el stock no
+	 * se descuenta en la otra—, dónde se vinculan, y que si no tienen par no hace falta nada.
+	 * El pie lleva al panel de Stock Sync.
+	 */
+	public function test_the_digest_explains_itself(): void {
+		$this->product( 30 );
+		Notifier::digest();
+
+		$message = $this->mails[0]['message'];
+
+		$this->assertStringContainsString( 'el stock de la otra no se descuenta', $message );
+		$this->assertStringContainsString( 'Stock Sync → Productos', $message );
+		$this->assertStringContainsString( 'no hace falta hacer nada', $message );
+		$this->assertStringContainsString( 'admin.php?page=woonderful-stock-sync', $message );
+		$this->assertStringNotContainsString( 'descartalo', $message );
 	}
 }

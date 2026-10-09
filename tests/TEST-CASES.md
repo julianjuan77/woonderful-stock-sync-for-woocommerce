@@ -1193,3 +1193,12 @@ Mutaciones: sin revisar el SKU fresco, o el vinculado allá, cae `BLK-03`.
 | --- | --- | --- |
 | `EVT-12` | **Dos marcas `notified` y un `digest_sent`** | La lista general trae sólo el `digest_sent`; las marcas, pedidas por tipo o en la lista de su producto |
 | `NOT-22` | **Un resumen que no sale, y después uno que sí** | El que no sale no deja nada; el que sale, un solo `digest_sent` con cuántos nuevos y cuántos en total |
+
+## Un solo número de productos sin vincular, y el email que lo explica
+
+| ID | Caso | Esperado |
+| --- | --- | --- |
+| `ROW-10` | **Uno suelto, uno descartado, uno descartado en la papelera, uno vinculado y un padre con el stock** | `Rows::unlinked_count()` da lo mismo que el filtro "Sin vincular" de Productos |
+| `ADM-07` | (ampliado) | `unlinked` del estado es el número del filtro de Productos |
+| `NOT-23` | **El resumen** | Explica por qué importa, dónde se vincula y que si no tiene par no hace falta nada; el pie lleva a Stock Sync; ya no dice que se descarte |
+| `NOT-14` | (cambiado) | El email ya no lleva un total |

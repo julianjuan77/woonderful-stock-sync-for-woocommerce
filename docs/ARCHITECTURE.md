@@ -295,7 +295,10 @@ mandar:
 
 **El resumen de la noche** lista lo que no sincroniza: publicado, con su propio stock, sin
 vincular desde hace más del plazo —desde que se creó o se desvinculó—, sin descartar, y del que
-no se avisó desde la última vez que quedó sin vincular. Hasta 50 por email, con el total.
+no se avisó desde la última vez que quedó sin vincular. Hasta 50 por email. **El email explica de
+qué se trata**: qué productos, por qué importa —el stock no se descuenta en la otra—, dónde se
+vinculan, y que si no tienen par no hace falta hacer nada, porque cada uno se avisa una sola vez.
+No lleva un total: el número de productos sin vincular es uno solo, el de la pantalla.
 "Ya avisé" se guarda como un evento `notified` por producto (ADR-012 §4); **el email deja además
 un solo `digest_sent`**, con cuántos nuevos y cuántos en total. La lista del log no trae los
 `notified` salvo pedidos por tipo o en el historial de un producto: eran una línea por producto y
@@ -303,7 +306,7 @@ parecían un email cada una.
 
 **Como mucho 10 emails por día**: al llegar al tope sale uno último que remite al log. Los
 emails son como los de woonderful-sync: texto plano, asunto con `[Woonderful Stock Sync]`, la
-tienda y el panel al pie.
+tienda y el enlace a la pantalla de Stock Sync al pie.
 
 **Los pares rotos** (`Log\Pairs`, ADR-011 §7). La noche revisa, en cada tienda, sus propios
 productos vinculados: borrado, en la papelera o sin su propio stock. Lo recuerda en
@@ -407,8 +410,9 @@ que dice el servidor, no lo que esperaba que pasara.
 **Resumen** (`src/screens/Dashboard.js`) sale entero de `GET /status`: la otra tienda con su
 nombre (`Peers::label()`), la última reconciliación (`Result::last()`, con la frase de
 `Events::describe()`), las discrepancias de acá (`Audit::open()`) y las de la otra —las que trajo
-la última reconciliación, `null` si no llegó a preguntarlas—, y cuántos no sincronizan, con la misma
-cuenta que el resumen de la noche (`Notifier::unsynced()`). `POST /reconcile` y
+la última reconciliación, `null` si no llegó a preguntarlas—, y **cuántos productos están sin
+vincular: un solo número, el mismo del filtro "Sin vincular" de Productos** (`Rows::unlinked_count()`,
+que aplica las mismas reglas sin calcular cada fila: `/status` se pide en cada carga). `POST /reconcile` y
 `POST /discrepancies/<producto>/accept|restore` llaman a `Reconciler` y `Audit` como
 `wp wss reconcile` y `wp wss discrepancy`. Que la otra no responda no es un error del pedido:
 vuelve `200` con "no se pudo mirar".

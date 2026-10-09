@@ -174,6 +174,31 @@ final class Rows {
 	}
 
 	/**
+	 * Cuántas filas están sin vincular: el mismo número que el filtro "Sin vincular" de
+	 * Productos, sin calcular las filas. Lo pide Resumen en cada carga, y calcular el estado
+	 * de cada vinculado lee cada producto.
+	 *
+	 * Las mismas reglas que `page()`: un vinculable sin vínculo, salvo que esté descartado
+	 * —uno en la papelera cuenta igual: su motivo es la papelera—, y cada padre que lleva el
+	 * stock de sus variaciones.
+	 */
+	public static function unlinked_count(): int {
+		$local    = self::local();
+		$linkable = array_keys( array_filter( $local, static fn ( array $item ) => $item['own_stock'] ) );
+		$links    = Links::for_products( $linkable );
+		$discards = Events::discarded_among( $linkable );
+		$count    = 0;
+
+		foreach ( $linkable as $id ) {
+			if ( ! isset( $links[ $id ] ) && ( ! isset( $discards[ $id ] ) || 'trash' === $local[ $id ]['status'] ) ) {
+				++$count;
+			}
+		}
+
+		return $count + count( array_filter( $local, static fn ( array $item ) => $item['stock_in_parent'] ) );
+	}
+
+	/**
 	 * La fila de un producto, como queda después de una acción: la pantalla la reemplaza con lo
 	 * que dice el servidor, no con lo que esperaba (UC-05). Null si no es un vinculable.
 	 *

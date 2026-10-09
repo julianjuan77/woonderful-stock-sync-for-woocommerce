@@ -105,7 +105,7 @@ final class Api {
 
 	/**
 	 * Lo que la app necesita al cargar, y todo lo de Resumen: esta tienda, la otra, la última
-	 * reconciliación, las discrepancias de las dos y cuántos no sincronizan.
+	 * reconciliación, las discrepancias de las dos y cuántos productos están sin vincular.
 	 */
 	public static function status(): \WP_REST_Response {
 		$peer  = Peers::describe();
@@ -134,7 +134,8 @@ final class Api {
 					// Sólo la maestra las conoce, y sólo si la última llegó a preguntarlas.
 					'peer' => isset( $last['details']['peer_discrepancies'] ) ? array_map( array( self::class, 'peer_discrepancy' ), (array) $last['details']['peer_discrepancies'] ) : null,
 				),
-				'unsynced'       => count( Notifier::unsynced( time() ) ),
+				// El mismo número que el filtro "Sin vincular" de Productos: uno solo.
+				'unlinked'       => Rows::unlinked_count(),
 			),
 			200
 		);
