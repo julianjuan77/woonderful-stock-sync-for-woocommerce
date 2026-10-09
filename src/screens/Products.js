@@ -5,30 +5,47 @@ import LinkModal from '../components/LinkModal';
 import BulkModal from '../components/BulkModal';
 import HistoryModal from '../components/HistoryModal';
 
-const STATE_FILTERS = [
-	{
-		value: 'all',
-		label: __( 'Todos', 'woonderful-stock-sync-for-woocommerce' ),
-	},
-	{
-		value: 'suggestion',
-		label: __( 'Con sugerencia', 'woonderful-stock-sync-for-woocommerce' ),
-	},
-	{
-		value: 'unlinked',
-		label: __( 'Sin vincular', 'woonderful-stock-sync-for-woocommerce' ),
-	},
-	{
-		value: 'linked',
-		label: __( 'Vinculados', 'woonderful-stock-sync-for-woocommerce' ),
-	},
-	{
-		value: 'suspended',
-		label: __( 'Suspendidos', 'woonderful-stock-sync-for-woocommerce' ),
-	},
+const STATE_TABS = [
+	[ 'all', __( 'Todos', 'woonderful-stock-sync-for-woocommerce' ) ],
+	[
+		'suggestion',
+		__( 'Con sugerencia', 'woonderful-stock-sync-for-woocommerce' ),
+	],
+	[
+		'unlinked',
+		__( 'Sin vincular', 'woonderful-stock-sync-for-woocommerce' ),
+	],
+	[ 'linked', __( 'Vinculados', 'woonderful-stock-sync-for-woocommerce' ) ],
+	[
+		'suspended',
+		__( 'Suspendidos', 'woonderful-stock-sync-for-woocommerce' ),
+	],
 ];
 
-const MOTIVES = {
+// Los motivos de un sin vincular: reemplazan a las pestañas de estado al entrar en "Sin
+// vincular", así nunca hay dos filas de filtros.
+const MOTIVE_TABS = [
+	[ '', __( 'Todos', 'woonderful-stock-sync-for-woocommerce' ) ],
+	[
+		'no_match',
+		__( 'Sin coincidencia', 'woonderful-stock-sync-for-woocommerce' ),
+	],
+	[ 'no_sku', __( 'Sin SKU', 'woonderful-stock-sync-for-woocommerce' ) ],
+	[
+		'duplicate_sku',
+		__( 'SKU duplicado', 'woonderful-stock-sync-for-woocommerce' ),
+	],
+	[
+		'trashed',
+		__( 'En la papelera', 'woonderful-stock-sync-for-woocommerce' ),
+	],
+	[
+		'discarded',
+		__( 'Descartados', 'woonderful-stock-sync-for-woocommerce' ),
+	],
+];
+
+const MOTIVE_TEXT = {
 	no_sku: __( 'Sin SKU', 'woonderful-stock-sync-for-woocommerce' ),
 	duplicate_sku: __(
 		'SKU duplicado',
@@ -36,10 +53,6 @@ const MOTIVES = {
 	),
 	no_match: __( 'Sin coincidencia', 'woonderful-stock-sync-for-woocommerce' ),
 	trashed: __( 'En la papelera', 'woonderful-stock-sync-for-woocommerce' ),
-};
-
-const MOTIVE_TEXT = {
-	...MOTIVES,
 	suggestion: __( 'Con sugerencia', 'woonderful-stock-sync-for-woocommerce' ),
 	discarded: __(
 		'Sugerencia descartada',
@@ -75,8 +88,16 @@ const initialState = () => {
 		window.location.hash.split( '?' )[ 1 ] || ''
 	);
 	const state = params.get( 'state' );
-	return STATE_FILTERS.some( ( f ) => f.value === state ) ? state : 'all';
+	return STATE_TABS.some( ( [ value ] ) => value === state ) ? state : 'all';
 };
+
+// El nombre de una variación sin el del padre, que ya está en la fila de arriba.
+const shortName = ( row ) =>
+	row.parent > 0 && row.parent_name && row.name.startsWith( row.parent_name )
+		? row.name
+				.slice( row.parent_name.length )
+				.replace( /^\s*[-–—]\s*/, '' ) || row.name
+		: row.name;
 
 export default function Products( { apiFetch, status } ) {
 	const [ data, setData ] = useState( null );
@@ -89,13 +110,15 @@ export default function Products( { apiFetch, status } ) {
 	const [ error, setError ] = useState( null );
 	const [ refreshing, setRefreshing ] = useState( null );
 	const [ modal, setModal ] = useState( null );
-	const [ bulk, setBulk ] = useState( false );
+	const [ bulk, setBulk ] = useState( null );
 	const [ selected, setSelected ] = useState( {} );
 	const [ history, setHistory ] = useState( null );
+	const [ confirm, setConfirm ] = useState( null );
+	const [ toast, setToast ] = useState( null );
 	// Lo que el dueño abrió o cerró a mano, por padre; lo demás sigue la regla de abajo.
 	const [ opened, setOpened ] = useState( {} );
-	const [ notice, setNotice ] = useState( null );
 	const autoRefreshed = useRef( false );
+	const toastTimer = useRef( null );
 
 	// La búsqueda espera a que se deje de escribir.
 	useEffect( () => {
@@ -110,6 +133,12 @@ export default function Products( { apiFetch, status } ) {
 	useEffect( () => {
 		setOpened( {} );
 	}, [ state, motive, query ] );
+
+	const say = ( text ) => {
+		setToast( text );
+		clearTimeout( toastTimer.current );
+		toastTimer.current = setTimeout( () => setToast( null ), 3500 );
+	};
 
 	const load = useCallback( async () => {
 		setLoading( true );
@@ -196,8 +225,8 @@ export default function Products( { apiFetch, status } ) {
 		load();
 	};
 
-	const act = async ( path, row ) => {
-		setNotice( null );
+	const act = async ( path, row, done ) => {
+		setError( null );
 		try {
 			const result = await apiFetch( {
 				path,
@@ -205,34 +234,57 @@ export default function Products( { apiFetch, status } ) {
 				data: { local: row.id },
 			} );
 			replaceRow( row.id, result.row );
+			say( done );
 		} catch ( e ) {
-			setNotice( { type: 'error', text: e?.message } );
+			setError( e?.message );
 		}
 	};
 
 	const linked = ( id, result ) => {
 		setModal( null );
 		replaceRow( id, result.row );
-		setNotice(
-			'uncertain' === result.result
-				? {
-						type: 'warning',
-						text: __(
-							'La otra tienda no respondió: no se sabe si lo vinculó. El plugin le pregunta solo dentro de 10 minutos.',
-							'woonderful-stock-sync-for-woocommerce'
-						),
-				  }
-				: null
-		);
+		if ( 'uncertain' === result.result ) {
+			setError(
+				__(
+					'La otra tienda no respondió: no se sabe si lo vinculó. El plugin le pregunta solo dentro de 10 minutos.',
+					'woonderful-stock-sync-for-woocommerce'
+				)
+			);
+		} else {
+			say(
+				__(
+					'Listo, quedaron vinculados. El stock se sincroniza desde ahora.',
+					'woonderful-stock-sync-for-woocommerce'
+				)
+			);
+		}
 	};
 
 	const actions = status?.store?.master
 		? {
 				link: ( row ) => setModal( { row, reassign: false } ),
+				choose: ( row ) =>
+					setModal( { row, reassign: false, choose: true } ),
 				reassign: ( row ) => setModal( { row, reassign: true } ),
-				unlink: ( row ) => act( '/unlink', row ),
-				discard: ( row ) => act( '/discard', row ),
-				undiscard: ( row ) => act( '/undiscard', row ),
+				unlink: ( row ) => setConfirm( row ),
+				discard: ( row ) =>
+					act(
+						'/discard',
+						row,
+						__(
+							'Sugerencia descartada.',
+							'woonderful-stock-sync-for-woocommerce'
+						)
+					),
+				undiscard: ( row ) =>
+					act(
+						'/undiscard',
+						row,
+						__(
+							'Se deshizo el descarte.',
+							'woonderful-stock-sync-for-woocommerce'
+						)
+					),
 		  }
 		: null;
 
@@ -240,6 +292,11 @@ export default function Products( { apiFetch, status } ) {
 		setState( value );
 		setMotive( '' );
 		setPage( 1 );
+	};
+
+	const clearFilters = () => {
+		pickState( 'all' );
+		setSearch( '' );
 	};
 
 	if ( status && ! status.paired ) {
@@ -256,15 +313,17 @@ export default function Products( { apiFetch, status } ) {
 	}
 
 	const counts = data?.counts ?? {};
+	const motives = data?.motives ?? {};
+	const rows = data?.rows ?? [];
 
 	// Sólo se tildan las que tienen sugerencia: es lo que vincula la masiva (ADR-014 §6).
 	const selectable = actions
-		? ( data?.rows ?? [] ).filter( ( r ) => 'suggestion' === r.motive )
+		? rows.filter( ( r ) => 'suggestion' === r.motive )
 		: [];
-	const toggle = ( rows, on ) =>
+	const toggle = ( list, on ) =>
 		setSelected( ( prev ) => {
 			const next = { ...prev };
-			rows.forEach( ( r ) => {
+			list.forEach( ( r ) => {
 				if ( on ) {
 					next[ r.id ] = { local: r.id, remote: r.suggestion.id };
 				} else {
@@ -273,8 +332,9 @@ export default function Products( { apiFetch, status } ) {
 			} );
 			return next;
 		} );
-	const allOn = ( rows ) =>
-		rows.length > 0 && rows.every( ( r ) => selected[ r.id ] );
+	const allOn = ( list ) =>
+		list.length > 0 && list.every( ( r ) => selected[ r.id ] );
+	const someOn = ( list ) => list.some( ( r ) => selected[ r.id ] );
 	const picked = Object.values( selected );
 
 	// Contraídos en "Todos"; con un filtro o una búsqueda, lo que se busca son las variaciones,
@@ -282,42 +342,86 @@ export default function Products( { apiFetch, status } ) {
 	const openByDefault = 'all' !== state || '' !== motive || '' !== query;
 	const isOpen = ( group ) => opened[ group ] ?? openByDefault;
 
+	const tabs =
+		'unlinked' === state
+			? MOTIVE_TABS
+					// Un motivo sin productos no suma: se ve sólo si está elegido.
+					.filter(
+						( [ value ] ) =>
+							'' === value ||
+							motive === value ||
+							( motives[ value ] ?? 0 ) > 0
+					)
+					.map( ( [ value, label ] ) => ( {
+						key: value || 'all-motives',
+						label,
+						count:
+							'' === value
+								? counts.unlinked
+								: motives[ value ] ?? 0,
+						active: motive === value,
+						onClick: () => {
+							setMotive( value );
+							setPage( 1 );
+						},
+					} ) )
+			: STATE_TABS.map( ( [ value, label ] ) => ( {
+					key: value,
+					label,
+					count: counts[ value ],
+					active: state === value,
+					onClick: () => pickState( value ),
+			  } ) );
+
 	return (
-		<div>
+		<div className="wss-products">
 			{ status && ! status.store.master && (
 				<MasterNotice apiFetch={ apiFetch } status={ status } />
 			) }
-			<div className="woon-toolbar">
-				<input
-					className="woon-search"
-					type="search"
-					value={ search }
-					placeholder={ __(
-						'Buscar por nombre o SKU, de las dos tiendas…',
-						'woonderful-stock-sync-for-woocommerce'
-					) }
-					onChange={ ( e ) => setSearch( e.target.value ) }
-				/>
-				<div className="woon-filters">
-					{ STATE_FILTERS.map( ( f ) => (
-						<button
-							key={ f.value }
-							className={ `woon-filter ${
-								state === f.value ? 'woon-filter--active' : ''
-							}` }
-							onClick={ () => pickState( f.value ) }
-						>
-							{ f.label }
-							{ undefined !== counts[ f.value ] &&
-								` (${ counts[ f.value ] })` }
-						</button>
-					) ) }
+
+			<header className="wss-header">
+				<div>
+					<h1 className="wss-header__title">
+						{ __(
+							'Productos',
+							'woonderful-stock-sync-for-woocommerce'
+						) }
+					</h1>
+					<p className="wss-header__subtitle">
+						{ __(
+							'Vinculá cada producto con su par en la otra tienda para que el stock se mantenga igual en las dos.',
+							'woonderful-stock-sync-for-woocommerce'
+						) }
+					</p>
 				</div>
-				<div className="woon-toolbar__actions">
-					{ status?.store?.master && (
+				<div className="wss-header__actions">
+					<button
+						className="woon-btn woon-btn--ghost"
+						onClick={ refresh }
+						disabled={ null !== refreshing }
+					>
+						<span className={ refreshing ? 'wss-spin' : '' }>
+							<IconRefresh />
+						</span>
+						{ refreshing
+							? sprintf(
+									/* translators: 1: página, 2: de cuántas. */
+									__(
+										'Actualizando %1$d de %2$d…',
+										'woonderful-stock-sync-for-woocommerce'
+									),
+									refreshing.page,
+									refreshing.pages
+							  )
+							: __(
+									'Actualizar catálogo',
+									'woonderful-stock-sync-for-woocommerce'
+							  ) }
+					</button>
+					{ actions && (
 						<button
-							className="woon-btn woon-btn--primary woon-btn--sm"
-							onClick={ () => setBulk( true ) }
+							className="woon-btn woon-btn--primary"
+							onClick={ () => setBulk( 'all' ) }
 							disabled={ null !== refreshing }
 						>
 							{ __(
@@ -326,111 +430,90 @@ export default function Products( { apiFetch, status } ) {
 							) }
 						</button>
 					) }
-					<button
-						className="woon-btn woon-btn--ghost woon-btn--sm"
-						onClick={ refresh }
-						disabled={ null !== refreshing }
-					>
-						{ __(
-							'Actualizar catálogo',
-							'woonderful-stock-sync-for-woocommerce'
-						) }
-					</button>
 				</div>
-			</div>
+			</header>
 
-			<div className="woon-toolbar" style={ { marginTop: '-8px' } }>
-				{ 'unlinked' === state && (
-					<div
-						className="woon-filters"
-						style={ { alignItems: 'center' } }
-					>
-						<span className="woon-muted">
+			<div className="wss-toolbar">
+				<div className="wss-tabs" role="tablist">
+					{ 'unlinked' === state && (
+						<button
+							className="wss-tab wss-tab--back"
+							onClick={ () => pickState( 'all' ) }
+						>
 							{ __(
-								'Motivo:',
+								'← Todos los estados',
+								'woonderful-stock-sync-for-woocommerce'
+							) }
+						</button>
+					) }
+					{ 'unlinked' === state && (
+						<span className="wss-tabs__label">
+							{ __(
+								'Sin vincular:',
 								'woonderful-stock-sync-for-woocommerce'
 							) }
 						</span>
-						{ [
-							[
-								'',
-								__(
-									'Todos',
-									'woonderful-stock-sync-for-woocommerce'
-								),
-							],
-							...Object.entries( MOTIVES ),
-							[
-								'discarded',
-								__(
-									'Descartados',
-									'woonderful-stock-sync-for-woocommerce'
-								),
-							],
-						].map( ( [ v, l ] ) => (
-							<button
-								key={ v || 'all' }
-								className={ `woon-filter ${
-									motive === v ? 'woon-filter--active' : ''
-								}` }
-								onClick={ () => {
-									setMotive( v );
-									setPage( 1 );
-								} }
-							>
-								{ l }
-							</button>
-						) ) }
-					</div>
-				) }
-				{ data?.catalog?.age !== null && data?.catalog && (
-					<span
-						className="woon-muted"
-						style={ { marginLeft: 'auto' } }
-					>
-						{ sprintf(
-							/* translators: %d: minutos. */
-							__(
-								'Catálogo de la otra tienda: actualizado hace %d min',
-								'woonderful-stock-sync-for-woocommerce'
-							),
-							Math.floor( data.catalog.age / 60 )
+					) }
+					{ tabs.map( ( tab ) => (
+						<button
+							key={ tab.key }
+							role="tab"
+							aria-selected={ tab.active }
+							className={ `wss-tab ${
+								tab.active ? 'is-active' : ''
+							}` }
+							onClick={ tab.onClick }
+						>
+							{ tab.label }
+							{ undefined !== tab.count && (
+								<span className="wss-count">{ tab.count }</span>
+							) }
+						</button>
+					) ) }
+				</div>
+				<div className="wss-search">
+					<IconSearch />
+					<input
+						type="search"
+						value={ search }
+						placeholder={ __(
+							'Buscar por nombre o SKU, en las dos tiendas',
+							'woonderful-stock-sync-for-woocommerce'
 						) }
-					</span>
-				) }
+						onChange={ ( e ) => setSearch( e.target.value ) }
+					/>
+				</div>
 			</div>
 
-			{ refreshing && (
-				<div className="woon-notice woon-notice--info">
-					<p>
-						{ sprintf(
-							/* translators: 1: página, 2: de cuántas. */
-							__(
-								'Actualizando el catálogo de la otra tienda: página %1$d de %2$d…',
+			{ data?.catalog && (
+				<p className="wss-meta">
+					{ null === data.catalog.age
+						? __(
+								'Todavía no se trajo el catálogo de la otra tienda.',
 								'woonderful-stock-sync-for-woocommerce'
-							),
-							refreshing.page,
-							refreshing.pages
-						) }
-					</p>
-				</div>
+						  )
+						: sprintf(
+								/* translators: %d: minutos. */
+								__(
+									'Catálogo de la otra tienda actualizado hace %d min.',
+									'woonderful-stock-sync-for-woocommerce'
+								),
+								Math.floor( data.catalog.age / 60 )
+						  ) }
+				</p>
 			) }
+
 			{ error && (
 				<div className="woon-notice woon-notice--error">
 					<p>{ error }</p>
 				</div>
 			) }
-			{ notice && (
-				<div className={ `woon-notice woon-notice--${ notice.type }` }>
-					<p>{ notice.text }</p>
-				</div>
-			) }
 			{ bulk && (
 				<BulkModal
 					apiFetch={ apiFetch }
-					pairs={ 'selected' === bulk ? picked : null }
+					pairs={ Array.isArray( bulk ) ? bulk : null }
 					onClose={ ( result ) => {
-						setBulk( false );
+						setBulk( null );
 						if ( result ) {
 							setSelected( {} );
 							load();
@@ -450,10 +533,30 @@ export default function Products( { apiFetch, status } ) {
 					apiFetch={ apiFetch }
 					row={ modal.row }
 					reassign={ modal.reassign }
+					choose={ modal.choose }
 					onClose={ () => setModal( null ) }
 					onDone={ ( result ) => linked( modal.row.id, result ) }
 				/>
 			) }
+			{ confirm && (
+				<ConfirmUnlink
+					row={ confirm }
+					onCancel={ () => setConfirm( null ) }
+					onConfirm={ () => {
+						const row = confirm;
+						setConfirm( null );
+						act(
+							'/unlink',
+							row,
+							__(
+								'Desvinculado.',
+								'woonderful-stock-sync-for-woocommerce'
+							)
+						);
+					} }
+				/>
+			) }
+
 			{ loading && ! data && (
 				<div className="woon-loading">
 					{ __(
@@ -463,90 +566,66 @@ export default function Products( { apiFetch, status } ) {
 				</div>
 			) }
 
-			{ data && 0 === data.rows.length && (
+			{ data && 0 === rows.length && (
 				<div className="woon-empty">
 					<div className="woon-empty__title">
 						{ __(
-							'Sin productos',
+							'No hay productos que coincidan',
 							'woonderful-stock-sync-for-woocommerce'
 						) }
 					</div>
 					<p className="woon-empty__text">
 						{ __(
-							'No hay productos con estos filtros.',
+							'Probá con otro nombre o SKU, o cambiá el filtro.',
 							'woonderful-stock-sync-for-woocommerce'
 						) }
 					</p>
+					<button
+						className="woon-btn woon-btn--ghost"
+						onClick={ clearFilters }
+					>
+						{ __(
+							'Limpiar filtros',
+							'woonderful-stock-sync-for-woocommerce'
+						) }
+					</button>
 				</div>
 			) }
 
-			{ picked.length > 0 && (
-				<div className="woon-bulk" style={ { marginBottom: 12 } }>
-					<span>
-						{ sprintf(
-							/* translators: %d: cuántos. */
-							_n(
-								'%d seleccionado',
-								'%d seleccionados',
-								picked.length,
-								'woonderful-stock-sync-for-woocommerce'
-							),
-							picked.length
-						) }
-					</span>
-					<button
-						className="woon-btn woon-btn--primary woon-btn--sm"
-						onClick={ () => setBulk( 'selected' ) }
-					>
-						{ __(
-							'Vincular seleccionados',
-							'woonderful-stock-sync-for-woocommerce'
-						) }
-					</button>
-					<button
-						className="woon-btn woon-btn--ghost woon-btn--sm"
-						onClick={ () => setSelected( {} ) }
-					>
-						{ __(
-							'Quitar selección',
-							'woonderful-stock-sync-for-woocommerce'
-						) }
-					</button>
-				</div>
-			) }
-			{ data && data.rows.length > 0 && (
+			{ rows.length > 0 && (
 				// Anchos fijos: si no, al abrir o cerrar un padre las columnas se corren.
-				<table
-					className="woon-table"
-					style={ { tableLayout: 'fixed' } }
-				>
+				<table className="woon-table wss-table">
 					<colgroup>
-						{ actions && <col style={ { width: 40 } } /> }
+						{ actions && <col style={ { width: 44 } } /> }
 						<col />
-						<col style={ { width: 80 } } />
+						<col style={ { width: 72 } } />
+						<col style={ { width: 32 } } />
 						<col />
-						<col style={ { width: 80 } } />
+						<col style={ { width: 72 } } />
 						<col style={ { width: 150 } } />
-						{ actions && <col style={ { width: 230 } } /> }
+						<col style={ { width: 170 } } />
 					</colgroup>
 					<thead>
 						<tr>
 							{ actions && (
-								<th style={ { width: 1 } }>
-									<input
-										type="checkbox"
-										aria-label={ __(
+								<th>
+									<Check
+										checked={ allOn( selectable ) }
+										indeterminate={
+											! allOn( selectable ) &&
+											someOn( selectable )
+										}
+										disabled={ 0 === selectable.length }
+										onChange={ () =>
+											toggle(
+												selectable,
+												! allOn( selectable )
+											)
+										}
+										label={ __(
 											'Seleccionar todas las sugerencias de la página',
 											'woonderful-stock-sync-for-woocommerce'
 										) }
-										disabled={ 0 === selectable.length }
-										checked={ allOn( selectable ) }
-										onChange={ ( e ) =>
-											toggle(
-												selectable,
-												e.target.checked
-											)
-										}
 									/>
 								</th>
 							) }
@@ -556,19 +635,20 @@ export default function Products( { apiFetch, status } ) {
 									'woonderful-stock-sync-for-woocommerce'
 								) }
 							</th>
-							<th>
+							<th className="wss-r">
 								{ __(
 									'Stock',
 									'woonderful-stock-sync-for-woocommerce'
 								) }
 							</th>
+							<th />
 							<th>
 								{ __(
 									'La otra tienda',
 									'woonderful-stock-sync-for-woocommerce'
 								) }
 							</th>
-							<th>
+							<th className="wss-r">
 								{ __(
 									'Stock',
 									'woonderful-stock-sync-for-woocommerce'
@@ -580,48 +660,47 @@ export default function Products( { apiFetch, status } ) {
 									'woonderful-stock-sync-for-woocommerce'
 								) }
 							</th>
-							{ actions && (
-								<th>
-									{ __(
-										'Acciones',
-										'woonderful-stock-sync-for-woocommerce'
-									) }
-								</th>
-							) }
+							<th />
 						</tr>
 					</thead>
 					<tbody>
-						{ data.rows.map( ( row, index ) => {
-							const previous = data.rows[ index - 1 ];
+						{ rows.map( ( row, index ) => {
+							const previous = rows[ index - 1 ];
 							const header =
 								row.parent > 0 &&
 								( ! previous || previous.group !== row.group );
 							const open = isOpen( row.group );
+							const group = rows.filter(
+								( r ) => r.group === row.group
+							);
 							return [
 								header && (
 									<GroupRow
 										key={ `g${ row.group }` }
 										row={ row }
 										open={ open }
+										actions={ actions }
 										summary={ data.summary?.[ row.group ] }
+										selectable={ group.filter(
+											( r ) => 'suggestion' === r.motive
+										) }
+										allOn={ allOn }
+										someOn={ someOn }
+										toggle={ toggle }
+										onLinkSuggestions={ ( list ) =>
+											setBulk(
+												list.map( ( r ) => ( {
+													local: r.id,
+													remote: r.suggestion.id,
+												} ) )
+											)
+										}
 										onToggle={ () =>
 											setOpened( ( prev ) => ( {
 												...prev,
 												[ row.group ]: ! open,
 											} ) )
 										}
-										columns={ actions ? 7 : 5 }
-										selectable={
-											actions
-												? selectable.filter(
-														( r ) =>
-															r.group ===
-															row.group
-												  )
-												: null
-										}
-										allOn={ allOn }
-										toggle={ toggle }
 									/>
 								),
 								( row.parent === 0 || open ) && (
@@ -653,21 +732,250 @@ export default function Products( { apiFetch, status } ) {
 					onPageChange={ setPage }
 				/>
 			) }
+
+			{ picked.length > 0 && (
+				<div
+					className="wss-bulkbar"
+					role="region"
+					aria-label={ __(
+						'Acciones en lote',
+						'woonderful-stock-sync-for-woocommerce'
+					) }
+				>
+					<span>
+						<b>{ picked.length }</b>{ ' ' }
+						{ _n(
+							'sugerencia seleccionada',
+							'sugerencias seleccionadas',
+							picked.length,
+							'woonderful-stock-sync-for-woocommerce'
+						) }
+					</span>
+					<div className="wss-bulkbar__acts">
+						<button
+							className="woon-btn wss-bulkbar__btn"
+							onClick={ () => setBulk( picked ) }
+						>
+							{ __(
+								'Vincular',
+								'woonderful-stock-sync-for-woocommerce'
+							) }
+						</button>
+						<button
+							className="woon-btn wss-bulkbar__ghost"
+							onClick={ () => setSelected( {} ) }
+						>
+							{ __(
+								'Cancelar',
+								'woonderful-stock-sync-for-woocommerce'
+							) }
+						</button>
+					</div>
+				</div>
+			) }
+
+			<div
+				className={ `wss-toast ${ toast ? 'is-on' : '' }` }
+				aria-live="polite"
+			>
+				{ toast }
+			</div>
 		</div>
+	);
+}
+
+function Check( { checked, indeterminate, disabled, onChange, label } ) {
+	const ref = useRef();
+	useEffect( () => {
+		if ( ref.current ) {
+			ref.current.indeterminate = !! indeterminate;
+		}
+	}, [ indeterminate ] );
+	return (
+		<input
+			ref={ ref }
+			type="checkbox"
+			className="wss-check"
+			checked={ checked }
+			disabled={ disabled }
+			onChange={ onChange }
+			onClick={ ( e ) => e.stopPropagation() }
+			aria-label={ label }
+		/>
+	);
+}
+
+// El padre de unas variaciones: contraído, su avance y su estado dicen si hay algo por hacer.
+function GroupRow( {
+	row,
+	open,
+	actions,
+	summary,
+	selectable,
+	allOn,
+	someOn,
+	toggle,
+	onLinkSuggestions,
+	onToggle,
+} ) {
+	const total = summary?.total ?? 0;
+	const linked = summary?.linked ?? 0;
+	let badge = [
+		'muted',
+		__( 'Sin vincular', 'woonderful-stock-sync-for-woocommerce' ),
+	];
+	if ( total > 0 && linked === total ) {
+		badge = [
+			'success',
+			__( 'Vinculado', 'woonderful-stock-sync-for-woocommerce' ),
+		];
+	} else if ( total > 0 && ( summary?.suspended ?? 0 ) === total ) {
+		badge = [
+			'danger',
+			__( 'Suspendido', 'woonderful-stock-sync-for-woocommerce' ),
+		];
+	} else if ( selectable.length > 0 ) {
+		badge = [
+			'brand',
+			__( 'Con sugerencia', 'woonderful-stock-sync-for-woocommerce' ),
+		];
+	} else if ( linked > 0 ) {
+		badge = [
+			'info',
+			__( 'Parcial', 'woonderful-stock-sync-for-woocommerce' ),
+		];
+	}
+
+	return (
+		<tr className={ `wss-group-row ${ open ? 'is-open' : '' }` }>
+			{ actions && (
+				<td>
+					{ selectable.length > 0 && (
+						<Check
+							checked={ allOn( selectable ) }
+							indeterminate={
+								! allOn( selectable ) && someOn( selectable )
+							}
+							onChange={ () =>
+								toggle( selectable, ! allOn( selectable ) )
+							}
+							label={ sprintf(
+								/* translators: %s: el producto. */
+								__(
+									'Seleccionar las variaciones de %s',
+									'woonderful-stock-sync-for-woocommerce'
+								),
+								row.parent_name
+							) }
+						/>
+					) }
+				</td>
+			) }
+			<td colSpan={ 3 }>
+				<button
+					type="button"
+					className="wss-group-toggle"
+					aria-expanded={ open }
+					onClick={ ( e ) => {
+						e.stopPropagation();
+						onToggle();
+					} }
+				>
+					<span className="wss-chev" aria-hidden="true">
+						<IconChevron />
+					</span>
+					<span>
+						<span className="wss-group-toggle__name">
+							{ row.parent_name ?? `#${ row.parent }` }
+						</span>
+						<span className="wss-group-toggle__meta">
+							{ sprintf(
+								/* translators: %d: cuántas. */
+								_n(
+									'Variable · %d variación',
+									'Variable · %d variaciones',
+									total,
+									'woonderful-stock-sync-for-woocommerce'
+								),
+								total
+							) }
+						</span>
+					</span>
+				</button>
+			</td>
+			<td colSpan={ 2 }>
+				<div className="wss-progress">
+					<div className="wss-progress__track">
+						<div
+							className="wss-progress__bar"
+							style={ {
+								width: `${
+									total ? ( linked / total ) * 100 : 0
+								}%`,
+							} }
+						/>
+					</div>
+					<span className="wss-progress__txt">
+						{ sprintf(
+							/* translators: 1: vinculadas, 2: total. */
+							__(
+								'%1$d/%2$d vinculadas',
+								'woonderful-stock-sync-for-woocommerce'
+							),
+							linked,
+							total
+						) }
+					</span>
+				</div>
+			</td>
+			<td>
+				<span className={ `woon-badge woon-badge--${ badge[ 0 ] }` }>
+					{ badge[ 1 ] }
+				</span>
+			</td>
+			<td className="wss-actions">
+				{ actions && selectable.length > 0 && (
+					<button
+						className="woon-btn woon-btn--secondary woon-btn--sm"
+						onClick={ ( e ) => {
+							e.stopPropagation();
+							onLinkSuggestions( selectable );
+						} }
+					>
+						{ sprintf(
+							/* translators: %d: cuántas sugerencias. */
+							__(
+								'Vincular %d',
+								'woonderful-stock-sync-for-woocommerce'
+							),
+							selectable.length
+						) }
+					</button>
+				) }
+			</td>
+		</tr>
 	);
 }
 
 function Row( { row, actions, selected, onSelect, onHistory } ) {
 	const [ badge, label ] = STATE_BADGE[ row.state ] ?? [ 'muted', row.state ];
-	const other = row.remote ?? row.suggestion;
+	const other = row.remote;
+	const on = 'linked' === row.state;
+	// Vinculados con distinto stock: en tránsito, o una discrepancia. Vale mirarlo.
+	const differs =
+		other && null !== row.stock && null !== other.stock
+			? row.stock !== other.stock
+			: false;
+
 	return (
-		<tr>
+		<tr className={ selected ? 'is-selected' : '' }>
 			{ actions && (
 				<td>
 					{ onSelect && (
-						<input
-							type="checkbox"
-							aria-label={ sprintf(
+						<Check
+							checked={ selected }
+							onChange={ ( e ) => onSelect( e.target.checked ) }
+							label={ sprintf(
 								/* translators: %s: el producto. */
 								__(
 									'Seleccionar %s',
@@ -675,173 +983,281 @@ function Row( { row, actions, selected, onSelect, onHistory } ) {
 								),
 								row.name
 							) }
-							checked={ selected }
-							onChange={ ( e ) => onSelect( e.target.checked ) }
 						/>
 					) }
 				</td>
 			) }
-			<td style={ { paddingLeft: row.parent > 0 ? 32 : undefined } }>
+			<td className={ row.parent > 0 ? 'wss-indent' : '' }>
 				<button
-					className="woon-btn-link"
+					className="woon-btn-link wss-name"
 					onClick={ onHistory }
 					title={ __(
 						'Ver el historial',
 						'woonderful-stock-sync-for-woocommerce'
 					) }
 				>
-					{ row.name }
+					{ shortName( row ) }
 				</button>
-				<div className="woon-muted">
+				<span className="wss-sku">
 					{ row.sku || '—' } · #{ row.id }
-				</div>
+				</span>
 			</td>
-			<td>{ row.stock ?? '—' }</td>
+			<td className="wss-r wss-num">{ row.stock ?? '—' }</td>
 			<td>
-				{ other ? (
-					<>
-						{ row.suggestion && (
-							<span className="woon-muted">
-								{ __(
-									'Sugerencia:',
-									'woonderful-stock-sync-for-woocommerce'
-								) }{ ' ' }
-							</span>
-						) }
-						{ other.name ?? `#${ other.id }` }
-						<div className="woon-muted">
-							{ other.sku || '—' } · #{ other.id }
-						</div>
-					</>
-				) : (
-					<span className="woon-muted">—</span>
+				{ other && (
+					<span
+						className={ `wss-linkicon ${ on ? 'is-on' : '' }` }
+						aria-hidden="true"
+					>
+						<IconLink />
+					</span>
 				) }
 			</td>
-			<td>{ other?.stock ?? '—' }</td>
+			<td>
+				{ other && (
+					<>
+						<span className={ `wss-other ${ on ? '' : 'is-dim' }` }>
+							{ other.name ?? `#${ other.id }` }
+						</span>
+						<span className="wss-sku">
+							{ other.sku || '—' } · #{ other.id }
+						</span>
+					</>
+				) }
+				{ ! other && row.suggestion && (
+					<div className="wss-suggest">
+						<span className="wss-other">
+							{ row.suggestion.name }
+						</span>
+						<span className="wss-sku">
+							{ __(
+								'Sugerido · mismo SKU',
+								'woonderful-stock-sync-for-woocommerce'
+							) }{ ' ' }
+							· #{ row.suggestion.id }
+						</span>
+					</div>
+				) }
+				{ ! other && ! row.suggestion && (
+					<span className="wss-placeholder">
+						{ __(
+							'Sin par en la otra tienda',
+							'woonderful-stock-sync-for-woocommerce'
+						) }
+					</span>
+				) }
+			</td>
+			<td className={ `wss-r wss-num ${ differs ? 'is-diff' : '' }` }>
+				{ other?.stock ?? row.suggestion?.stock ?? '—' }
+			</td>
 			<td>
 				<span className={ `woon-badge woon-badge--${ badge }` }>
 					{ label }
 				</span>
-				{ ( row.reason || row.motive ) && (
-					<div className="woon-muted" style={ { marginTop: 4 } }>
+				{ ( row.reason ||
+					( row.motive && 'suggestion' !== row.motive ) ) && (
+					<span className="wss-why">
 						{ row.reason ?? MOTIVE_TEXT[ row.motive ] }
-					</div>
+					</span>
 				) }
 			</td>
-			{ actions && (
-				<td style={ { whiteSpace: 'nowrap' } }>
-					<RowActions row={ row } actions={ actions } />
-				</td>
-			) }
+			<td className="wss-actions">
+				{ actions && <RowActions row={ row } actions={ actions } /> }
+			</td>
 		</tr>
 	);
 }
 
 function RowActions( { row, actions } ) {
-	const [ confirming, setConfirming ] = useState( false );
-
-	if ( 'stock_in_parent' === row.motive ) {
+	if ( 'stock_in_parent' === row.motive || 'trashed' === row.motive ) {
 		return null;
 	}
 
 	if ( 'unlinked' !== row.state ) {
-		if ( confirming ) {
-			return (
-				<span>
-					<span className="woon-muted">
-						{ __(
-							'Deja de sincronizar; el stock no se toca.',
+		return (
+			<Menu
+				items={ [
+					[
+						__(
+							'Reasignar',
 							'woonderful-stock-sync-for-woocommerce'
-						) }{ ' ' }
-					</span>
-					<button
-						className="woon-btn woon-btn--danger woon-btn--sm"
-						onClick={ () => actions.unlink( row ) }
-					>
-						{ __(
+						),
+						() => actions.reassign( row ),
+					],
+					[
+						__(
 							'Desvincular',
 							'woonderful-stock-sync-for-woocommerce'
+						),
+						() => actions.unlink( row ),
+						true,
+					],
+				] }
+			/>
+		);
+	}
+
+	if ( 'suggestion' === row.motive ) {
+		return (
+			<>
+				<button
+					className="woon-btn woon-btn--secondary woon-btn--sm"
+					onClick={ () => actions.link( row ) }
+				>
+					{ __( 'Aceptar', 'woonderful-stock-sync-for-woocommerce' ) }
+				</button>
+				<Menu
+					items={ [
+						[
+							__(
+								'Elegir otro',
+								'woonderful-stock-sync-for-woocommerce'
+							),
+							() => actions.choose( row ),
+						],
+						[
+							__(
+								'Descartar',
+								'woonderful-stock-sync-for-woocommerce'
+							),
+							() => actions.discard( row ),
+						],
+					] }
+				/>
+			</>
+		);
+	}
+
+	if ( 'discarded' === row.motive ) {
+		return (
+			<button
+				className="woon-btn woon-btn--ghost woon-btn--sm"
+				onClick={ () => actions.undiscard( row ) }
+			>
+				{ __(
+					'Deshacer descarte',
+					'woonderful-stock-sync-for-woocommerce'
+				) }
+			</button>
+		);
+	}
+
+	return (
+		<button
+			className="woon-btn woon-btn--ghost woon-btn--sm"
+			onClick={ () => actions.choose( row ) }
+		>
+			{ __( 'Vincular', 'woonderful-stock-sync-for-woocommerce' ) }
+		</button>
+	);
+}
+
+function Menu( { items } ) {
+	const [ open, setOpen ] = useState( false );
+	const ref = useRef();
+
+	useEffect( () => {
+		if ( ! open ) {
+			return;
+		}
+		const close = ( e ) => {
+			if ( ! ref.current?.contains( e.target ) ) {
+				setOpen( false );
+			}
+		};
+		document.addEventListener( 'mousedown', close );
+		return () => document.removeEventListener( 'mousedown', close );
+	}, [ open ] );
+
+	return (
+		<div className="wss-menu" ref={ ref }>
+			<button
+				className="wss-iconbtn"
+				aria-label={ __(
+					'Más acciones',
+					'woonderful-stock-sync-for-woocommerce'
+				) }
+				aria-expanded={ open }
+				onClick={ () => setOpen( ! open ) }
+			>
+				<IconDots />
+			</button>
+			{ open && (
+				<div className="wss-pop">
+					{ items.map( ( [ label, run, danger ] ) => (
+						<button
+							key={ label }
+							className={ `wss-pop__item ${
+								danger ? 'is-danger' : ''
+							}` }
+							onClick={ () => {
+								setOpen( false );
+								run();
+							} }
+						>
+							{ label }
+						</button>
+					) ) }
+				</div>
+			) }
+		</div>
+	);
+}
+
+function ConfirmUnlink( { row, onCancel, onConfirm } ) {
+	return (
+		<div
+			className="woon-overlay"
+			role="presentation"
+			onClick={ onCancel }
+			onKeyDown={ ( e ) => e.key === 'Escape' && onCancel() }
+		>
+			<div
+				className="woon-modal woon-modal--sm"
+				role="presentation"
+				onClick={ ( e ) => e.stopPropagation() }
+				onKeyDown={ ( e ) => e.stopPropagation() }
+			>
+				<div className="woon-modal__body">
+					<h2 className="wss-confirm__title">
+						{ sprintf(
+							/* translators: %s: el producto. */
+							__(
+								'¿Desvincular %s?',
+								'woonderful-stock-sync-for-woocommerce'
+							),
+							row.name
 						) }
-					</button>{ ' ' }
+					</h2>
+					<p className="woon-muted">
+						{ __(
+							'El stock deja de sincronizarse entre las dos tiendas. El stock de cada una no se toca, y podés volver a vincular cuando quieras.',
+							'woonderful-stock-sync-for-woocommerce'
+						) }
+					</p>
+				</div>
+				<div className="woon-modal__foot">
 					<button
-						className="woon-btn woon-btn--ghost woon-btn--sm"
-						onClick={ () => setConfirming( false ) }
+						className="woon-btn woon-btn--ghost"
+						onClick={ onCancel }
 					>
 						{ __(
 							'Cancelar',
 							'woonderful-stock-sync-for-woocommerce'
 						) }
 					</button>
-				</span>
-			);
-		}
-		return (
-			<span>
-				<button
-					className="woon-btn woon-btn--ghost woon-btn--sm"
-					onClick={ () => actions.reassign( row ) }
-				>
-					{ __(
-						'Reasignar',
-						'woonderful-stock-sync-for-woocommerce'
-					) }
-				</button>{ ' ' }
-				<button
-					className="woon-btn woon-btn--ghost woon-btn--sm"
-					onClick={ () => setConfirming( true ) }
-				>
-					{ __(
-						'Desvincular',
-						'woonderful-stock-sync-for-woocommerce'
-					) }
-				</button>
-			</span>
-		);
-	}
-
-	if ( 'trashed' === row.motive ) {
-		return null;
-	}
-
-	return (
-		<span>
-			<button
-				className="woon-btn woon-btn--secondary woon-btn--sm"
-				onClick={ () => actions.link( row ) }
-			>
-				{ 'suggestion' === row.motive
-					? __(
-							'Vincular sugerencia',
+					<button
+						className="woon-btn woon-btn--danger"
+						onClick={ onConfirm }
+					>
+						{ __(
+							'Desvincular',
 							'woonderful-stock-sync-for-woocommerce'
-					  )
-					: __(
-							'Vincular',
-							'woonderful-stock-sync-for-woocommerce'
-					  ) }
-			</button>{ ' ' }
-			{ 'suggestion' === row.motive && (
-				<button
-					className="woon-btn woon-btn--ghost woon-btn--sm"
-					onClick={ () => actions.discard( row ) }
-				>
-					{ __(
-						'Descartar',
-						'woonderful-stock-sync-for-woocommerce'
-					) }
-				</button>
-			) }
-			{ 'discarded' === row.motive && (
-				<button
-					className="woon-btn woon-btn--ghost woon-btn--sm"
-					onClick={ () => actions.undiscard( row ) }
-				>
-					{ __(
-						'Deshacer descarte',
-						'woonderful-stock-sync-for-woocommerce'
-					) }
-				</button>
-			) }
-		</span>
+						) }
+					</button>
+				</div>
+			</div>
+		</div>
 	);
 }
 
@@ -885,116 +1301,79 @@ function MasterNotice( { apiFetch, status } ) {
 	);
 }
 
-// El padre de unas variaciones: una fila propia, distinta de la cabecera, con la casilla que
-// tilda todas sus variaciones con sugerencia.
-function GroupRow( {
-	row,
-	columns,
-	selectable,
-	allOn,
-	toggle,
-	open,
-	summary,
-	onToggle,
-} ) {
-	const parts = [];
-	if ( summary ) {
-		parts.push(
-			sprintf(
-				/* translators: %d: cuántas. */
-				_n(
-					'%d variación',
-					'%d variaciones',
-					summary.total,
-					'woonderful-stock-sync-for-woocommerce'
-				),
-				summary.total
-			)
-		);
-		[
-			[
-				'linked',
-				_n(
-					'vinculada',
-					'vinculadas',
-					summary.linked ?? 0,
-					'woonderful-stock-sync-for-woocommerce'
-				),
-			],
-			[
-				'unlinked',
-				__( 'sin vincular', 'woonderful-stock-sync-for-woocommerce' ),
-			],
-			[
-				'suspended',
-				_n(
-					'suspendida',
-					'suspendidas',
-					summary.suspended ?? 0,
-					'woonderful-stock-sync-for-woocommerce'
-				),
-			],
-			[
-				'uncertain',
-				__( 'sin confirmar', 'woonderful-stock-sync-for-woocommerce' ),
-			],
-		].forEach( ( [ key, label ] ) => {
-			if ( summary[ key ] ) {
-				parts.push( `${ summary[ key ] } ${ label }` );
-			}
-		} );
-	}
+/* ── Íconos ─────────────────────────────────────────────────────────── */
 
+function IconChevron() {
 	return (
-		<tr className="wss-group-row">
-			{ selectable && (
-				<td>
-					{ selectable.length > 0 && (
-						<input
-							type="checkbox"
-							aria-label={ sprintf(
-								/* translators: %s: el producto. */
-								__(
-									'Seleccionar las variaciones de %s',
-									'woonderful-stock-sync-for-woocommerce'
-								),
-								row.parent_name
-							) }
-							checked={ allOn( selectable ) }
-							onChange={ ( e ) =>
-								toggle( selectable, e.target.checked )
-							}
-						/>
-					) }
-				</td>
-			) }
-			<td colSpan={ selectable ? columns - 1 : columns }>
-				<button
-					type="button"
-					className="wss-group-toggle"
-					aria-expanded={ open }
-					onClick={ onToggle }
-				>
-					<span
-						className="wss-group-toggle__arrow"
-						aria-hidden="true"
-					>
-						{ open ? '▾' : '▸' }
-					</span>
-					<strong>{ row.parent_name ?? `#${ row.parent }` }</strong>{ ' ' }
-					<span className="woon-badge woon-badge--muted">
-						{ __(
-							'Variable',
-							'woonderful-stock-sync-for-woocommerce'
-						) }
-					</span>
-					{ parts.length > 0 && (
-						<span className="woon-muted">
-							{ parts.join( ' · ' ) }
-						</span>
-					) }
-				</button>
-			</td>
-		</tr>
+		<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+			<path
+				d="M6 4l4 4-4 4"
+				fill="none"
+				stroke="currentColor"
+				strokeWidth="1.6"
+				strokeLinecap="round"
+				strokeLinejoin="round"
+			/>
+		</svg>
+	);
+}
+
+function IconLink() {
+	return (
+		<svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
+			<path
+				d="M6.5 9.5l3-3M7 4.5l1-1a2.8 2.8 0 014 4l-1 1M9 11.5l-1 1a2.8 2.8 0 01-4-4l1-1"
+				fill="none"
+				stroke="currentColor"
+				strokeWidth="1.5"
+				strokeLinecap="round"
+			/>
+		</svg>
+	);
+}
+
+function IconDots() {
+	return (
+		<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+			<circle cx="3.5" cy="8" r="1.3" fill="currentColor" />
+			<circle cx="8" cy="8" r="1.3" fill="currentColor" />
+			<circle cx="12.5" cy="8" r="1.3" fill="currentColor" />
+		</svg>
+	);
+}
+
+function IconSearch() {
+	return (
+		<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+			<circle
+				cx="7"
+				cy="7"
+				r="4.5"
+				fill="none"
+				stroke="currentColor"
+				strokeWidth="1.5"
+			/>
+			<path
+				d="M10.5 10.5L14 14"
+				stroke="currentColor"
+				strokeWidth="1.5"
+				strokeLinecap="round"
+			/>
+		</svg>
+	);
+}
+
+function IconRefresh() {
+	return (
+		<svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
+			<path
+				d="M13 8a5 5 0 11-1.5-3.6M13 2.5v2.8h-2.8"
+				fill="none"
+				stroke="currentColor"
+				strokeWidth="1.5"
+				strokeLinecap="round"
+				strokeLinejoin="round"
+			/>
+		</svg>
 	);
 }

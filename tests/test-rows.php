@@ -388,4 +388,21 @@ class Test_Rows extends WP_UnitTestCase {
 			$first['summary'][ $parent_id ]
 		);
 	}
+
+	/**
+	 * ROW-12 — **Cuántos sin vincular hay por motivo**, para las pestañas: los descartados
+	 * también, aunque no se listen.
+	 */
+	public function test_unlinked_rows_are_counted_by_motive(): void {
+		$this->simple( '' );
+		$this->simple( 'SOLO' );
+		$discarded = $this->simple( 'DESC' );
+		Events::record( Events::DISCARDED, Events::INFO, $discarded );
+
+		$motives = Rows::page( array( 'search' => $this->run ) )['motives'];
+
+		$this->assertSame( 1, $motives[ Rows::NO_SKU ] );
+		$this->assertSame( 1, $motives[ Rows::NO_MATCH ] );
+		$this->assertSame( 1, $motives[ Rows::DISCARDED ] );
+	}
 }

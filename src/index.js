@@ -134,6 +134,50 @@ const App = () => {
 						)
 					) }
 				</nav>
+
+				{ status?.paired && (
+					<div className="wss-side-status">
+						<span
+							className={ `wss-side-status__dot ${
+								'ok' === status.peer.state ? 'is-ok' : 'is-down'
+							}` }
+							aria-hidden="true"
+						/>
+						<div>
+							<div className="wss-side-status__title">
+								{ 'ok' === status.peer.state
+									? sprintf(
+											/* translators: %s: la otra tienda. */
+											__(
+												'Conectada con %s',
+												'woonderful-stock-sync-for-woocommerce'
+											),
+											status.peer.label
+									  )
+									: sprintf(
+											/* translators: %s: la otra tienda. */
+											__(
+												'%s no responde',
+												'woonderful-stock-sync-for-woocommerce'
+											),
+											status.peer.label
+									  ) }
+							</div>
+							{ status.peer.since && (
+								<div className="wss-side-status__sub">
+									{ sprintf(
+										/* translators: %s: desde cuándo. */
+										__(
+											'Desde %s',
+											'woonderful-stock-sync-for-woocommerce'
+										),
+										status.peer.since
+									) }
+								</div>
+							) }
+						</div>
+					</div>
+				) }
 			</aside>
 
 			<main className="woon-main">

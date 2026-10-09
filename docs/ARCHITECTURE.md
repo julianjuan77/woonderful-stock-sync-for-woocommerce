@@ -455,7 +455,18 @@ en qué estado—, que se abre con un clic. Con un filtro o una búsqueda se ven
 que se busca son las variaciones. **Se pagina de a 50 productos, no de a 50 filas**: un padre va
 entero, con todas sus variaciones, en la misma página (`Rows::page()` devuelve `total` en productos
 y el `summary` de cada padre).
-**Los motivos aparecen sólo al elegir "Sin vincular"**, que es donde tienen sentido, y "Descartados"
+**El diseño de Productos sigue el rediseño de Woonderful** (`rediseno/`, fuera del repo): encabezado
+con título y explicación, filtros como pestañas con su conteo, el padre con su avance ("9/12
+vinculadas") y un estado general, la variación con el nombre corto, el stock de la otra resaltado
+cuando no coincide con el de acá, la sugerencia en un recuadro punteado con "Aceptar", un menú "⋯"
+para reasignar y desvincular —con confirmación—, la barra de lo seleccionado abajo, avisos breves
+al terminar una acción, y el estado de la conexión al pie de la barra lateral. Del rediseño no se
+tomaron las fuentes de Google —el ADR-013 no permite recursos externos—, el buscador en un globo
+—el modal lee los dos stocks en el momento antes de confirmar— ni "suspender la sincronización", que
+no existe. **Al entrar en "Sin vincular", las pestañas de estado se reemplazan por las de motivo**
+—con "← Todos los estados" para volver—, con su conteo (`motives` de `Rows::page()`); un motivo sin
+productos no se muestra.
+, que es donde tienen sentido, y "Descartados"
 es uno más: así la vista normal tiene una sola fila de filtros. Lo descartado no se ve salvo con ese
 motivo, o al buscar: la búsqueda lo encuentra (ADR-014 §4). **Las filas con sugerencia se pueden tildar** —de
 a una, por padre o toda la página— y se vinculan con la misma masiva, pasándole sólo esos pares. El

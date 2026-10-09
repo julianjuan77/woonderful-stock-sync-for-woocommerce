@@ -84,21 +84,32 @@ final class Rows {
 	 * @param int                  $page    La página, desde 1.
 	 *
 	 * `total` cuenta productos —un padre con sus variaciones es uno—, que es como se pagina.
-	 * `summary` dice, por padre, cuántas variaciones tiene y en qué estado.
+	 * `summary` dice, por padre, cuántas variaciones tiene y en qué estado; `motives`, cuántos
+	 * sin vincular hay por motivo, los descartados incluidos.
 	 *
-	 * @return array{rows: array<int, array<string, mixed>>, total: int, counts: array<string, int>, summary: array<int, array<string, int>>}
+	 * @return array{rows: array<int, array<string, mixed>>, total: int, counts: array<string, int>, summary: array<int, array<string, int>>, motives: array<string, int>}
 	 */
 	public static function page( array $filters, int $page = 1 ): array {
 		$rows   = self::all();
 		$search = self::normalize( (string) ( $filters['search'] ?? '' ) );
 
+		if ( '' !== $search ) {
+			$rows = array_filter( $rows, static fn ( array $row ) => self::matches( $row, $search ) );
+		}
+
+		// Cuántos sin vincular hay por motivo, para las pestañas de "Sin vincular": los
+		// descartados también, que son una pestaña más.
+		$motives = array();
+
+		foreach ( $rows as $row ) {
+			if ( State::UNLINKED === $row['state'] ) {
+				$motives[ $row['motive'] ] = ( $motives[ $row['motive'] ] ?? 0 ) + 1;
+			}
+		}
+
 		// Lo descartado no se ve, salvo pedido o buscado: la búsqueda lo encuentra (ADR-014 §4).
 		if ( true !== ( $filters['show_discarded'] ?? false ) && '' === $search ) {
 			$rows = array_filter( $rows, static fn ( array $row ) => self::DISCARDED !== $row['motive'] );
-		}
-
-		if ( '' !== $search ) {
-			$rows = array_filter( $rows, static fn ( array $row ) => self::matches( $row, $search ) );
 		}
 
 		$counts  = array_fill_keys( self::STATES, 0 );
@@ -142,6 +153,7 @@ final class Rows {
 			'total'   => count( $groups ),
 			'counts'  => $counts,
 			'summary' => array_intersect_key( $summary, $shown ),
+			'motives' => $motives,
 		);
 	}
 

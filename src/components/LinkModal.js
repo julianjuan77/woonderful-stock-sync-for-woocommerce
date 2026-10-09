@@ -7,12 +7,16 @@ export default function LinkModal( {
 	apiFetch,
 	row,
 	reassign,
+	choose = false,
 	onDone,
 	onClose,
 } ) {
 	const [ query, setQuery ] = useState( '' );
 	const [ results, setResults ] = useState( null );
-	const [ picked, setPicked ] = useState( reassign ? null : row.suggestion );
+	const [ picked, setPicked ] = useState(
+		// "Elegir otro" y reasignar arrancan buscando; aceptar la sugerencia, con ella.
+		reassign || choose ? null : row.suggestion
+	);
 	const [ fresh, setFresh ] = useState( null );
 	const [ busy, setBusy ] = useState( false );
 	const [ error, setError ] = useState( null );
