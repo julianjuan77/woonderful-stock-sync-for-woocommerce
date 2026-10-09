@@ -1202,3 +1202,9 @@ Mutaciones: sin revisar el SKU fresco, o el vinculado allá, cae `BLK-03`.
 | `ADM-07` | (ampliado) | `unlinked` del estado es el número del filtro de Productos |
 | `NOT-23` | **El resumen** | Explica por qué importa, dónde se vincula y que si está bien así se puede ignorar; el pie lleva a Stock Sync; ya no dice que se descarte |
 | `NOT-14` | (cambiado) | El email ya no lleva un total |
+
+## Los variables contraídos
+
+| ID | Caso | Esperado |
+| --- | --- | --- |
+| `ROW-11` | **Un variable con 3 variaciones y 50 simples** | 51 productos: la primera página lleva el padre entero —3 variaciones— y 49 simples; la segunda, el que queda. El padre trae su resumen: 3 variaciones, 1 vinculada, 2 sin vincular |

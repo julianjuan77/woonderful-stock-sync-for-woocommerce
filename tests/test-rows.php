@@ -345,4 +345,47 @@ class Test_Rows extends WP_UnitTestCase {
 		$this->assertSame( Rows::page( array() )['counts'][ State::UNLINKED ], Rows::unlinked_count() );
 		$this->assertArrayHasKey( $loose, $this->rows( array( 'state' => State::UNLINKED ) ) );
 	}
+
+	/**
+	 * ROW-11 — **Se pagina de a 50 productos, no de a 50 filas**: un padre va entero, con todas
+	 * sus variaciones, en la misma página. Y trae su resumen: cuántas y en qué estado.
+	 */
+	public function test_a_parent_is_never_split_across_pages(): void {
+		$parent = new WC_Product_Variable();
+		$parent->set_name( $this->run . ' alpargata' );
+		$parent_id = (int) $parent->save();
+
+		$variations = array();
+
+		foreach ( array( 39, 40, 41 ) as $size ) {
+			$variation = new WC_Product_Variation();
+			$variation->set_parent_id( $parent_id );
+			$variation->set_manage_stock( true );
+			$variation->set_stock_quantity( $size );
+			$variations[] = (int) $variation->save();
+		}
+
+		Links::create( $variations[0], self::REMOTE_STORE, 950, 1, 39 );
+		$this->remote( 950, 'V39', array( 'linked' => 1 ) );
+
+		for ( $i = 0; $i < 50; $i++ ) {
+			$this->simple( 'P' . $i );
+		}
+
+		$first  = Rows::page( array( 'search' => $this->run ) );
+		$second = Rows::page( array( 'search' => $this->run ), 2 );
+
+		$this->assertSame( 51, $first['total'], 'productos, no filas' );
+		$this->assertCount( 52, $first['rows'], 'las 3 variaciones y 49 simples' );
+		$this->assertSame( $variations, array_slice( array_column( $first['rows'], 'id' ), 0, 3 ) );
+		$this->assertCount( 1, $second['rows'] );
+		$this->assertSame(
+			array(
+				'total'    => 3,
+				'linked'   => 1,
+				'unlinked' => 2,
+			),
+			$first['summary'][ $parent_id ]
+		);
+	}
 }

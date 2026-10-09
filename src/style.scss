@@ -1983,3 +1983,23 @@ p.woon-footnote {
 .woon-table tbody tr.wss-group-row:hover {
 	background: transparent;
 }
+
+/* El padre se abre y se cierra con un clic en toda la fila. */
+.wss-group-toggle {
+	display: flex;
+	align-items: center;
+	gap: var(--woon-sp-2);
+	width: 100%;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	font: inherit;
+	color: inherit;
+	text-align: left;
+	cursor: pointer;
+
+	&__arrow {
+		width: 1em;
+		color: var(--woon-text-muted);
+	}
+}

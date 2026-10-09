@@ -83,7 +83,10 @@ final class Rows {
 	 *                                      `show_discarded`.
 	 * @param int                  $page    La página, desde 1.
 	 *
-	 * @return array{rows: array<int, array<string, mixed>>, total: int, counts: array<string, int>}
+	 * `total` cuenta productos —un padre con sus variaciones es uno—, que es como se pagina.
+	 * `summary` dice, por padre, cuántas variaciones tiene y en qué estado.
+	 *
+	 * @return array{rows: array<int, array<string, mixed>>, total: int, counts: array<string, int>, summary: array<int, array<string, int>>}
 	 */
 	public static function page( array $filters, int $page = 1 ): array {
 		$rows   = self::all();
@@ -98,7 +101,8 @@ final class Rows {
 			$rows = array_filter( $rows, static fn ( array $row ) => self::matches( $row, $search ) );
 		}
 
-		$counts = array_fill_keys( self::STATES, 0 );
+		$counts  = array_fill_keys( self::STATES, 0 );
+		$summary = array();
 
 		foreach ( $rows as $row ) {
 			++$counts['all'];
@@ -106,6 +110,12 @@ final class Rows {
 
 			if ( self::SUGGESTION === $row['motive'] ) {
 				++$counts[ self::SUGGESTION ];
+			}
+
+			// El resumen del padre, con todas sus variaciones: contraído, es lo único que se ve.
+			if ( $row['parent'] > 0 ) {
+				$summary[ $row['group'] ]['total']           = ( $summary[ $row['group'] ]['total'] ?? 0 ) + 1;
+				$summary[ $row['group'] ][ $row['state'] ] = ( $summary[ $row['group'] ][ $row['state'] ] ?? 0 ) + 1;
 			}
 		}
 
@@ -117,10 +127,21 @@ final class Rows {
 				&& ( '' === $motive || $motive === $row['motive'] )
 		);
 
+		// De a 50 productos, no de a 50 filas: un padre va entero, con todas sus variaciones, en
+		// la misma página.
+		$groups = array();
+
+		foreach ( $rows as $row ) {
+			$groups[ $row['group'] ][] = $row;
+		}
+
+		$shown = array_slice( $groups, ( max( 1, $page ) - 1 ) * self::PER_PAGE, self::PER_PAGE, true );
+
 		return array(
-			'rows'   => array_slice( array_values( $rows ), ( max( 1, $page ) - 1 ) * self::PER_PAGE, self::PER_PAGE ),
-			'total'  => count( $rows ),
-			'counts' => $counts,
+			'rows'    => array_merge( array(), ...array_values( $shown ) ),
+			'total'   => count( $groups ),
+			'counts'  => $counts,
+			'summary' => array_intersect_key( $summary, $shown ),
 		);
 	}
 

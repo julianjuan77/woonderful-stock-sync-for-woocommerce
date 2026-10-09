@@ -92,6 +92,8 @@ export default function Products( { apiFetch, status } ) {
 	const [ bulk, setBulk ] = useState( false );
 	const [ selected, setSelected ] = useState( {} );
 	const [ history, setHistory ] = useState( null );
+	// Lo que el dueño abrió o cerró a mano, por padre; lo demás sigue la regla de abajo.
+	const [ opened, setOpened ] = useState( {} );
 	const [ notice, setNotice ] = useState( null );
 	const autoRefreshed = useRef( false );
 
@@ -103,6 +105,11 @@ export default function Products( { apiFetch, status } ) {
 		}, 300 );
 		return () => clearTimeout( timer );
 	}, [ search ] );
+
+	// Con otro filtro o búsqueda, vuelve a la regla: lo abierto a mano era para la vista anterior.
+	useEffect( () => {
+		setOpened( {} );
+	}, [ state, motive, query ] );
 
 	const load = useCallback( async () => {
 		setLoading( true );
@@ -269,6 +276,11 @@ export default function Products( { apiFetch, status } ) {
 	const allOn = ( rows ) =>
 		rows.length > 0 && rows.every( ( r ) => selected[ r.id ] );
 	const picked = Object.values( selected );
+
+	// Contraídos en "Todos"; con un filtro o una búsqueda, lo que se busca son las variaciones,
+	// y se ven sin abrir cada padre.
+	const openByDefault = 'all' !== state || '' !== motive || '' !== query;
+	const isOpen = ( group ) => opened[ group ] ?? openByDefault;
 
 	return (
 		<div>
@@ -503,7 +515,20 @@ export default function Products( { apiFetch, status } ) {
 				</div>
 			) }
 			{ data && data.rows.length > 0 && (
-				<table className="woon-table">
+				// Anchos fijos: si no, al abrir o cerrar un padre las columnas se corren.
+				<table
+					className="woon-table"
+					style={ { tableLayout: 'fixed' } }
+				>
+					<colgroup>
+						{ actions && <col style={ { width: 40 } } /> }
+						<col />
+						<col style={ { width: 80 } } />
+						<col />
+						<col style={ { width: 80 } } />
+						<col style={ { width: 150 } } />
+						{ actions && <col style={ { width: 230 } } /> }
+					</colgroup>
 					<thead>
 						<tr>
 							{ actions && (
@@ -571,11 +596,20 @@ export default function Products( { apiFetch, status } ) {
 							const header =
 								row.parent > 0 &&
 								( ! previous || previous.group !== row.group );
+							const open = isOpen( row.group );
 							return [
 								header && (
 									<GroupRow
 										key={ `g${ row.group }` }
 										row={ row }
+										open={ open }
+										summary={ data.summary?.[ row.group ] }
+										onToggle={ () =>
+											setOpened( ( prev ) => ( {
+												...prev,
+												[ row.group ]: ! open,
+											} ) )
+										}
 										columns={ actions ? 7 : 5 }
 										selectable={
 											actions
@@ -590,18 +624,21 @@ export default function Products( { apiFetch, status } ) {
 										toggle={ toggle }
 									/>
 								),
-								<Row
-									key={ row.id }
-									row={ row }
-									actions={ actions }
-									selected={ !! selected[ row.id ] }
-									onSelect={
-										'suggestion' === row.motive
-											? ( on ) => toggle( [ row ], on )
-											: null
-									}
-									onHistory={ () => setHistory( row ) }
-								/>,
+								( row.parent === 0 || open ) && (
+									<Row
+										key={ row.id }
+										row={ row }
+										actions={ actions }
+										selected={ !! selected[ row.id ] }
+										onSelect={
+											'suggestion' === row.motive
+												? ( on ) =>
+														toggle( [ row ], on )
+												: null
+										}
+										onHistory={ () => setHistory( row ) }
+									/>
+								),
 							];
 						} ) }
 					</tbody>
@@ -850,7 +887,64 @@ function MasterNotice( { apiFetch, status } ) {
 
 // El padre de unas variaciones: una fila propia, distinta de la cabecera, con la casilla que
 // tilda todas sus variaciones con sugerencia.
-function GroupRow( { row, columns, selectable, allOn, toggle } ) {
+function GroupRow( {
+	row,
+	columns,
+	selectable,
+	allOn,
+	toggle,
+	open,
+	summary,
+	onToggle,
+} ) {
+	const parts = [];
+	if ( summary ) {
+		parts.push(
+			sprintf(
+				/* translators: %d: cuántas. */
+				_n(
+					'%d variación',
+					'%d variaciones',
+					summary.total,
+					'woonderful-stock-sync-for-woocommerce'
+				),
+				summary.total
+			)
+		);
+		[
+			[
+				'linked',
+				_n(
+					'vinculada',
+					'vinculadas',
+					summary.linked ?? 0,
+					'woonderful-stock-sync-for-woocommerce'
+				),
+			],
+			[
+				'unlinked',
+				__( 'sin vincular', 'woonderful-stock-sync-for-woocommerce' ),
+			],
+			[
+				'suspended',
+				_n(
+					'suspendida',
+					'suspendidas',
+					summary.suspended ?? 0,
+					'woonderful-stock-sync-for-woocommerce'
+				),
+			],
+			[
+				'uncertain',
+				__( 'sin confirmar', 'woonderful-stock-sync-for-woocommerce' ),
+			],
+		].forEach( ( [ key, label ] ) => {
+			if ( summary[ key ] ) {
+				parts.push( `${ summary[ key ] } ${ label }` );
+			}
+		} );
+	}
+
 	return (
 		<tr className="wss-group-row">
 			{ selectable && (
@@ -875,13 +969,31 @@ function GroupRow( { row, columns, selectable, allOn, toggle } ) {
 				</td>
 			) }
 			<td colSpan={ selectable ? columns - 1 : columns }>
-				<strong>{ row.parent_name ?? `#${ row.parent }` }</strong>{ ' ' }
-				<span className="woon-badge woon-badge--muted">
-					{ __(
-						'Variable',
-						'woonderful-stock-sync-for-woocommerce'
+				<button
+					type="button"
+					className="wss-group-toggle"
+					aria-expanded={ open }
+					onClick={ onToggle }
+				>
+					<span
+						className="wss-group-toggle__arrow"
+						aria-hidden="true"
+					>
+						{ open ? '▾' : '▸' }
+					</span>
+					<strong>{ row.parent_name ?? `#${ row.parent }` }</strong>{ ' ' }
+					<span className="woon-badge woon-badge--muted">
+						{ __(
+							'Variable',
+							'woonderful-stock-sync-for-woocommerce'
+						) }
+					</span>
+					{ parts.length > 0 && (
+						<span className="woon-muted">
+							{ parts.join( ' · ' ) }
+						</span>
 					) }
-				</span>
+				</button>
 			</td>
 		</tr>
 	);

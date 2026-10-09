@@ -450,6 +450,11 @@ vincular, en este orden: en la papelera, descartado, sin SKU, SKU duplicado —a
 coincidencia —ninguno allá, o el único ya tiene par—, con sugerencia. **El SKU se compara sin
 espacios a los costados y sin mayúsculas** (`Rows::normalize()`). Un variable que lleva el stock en
 el padre tiene su propia fila, que lo dice. Lo descartado se esconde salvo pedido o buscado. Si la copia tiene más de 10 minutos, la pantalla la refresca al abrirse. Todos los filtros son botones, como en woonderful-sync.
+**Los productos variables aparecen contraídos**: un renglón con su resumen —cuántas variaciones y
+en qué estado—, que se abre con un clic. Con un filtro o una búsqueda se ven abiertos, porque lo
+que se busca son las variaciones. **Se pagina de a 50 productos, no de a 50 filas**: un padre va
+entero, con todas sus variaciones, en la misma página (`Rows::page()` devuelve `total` en productos
+y el `summary` de cada padre).
 **Los motivos aparecen sólo al elegir "Sin vincular"**, que es donde tienen sentido, y "Descartados"
 es uno más: así la vista normal tiene una sola fila de filtros. Lo descartado no se ve salvo con ese
 motivo, o al buscar: la búsqueda lo encuentra (ADR-014 §4). **Las filas con sugerencia se pueden tildar** —de
