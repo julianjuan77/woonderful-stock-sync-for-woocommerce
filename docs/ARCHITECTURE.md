@@ -483,8 +483,8 @@ coincidencia —ninguno allá, o el único ya tiene par—, con sugerencia. **El
 espacios a los costados y sin mayúsculas** (`Rows::normalize()`). Un variable que lleva el stock en
 el padre tiene su propia fila, que lo dice. Lo descartado se esconde salvo pedido o buscado. **Primero lo vinculado**: los productos se ordenan vinculado, parcial —un variable con alguna variación vinculada—, suspendido, con sugerencia, sin vincular y descartado (`Rows::rank()`); dentro de cada uno, por ID. Si la copia tiene más de 10 minutos, la pantalla la refresca al abrirse. Todos los filtros son botones, como en woonderful-sync.
 **Los productos variables aparecen contraídos**: un renglón con su resumen —cuántas variaciones y
-en qué estado—, que se abre con un clic. Con un filtro o una búsqueda se ven abiertos, porque lo
-que se busca son las variaciones. **Se pagina de a 50 productos, no de a 50 filas**: un padre va
+en qué estado—, que se abre con un clic. También con un filtro (pedido de Julián,
+2026-10-10); con una búsqueda se ven abiertos, porque lo que se busca suele ser una variación. **Se pagina de a 50 productos, no de a 50 filas**: un padre va
 entero, con todas sus variaciones, en la misma página (`Rows::page()` devuelve `total` en productos
 y el `summary` de cada padre).
 **El diseño de Productos sigue el rediseño de Woonderful** (`rediseno/`, fuera del repo): encabezado

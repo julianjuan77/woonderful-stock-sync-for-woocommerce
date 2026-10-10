@@ -345,9 +345,9 @@ export default function Products( { apiFetch, status } ) {
 	const someOn = ( list ) => list.some( ( r ) => selected[ r.id ] );
 	const picked = Object.values( selected );
 
-	// Contraídos en "Todos"; con un filtro o una búsqueda, lo que se busca son las variaciones,
-	// y se ven sin abrir cada padre.
-	const openByDefault = 'all' !== state || '' !== motive || '' !== query;
+	// Contraídos siempre, también con un filtro. Con una búsqueda, abiertos: lo que se busca
+	// suele ser una variación, y se ve sin abrir cada padre.
+	const openByDefault = '' !== query;
 	const isOpen = ( group ) => opened[ group ] ?? openByDefault;
 
 	const tabs =
