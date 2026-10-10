@@ -3575,6 +3575,8 @@ Estado: Aprobada · 2026-10-07 · aprobada por Julián
 Revisado: 2026-10-07 — aprobado por Julián. Suma la configuración inicial: un asistente en pasos
 que revisa lo que el plugin necesita para funcionar, nombra la tienda, la empareja y configura
 los avisos. Ver §3.
+Revisión propuesta: 2026-10-09 — **Estado: Propuesta**, pendiente de aprobación. Las fuentes de la
+marca viajan dentro del plugin en vez de caer al stack del sistema. Ver §2.1.
 Temas: rest-api, capabilities, dependencias, modulos
 Cubre: admin/_.php, src/_, build/_, assets/brand/_, package.json, includes/Rest/Health.php
 
@@ -3614,6 +3616,46 @@ espaciado de `style.scss`, las clases `woon-*`, la sidebar, el logo y los ícono
 `assets/brand/`. **Sin recursos externos** —ni fuentes de Google ni CDN—, como allá: la
 tipografía cae al stack del sistema. Es lo que pide WordPress.org, y lo que ya hace el otro
 plugin.
+
+#### 2.1 Las fuentes, dentro del plugin (revisión propuesta)
+
+**Qué pasó.** Con el stack del sistema, el logo y los títulos no se ven como la marca: el logo de
+Woonderful es tipográfico —Bricolage Grotesque, con las "oo" en lila y la estrella—, y con otra
+fuente es otra cosa. El rediseño de Productos lo dejó en evidencia.
+
+| Opción | Por qué sí o por qué no |
+| --- | --- |
+| **A — Los archivos de las fuentes dentro del plugin** ✅ | Se ve como la marca, y la fuente se sirve desde el mismo sitio: ningún pedido a otro servidor. Es lo que acepta WordPress.org, y no expone la IP de quien abre el admin. Contra: unos 100 KB más en el plugin, y la licencia de cada fuente tiene que viajar con ella |
+| B — Pedirlas a Google Fonts | Lo más simple. Pero cada vez que alguien abre el admin, su IP va a Google sin consentimiento: WordPress.org lo marca en la revisión, y en Europa hubo fallos por eso. Sin internet, no carga |
+| C — Seguir con el stack del sistema | Nada que cambiar, pero el logo y los títulos no son los de la marca |
+
+**Qué viaja.** Sólo el subconjunto latino —incluye los acentos y la ñ— y sólo los pesos que usa
+`style.scss`, en `assets/fonts/`, en woff2:
+
+| Fuente | Para qué | Archivo | Peso |
+| --- | --- | --- | --- |
+| Bricolage Grotesque 600 | Títulos y logo (`--woon-font-display`) | `bricolage-grotesque-latin-600-normal.woff2` | 22 KB |
+| DM Sans, variable 400–700 | Texto (`--woon-font-body`) | `dm-sans-latin-wght-normal.woff2` | 37 KB |
+| JetBrains Mono 400 y 500 | Cabeceras de tabla, SKUs (`--woon-font-mono`) | `jetbrains-mono-latin-400-normal.woff2`, `…-500-…` | 21 KB c/u |
+
+Unos 100 KB en total. Medido el 2026-10-09 con los paquetes de Fontsource 5.3.0, que publican en npm
+las mismas fuentes de Google Fonts.
+
+**De dónde salen y cómo se cargan.** Los woff2 se copian una vez de Fontsource a `assets/fonts/` y
+se versionan: **no es una dependencia de npm** —el build no los necesita, y el plugin no baja
+nada—. Se declaran con `@font-face` en `style.scss`, con `font-display: swap`: mientras cargan, se
+ve el texto con la fuente del sistema, que ya es el respaldo de los tokens. Los tokens no cambian:
+ya nombran estas tres fuentes.
+
+**La licencia.** Las tres son SIL Open Font License 1.1, que permite distribuirlas dentro de otro
+software. El texto de cada licencia viaja junto a los archivos, en `assets/fonts/`, y el
+`readme.txt` las nombra en los créditos.
+
+**woonderful-sync.** Comparte este diseño y hoy cae al stack del sistema. Para que los dos plugins
+se vean iguales, el mismo cambio se lleva allá; queda anotado en su STATUS.
+
+**Qué cambia en este ADR.** El párrafo de arriba —"sin recursos externos, la tipografía cae al stack
+del sistema"— pasa a: sin recursos externos; las fuentes de la marca viajan dentro del plugin.
 
 **Se copia, no se comparte.** Extraer el diseño a una librería común —como `woonderful-license`—
 tiene sentido cuando haya un tercer plugin; con dos, una copia es más simple. Lo que cambie en
