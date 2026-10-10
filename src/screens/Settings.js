@@ -388,10 +388,19 @@ function Connection( { apiFetch, status, onStatus, onRepair, say } ) {
 		try {
 			const next = await apiFetch( { path, method: 'POST', data } );
 			onStatus( next );
+			// Se aplica al momento: el aviso lo dice, para que nadie busque el botón de guardar.
+			const saved = sprintf(
+				/* translators: %s: qué cambió. */
+				__(
+					'Cambios guardados: %s',
+					'woonderful-stock-sync-for-woocommerce'
+				),
+				done
+			);
 			say(
 				next.peer_told
-					? done
-					: `${ done } ${ __(
+					? saved
+					: `${ saved } ${ __(
 							'La otra tienda no respondió: se va a enterar en cuanto vuelva.',
 							'woonderful-stock-sync-for-woocommerce'
 					  ) }`
@@ -567,11 +576,11 @@ function Connection( { apiFetch, status, onStatus, onRepair, say } ) {
 							{ paused: ! on },
 							on
 								? __(
-										'Sincronización reanudada: lo anotado sale en la próxima pasada.',
+										'la sincronización se reanudó y lo anotado sale en la próxima pasada.',
 										'woonderful-stock-sync-for-woocommerce'
 								  )
 								: __(
-										'Sincronización en pausa en las dos tiendas.',
+										'la sincronización quedó en pausa en las dos tiendas.',
 										'woonderful-stock-sync-for-woocommerce'
 								  )
 						)
@@ -656,7 +665,7 @@ function Connection( { apiFetch, status, onStatus, onRepair, say } ) {
 										'/unpair',
 										{},
 										__(
-											'Las dos tiendas quedaron desemparejadas.',
+											'las dos tiendas quedaron desemparejadas.',
 											'woonderful-stock-sync-for-woocommerce'
 										)
 									)
