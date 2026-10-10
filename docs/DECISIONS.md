@@ -3983,7 +3983,7 @@ En `wss-admin/v1` (ADR-013 §4):
 
 ## ADR-015 — Pausar la sincronización y desemparejar
 
-Estado: Propuesta
+Estado: Aprobada · 2026-10-10 · aprobada por Julián
 Temas: opciones, rest-api, uninstall
 Cubre: includes/Transport/Pause.php, includes/Transport/Peers.php, includes/Transport/Sender.php, includes/Rest/Movements.php, includes/Rest/Pair.php, includes/Log/Peer.php, includes/Reconciliation/Schedule.php, includes/Linking/Linker.php, includes/Admin/Api.php, includes/Cli/Command.php, src/screens/Settings.js, uninstall.php
 

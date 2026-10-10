@@ -226,6 +226,7 @@ La fuente es `docs/DECISIONS.md`. Acá sólo el índice de las aprobadas.
 | ADR-012 | Los avisos por email: cada tienda de lo suyo; lo que no sincroniza en el resumen de la noche, una vez por producto; los errores en el momento; la caída y el rechazo a los 30 minutos; ventana de 10 minutos por causa; un tick por minuto; tope de 10 por día. Corrige el SPEC UC-08 | 2026-10-06 |
 | ADR-013 | La interfaz: una app en React igual a la de woonderful-sync —sidebar, `#/ruta`, tokens y clases `woon-*` copiados—; Resumen, Productos, Registros y Configuración; un namespace `wss-admin/v1` con nonce y `manage_woocommerce`; la secundaria en modo lectura con el enlace a la maestra. Revisado el 2026-10-07: la configuración inicial, con los requisitos | 2026-10-07 |
 | ADR-014 | La vinculación en la pantalla: una copia del catálogo de la otra (`wss_remote_products`) que se refresca; filas con los dos lados, motivos y sugerencia por SKU; filtros y búsqueda en el servidor; vincular a mano mirando el stock en el momento; masiva de a 20 revalidando; reasignar, descartar | 2026-10-07 |
+| ADR-015 | Pausar la sincronización (el libro sigue anotando; nadie manda, aplica, reconcilia ni vincula; `POST /pause` a la otra y `409 wss_paused`) y desemparejar (las dos olvidan URL y secreto; vínculos y libro quedan; `POST /unpair` a la otra) | 2026-10-10 |
 
 El 2026-09-28 el SPEC §5 subió el mínimo de WooCommerce de 8.2 a 9.1: es la versión que trae
 el hook que estampa las cancelaciones (ADR-006 §2).
