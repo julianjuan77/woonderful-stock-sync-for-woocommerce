@@ -1313,9 +1313,30 @@ function RowActions( { row, actions } ) {
 	);
 }
 
+// Lo que mide el menú abierto, con aire: si abajo no entra, se abre para arriba.
+const MENU_ROOM = 130;
+
 function Menu( { items } ) {
 	const [ open, setOpen ] = useState( false );
+	const [ up, setUp ] = useState( false );
 	const ref = useRef();
+
+	// La tabla recorta lo que sale de ella (sus esquinas redondeadas), y abajo está el pie de
+	// WordPress: en las últimas filas el menú quedaba cortado.
+	const toggleMenu = () => {
+		if ( ! open && ref.current ) {
+			const button = ref.current.getBoundingClientRect();
+			const table = ref.current.closest( '.wss-table' );
+			const limit = Math.min(
+				window.innerHeight,
+				table
+					? table.getBoundingClientRect().bottom
+					: window.innerHeight
+			);
+			setUp( button.bottom + MENU_ROOM > limit );
+		}
+		setOpen( ! open );
+	};
 
 	useEffect( () => {
 		if ( ! open ) {
@@ -1339,12 +1360,12 @@ function Menu( { items } ) {
 					'woonderful-stock-sync-for-woocommerce'
 				) }
 				aria-expanded={ open }
-				onClick={ () => setOpen( ! open ) }
+				onClick={ toggleMenu }
 			>
 				<IconDots />
 			</button>
 			{ open && (
-				<div className="wss-pop">
+				<div className={ `wss-pop ${ up ? 'is-up' : '' }` }>
 					{ items.map( ( [ label, run, danger ] ) => (
 						<button
 							key={ label }

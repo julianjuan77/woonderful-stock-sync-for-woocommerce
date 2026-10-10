@@ -2396,6 +2396,11 @@ p.wss-meta {
 	background: var(--woon-surface);
 	box-shadow: var(--woon-shadow-lg);
 
+	&.is-up {
+		top: auto;
+		bottom: 36px;
+	}
+
 	&__item {
 		display: block;
 		width: 100%;
@@ -3711,3 +3716,10 @@ h2.wss-confirm__title {
 		gap: 10px;
 	}
 }
+
+// Aire bajo la tabla: la última fila no queda pegada al pie de WordPress ni debajo de la barra
+// flotante de la selección.
+.wss-products {
+	padding-bottom: 96px;
+}
+
