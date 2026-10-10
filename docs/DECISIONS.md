@@ -3978,3 +3978,133 @@ En `wss-admin/v1` (ADR-013 §4):
 | Qué | Dónde va |
 | --- | --- |
 | Cómo se ven las pantallas | El código: se copia de woonderful-sync (ADR-013 §2) |
+
+---
+
+## ADR-015 — Pausar la sincronización y desemparejar
+
+Estado: Propuesta
+Temas: opciones, rest-api, uninstall
+Cubre: includes/Transport/Pause.php, includes/Transport/Peers.php, includes/Transport/Sender.php, includes/Rest/Movements.php, includes/Rest/Pair.php, includes/Log/Peer.php, includes/Reconciliation/Schedule.php, includes/Linking/Linker.php, includes/Admin/Api.php, includes/Cli/Command.php, src/screens/Settings.js, uninstall.php
+
+### En pocas palabras
+
+Dos formas de cortar, pedidas por Julián (2026-10-10):
+
+- **Pausar** es para el día a día —un inventario, una migración, algo raro—: las dos tiendas dejan
+  de mandarse stock, pero **cada venta se sigue anotando en el libro** y, al reanudar, la cola manda
+  lo pendiente. No se pierde nada.
+- **Desemparejar** corta del todo: las dos olvidan la URL y el secreto de la otra. Para volver hace
+  falta un código nuevo.
+
+Las dos se hacen desde cualquiera de las dos tiendas, y **se le avisan a la otra** con un pedido
+firmado: la pausa y el corte son del par, no de un lado.
+
+---
+
+### 1. Qué para la pausa
+
+| Opción | Por qué sí o por qué no |
+| --- | --- |
+| A — Reusar la suspensión (`Plugin::suspension_reason()`) | Ya existe y apaga todo. Pero apaga también el detector: **las ventas de la pausa no se anotan** y al reanudar aparecen como discrepancias, una por producto vendido |
+| **B — Una pausa propia: el libro anota, nadie manda** ✅ | Las ventas quedan en la cola como cuando la otra está caída, y al reanudar salen solas. Contra: hay que cortar en cada lugar que manda o recibe |
+| C — Pausar sólo el envío de esta tienda | Simple. Pero la otra sigue mandando y ésta aplicando: media sincronización, difícil de explicar |
+
+**Durante la pausa, en las dos tiendas:**
+
+- **El detector sigue anotando** en el libro, como siempre.
+- **La pasada no reclama nada** (`Sender::run()` vuelve antes, como sin socia). Así no corre el
+  techo de 6 horas: se cuenta desde el primer intento (`first_attempt_at`), y no hay intento hasta
+  reanudar.
+- **`POST /movements` contesta `409 wss_paused`** y no aplica nada. Es la red de seguridad si el
+  aviso a la otra no llegó.
+- **No se reconcilia**, ni de noche ni a mano, y no se contesta la de la otra (`409 wss_paused`).
+- **No se vincula, desvincula ni reasigna**: vincular le pregunta el stock a la otra. Descartar sí,
+  porque es local.
+- **No se avisa que la otra no responde**: en pausa no se le habla.
+
+**Al reanudar:** la próxima pasada manda lo anotado durante la pausa, en orden. Si fue larga, el
+dueño puede reconciliar a mano para confirmar.
+
+### 2. Cómo se entera la otra
+
+| Opción | Por qué sí o por qué no |
+| --- | --- |
+| **A — Un pedido firmado `POST /pause` a la otra** ✅ | Las dos quedan en el mismo estado al instante, y cada una lo muestra. Si la otra no responde, se pausa igual acá y el `409 wss_paused` le avisa en su próximo envío |
+| B — Que cada tienda se pause por su lado | Sin endpoint nuevo. Pero el dueño tendría que acordarse de pausar las dos, y si se olvida, la que no pausó acumula rechazos |
+
+**El endpoint:** `POST wss/v1/pause` con `{"paused": true|false}`, firmado como los demás
+(ADR-001). Guarda el estado igual que si se hubiera pausado acá, con `by: "peer"`.
+
+**El emisor entiende `409 wss_paused`:** `Peer::classify()` lo toma como un estado nuevo,
+`paused`, no como un rechazo. No es un error ni manda email, como el `409 wss_reconciling`
+(ADR-011 §4). Y la tienda que lo recibe se marca en pausa también: el par queda parejo aunque el
+aviso no haya llegado.
+
+**La opción, `wss_paused`:** `{at, by, user}` —cuándo, si fue `here` o `peer`, y quién—, o no
+existe. Se borra al desinstalar.
+
+### 3. Desemparejar
+
+| Opción | Por qué sí o por qué no |
+| --- | --- |
+| A — Borrar todo lo del par: vínculos, libro, copia del catálogo | Arranque limpio. Pero si se vuelve a emparejar con la misma tienda, hay que vincular todo de nuevo |
+| **B — Olvidar la URL y el secreto; los vínculos y el libro quedan** ✅ | Re-emparejar con la misma tienda deja todo como estaba. Contra: lo anotado mientras estuvieron separadas sale al re-emparejar |
+| C — Sólo acá, sin avisar a la otra | Sin endpoint nuevo. Pero la otra sigue mandando, recibe `401 wss_unknown_store` y lo avisa como rechazo |
+
+**Qué se borra:** la `rest_url` y el secreto de la entrada (`Peers::forget()`), como cuando se
+empareja con otra tienda (ADR-001 §1); también la pausa. Quedan la etiqueta, `purged_through`, los
+vínculos, el libro y la copia del catálogo.
+
+**Cómo se entera la otra:** `POST wss/v1/unpair`, firmado. La otra olvida lo mismo. Si no
+responde, se desempareja igual acá; la otra va a ver `401 wss_unknown_store` y mostrar "rechaza
+los pedidos", que es la verdad: hay que re-emparejar o desemparejar también allá.
+
+**Lo anotado mientras están separadas:** queda en la cola, sin destino. Si se re-empareja con la
+**misma** tienda, sale en la próxima pasada, como al volver de una caída. **Es lo que pide un
+depósito compartido**: una venta de una tienda tiene que descontarse en la otra. Con **otra**
+tienda, los vínculos viejos apuntan a la anterior y no se usan.
+
+**La confirmación lo dice:** "Las dos tiendas dejan de sincronizar. Los vínculos se guardan por si
+vuelven a emparejar. Lo que se venda mientras tanto se manda al re-emparejar con esta misma tienda."
+
+### 4. Desde dónde
+
+- **La pantalla:** en Configuración → Emparejamiento, un interruptor "Sincronización activa" y un
+  botón "Desemparejar" con confirmación. `POST wss-admin/v1/pause` y `POST wss-admin/v1/unpair`.
+- **WP-CLI:** `wp wss pause`, `wp wss resume`, `wp wss unpair`.
+- **Las dos tiendas pueden:** pausar y cortar son operativos, no deciden stock. La secundaria
+  sigue sin poder vincular.
+- **Resumen** muestra la pausa en su cabecera ("Sincronización en pausa desde…, por…") y la
+  barra lateral, un punto amarillo.
+
+---
+
+**Decisión:** pausa propia del par, avisada a la otra con `POST /pause`, que deja anotar y corta
+envío, aplicación, reconciliación y vinculación (§1, §2). Desemparejar olvida la URL y el secreto
+en las dos tiendas y guarda vínculos y libro (§3).
+
+**Por qué:** la pausa no puede perder ventas —es un depósito compartido—, y la cola del libro ya
+resuelve "mandar después" para las caídas. Desemparejar sin borrar vínculos hace que volver a la
+misma tienda no cueste nada.
+
+**Por qué no reusar la suspensión:** apaga el detector antes de registrarlo (`Plugin::register()`
+vuelve antes de `Detector::register()`), así que las ventas de la pausa no se anotarían.
+
+**Por qué no pausar sólo un lado:** la otra seguiría mandando y ésta, aplicando. Habría que explicar
+qué mitad está andando.
+
+**Por qué no borrar todo al desemparejar:** el caso más común es volver con la misma tienda —un
+cambio de dominio, una migración—, y obligaría a vincular cientos de productos de nuevo.
+
+**Consecuencias:**
+
+- Cada lugar que manda o recibe mira la pausa: `Sender::run()`, `POST /movements`, la
+  reconciliación —de noche, a mano y la de la otra— y `Linker`. Uno que se olvide manda en pausa.
+  Va con un test por cada uno.
+- `Peer` gana un estado, `paused`, que la pantalla y los avisos tienen que entender.
+- Una pausa de semanas deja una cola larga: sale en lotes de `Ledger::MAX_BATCH`, como después de
+  una caída larga.
+- **Si el supuesto del depósito compartido no vale** —si mientras están separadas cada tienda lleva
+  su propio stock—, mandar lo anotado al re-emparejar descuadraría. Habría que ofrecer descartar la
+  cola al re-emparejar, o vincular de nuevo, que arranca con el stock de la maestra (ADR-008 §1).
