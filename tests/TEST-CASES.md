@@ -1188,7 +1188,7 @@ Mutaciones: sin revisar el SKU fresco, o el vinculado allá, cae `BLK-03`.
 | `DET-19` | Una venta de 2 con stock 10 | El movimiento guarda 10 y 8 en `details` |
 | `LED-61` | **Uno recibido que se aplica, y uno que se retiene** | El aplicado guarda el de antes y el de después; el retenido, nada: acá no cambió |
 | `LED-62` | **Dos esperando —uno en vuelo—, uno abandonado, uno confirmado y uno recibido** | La cola: 2 esperando, el más viejo primero, 1 abandonado; lo confirmado y lo recibido no cuentan |
-| `EVT-11` | **Un bootstrap, una venta con los números y una sin** | El historial los muestra —el bootstrap con el de acá y el de arranque—; sin anotar, sólo la diferencia. En pantalla, la diferencia no va dos veces |
+| `EVT-11` | **Un bootstrap, una venta con los números y una sin; un desvincular** | El historial los muestra —el bootstrap con el de acá y el de arranque—; sin anotar, sólo la diferencia. En pantalla, la diferencia no va dos veces. El desvincular, sin "+0" |
 
 ## El resumen en el log
 
@@ -1230,7 +1230,7 @@ Mutaciones: sin revisar el SKU fresco, o el vinculado allá, cae `BLK-03`.
 | `PAU-02` | **Un movimiento pendiente, en pausa** | El emisor no reclama: sigue `pending` y sin `first_attempt_at`; la pasada no hace ningún request. Al reanudar, sale |
 | `PAU-03` | En pausa llega un lote y una pregunta de reconciliación | `409 wss_paused` a los dos |
 | `PAU-04` | En pausa se reconcilia, se vincula y se descarta | `Reconciler::PAUSED` sin guardar resultado; vincular, `wss_paused`; descartar, sí; ningún request |
-| `PAU-05` | **La otra contesta `409 wss_paused`** | Ésta queda en pausa, `by: peer`; el estado de la otra sigue `ok` |
+| `PAU-05` | **La otra contesta `409 wss_paused`, con un admin logueado acá** | Ésta queda en pausa, `by: peer`, sin usuario; el estado de la otra sigue `ok` |
 | `PAU-06` | Pausar con la otra arriba y reanudar con la otra caída | `POST /pause` firmado con `{"paused": true}`; caída, se reanuda igual acá |
 | `PAU-07` | `POST /pause` y `POST /unpair` de la otra, y un cuerpo malo | Queda igual que la otra; un 400; sin socia y sin pausa |
 | `PAU-08` | **Desemparejar con la otra caída** | Se pidió `POST /unpair`; se borran URL, secreto y estado de la otra; quedan etiqueta y `purged_through`; se anota `unpaired` |

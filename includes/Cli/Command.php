@@ -522,11 +522,11 @@ final class Command {
 
 		\WP_CLI::line(
 			sprintf(
-				/* translators: 1: sí o no, 2: el destinatario, 3: horas. */
-				__( 'Avisos: %1$s. A: %2$s. Plazo de lo que no sincroniza: %3$d horas.', 'woonderful-stock-sync-for-woocommerce' ),
+				/* translators: 1: sí o no, 2: el destinatario, 3: el plazo, como "24 horas". */
+				__( 'Avisos: %1$s. A: %2$s. Plazo de lo que no sincroniza: %3$s.', 'woonderful-stock-sync-for-woocommerce' ),
 				Notifier::enabled() ? __( 'sí', 'woonderful-stock-sync-for-woocommerce' ) : __( 'no', 'woonderful-stock-sync-for-woocommerce' ),
 				Notifier::recipient(),
-				Notifier::after_hours()
+				Notifier::hours_text( Notifier::after_hours() )
 			)
 		);
 	}

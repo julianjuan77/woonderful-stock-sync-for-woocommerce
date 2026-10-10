@@ -383,7 +383,8 @@ function Connection( { apiFetch, status, onStatus, onRepair, say } ) {
 		}
 	};
 
-	const act = async ( path, data, done ) => {
+	// `alone`: lo que pasó si la otra no respondió, que no es lo mismo que si se enteró.
+	const act = async ( path, data, done, alone ) => {
 		setBusy( true );
 		try {
 			const next = await apiFetch( { path, method: 'POST', data } );
@@ -395,16 +396,9 @@ function Connection( { apiFetch, status, onStatus, onRepair, say } ) {
 					'Cambios guardados: %s',
 					'woonderful-stock-sync-for-woocommerce'
 				),
-				done
+				next.peer_told ? done : alone
 			);
-			say(
-				next.peer_told
-					? saved
-					: `${ saved } ${ __(
-							'La otra tienda no respondió: se va a enterar en cuanto vuelva.',
-							'woonderful-stock-sync-for-woocommerce'
-					  ) }`
-			);
+			say( saved );
 		} catch ( e ) {
 			say( e?.message );
 		} finally {
@@ -582,6 +576,15 @@ function Connection( { apiFetch, status, onStatus, onRepair, say } ) {
 								: __(
 										'la sincronización quedó en pausa en las dos tiendas.',
 										'woonderful-stock-sync-for-woocommerce'
+								  ),
+							on
+								? __(
+										'la sincronización se reanudó acá. La otra tienda no respondió: se va a enterar en cuanto vuelva.',
+										'woonderful-stock-sync-for-woocommerce'
+								  )
+								: __(
+										'la sincronización quedó en pausa acá. La otra tienda no respondió: se va a enterar en cuanto vuelva.',
+										'woonderful-stock-sync-for-woocommerce'
 								  )
 						)
 					}
@@ -666,6 +669,10 @@ function Connection( { apiFetch, status, onStatus, onRepair, say } ) {
 										{},
 										__(
 											'las dos tiendas quedaron desemparejadas.',
+											'woonderful-stock-sync-for-woocommerce'
+										),
+										__(
+											'esta tienda quedó desemparejada. La otra no respondió: va a ver que ésta rechaza sus pedidos; desemparejala también allá.',
 											'woonderful-stock-sync-for-woocommerce'
 										)
 									)

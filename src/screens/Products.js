@@ -617,6 +617,7 @@ export default function Products( { apiFetch, status } ) {
 					choose={ modal.choose }
 					onClose={ () => setModal( null ) }
 					onDone={ ( result ) => linked( modal.row.id, result ) }
+					onRefresh={ refresh }
 				/>
 			) }
 			{ confirm && (

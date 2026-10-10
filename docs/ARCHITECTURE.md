@@ -301,7 +301,9 @@ vincular desde hace más del plazo —desde que se creó o se desvinculó—, si
 no se avisó desde la última vez que quedó sin vincular. Hasta 50 por email. **El email explica de
 qué se trata**: qué productos, por qué importa —el stock no se descuenta en la otra—, dónde se
 vinculan, y que si está bien que no se sincronicen se puede ignorar, porque cada uno se avisa una sola vez.
-No lleva un total: el número de productos sin vincular es uno solo, el de la pantalla.
+**El asunto dice los nuevos y el total** —"1 producto nuevo sin vincular (363 en total)"—, y el
+total es el de la tarjeta de Resumen (`Rows::linking()`): un solo número de lo que no sincroniza. El
+texto va en singular o plural según la cantidad, y el plazo también ("1 hora").
 "Ya avisé" se guarda como un evento `notified` por producto (ADR-012 §4); **el email deja además
 un solo `digest_sent`**, con cuántos nuevos y cuántos en total. La lista del log no trae los
 `notified` salvo pedidos por tipo o en el historial de un producto: eran una línea por producto y

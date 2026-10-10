@@ -493,8 +493,9 @@ final class Events {
 		$where   = true === ( $entry['own'] ?? false ) ? __( 'Acá', 'woonderful-stock-sync-for-woocommerce' ) : __( 'En la otra tienda', 'woonderful-stock-sync-for-woocommerce' );
 		$what    = ( $reasons[ $reason ] ?? $reason ) . ( null === ( $entry['reference'] ?? null ) ? '' : ' (' . $entry['reference'] . ')' );
 
-		// La pantalla muestra aparte la diferencia con los dos números: no va dos veces.
-		if ( ! $stocks && is_array( $numbers ) ) {
+		// La pantalla muestra aparte la diferencia con los dos números: no va dos veces. Un
+		// desvincular no mueve stock: su "+0" no dice nada.
+		if ( ( ! $stocks && is_array( $numbers ) ) || 'unlink' === $reason ) {
 			/* translators: 1: dónde pasó, 2: el motivo con su referencia. */
 			return sprintf( __( '%1$s: %2$s', 'woonderful-stock-sync-for-woocommerce' ), $where, $what );
 		}

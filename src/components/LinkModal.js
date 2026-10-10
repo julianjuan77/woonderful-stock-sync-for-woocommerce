@@ -10,8 +10,10 @@ export default function LinkModal( {
 	choose = false,
 	onDone,
 	onClose,
+	onRefresh,
 } ) {
 	const [ query, setQuery ] = useState( '' );
+	const [ refreshing, setRefreshing ] = useState( false );
 	const [ results, setResults ] = useState( null );
 	const [ picked, setPicked ] = useState(
 		// "Elegir otro" y reasignar arrancan buscando; aceptar la sugerencia, con ella.
@@ -30,6 +32,18 @@ export default function LinkModal( {
 			setResults( data.items );
 		} catch ( e ) {
 			setError( e?.message );
+		}
+	};
+
+	// La búsqueda es sobre la copia del catálogo de la otra: un producto recién creado allá no
+	// está hasta refrescarla.
+	const refreshAndSearch = async () => {
+		setRefreshing( true );
+		try {
+			await onRefresh();
+			await search();
+		} finally {
+			setRefreshing( false );
 		}
 	};
 
@@ -157,12 +171,31 @@ export default function LinkModal( {
 								</button>
 							</div>
 							{ results && 0 === results.length && (
-								<p className="woon-muted">
-									{ __(
-										'No hay productos con ese nombre o SKU en la otra tienda.',
-										'woonderful-stock-sync-for-woocommerce'
+								<div className="woon-muted">
+									<p>
+										{ __(
+											'No hay productos con ese nombre o SKU en la otra tienda. Si lo creaste hace poco, actualizá el catálogo.',
+											'woonderful-stock-sync-for-woocommerce'
+										) }
+									</p>
+									{ onRefresh && (
+										<button
+											className="woon-btn woon-btn--ghost woon-btn--sm"
+											onClick={ refreshAndSearch }
+											disabled={ refreshing }
+										>
+											{ refreshing
+												? __(
+														'Actualizando…',
+														'woonderful-stock-sync-for-woocommerce'
+												  )
+												: __(
+														'Actualizar catálogo y buscar de nuevo',
+														'woonderful-stock-sync-for-woocommerce'
+												  ) }
+										</button>
 									) }
-								</p>
+								</div>
 							) }
 							{ results &&
 								results.length > 0 &&

@@ -7,6 +7,7 @@
 
 declare( strict_types = 1 );
 
+use Woonderful\StockSync\Catalog\Rows;
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Linking\Links;
 use Woonderful\StockSync\Log\Events;
@@ -442,8 +443,8 @@ class Test_Notifier extends WP_UnitTestCase {
 	}
 
 	/**
-	 * NOT-14 — Al día siguiente, uno nuevo: el email lista sólo el nuevo. No dice un total: el
-	 * número de productos sin vincular es uno solo, el de la pantalla.
+	 * NOT-14 — Al día siguiente, uno nuevo: el email lista sólo el nuevo. El cuerpo no dice un
+	 * total: el número de productos sin vincular es uno solo, el del asunto y la pantalla.
 	 */
 	public function test_the_digest_lists_only_the_new_ones_and_the_total(): void {
 		$first = $this->product( 30 );
@@ -596,17 +597,24 @@ class Test_Notifier extends WP_UnitTestCase {
 	}
 
 	/**
-	 * NOT-21 — **Con un solo producto, en singular**; y el motivo de un par roto, en castellano.
+	 * NOT-21 — **Con un solo producto, en singular** —también el plazo, con 1 hora—; el asunto
+	 * dice el total, el mismo de la tarjeta de Resumen; y el motivo de un par roto, en castellano.
 	 */
 	public function test_one_product_is_singular_and_reasons_are_readable(): void {
+		update_option( Notifier::OPTION_AFTER, 1, false );
 		$this->product( 30 );
 		Notifier::digest();
 
 		Events::record( Events::PAIR_BROKEN, Events::WARNING, 5, array( 'reason' => 'local_trashed' ) );
 		Notifier::tick();
 
-		$this->assertStringContainsString( '1 producto sin vincular', $this->mails[0]['subject'] );
+		$total = Rows::linking()['unlinked'];
+
+		$this->assertStringContainsString( "1 producto nuevo sin vincular ({$total} en total)", $this->mails[0]['subject'] );
 		$this->assertStringContainsString( 'hay 1 producto que todavía no está vinculado', $this->mails[0]['message'] );
+		$this->assertStringContainsString( 'Mientras no esté vinculado', $this->mails[0]['message'] );
+		$this->assertStringContainsString( 'Es el que lleva más de 1 hora sin vincular', $this->mails[0]['message'] );
+		$this->assertStringContainsString( 'Para vincularlo,', $this->mails[0]['message'] );
 		$this->assertStringContainsString( '— está en la papelera', $this->mails[1]['message'] );
 	}
 

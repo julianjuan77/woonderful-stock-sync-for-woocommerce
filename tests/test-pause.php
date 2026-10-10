@@ -263,12 +263,14 @@ class Test_Pause extends WP_UnitTestCase {
 
 	/**
 	 * PAU-05 — **Un `409 wss_paused` de la otra pausa también a ésta**, sin marcarla caída ni
-	 * con rechazo.
+	 * con rechazo, y sin anotar como autor a quien esté logueado acá.
 	 */
 	public function test_a_paused_answer_pauses_this_store(): void {
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
 		Peer::observe( $this->http( 409, array( 'code' => 'wss_paused' ) ) );
 
 		$this->assertSame( Pause::PEER, Pause::current()['by'] );
+		$this->assertNull( Pause::current()['user'], 'la pidió la otra, no quien está logueado acá' );
 		$this->assertSame( Peer::OK, Peer::current()['state'] );
 	}
 

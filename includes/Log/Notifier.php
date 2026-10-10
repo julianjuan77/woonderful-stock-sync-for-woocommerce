@@ -10,6 +10,7 @@ declare( strict_types = 1 );
 namespace Woonderful\StockSync\Log;
 
 use Woonderful\StockSync\Admin\Page;
+use Woonderful\StockSync\Catalog\Rows;
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Schema\Installer;
 use Woonderful\StockSync\Transport\Peers;
@@ -165,19 +166,38 @@ final class Notifier {
 			$other
 		);
 
-		$why = __( 'Mientras no estén vinculados, su stock no se sincroniza: si se vende uno en una tienda, el stock de la otra no se descuenta.', 'woonderful-stock-sync-for-woocommerce' );
+		$why = _n(
+			'Mientras no esté vinculado, su stock no se sincroniza: si se vende en una tienda, el stock de la otra no se descuenta.',
+			'Mientras no estén vinculados, su stock no se sincroniza: si se vende uno en una tienda, el stock de la otra no se descuenta.',
+			count( $new ),
+			'woonderful-stock-sync-for-woocommerce'
+		);
 
-		/* translators: %d: horas. */
-		$which = sprintf( __( 'Son los que llevan más de %d horas sin vincular:', 'woonderful-stock-sync-for-woocommerce' ), self::after_hours() );
+		$which = sprintf(
+			/* translators: %s: el plazo, como "24 horas". */
+			_n( 'Es el que lleva más de %s sin vincular:', 'Son los que llevan más de %s sin vincular:', count( $new ), 'woonderful-stock-sync-for-woocommerce' ),
+			self::hours_text( self::after_hours() )
+		);
 
-		$how = __( 'Para vincularlos, entrá a Stock Sync → Productos y elegí el filtro "Sin vincular".', 'woonderful-stock-sync-for-woocommerce' );
+		$how = _n(
+			'Para vincularlo, entrá a Stock Sync → Productos y elegí el filtro "Sin vincular".',
+			'Para vincularlos, entrá a Stock Sync → Productos y elegí el filtro "Sin vincular".',
+			count( $new ),
+			'woonderful-stock-sync-for-woocommerce'
+		);
 
 		$once = __( 'Si está bien que no se sincronicen, podés ignorar este mensaje. Este email llega una sola vez por producto: no se repetirá, sólo avisaremos si encontramos productos nuevos sin sincronizar.', 'woonderful-stock-sync-for-woocommerce' );
 
 		$body = $intro . ' ' . $why . "\n\n" . $which . "\n" . implode( "\n", $lines ) . "\n\n" . $how . "\n\n" . $once;
 
-		/* translators: %d: cuántos. */
-		$sent = self::send( $state, sprintf( _n( '%d producto sin vincular', '%d productos sin vincular', count( $new ), 'woonderful-stock-sync-for-woocommerce' ), count( $new ) ), $body, 'unsynced', $now );
+		// El total es el de la tarjeta de Resumen: un solo número de lo que no sincroniza.
+		$subject = sprintf(
+			/* translators: 1: cuántos nuevos, 2: cuántos en total. */
+			_n( '%1$d producto nuevo sin vincular (%2$d en total)', '%1$d productos nuevos sin vincular (%2$d en total)', count( $new ), 'woonderful-stock-sync-for-woocommerce' ),
+			count( $new ),
+			Rows::linking()['unlinked']
+		);
+		$sent    = self::send( $state, $subject, $body, 'unsynced', $now );
 
 		self::save( $state );
 
@@ -610,6 +630,16 @@ final class Notifier {
 		}
 
 		return $products;
+	}
+
+	/**
+	 * Un plazo en horas, en castellano: "1 hora", "24 horas".
+	 *
+	 * @param int $hours Las horas.
+	 */
+	public static function hours_text( int $hours ): string {
+		/* translators: %d: horas. */
+		return sprintf( _n( '%d hora', '%d horas', $hours, 'woonderful-stock-sync-for-woocommerce' ), $hours );
 	}
 
 	/**

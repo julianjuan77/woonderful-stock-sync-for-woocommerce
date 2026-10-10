@@ -98,7 +98,8 @@ final class Pause {
 		}
 
 		if ( $paused ) {
-			$user = get_current_user_id();
+			// La pidió la otra: quien esté logueado acá —el que vendía, por ejemplo— no la pidió.
+			$user = self::PEER === $by ? 0 : get_current_user_id();
 
 			update_option(
 				self::OPTION,

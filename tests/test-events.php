@@ -282,6 +282,17 @@ class Test_Events extends WP_UnitTestCase {
 		$this->assertSame( 'Acá: venta, -2 · stock 6 → 4', Events::movement_text( $history[1] ) );
 		$this->assertSame( 'Acá: venta', Events::movement_text( $history[1], false ), 'la pantalla muestra la diferencia aparte' );
 		$this->assertSame( 'Acá: venta, -1', Events::movement_text( $history[0] ) );
+		$this->assertSame(
+			'Acá: desvinculación',
+			Events::movement_text(
+				array(
+					'own'    => true,
+					'reason' => 'unlink',
+					'delta'  => 0,
+				)
+			),
+			'sin "+0": desvincular no mueve stock'
+		);
 	}
 
 	/**
