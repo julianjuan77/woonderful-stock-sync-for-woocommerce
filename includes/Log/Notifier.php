@@ -13,6 +13,7 @@ use Woonderful\StockSync\Admin\Page;
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Schema\Installer;
 use Woonderful\StockSync\Transport\Peers;
+use Woonderful\StockSync\Transport\Pause;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -110,7 +111,11 @@ final class Notifier {
 			return;
 		}
 
-		self::check_peer( $now, $state );
+		// En pausa no se le habla a la otra: que no conteste no es noticia (ADR-015 §1).
+		if ( ! Pause::is_on() ) {
+			self::check_peer( $now, $state );
+		}
+
 		self::collect( $state );
 		self::flush( $now, $state );
 

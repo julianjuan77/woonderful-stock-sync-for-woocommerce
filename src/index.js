@@ -140,14 +140,23 @@ const App = () => {
 				{ status?.paired && (
 					<div className="wss-side-status">
 						<span
-							className={ `wss-side-status__dot ${
-								'ok' === status.peer.state ? 'is-ok' : 'is-down'
-							}` }
+							className={ `wss-side-status__dot ${ sideState(
+								status
+							) }` }
 							aria-hidden="true"
 						/>
 						<div>
 							<div className="wss-side-status__title">
-								{ 'ok' === status.peer.state
+								{ status.paused &&
+									sprintf(
+										/* translators: %s: la otra tienda. */
+										__(
+											'En pausa con %s',
+											'woonderful-stock-sync-for-woocommerce'
+										),
+										status.peer.label
+									) }
+								{ ! status.paused && 'ok' === status.peer.state
 									? sprintf(
 											/* translators: %s: la otra tienda. */
 											__(
@@ -156,7 +165,8 @@ const App = () => {
 											),
 											status.peer.label
 									  )
-									: sprintf(
+									: ! status.paused &&
+									  sprintf(
 											/* translators: %s: la otra tienda. */
 											__(
 												'%s no responde',
@@ -165,7 +175,7 @@ const App = () => {
 											status.peer.label
 									  ) }
 							</div>
-							{ status.peer.since && (
+							{ ! status.paused && status.peer.since && (
 								<div className="wss-side-status__sub">
 									{ sprintf(
 										/* translators: %s: desde cuándo. */
@@ -315,4 +325,12 @@ function IconSettings( { className } ) {
 			<path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
 		</svg>
 	);
+}
+
+// El punto de la barra lateral: verde conectada, amarillo en pausa, rojo sin respuesta.
+function sideState( status ) {
+	if ( status.paused ) {
+		return 'is-paused';
+	}
+	return 'ok' === status.peer.state ? 'is-ok' : 'is-down';
 }

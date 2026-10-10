@@ -10,6 +10,9 @@ declare( strict_types = 1 );
 namespace Woonderful\StockSync\Transport;
 
 use Woonderful\StockSync\Catalog\Copy;
+use Woonderful\StockSync\Identity\Store;
+use Woonderful\StockSync\Log\Events;
+use Woonderful\StockSync\Log\Peer;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -161,6 +164,77 @@ final class Peers {
 		$peer  = (array) ( $peers[ $store ] ?? array() );
 
 		return (int) ( $peer['purged_through'] ?? 0 );
+	}
+
+	/**
+	 * Desempareja: se lo avisa a la otra y olvida la URL y el secreto (ADR-015 §3).
+	 *
+	 * Si la otra no responde, se desempareja igual acá: la otra va a ver `wss_unknown_store`
+	 * y mostrar que ésta rechaza sus pedidos, que es la verdad.
+	 *
+	 * @return bool Si la otra se enteró.
+	 */
+	public static function unpair(): bool {
+		$peer = self::only();
+		$told = null !== $peer && self::tell( $peer, '/unpair', array() );
+
+		self::forget( Pause::HERE );
+
+		return $told;
+	}
+
+	/**
+	 * Olvida la URL y el secreto de toda entrada, y la pausa. Quedan la etiqueta,
+	 * `purged_through`, los vínculos, el libro y la copia del catálogo: re-emparejar con la
+	 * misma tienda deja todo como estaba (ADR-015 §3).
+	 *
+	 * @param string $by `here` o `peer`: quién lo pidió.
+	 */
+	public static function forget( string $by ): void {
+		$peers = array();
+
+		foreach ( (array) get_option( self::OPTION, array() ) as $key => $peer ) {
+			$peer = (array) $peer;
+			unset( $peer['rest_url'], $peer['secret'] );
+			$peers[ (string) $key ] = $peer;
+		}
+
+		update_option( self::OPTION, $peers, false );
+		delete_option( Pause::OPTION );
+		// Sin socia no hay estado de la socia: lo de antes ya no dice nada.
+		delete_option( Peer::OPTION );
+
+		Events::record( Events::UNPAIRED, Events::INFO, null, array( 'by' => $by ) );
+	}
+
+	/**
+	 * Le manda a la otra un pedido firmado (`/pause`, `/unpair`).
+	 *
+	 * @param array{store: string, rest_url: string, secret: string, role: string} $peer La otra tienda.
+	 * @param string                                                               $path La ruta, relativa a `wss/v1`.
+	 * @param array<string, mixed>                                                 $body Lo que va.
+	 *
+	 * @return bool Si contestó 200.
+	 */
+	public static function tell( array $peer, string $path, array $body ): bool {
+		$json     = (string) wp_json_encode( (object) $body );
+		$response = wp_remote_post(
+			untrailingslashit( $peer['rest_url'] ) . $path,
+			array(
+				'headers'     => array_merge(
+					array( 'Content-Type' => 'application/json' ),
+					Signature::headers( Store::id(), $peer['secret'], 'POST', '/wss/v1' . $path, array(), $json )
+				),
+				'body'        => $json,
+				// Lo pide la pantalla: si la otra está caída, mejor no colgarla 30 segundos.
+				'timeout'     => 10,
+				'redirection' => 0,
+			)
+		);
+
+		Peer::observe( $response );
+
+		return ! is_wp_error( $response ) && 200 === (int) wp_remote_retrieve_response_code( $response );
 	}
 
 	/**

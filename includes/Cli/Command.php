@@ -20,6 +20,7 @@ use Woonderful\StockSync\Reconciliation\Reconciler;
 use Woonderful\StockSync\Reconciliation\Result;
 use Woonderful\StockSync\Transport\Pairing;
 use Woonderful\StockSync\Transport\Peers;
+use Woonderful\StockSync\Transport\Pause;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -213,6 +214,10 @@ final class Command {
 			\WP_CLI::error( 'wss_not_master: ' . __( 'La reconciliación se lanza desde la tienda maestra: la que generó el código de emparejamiento.', 'woonderful-stock-sync-for-woocommerce' ) );
 		}
 
+		if ( Pause::is_on() ) {
+			\WP_CLI::error( __( 'La sincronización está en pausa: no se reconcilia hasta reanudarla con `wp wss resume`.', 'woonderful-stock-sync-for-woocommerce' ) );
+		}
+
 		$result  = Reconciler::run( Result::MANUAL );
 		$details = $result['details'];
 
@@ -378,6 +383,93 @@ final class Command {
 		foreach ( Events::list( array(), 1, $limit )['items'] as $event ) {
 			\WP_CLI::line( Events::local_time( $event['at'] ) . '  ' . strtoupper( (string) $event['level'] ) . '  ' . Events::describe( $event ) );
 		}
+	}
+
+	/**
+	 * Pausa la sincronización en las dos tiendas (ADR-015 §1).
+	 *
+	 * Cada venta se sigue anotando; nadie manda, aplica, reconcilia ni vincula hasta
+	 * reanudar con `wp wss resume`.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp wss pause
+	 *
+	 * @param array<int, string>    $args       No lleva.
+	 * @param array<string, string> $assoc_args No lleva.
+	 */
+	public function pause( array $args, array $assoc_args ): void {
+		$this->set_pause( true );
+	}
+
+	/**
+	 * Reanuda la sincronización: la próxima pasada manda lo anotado durante la pausa.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp wss resume
+	 *
+	 * @param array<int, string>    $args       No lleva.
+	 * @param array<string, string> $assoc_args No lleva.
+	 */
+	public function resume( array $args, array $assoc_args ): void {
+		$this->set_pause( false );
+	}
+
+	/**
+	 * Desempareja las dos tiendas (ADR-015 §3).
+	 *
+	 * Las dos olvidan la URL y el secreto de la otra. Los vínculos y el libro quedan: volver a
+	 * emparejar con la misma tienda deja todo como estaba.
+	 *
+	 * ## OPTIONS
+	 *
+	 * [--yes]
+	 * : Sin preguntar.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp wss unpair --yes
+	 *
+	 * @param array<int, string>    $args       No lleva.
+	 * @param array<string, string> $assoc_args `--yes`.
+	 */
+	public function unpair( array $args, array $assoc_args ): void {
+		if ( null === Peers::only() ) {
+			\WP_CLI::error( __( 'Esta tienda no está emparejada con otra.', 'woonderful-stock-sync-for-woocommerce' ) );
+		}
+
+		\WP_CLI::confirm( __( 'Las dos tiendas dejan de sincronizar. ¿Desemparejar?', 'woonderful-stock-sync-for-woocommerce' ), $assoc_args );
+
+		if ( Peers::unpair() ) {
+			\WP_CLI::success( __( 'Desemparejadas. La otra tienda también se enteró.', 'woonderful-stock-sync-for-woocommerce' ) );
+
+			return;
+		}
+
+		\WP_CLI::warning( __( 'Desemparejada acá, pero la otra tienda no respondió: va a ver que ésta rechaza sus pedidos. Desemparejala también allá.', 'woonderful-stock-sync-for-woocommerce' ) );
+	}
+
+	/**
+	 * Pausa o reanuda, y dice si la otra se enteró.
+	 *
+	 * @param bool $paused Pausar o reanudar.
+	 */
+	private function set_pause( bool $paused ): void {
+		if ( null === Peers::only() ) {
+			\WP_CLI::error( __( 'Esta tienda no está emparejada con otra.', 'woonderful-stock-sync-for-woocommerce' ) );
+		}
+
+		$told = Pause::toggle( $paused );
+		$done = $paused ? __( 'Sincronización en pausa.', 'woonderful-stock-sync-for-woocommerce' ) : __( 'Sincronización reanudada.', 'woonderful-stock-sync-for-woocommerce' );
+
+		if ( $told ) {
+			\WP_CLI::success( $done );
+
+			return;
+		}
+
+		\WP_CLI::warning( $done . ' ' . __( 'La otra tienda no respondió: se va a enterar en su próximo envío.', 'woonderful-stock-sync-for-woocommerce' ) );
 	}
 
 	/**

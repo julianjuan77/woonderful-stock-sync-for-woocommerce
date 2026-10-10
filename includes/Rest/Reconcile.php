@@ -15,6 +15,7 @@ use Woonderful\StockSync\Reconciliation\Books;
 use Woonderful\StockSync\Reconciliation\Lock;
 use Woonderful\StockSync\Reconciliation\Result;
 use Woonderful\StockSync\Transport\Peers;
+use Woonderful\StockSync\Transport\Pause;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -81,6 +82,10 @@ final class Reconcile {
 	 * @return \WP_REST_Response|\WP_Error
 	 */
 	public static function answer( \WP_REST_Request $request ) {
+		if ( Pause::is_on() ) {
+			return Pause::refusal();
+		}
+
 		if ( Lock::is_taken() ) {
 			return new \WP_Error( 'wss_reconciling', __( 'Esta tienda está en medio de una reconciliación.', 'woonderful-stock-sync-for-woocommerce' ), array( 'status' => 409 ) );
 		}

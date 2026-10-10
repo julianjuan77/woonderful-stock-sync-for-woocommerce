@@ -34,6 +34,11 @@ final class Sender {
 	public const NO_PEER = 'no_peer';
 
 	/**
+	 * El error de una pasada en pausa (ADR-015 §1).
+	 */
+	public const PAUSED = 'paused';
+
+	/**
 	 * Cuánto se espera la respuesta, en segundos.
 	 *
 	 * Muy por debajo de los 5 minutos del claim: si se acercara, el claim podría vencer con
@@ -72,6 +77,14 @@ final class Sender {
 
 		if ( null === $peer ) {
 			$summary['error'] = self::NO_PEER;
+
+			return $summary;
+		}
+
+		// Tampoco en pausa: el techo de 6 horas se cuenta desde el primer intento, y así no
+		// corre mientras dura (ADR-015 §1).
+		if ( Pause::is_on() ) {
+			$summary['error'] = self::PAUSED;
 
 			return $summary;
 		}

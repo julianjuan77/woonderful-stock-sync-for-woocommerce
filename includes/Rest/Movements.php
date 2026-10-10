@@ -10,6 +10,7 @@ declare( strict_types = 1 );
 namespace Woonderful\StockSync\Rest;
 
 use Woonderful\StockSync\Ledger\Ledger;
+use Woonderful\StockSync\Transport\Pause;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -104,6 +105,11 @@ final class Movements {
 	 * @return \WP_REST_Response|\WP_Error
 	 */
 	public static function receive( \WP_REST_Request $request ) {
+		// En pausa no se aplica nada: la otra lo guarda y lo vuelve a mandar al reanudar.
+		if ( Pause::is_on() ) {
+			return Pause::refusal();
+		}
+
 		$payload   = json_decode( $request->get_body(), true );
 		$movements = is_array( $payload ) ? ( $payload['movements'] ?? null ) : null;
 

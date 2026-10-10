@@ -90,6 +90,8 @@ en la activación y en `plugins_loaded` si la guardada es menor.
 | `/movements` | POST | HMAC con el secreto compartido | Entrega un lote (máximo **200**) |
 | `/reconcile/digest` | POST | HMAC con el secreto compartido | Fase 1 de la reconciliación |
 | `/health` | GET | HMAC; durante el canje, con el código | Canal, firma y versión del otro lado |
+| `/pause` | POST | HMAC con el secreto compartido | La otra pausó o reanudó: `{"paused": bool}`, y ésta queda igual (ADR-015 §2) |
+| `/unpair` | POST | HMAC con el secreto compartido | La otra desemparejó: ésta olvida la URL y el secreto (ADR-015 §3) |
 | `/products` | GET | HMAC con el secreto compartido | Sólo lectura del catálogo, paginado, para la pantalla de vinculación (ADR-005) |
 
 **Cabeceras de firma:** `X-WSS-Store`, `X-WSS-Timestamp`, `X-WSS-Nonce`, `X-WSS-Signature`.
@@ -352,6 +354,7 @@ compatible; quitar uno o cambiarle el significado es `wss/v2`.
 | `wss_reconciling` | El candado de la reconciliación: `<token>\|<vence>`, 15 minutos. Se toma con `INSERT IGNORE`, o con un `UPDATE` que sólo pisa el valor vencido; se suelta con un `DELETE` que sólo borra el propio. Siempre con SQL directo, nunca con `get_option()` (ADR-009 §4). Se borra siempre al desinstalar |
 | `wss_last_reconciliation` | Cómo terminó la última reconciliación en esta tienda: cuándo, quién la lanzó, `done`, `unreachable` o `busy`, y qué hizo. No autocargada (ADR-009 §7). Se borra siempre al desinstalar |
 | `wss_catalog_run` · `wss_catalog_refreshed_at` | Cuándo empezó el refresco de la copia del catálogo que está en curso, y cuándo terminó el último completo. No autocargadas. Se borran siempre al desinstalar, y al emparejarse con otra tienda (ADR-014 §1) |
+| `wss_paused` | **La pausa del par** (ADR-015): `{at, by, user}` —cuándo, si la pidió esta tienda (`here`) o la otra (`peer`), y quién—, o no existe. Autocargada: la miran el emisor, `POST /movements` y la reconciliación en cada request. La escribe `Transport\Pause`; un `409 wss_paused` de la otra la pone también acá (`Log\Peer::observe()`). Se borra al desemparejar y siempre al desinstalar |
 
 ### Hooks para terceros
 
@@ -448,7 +451,19 @@ cambiaron el stock de acá —uno retenido, un ajuste aceptado—, sólo con la 
 
 **Configuración** (`src/screens/Settings.js`): el emparejamiento —generar el código o canjearlo, con
 `Pairing::create_code()` y `Pairing::redeem()`, como `wp wss pairing-code` y `wp wss pair`—, el
-nombre de la tienda, los avisos y la casilla de borrar todo al desinstalar. **Los avisos se validan
+nombre de la tienda, los avisos y la casilla de borrar todo al desinstalar. Lo que se guarda espera
+a la barra de "cambios sin guardar"; **la pausa y el corte se aplican al momento**, desde la
+tarjeta del par: el interruptor "Sincronización activa" llama a `POST /pause` y "Desemparejar",
+con confirmación, a `POST /unpair` —como `wp wss pause`, `resume` y `unpair`—.
+
+**La pausa** (`Transport\Pause`, ADR-015 §1) corta en cada lugar que manda o recibe: la pasada no
+reclama ni pregunta (`Pass::run()`, `Sender::run()`), `POST /movements` y la reconciliación de la
+otra contestan `409 wss_paused`, `Reconciler::run()` vuelve sin guardar nada, `Linker` no vincula
+ni desvincula, y el tick de los avisos no mira si la otra responde. El detector sigue anotando: al
+reanudar, la próxima pasada manda la cola. Pausar y reanudar le avisan a la otra
+(`Peers::tell()`, 10 segundos de espera); si no contesta, igual se hace acá. **Desemparejar**
+(`Peers::unpair()`) le avisa y olvida la URL y el secreto (`Peers::forget()`), la pausa y el
+estado de la otra; quedan la etiqueta, los vínculos, el libro y la copia del catálogo. **Los avisos se validan
 en `Notifier::configure()`**, que usan la pantalla y `wp wss notify`: con un dato malo no guarda
 ninguno. El emparejamiento es un componente aparte (`src/components/Pairing.js`) porque lo usa
 también la configuración inicial. Mientras el código espera, la maestra pregunta `GET /status`

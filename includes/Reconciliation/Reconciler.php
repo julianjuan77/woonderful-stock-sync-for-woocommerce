@@ -13,6 +13,7 @@ use Woonderful\StockSync\Log\Events;
 use Woonderful\StockSync\Log\Peer;
 use Woonderful\StockSync\Rest\Reconcile;
 use Woonderful\StockSync\Transport\Peers;
+use Woonderful\StockSync\Transport\Pause;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -26,6 +27,11 @@ defined( 'ABSPATH' ) || exit;
 final class Reconciler {
 
 	/**
+	 * Lo que devuelve en pausa. No es un resultado: no se guarda (ADR-015 §1).
+	 */
+	public const PAUSED = 'paused';
+
+	/**
 	 * Lanza una reconciliación.
 	 *
 	 * Con el candado tomado no hace nada ni guarda nada: la manual lo informa, y las
@@ -36,6 +42,14 @@ final class Reconciler {
 	 * @return array{outcome: string, details: array<string, mixed>}
 	 */
 	public static function run( string $trigger ): array {
+		// En pausa no se reconcilia, ni de noche ni a mano, y no se guarda nada (ADR-015 §1).
+		if ( Pause::is_on() ) {
+			return array(
+				'outcome' => self::PAUSED,
+				'details' => array(),
+			);
+		}
+
 		$peer = Peers::only();
 
 		if ( null === $peer ) {

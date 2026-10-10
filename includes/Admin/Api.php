@@ -26,6 +26,7 @@ use Woonderful\StockSync\Reconciliation\Result;
 use Woonderful\StockSync\Transport\Catalog;
 use Woonderful\StockSync\Transport\Pairing;
 use Woonderful\StockSync\Transport\Peers;
+use Woonderful\StockSync\Transport\Pause;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -80,6 +81,8 @@ final class Api {
 			'/peer'                           => array( 'GET', 'peer' ),
 			'/requirements'                   => array( 'GET', 'requirements' ),
 			'/test-email'                     => array( 'POST', 'test_email' ),
+			'/pause'                          => array( 'POST', 'pause' ),
+			'/unpair'                         => array( 'POST', 'unpair' ),
 			'/discrepancies/(?P<product>\\d+)/(?P<action>accept|restore)' => array( 'POST', 'resolve' ),
 		);
 
@@ -121,10 +124,13 @@ final class Api {
 					'suspended' => Plugin::suspension_reason(),
 				),
 				'paired'         => null !== $peer,
+				'paused'         => self::pause_state(),
 				'peer'           => array(
 					'label'     => $peer['label'] ?? null,
 					// Para saber que un re-emparejamiento terminó: la tienda ya figuraba emparejada.
 					'paired_at' => $peer['paired_at'] ?? null,
+					// La dirección, para reconocerla: el host de su API.
+					'host'      => self::peer_host(),
 					'state'     => $state['state'],
 					'since'     => Peer::OK === $state['state'] ? null : Events::local_time( gmdate( 'Y-m-d H:i:s', $state['since'] ) ),
 					'error'     => $state['error'],
@@ -143,6 +149,71 @@ final class Api {
 	}
 
 	/**
+	 * Pausa o reanuda en las dos tiendas: lo mismo que `wp wss pause` y `wp wss resume`
+	 * (ADR-015 §1). Vuelve el estado nuevo y si la otra se enteró.
+	 *
+	 * @param \WP_REST_Request $request `paused`.
+	 */
+	public static function pause( \WP_REST_Request $request ): \WP_REST_Response|\WP_Error {
+		if ( null === Peers::only() ) {
+			return new \WP_Error( 'wss_not_paired', __( 'Esta tienda no está emparejada con otra.', 'woonderful-stock-sync-for-woocommerce' ), array( 'status' => 409 ) );
+		}
+
+		$told     = Pause::toggle( rest_sanitize_boolean( (string) $request['paused'] ) );
+		$response = self::status();
+		$response->set_data( array_merge( (array) $response->get_data(), array( 'peer_told' => $told ) ) );
+
+		return $response;
+	}
+
+	/**
+	 * Desempareja las dos tiendas: lo mismo que `wp wss unpair` (ADR-015 §3).
+	 */
+	public static function unpair(): \WP_REST_Response|\WP_Error {
+		if ( null === Peers::only() ) {
+			return new \WP_Error( 'wss_not_paired', __( 'Esta tienda no está emparejada con otra.', 'woonderful-stock-sync-for-woocommerce' ), array( 'status' => 409 ) );
+		}
+
+		$told     = Peers::unpair();
+		$response = self::status();
+		$response->set_data( array_merge( (array) $response->get_data(), array( 'peer_told' => $told ) ) );
+
+		return $response;
+	}
+
+	/**
+	 * La pausa, para mostrarla: cuándo, en la hora del sitio; quién la pidió; y el usuario.
+	 *
+	 * @return array{at: string, by: string, user: string|null}|null
+	 */
+	private static function pause_state(): ?array {
+		$pause = Pause::current();
+
+		if ( null === $pause ) {
+			return null;
+		}
+
+		$user = null === $pause['user'] ? false : get_userdata( $pause['user'] );
+
+		return array(
+			'at'   => Events::local_time( $pause['at'] ),
+			'by'   => $pause['by'],
+			'user' => $user instanceof \WP_User ? $user->display_name : null,
+		);
+	}
+
+	/**
+	 * El host de la API de la otra tienda, o null.
+	 */
+	private static function peer_host(): ?string {
+		$peer = Peers::only();
+		$host = null === $peer ? null : wp_parse_url( $peer['rest_url'], PHP_URL_HOST );
+		$port = null === $peer ? null : wp_parse_url( $peer['rest_url'], PHP_URL_PORT );
+
+		return is_string( $host ) ? $host . ( is_int( $port ) ? ':' . $port : '' ) : null;
+	}
+
+	/**
 	 * La reconciliación manual: lo mismo que `wp wss reconcile`. Sólo en la maestra.
 	 */
 	public static function reconcile(): \WP_REST_Response|\WP_Error {
@@ -152,6 +223,10 @@ final class Api {
 
 		if ( ! Peers::this_is_master() ) {
 			return new \WP_Error( 'wss_not_master', __( 'La reconciliación se lanza desde la tienda maestra.', 'woonderful-stock-sync-for-woocommerce' ), array( 'status' => 403 ) );
+		}
+
+		if ( Pause::is_on() ) {
+			return new \WP_Error( 'wss_paused', __( 'La sincronización está en pausa: no se reconcilia hasta reanudarla.', 'woonderful-stock-sync-for-woocommerce' ), array( 'status' => 409 ) );
 		}
 
 		if ( Result::BUSY === Reconciler::run( Result::MANUAL )['outcome'] ) {
@@ -600,6 +675,10 @@ final class Api {
 	public static function link_bulk( \WP_REST_Request $request ): \WP_REST_Response|\WP_Error {
 		if ( ! Peers::this_is_master() ) {
 			return new \WP_Error( 'wss_not_master', __( 'Vincular se hace desde la tienda maestra.', 'woonderful-stock-sync-for-woocommerce' ), array( 'status' => 403 ) );
+		}
+
+		if ( Pause::is_on() ) {
+			return new \WP_Error( 'wss_paused', __( 'La sincronización está en pausa: no se vincula hasta reanudarla.', 'woonderful-stock-sync-for-woocommerce' ), array( 'status' => 409 ) );
 		}
 
 		if ( 'GET' === $request->get_method() ) {

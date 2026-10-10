@@ -121,7 +121,9 @@ export default function Dashboard( { apiFetch, navigate, status, onStatus } ) {
 						<button
 							className="woon-btn woon-btn--primary"
 							onClick={ reconcile }
-							disabled={ null !== busy || off }
+							disabled={
+								null !== busy || off || !! status.paused
+							}
 						>
 							{ 'reconcile' === busy
 								? __(
@@ -284,6 +286,39 @@ function Hero( { status, running, open, navigate } ) {
 			'Ir a Configuración',
 			'woonderful-stock-sync-for-woocommerce'
 		);
+	} else if ( status.paused ) {
+		tone = 'warn';
+		icon = <IconPause />;
+		title = __(
+			'La sincronización está en pausa',
+			'woonderful-stock-sync-for-woocommerce'
+		);
+		text = sprintf(
+			/* translators: 1: desde cuándo, 2: quién la pausó. */
+			__(
+				'Desde %1$s, %2$s. Las ventas se siguen anotando y se mandan a la otra tienda al reanudar.',
+				'woonderful-stock-sync-for-woocommerce'
+			),
+			status.paused.at,
+			'peer' === status.paused.by
+				? sprintf(
+						/* translators: %s: la otra tienda. */
+						__(
+							'desde %s',
+							'woonderful-stock-sync-for-woocommerce'
+						),
+						peer
+				  )
+				: status.paused.user ??
+						__(
+							'desde acá',
+							'woonderful-stock-sync-for-woocommerce'
+						)
+		);
+		action = __(
+			'Reanudar en Configuración',
+			'woonderful-stock-sync-for-woocommerce'
+		);
 	} else if ( 'rejected' === status.peer.state ) {
 		tone = 'off';
 		icon = <IconOff />;
@@ -382,18 +417,30 @@ function Hero( { status, running, open, navigate } ) {
 							  ) }
 					</span>
 				</div>
-				<div className={ `wss-pair__line ${ off ? 'is-off' : '' }` }>
+				<div
+					className={ `wss-pair__line ${ off ? 'is-off' : '' } ${
+						status.paused ? 'is-paused' : ''
+					}` }
+				>
 					<span className="wss-pair__rule" />
 					<span className="wss-pair__label">
-						{ off
-							? __(
-									'Cortada',
-									'woonderful-stock-sync-for-woocommerce'
-							  )
-							: __(
-									'Stock ↔',
-									'woonderful-stock-sync-for-woocommerce'
-							  ) }
+						{ off &&
+							__(
+								'Cortada',
+								'woonderful-stock-sync-for-woocommerce'
+							) }
+						{ ! off &&
+							status.paused &&
+							__(
+								'En pausa',
+								'woonderful-stock-sync-for-woocommerce'
+							) }
+						{ ! off &&
+							! status.paused &&
+							__(
+								'Stock ↔',
+								'woonderful-stock-sync-for-woocommerce'
+							) }
 					</span>
 				</div>
 				<div className="wss-pair__store">
@@ -788,6 +835,19 @@ function IconWarn() {
 		<svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
 			<path
 				d="M10 6v5M10 14v.01"
+				stroke="currentColor"
+				strokeWidth="2"
+				strokeLinecap="round"
+			/>
+		</svg>
+	);
+}
+
+function IconPause() {
+	return (
+		<svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
+			<path
+				d="M7.5 6v8M12.5 6v8"
 				stroke="currentColor"
 				strokeWidth="2"
 				strokeLinecap="round"

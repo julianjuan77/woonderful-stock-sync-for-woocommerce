@@ -38,7 +38,8 @@ $wpdb->query( "DROP TABLE IF EXISTS {$wss_prefix}remote_products" );
 
 // Ni la hora del control de la pasada, ni la del último envío fallido, ni la reconciliación
 // —su candado y su último resultado—, ni el estado de la otra tienda o de los avisos, ni un
-// código de emparejamiento vivo son datos del dueño (ADR-003).
+// código de emparejamiento vivo son datos del dueño (ADR-003). Tampoco la pausa: sin el
+// secreto no hay par que pausar (ADR-015).
 delete_option( 'wss_pass_checked_at' );
 delete_transient( 'wss_send_failed' );
 delete_option( 'wss_reconciling' );
@@ -49,6 +50,7 @@ delete_option( 'wss_pairing' );
 delete_option( 'wss_redeeming' );
 delete_option( 'wss_catalog_run' );
 delete_option( 'wss_catalog_refreshed_at' );
+delete_option( 'wss_paused' );
 
 if ( ! get_option( 'wss_delete_data_on_uninstall', false ) ) {
 	return;

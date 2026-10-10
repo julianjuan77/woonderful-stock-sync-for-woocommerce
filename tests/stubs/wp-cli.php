@@ -2,7 +2,7 @@
 /**
  * Lo mínimo de WP-CLI que usa el plugin, para que PHPStan lo conozca.
  *
- * Un stub propio y no `php-stubs/wp-cli-stubs`: son tres métodos, y una dependencia más
+ * Un stub propio y no `php-stubs/wp-cli-stubs`: son unos pocos métodos, y una dependencia más
  * pide ADR. Si el comando crece, conviene la dependencia.
  *
  * @package Woonderful\StockSync
@@ -33,6 +33,17 @@ class WP_CLI {
 	 * @param string $message Lo que se imprime.
 	 */
 	public static function success( string $message ): void {}
+
+	/**
+	 * @param string $message Lo que se imprime.
+	 */
+	public static function warning( string $message ): void {}
+
+	/**
+	 * @param string               $question   Lo que se pregunta.
+	 * @param array<string, mixed> $assoc_args Con `yes`, no pregunta.
+	 */
+	public static function confirm( string $question, array $assoc_args = array() ): void {}
 
 	/**
 	 * @param string|\WP_Error $message Lo que se imprime.

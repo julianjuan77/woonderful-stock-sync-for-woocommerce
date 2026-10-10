@@ -11,6 +11,7 @@ namespace Woonderful\StockSync\Log;
 
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Transport\Pairing;
+use Woonderful\StockSync\Transport\Pause;
 use Woonderful\StockSync\Transport\Peers;
 use Woonderful\StockSync\Transport\Signature;
 
@@ -28,6 +29,11 @@ final class Peer {
 	 * La opción.
 	 */
 	public const OPTION = 'wss_peer_state';
+
+	/**
+	 * Lo que contesta una tienda en pausa (ADR-015 §2).
+	 */
+	public const PAUSED_CODE = 'wss_paused';
 
 	/**
 	 * Anda.
@@ -58,6 +64,13 @@ final class Peer {
 	 * @param array<string, mixed>|\WP_Error $response Lo que devolvió `wp_remote_*()`.
 	 */
 	public static function observe( $response ): void {
+		// La otra está en pausa y el aviso no llegó: el par queda parejo (ADR-015 §2).
+		if ( self::PAUSED_CODE === self::code_of( $response ) ) {
+			Pause::set( true, Pause::PEER );
+
+			return;
+		}
+
 		$seen = self::classify( $response );
 
 		if ( null === $seen ) {
@@ -211,6 +224,21 @@ final class Peer {
 	}
 
 	/**
+	 * El código de error de una respuesta, o ''.
+	 *
+	 * @param array<string, mixed>|\WP_Error $response La respuesta.
+	 */
+	private static function code_of( $response ): string {
+		if ( is_wp_error( $response ) ) {
+			return '';
+		}
+
+		$payload = json_decode( (string) wp_remote_retrieve_body( $response ), true );
+
+		return is_array( $payload ) && is_string( $payload['code'] ?? null ) ? $payload['code'] : '';
+	}
+
+	/**
 	 * Qué dice una respuesta: el estado y el error, o null si no dice nada del estado.
 	 *
 	 * Un `409 wss_reconciling` no dice nada: la otra está en medio de su propia
@@ -235,8 +263,7 @@ final class Peer {
 			return array( self::OK, null );
 		}
 
-		$payload = json_decode( (string) wp_remote_retrieve_body( $response ), true );
-		$code    = is_array( $payload ) && is_string( $payload['code'] ?? null ) ? $payload['code'] : '';
+		$code = self::code_of( $response );
 
 		if ( 409 === $status && 'wss_reconciling' === $code ) {
 			return null;

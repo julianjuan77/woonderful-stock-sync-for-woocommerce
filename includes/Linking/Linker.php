@@ -18,6 +18,7 @@ use Woonderful\StockSync\Plugin;
 use Woonderful\StockSync\Transport\Peers;
 use Woonderful\StockSync\Transport\Sender;
 use Woonderful\StockSync\Transport\Signature;
+use Woonderful\StockSync\Transport\Pause;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -334,6 +335,11 @@ final class Linker {
 
 		if ( null === $peer ) {
 			return new \WP_Error( 'wss_not_paired', __( 'Esta tienda no está emparejada con otra.', 'woonderful-stock-sync-for-woocommerce' ) );
+		}
+
+		// Vincular le pregunta el stock a la otra, y en pausa no se le habla (ADR-015 §1).
+		if ( Pause::is_on() ) {
+			return new \WP_Error( 'wss_paused', __( 'La sincronización está en pausa: no se vincula ni se desvincula hasta reanudarla.', 'woonderful-stock-sync-for-woocommerce' ) );
 		}
 
 		if ( ! Peers::this_is_master() ) {

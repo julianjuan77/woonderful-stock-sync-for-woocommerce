@@ -24,6 +24,17 @@ if ( ! class_exists( 'WP_CLI' ) ) {
 			self::$out[] = 'Success: ' . $message;
 		}
 
+		public static function warning( string $message ): void {
+			self::$out[] = 'Warning: ' . $message;
+		}
+
+		// Sin --yes, el de verdad pregunta: acá, como si dijera que no.
+		public static function confirm( string $question, array $assoc_args = array() ): void {
+			if ( empty( $assoc_args['yes'] ) ) {
+				throw new RuntimeException( $question );
+			}
+		}
+
 		public static function error( $message, bool $exit = true ): void {
 			throw new RuntimeException( (string) $message );
 		}

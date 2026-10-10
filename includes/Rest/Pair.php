@@ -1,6 +1,6 @@
 <?php
 /**
- * El endpoint del canje del código de emparejamiento.
+ * Los endpoints del emparejamiento: el canje del código, la pausa y el corte.
  *
  * @package Woonderful\StockSync
  */
@@ -10,11 +10,15 @@ declare( strict_types = 1 );
 namespace Woonderful\StockSync\Rest;
 
 use Woonderful\StockSync\Transport\Pairing;
+use Woonderful\StockSync\Transport\Pause;
+use Woonderful\StockSync\Transport\Peers;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
  * `POST /wss/v1/pair`: la secundaria canjea el código por el secreto (ADR-001 §1).
+ * `POST /wss/v1/pause` y `POST /wss/v1/unpair`: la otra pausó, reanudó o desemparejó, y ésta
+ * queda igual (ADR-015 §2, §3). Firmados con el secreto.
  */
 final class Pair {
 
@@ -41,6 +45,65 @@ final class Pair {
 				'permission_callback' => array( self::class, 'authenticate' ),
 			)
 		);
+
+		register_rest_route(
+			Movements::NAMESPACE,
+			Pause::ROUTE,
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( self::class, 'pause' ),
+				'permission_callback' => array( self::class, 'signed' ),
+			)
+		);
+
+		register_rest_route(
+			Movements::NAMESPACE,
+			'/unpair',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( self::class, 'unpair' ),
+				'permission_callback' => array( self::class, 'signed' ),
+			)
+		);
+	}
+
+	/**
+	 * Autentica con el secreto de la otra, anotando el nonce.
+	 *
+	 * @param \WP_REST_Request $request El request.
+	 *
+	 * @return true|\WP_Error
+	 */
+	public static function signed( \WP_REST_Request $request ) {
+		return Auth::authenticate( $request, true );
+	}
+
+	/**
+	 * La otra pausó o reanudó: ésta queda igual.
+	 *
+	 * @param \WP_REST_Request $request `{"paused": bool}`.
+	 *
+	 * @return \WP_REST_Response|\WP_Error
+	 */
+	public static function pause( \WP_REST_Request $request ) {
+		$payload = json_decode( $request->get_body(), true );
+
+		if ( ! is_array( $payload ) || ! is_bool( $payload['paused'] ?? null ) ) {
+			return new \WP_Error( 'wss_bad_request', __( 'El cuerpo tiene que ser un JSON con "paused" verdadero o falso.', 'woonderful-stock-sync-for-woocommerce' ), array( 'status' => 400 ) );
+		}
+
+		Pause::set( $payload['paused'], Pause::PEER );
+
+		return new \WP_REST_Response( array( 'paused' => Pause::is_on() ), 200 );
+	}
+
+	/**
+	 * La otra desemparejó: ésta olvida lo mismo.
+	 */
+	public static function unpair(): \WP_REST_Response {
+		Peers::forget( Pause::PEER );
+
+		return new \WP_REST_Response( array( 'paired' => false ), 200 );
 	}
 
 	/**

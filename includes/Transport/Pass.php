@@ -106,8 +106,12 @@ final class Pass {
 			return;
 		}
 
-		Schedule::after_pass( Sender::run() );
-		Linker::resolve_uncertain();
+		// En pausa el libro anota y nadie manda ni le pregunta a la otra (ADR-015 §1).
+		if ( ! Pause::is_on() ) {
+			Schedule::after_pass( Sender::run() );
+			Linker::resolve_uncertain();
+		}
+
 		Nonces::purge( time() );
 
 		// Corre aunque no haya nada que mandar: es lo que mira el reloj de los avisos.

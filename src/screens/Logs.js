@@ -89,10 +89,14 @@ const KIND_LABELS = {
 		'Aviso sin enviar',
 		'woonderful-stock-sync-for-woocommerce'
 	),
+	paused: __( 'En pausa', 'woonderful-stock-sync-for-woocommerce' ),
+	resumed: __( 'Reanudada', 'woonderful-stock-sync-for-woocommerce' ),
+	unpaired: __( 'Desemparejadas', 'woonderful-stock-sync-for-woocommerce' ),
 };
 
 // Lo que vuelve a la normalidad lleva el tilde, aunque su nivel sea info.
 const RECOVERED = [
+	'resumed',
 	'peer_back',
 	'peer_accepted',
 	'pair_restored',

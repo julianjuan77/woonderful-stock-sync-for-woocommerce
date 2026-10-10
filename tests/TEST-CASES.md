@@ -1217,3 +1217,20 @@ Mutaciones: sin revisar el SKU fresco, o el vinculado allá, cae `BLK-03`.
 | --- | --- | --- |
 | `ADM-33` | **El CSS de las fuentes** | Cuatro archivos, todos del plugin y todos presentes en `assets/fonts/`; ningún pedido a Google (ADR-013 §2.1) |
 | `ADM-34` | **Registros busca por producto**: por parte del nombre, por SKU y por ID, y algo que no es ningún producto | Cada búsqueda trae los eventos de ese producto; la que no encuentra, nada. `levels` cuenta los de cada nivel |
+
+## [`tests/test-pause.php`](test-pause.php) — pausar y desemparejar (ADR-015)
+
+| ID | Caso | Esperado |
+|---|---|---|
+| `PAU-01` | **Pausar dos veces y reanudar** | Se guarda una vez, se anota `paused` y `resumed`; la frase dice quién |
+| `PAU-02` | **Un movimiento pendiente, en pausa** | El emisor no reclama: sigue `pending` y sin `first_attempt_at`; la pasada no hace ningún request. Al reanudar, sale |
+| `PAU-03` | En pausa llega un lote y una pregunta de reconciliación | `409 wss_paused` a los dos |
+| `PAU-04` | En pausa se reconcilia y se vincula | `Reconciler::PAUSED` sin guardar resultado; vincular, `wss_paused`; ningún request |
+| `PAU-05` | **La otra contesta `409 wss_paused`** | Ésta queda en pausa, `by: peer`; el estado de la otra sigue `ok` |
+| `PAU-06` | Pausar con la otra arriba y reanudar con la otra caída | `POST /pause` firmado con `{"paused": true}`; caída, se reanuda igual acá |
+| `PAU-07` | `POST /pause` y `POST /unpair` de la otra, y un cuerpo malo | Queda igual que la otra; un 400; sin socia y sin pausa |
+| `PAU-08` | **Desemparejar con la otra caída** | Se pidió `POST /unpair`; se borran URL, secreto y estado de la otra; quedan etiqueta y `purged_through`; se anota `unpaired` |
+| `PAU-09` | En pausa, con la otra caída hace 2 horas | El tick no la sondea ni avisa |
+| `PAU-10` | `POST wss-admin/v1/pause` y `/unpair` | La pausa con quién y si la otra se enteró, y el host de la otra; después, sin socia; otra vez, un 409 |
+| `PAU-11` | `wp wss pause` con la otra caída, `unpair` sin y con `--yes` | Un aviso de que la otra no se enteró; sin `--yes` pregunta y no hace nada; con `--yes`, desempareja |
+

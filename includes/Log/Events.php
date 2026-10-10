@@ -11,6 +11,7 @@ namespace Woonderful\StockSync\Log;
 
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Schema\Installer;
+use Woonderful\StockSync\Transport\Pause;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -49,6 +50,9 @@ final class Events {
 	public const NOTIFIED             = 'notified';
 	public const NOTIFY_FAILED        = 'notify_failed';
 	public const DIGEST_SENT          = 'digest_sent';
+	public const PAUSED               = 'paused';
+	public const RESUMED              = 'resumed';
+	public const UNPAIRED             = 'unpaired';
 
 	/**
 	 * Lo que la purga no borra: decisiones y memorias, no eventos (ADR-011 §6).
@@ -436,6 +440,18 @@ final class Events {
 			case self::NOTIFIED:
 				/* translators: %s: producto. */
 				return sprintf( __( 'Se avisó por email que el producto %s no sincroniza.', 'woonderful-stock-sync-for-woocommerce' ), $product );
+			case self::PAUSED:
+				return Pause::PEER === ( $context['by'] ?? null )
+					? __( 'La otra tienda pausó la sincronización.', 'woonderful-stock-sync-for-woocommerce' )
+					: __( 'Se pausó la sincronización.', 'woonderful-stock-sync-for-woocommerce' );
+			case self::RESUMED:
+				return Pause::PEER === ( $context['by'] ?? null )
+					? __( 'La otra tienda reanudó la sincronización.', 'woonderful-stock-sync-for-woocommerce' )
+					: __( 'Se reanudó la sincronización.', 'woonderful-stock-sync-for-woocommerce' );
+			case self::UNPAIRED:
+				return Pause::PEER === ( $context['by'] ?? null )
+					? __( 'La otra tienda desemparejó las dos tiendas.', 'woonderful-stock-sync-for-woocommerce' )
+					: __( 'Se desemparejaron las dos tiendas.', 'woonderful-stock-sync-for-woocommerce' );
 			case self::DIGEST_SENT:
 				return sprintf(
 					/* translators: 1: productos nuevos en el resumen, 2: el total sin sincronizar. */
