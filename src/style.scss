@@ -3432,6 +3432,11 @@ h2.wss-confirm__title {
 	font-size: 13px;
 }
 
+.wss-settings__requirements {
+	margin-top: 14px;
+	font-size: var(--woon-fs-body);
+}
+
 .wss-pairing {
 	display: flex;
 	flex-direction: column;

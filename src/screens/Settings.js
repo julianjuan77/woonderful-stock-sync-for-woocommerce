@@ -1,13 +1,15 @@
 import { useState, useEffect, useRef } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import Pairing from '../components/Pairing';
+import Requirements from '../components/Requirements';
 
-export default function Settings( { apiFetch, navigate, status, onStatus } ) {
+export default function Settings( { apiFetch, status, onStatus } ) {
 	const [ saved, setSaved ] = useState( null );
 	const [ form, setForm ] = useState( null );
 	const [ error, setError ] = useState( null );
 	const [ saving, setSaving ] = useState( false );
 	const [ repairing, setRepairing ] = useState( false );
+	const [ requirements, setRequirements ] = useState( false );
 	const [ toast, setToast ] = useState( null );
 	const toastTimer = useRef();
 
@@ -318,13 +320,26 @@ export default function Settings( { apiFetch, navigate, status, onStatus } ) {
 							<button
 								type="button"
 								className="wss-link"
-								onClick={ () => navigate( 'setup' ) }
+								aria-expanded={ requirements }
+								onClick={ () =>
+									setRequirements( ! requirements )
+								}
 							>
-								{ __(
-									'Revisar los requisitos del plugin',
-									'woonderful-stock-sync-for-woocommerce'
-								) }
+								{ requirements
+									? __(
+											'Ocultar los requisitos',
+											'woonderful-stock-sync-for-woocommerce'
+									  )
+									: __(
+											'Revisar los requisitos del plugin',
+											'woonderful-stock-sync-for-woocommerce'
+									  ) }
 							</button>
+							{ requirements && (
+								<div className="wss-settings__requirements">
+									<Requirements apiFetch={ apiFetch } />
+								</div>
+							) }
 						</div>
 					</div>
 				</section>
