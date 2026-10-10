@@ -27,10 +27,18 @@ const STATE_TABS = [
 const MOTIVE_TABS = [
 	[ '', __( 'Todos', 'woonderful-stock-sync-for-woocommerce' ) ],
 	[
+		'suggestion',
+		__( 'Con sugerencia', 'woonderful-stock-sync-for-woocommerce' ),
+	],
+	[
 		'no_match',
 		__( 'Sin coincidencia', 'woonderful-stock-sync-for-woocommerce' ),
 	],
 	[ 'no_sku', __( 'Sin SKU', 'woonderful-stock-sync-for-woocommerce' ) ],
+	[
+		'stock_in_parent',
+		__( 'Stock en el padre', 'woonderful-stock-sync-for-woocommerce' ),
+	],
 	[
 		'duplicate_sku',
 		__( 'SKU duplicado', 'woonderful-stock-sync-for-woocommerce' ),
