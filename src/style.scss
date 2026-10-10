@@ -2675,6 +2675,12 @@ h2.wss-confirm__title {
 		margin-top: 14px;
 	}
 
+	p#{&}__checked {
+		margin: 10px 0 0;
+		font-size: 12px;
+		color: var(--woon-text-faint);
+	}
+
 	&__progress {
 		position: absolute;
 		right: 0;

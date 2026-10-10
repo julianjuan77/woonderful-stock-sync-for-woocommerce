@@ -1455,4 +1455,25 @@ class Test_Ledger extends WP_UnitTestCase {
 
 		$this->assertNull( $wpdb->get_var( "SELECT details FROM {$table} WHERE origin_seq = 78" ) ); // phpcs:ignore WordPress.DB
 	}
+
+	/**
+	 * LED-62 — **La cola de lo propio**: cuántos esperan confirmación, desde cuándo el más viejo
+	 * y cuántos se dieron por perdidos. Lo confirmado y lo recibido no cuentan.
+	 */
+	public function test_the_queue_summary(): void {
+		$this->pending_movement( array( 'created_at' => '2026-10-10 10:00:00' ) );
+		$this->pending_movement( array( 'created_at' => '2026-10-10 11:00:00', 'delivery' => 'in_flight' ) ); // phpcs:ignore WordPress.Arrays.ArrayDeclarationSpacing.AssociativeArrayFound
+		$this->pending_movement( array( 'delivery' => 'abandoned' ) );
+		$this->pending_movement( array( 'delivery' => 'confirmed' ) );
+		$this->pending_movement( array( 'origin_store' => 'otra-tienda', 'delivery' => null ) ); // phpcs:ignore WordPress.Arrays.ArrayDeclarationSpacing.AssociativeArrayFound
+
+		$this->assertSame(
+			array(
+				'pending'   => 2,
+				'oldest'    => '2026-10-10 10:00:00',
+				'abandoned' => 1,
+			),
+			Ledger::queue_summary()
+		);
+	}
 }

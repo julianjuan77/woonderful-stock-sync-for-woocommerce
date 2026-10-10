@@ -1124,6 +1124,37 @@ final class Ledger {
 	}
 
 	/**
+	 * Cómo está la cola de lo propio: cuántos movimientos esperan confirmación, desde cuándo el
+	 * más viejo, y cuántos se dieron por perdidos —pasaron el techo de 6 horas— y esperan a la
+	 * reconciliación (ADR-009).
+	 *
+	 * @return array{pending: int, oldest: string|null, abandoned: int} `oldest` en UTC.
+	 */
+	public static function queue_summary(): array {
+		global $wpdb;
+
+		$table = Installer::table( 'movements' );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT SUM( delivery IN ( 'pending', 'in_flight' ) ) AS pending,
+				        MIN( CASE WHEN delivery IN ( 'pending', 'in_flight' ) THEN created_at END ) AS oldest,
+				        SUM( delivery = 'abandoned' ) AS abandoned
+				 FROM {$table} WHERE origin_store = %s",
+				Store::id()
+			)
+		);
+		// phpcs:enable
+
+		return array(
+			'pending'   => (int) ( $row->pending ?? 0 ),
+			'oldest'    => isset( $row->oldest ) ? (string) $row->oldest : null,
+			'abandoned' => (int) ( $row->abandoned ?? 0 ),
+		);
+	}
+
+	/**
 	 * De esos productos, los que tienen un `unlink` propio que la otra todavía no confirmó: se
 	 * están desvinculando. Con PHP-FPM dura un segundo; sin él, hasta la próxima pasada.
 	 *

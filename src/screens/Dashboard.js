@@ -8,6 +8,18 @@ export default function Dashboard( { apiFetch, navigate, status, onStatus } ) {
 
 	useEffect( () => () => clearTimeout( toastTimer.current ), [] );
 
+	// Se vuelve a mirar cada 30 segundos: un cambio en camino aparece y desaparece solo.
+	useEffect( () => {
+		const timer = setInterval( () => {
+			if ( null === busy && ! document.hidden ) {
+				apiFetch( { path: '/status' } )
+					.then( onStatus )
+					.catch( () => {} );
+			}
+		}, 30000 );
+		return () => clearInterval( timer );
+	}, [ apiFetch, onStatus, busy ] );
+
 	if ( ! status ) {
 		return (
 			<div className="woon-loading">
@@ -247,11 +259,14 @@ function Hero( { status, running, open, navigate } ) {
 		'woonderful-stock-sync-for-woocommerce'
 	);
 	let text = __(
-		'Los productos vinculados tienen el mismo stock en las dos tiendas.',
+		'No hay cambios en camino ni discrepancias abiertas.',
 		'woonderful-stock-sync-for-woocommerce'
 	);
 	let action = null;
 	let detail = null;
+	// Dice lo que sabe: el stock se compara al reconciliar, no a cada rato.
+	let checked = lastCheck( status.reconciliation );
+	const queue = status.queue ?? { pending: 0, abandoned: 0, oldest: null };
 
 	if ( running ) {
 		tone = 'run';
@@ -380,6 +395,48 @@ function Hero( { status, running, open, navigate } ) {
 			'Revisalos abajo. El resto del catálogo se sigue sincronizando.',
 			'woonderful-stock-sync-for-woocommerce'
 		);
+	} else if ( queue.abandoned > 0 ) {
+		tone = 'warn';
+		icon = <IconWarn />;
+		title = sprintf(
+			/* translators: %d: cuántos cambios. */
+			_n(
+				'%d cambio no se pudo entregar',
+				'%d cambios no se pudieron entregar',
+				queue.abandoned,
+				'woonderful-stock-sync-for-woocommerce'
+			),
+			queue.abandoned
+		);
+		text = __(
+			'Llevan más de 6 horas sin llegar a la otra tienda. La próxima reconciliación los vuelve a mandar; en la maestra se puede lanzar ahora con "Reconciliar ahora".',
+			'woonderful-stock-sync-for-woocommerce'
+		);
+	} else if ( queue.pending > 0 ) {
+		tone = 'run';
+		icon = <IconSend />;
+		title = sprintf(
+			/* translators: %d: cuántos cambios. */
+			_n(
+				'%d cambio en camino a la otra tienda',
+				'%d cambios en camino a la otra tienda',
+				queue.pending,
+				'woonderful-stock-sync-for-woocommerce'
+			),
+			queue.pending
+		);
+		text = sprintf(
+			/* translators: %s: desde cuándo. */
+			__(
+				'El más viejo, desde %s. Salen solos: no hace falta hacer nada.',
+				'woonderful-stock-sync-for-woocommerce'
+			),
+			queue.oldest
+		);
+	}
+
+	if ( 'ok' !== tone && 'run' !== tone ) {
+		checked = null;
 	}
 
 	return (
@@ -390,6 +447,9 @@ function Hero( { status, running, open, navigate } ) {
 					<h2 className="wss-hero__title">{ title }</h2>
 					<p className="wss-hero__text">{ text }</p>
 					{ detail && <p className="wss-hero__detail">{ detail }</p> }
+					{ checked && (
+						<p className="wss-hero__checked">{ checked }</p>
+					) }
 					{ action && (
 						<button
 							className="woon-btn woon-btn--ghost woon-btn--sm wss-hero__cta"
@@ -812,6 +872,50 @@ function ResolveMenu( { disabled, onResolve } ) {
 				</div>
 			) }
 		</div>
+	);
+}
+
+// La última vez que se comparó el stock: la reconciliación, y si no se pudo, por qué.
+function lastCheck( reconciliation ) {
+	if ( ! reconciliation ) {
+		return __(
+			'Todavía no se comparó el stock de las dos tiendas: la maestra lo hace cada noche.',
+			'woonderful-stock-sync-for-woocommerce'
+		);
+	}
+	if ( 'done' === reconciliation.outcome ) {
+		return sprintf(
+			/* translators: %s: cuándo. */
+			__(
+				'Última comparación de stock: %s.',
+				'woonderful-stock-sync-for-woocommerce'
+			),
+			reconciliation.at
+		);
+	}
+	return sprintf(
+		/* translators: 1: cuándo, 2: qué pasó. */
+		__(
+			'La última comparación de stock (%1$s) no se pudo hacer: %2$s',
+			'woonderful-stock-sync-for-woocommerce'
+		),
+		reconciliation.at,
+		reconciliation.text
+	);
+}
+
+function IconSend() {
+	return (
+		<svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
+			<path
+				d="M4 10h10M10 6l4 4-4 4"
+				fill="none"
+				stroke="currentColor"
+				strokeWidth="2"
+				strokeLinecap="round"
+				strokeLinejoin="round"
+			/>
+		</svg>
 	);
 }
 

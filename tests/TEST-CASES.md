@@ -1187,6 +1187,7 @@ Mutaciones: sin revisar el SKU fresco, o el vinculado allá, cae `BLK-03`.
 | --- | --- | --- |
 | `DET-19` | Una venta de 2 con stock 10 | El movimiento guarda 10 y 8 en `details` |
 | `LED-61` | **Uno recibido que se aplica, y uno que se retiene** | El aplicado guarda el de antes y el de después; el retenido, nada: acá no cambió |
+| `LED-62` | **Dos esperando —uno en vuelo—, uno abandonado, uno confirmado y uno recibido** | La cola: 2 esperando, el más viejo primero, 1 abandonado; lo confirmado y lo recibido no cuentan |
 | `EVT-11` | **Un bootstrap, una venta con los números y una sin** | El historial los muestra —el bootstrap con el de acá y el de arranque—; sin anotar, sólo la diferencia. En pantalla, la diferencia no va dos veces |
 
 ## El resumen en el log

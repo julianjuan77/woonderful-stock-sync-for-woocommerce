@@ -14,6 +14,7 @@ use Woonderful\StockSync\Catalog\Copy;
 use Woonderful\StockSync\Catalog\Rows;
 use Woonderful\StockSync\Detector\Detector;
 use Woonderful\StockSync\Identity\Store;
+use Woonderful\StockSync\Ledger\Ledger;
 use Woonderful\StockSync\Linking\Linker;
 use Woonderful\StockSync\Linking\Links;
 use Woonderful\StockSync\Log\Events;
@@ -136,6 +137,8 @@ final class Api {
 					'error'     => $state['error'],
 				),
 				'reconciliation' => null === $last ? null : self::reconciliation( $last ),
+				// Lo propio que todavía no llegó a la otra: "Todo sincronizado" lo tiene que mirar.
+				'queue'          => self::queue(),
 				'discrepancies'  => array(
 					'own'  => array_map( array( self::class, 'own_discrepancy' ), Audit::open() ),
 					// Sólo la maestra las conoce, y sólo si la última llegó a preguntarlas.
@@ -179,6 +182,21 @@ final class Api {
 		$response->set_data( array_merge( (array) $response->get_data(), array( 'peer_told' => $told ) ) );
 
 		return $response;
+	}
+
+	/**
+	 * La cola de lo propio, con el más viejo en la hora del sitio.
+	 *
+	 * @return array{pending: int, oldest: string|null, abandoned: int}
+	 */
+	private static function queue(): array {
+		$queue = Ledger::queue_summary();
+
+		if ( null !== $queue['oldest'] ) {
+			$queue['oldest'] = Events::local_time( $queue['oldest'] );
+		}
+
+		return $queue;
 	}
 
 	/**

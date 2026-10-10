@@ -423,7 +423,12 @@ Productos**, junto con cuántos están vinculados para la barra (`Rows::linking(
 mismas reglas sin calcular cada fila: `/status` se pide en cada carga).
 
 La pantalla arranca por una cabecera que dice si hay algo que hacer, en este orden: reconciliando,
-suspendida, la otra rechaza, la otra no responde, discrepancias abiertas, todo al día. Con la otra
+suspendida, en pausa, la otra rechaza, la otra no responde, discrepancias abiertas, cambios que no se
+pudieron entregar, cambios en camino, todo al día. **La cola sale de `/status`** (`queue`:
+`Ledger::queue_summary()`, lo propio sin confirmar, el más viejo y lo abandonado). "Todo
+sincronizado" dice sólo lo que sabe —sin cambios en camino ni discrepancias abiertas— y abajo, la
+última comparación de stock: la reconciliación, o que no se pudo hacer. El Resumen vuelve a pedir
+`/status` cada 30 segundos mientras está a la vista. Con la otra
 caída, el aviso general de la app no se muestra en Resumen: lo dice la cabecera. Cada discrepancia
 se resuelve con un menú de las dos salidas, cada una con lo que hace. `POST /reconcile` y
 `POST /discrepancies/<producto>/accept|restore` llaman a `Reconciler` y `Audit` como
