@@ -8,10 +8,6 @@ import HistoryModal from '../components/HistoryModal';
 const STATE_TABS = [
 	[ 'all', __( 'Todos', 'woonderful-stock-sync-for-woocommerce' ) ],
 	[
-		'suggestion',
-		__( 'Con sugerencia', 'woonderful-stock-sync-for-woocommerce' ),
-	],
-	[
 		'unlinked',
 		__( 'Sin vincular', 'woonderful-stock-sync-for-woocommerce' ),
 	],
@@ -91,13 +87,21 @@ const STATE_BADGE = {
 	],
 };
 
+const hashParams = () =>
+	new URLSearchParams( window.location.hash.split( '?' )[ 1 ] || '' );
+
+// "Con sugerencia" es un motivo de "Sin vincular", no un estado: un enlace con
+// `state=suggestion` aterriza ahí.
 const initialState = () => {
-	const params = new URLSearchParams(
-		window.location.hash.split( '?' )[ 1 ] || ''
-	);
-	const state = params.get( 'state' );
+	const state = hashParams().get( 'state' );
+	if ( 'suggestion' === state ) {
+		return 'unlinked';
+	}
 	return STATE_TABS.some( ( [ value ] ) => value === state ) ? state : 'all';
 };
+
+const initialMotive = () =>
+	'suggestion' === hashParams().get( 'state' ) ? 'suggestion' : '';
 
 // El nombre de una variación sin el del padre, que ya está en la fila de arriba.
 const shortName = ( row ) =>
@@ -111,7 +115,7 @@ export default function Products( { apiFetch, status } ) {
 	const [ data, setData ] = useState( null );
 	const [ page, setPage ] = useState( 1 );
 	const [ state, setState ] = useState( initialState );
-	const [ motive, setMotive ] = useState( '' );
+	const [ motive, setMotive ] = useState( initialMotive );
 	const [ search, setSearch ] = useState( '' );
 	const [ query, setQuery ] = useState( '' );
 	const [ loading, setLoading ] = useState( false );
