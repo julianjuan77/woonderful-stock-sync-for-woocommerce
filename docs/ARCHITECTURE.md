@@ -527,6 +527,12 @@ coincide. Cada par se vincula por separado con `Linker::link()` y los stocks rec
 falla no corta la tanda. Vuelven los vinculados y los omitidos con su motivo en castellano.
 Reintentar no duplica: lo ya vinculado vuelve omitido, `already_linked`.
 
+**Desvincular en lote** sale de la misma selección: se tildan las filas con sugerencia y las
+vinculadas, y la barra separa "Aceptar N" —la vinculación masiva de arriba— y "Desvincular N". Éste
+pide confirmación y llama a `POST /unlink` de a uno, como el botón de cada fila, mostrando el avance:
+uno que falla no frena a los demás, y al final se avisa cuántos no se pudieron. Sin endpoint nuevo:
+desvincular ya va por la cola (ADR-008 §6), y el contrato entre las tiendas no cambia.
+
 **La secundaria, en modo lectura** (ADR-013 §6): ve lo mismo, sin las acciones —que el servidor
 igual le rechaza—, y Productos dice que la vinculación se hace desde la maestra, nombrándola y con
 el enlace a su pantalla. Lo pide al abrir: `GET /peer` llama a `Peer::health()`, el `GET /health`
