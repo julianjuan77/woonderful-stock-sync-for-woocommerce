@@ -11,6 +11,7 @@ namespace Woonderful\StockSync\Transport;
 
 use Woonderful\StockSync\Linking\Linker;
 use Woonderful\StockSync\Log\Notifier;
+use Woonderful\StockSync\Log\Peer;
 use Woonderful\StockSync\Plugin;
 use Woonderful\StockSync\Reconciliation\Schedule;
 
@@ -110,6 +111,11 @@ final class Pass {
 		if ( ! Pause::is_on() ) {
 			Schedule::after_pass( Sender::run() );
 			Linker::resolve_uncertain();
+
+			// El nombre que la otra no recibió: con la otra caída, esperar a que vuelva.
+			if ( get_option( Peers::OPTION_LABEL_PENDING ) && Peer::OK === Peer::current()['state'] ) {
+				Peers::announce_label();
+			}
 		}
 
 		Nonces::purge( time() );

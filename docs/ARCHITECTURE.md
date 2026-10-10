@@ -92,6 +92,7 @@ en la activación y en `plugins_loaded` si la guardada es menor.
 | `/health` | GET | HMAC; durante el canje, con el código | Canal, firma y versión del otro lado |
 | `/pause` | POST | HMAC con el secreto compartido | La otra pausó o reanudó: `{"paused": bool}`, y ésta queda igual (ADR-015 §2) |
 | `/unpair` | POST | HMAC con el secreto compartido | La otra desemparejó: ésta olvida la URL y el secreto (ADR-015 §3) |
+| `/label` | POST | HMAC con el secreto compartido | La otra cambió de nombre: `{"label": "…"}`, hasta 100 caracteres (ADR-016) |
 | `/products` | GET | HMAC con el secreto compartido | Sólo lectura del catálogo, paginado, para la pantalla de vinculación (ADR-005) |
 
 **Cabeceras de firma:** `X-WSS-Store`, `X-WSS-Timestamp`, `X-WSS-Nonce`, `X-WSS-Signature`.
@@ -355,6 +356,7 @@ compatible; quitar uno o cambiarle el significado es `wss/v2`.
 | `wss_last_reconciliation` | Cómo terminó la última reconciliación en esta tienda: cuándo, quién la lanzó, `done`, `unreachable` o `busy`, y qué hizo. No autocargada (ADR-009 §7). Se borra siempre al desinstalar |
 | `wss_catalog_run` · `wss_catalog_refreshed_at` | Cuándo empezó el refresco de la copia del catálogo que está en curso, y cuándo terminó el último completo. No autocargadas. Se borran siempre al desinstalar, y al emparejarse con otra tienda (ADR-014 §1) |
 | `wss_paused` | **La pausa del par** (ADR-015): `{at, by, user}` —cuándo, si la pidió esta tienda (`here`) o la otra (`peer`), y quién—, o no existe. Autocargada: la miran el emisor, `POST /movements` y la reconciliación en cada request. La escribe `Transport\Pause`; un `409 wss_paused` de la otra la pone también acá (`Log\Peer::observe()`). Se borra al desemparejar y siempre al desinstalar |
+| `wss_label_pending` | **El nombre nuevo de esta tienda que la otra todavía no recibió** (ADR-016). Lo escribe `Peers::announce_label()` si `POST /label` falla; la pasada lo reintenta con la otra respondiendo y sin pausa. Se borra al confirmarse, al desemparejar y siempre al desinstalar |
 
 ### Hooks para terceros
 

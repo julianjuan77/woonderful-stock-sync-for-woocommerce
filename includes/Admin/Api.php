@@ -444,7 +444,14 @@ final class Api {
 			return new \WP_Error( 'wss_invalid_label', __( 'La tienda necesita un nombre.', 'woonderful-stock-sync-for-woocommerce' ), array( 'status' => 400 ) );
 		}
 
+		$changed = Store::label() !== $label;
+
 		update_option( Store::OPTION_LABEL, $label, false );
+
+		// La otra lo ve en sus pantallas y en los avisos (ADR-016).
+		if ( $changed ) {
+			Peers::announce_label();
+		}
 
 		return self::status();
 	}

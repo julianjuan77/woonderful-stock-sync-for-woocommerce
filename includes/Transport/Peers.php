@@ -40,6 +40,16 @@ final class Peers {
 	public const SECONDARY = 'secondary';
 
 	/**
+	 * El nombre nuevo de esta tienda, que la otra todavía no recibió (ADR-016).
+	 */
+	public const OPTION_LABEL_PENDING = 'wss_label_pending';
+
+	/**
+	 * El largo máximo de un nombre que llega de la otra.
+	 */
+	public const LABEL_MAX = 100;
+
+	/**
 	 * El secreto compartido con una tienda, o '' si no está emparejada.
 	 *
 	 * @param string $store Identificador de la otra tienda.
@@ -201,6 +211,7 @@ final class Peers {
 
 		update_option( self::OPTION, $peers, false );
 		delete_option( Pause::OPTION );
+		delete_option( self::OPTION_LABEL_PENDING );
 		// Sin socia no hay estado de la socia: lo de antes ya no dice nada.
 		delete_option( Peer::OPTION );
 
@@ -208,7 +219,50 @@ final class Peers {
 	}
 
 	/**
-	 * Le manda a la otra un pedido firmado (`/pause`, `/unpair`).
+	 * Le manda a la otra el nombre de esta tienda (ADR-016). Si no lo recibe, queda pendiente y
+	 * la pasada lo reintenta.
+	 *
+	 * @return bool Si la otra lo recibió.
+	 */
+	public static function announce_label(): bool {
+		$peer = self::only();
+
+		if ( null === $peer ) {
+			return false;
+		}
+
+		if ( self::tell( $peer, '/label', array( 'label' => Store::label() ) ) ) {
+			delete_option( self::OPTION_LABEL_PENDING );
+
+			return true;
+		}
+
+		update_option( self::OPTION_LABEL_PENDING, true, false );
+
+		return false;
+	}
+
+	/**
+	 * Guarda el nombre que mandó la otra, sin tocar su URL ni su secreto.
+	 *
+	 * @param string $store Identificador de la otra tienda.
+	 * @param string $label Su nombre.
+	 */
+	public static function set_label( string $store, string $label ): void {
+		$peers = (array) get_option( self::OPTION, array() );
+
+		if ( ! isset( $peers[ $store ] ) ) {
+			return;
+		}
+
+		$peers[ $store ]          = (array) $peers[ $store ];
+		$peers[ $store ]['label'] = $label;
+
+		update_option( self::OPTION, $peers, false );
+	}
+
+	/**
+	 * Le manda a la otra un pedido firmado (`/pause`, `/unpair`, `/label`).
 	 *
 	 * @param array{store: string, rest_url: string, secret: string, role: string} $peer La otra tienda.
 	 * @param string                                                               $path La ruta, relativa a `wss/v1`.

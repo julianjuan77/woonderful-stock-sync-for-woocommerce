@@ -51,6 +51,7 @@ delete_option( 'wss_redeeming' );
 delete_option( 'wss_catalog_run' );
 delete_option( 'wss_catalog_refreshed_at' );
 delete_option( 'wss_paused' );
+delete_option( 'wss_label_pending' );
 
 if ( ! get_option( 'wss_delete_data_on_uninstall', false ) ) {
 	return;

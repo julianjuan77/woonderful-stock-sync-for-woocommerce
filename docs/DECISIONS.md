@@ -4113,7 +4113,7 @@ cambio de dominio, una migración—, y obligaría a vincular cientos de product
 
 ## ADR-016 — El nombre de la tienda llega a la otra al cambiarlo
 
-Estado: Propuesta
+Estado: Aprobada · 2026-10-10 · aprobada por Julián
 Temas: opciones, rest-api, uninstall
 Cubre: includes/Transport/Peers.php, includes/Rest/Pair.php, includes/Transport/Pass.php, includes/Admin/Api.php, uninstall.php
 

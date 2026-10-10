@@ -180,7 +180,7 @@ export default function Settings( { apiFetch, status, onStatus } ) {
 								'woonderful-stock-sync-for-woocommerce'
 							) }
 							help={ __(
-								'Así la nombran los avisos y la otra tienda. La otra lo recibe al emparejarse.',
+								'Así la nombran los avisos y la otra tienda. Si lo cambiás, la otra lo recibe al guardar.',
 								'woonderful-stock-sync-for-woocommerce'
 							) }
 						>

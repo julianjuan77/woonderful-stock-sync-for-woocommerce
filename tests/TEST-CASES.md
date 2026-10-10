@@ -1234,3 +1234,12 @@ Mutaciones: sin revisar el SKU fresco, o el vinculado allá, cae `BLK-03`.
 | `PAU-10` | `POST wss-admin/v1/pause` y `/unpair` | La pausa con quién y si la otra se enteró, y el host de la otra; después, sin socia; otra vez, un 409 |
 | `PAU-11` | `wp wss pause` con la otra caída, `unpair` sin y con `--yes` | Un aviso de que la otra no se enteró; sin `--yes` pregunta y no hace nada; con `--yes`, desempareja |
 
+## [`tests/test-label.php`](test-label.php) — el nombre llega a la otra (ADR-016)
+
+| ID | Caso | Esperado |
+|---|---|---|
+| `LBL-01` | **Guardar un nombre nuevo, y después el mismo** | `POST /label` firmado con el nombre; nada pendiente. El mismo nombre no viaja |
+| `LBL-02` | **Con la otra caída** | Queda pendiente; la pasada no lo intenta mientras está caída, y cuando responde lo manda y se borra |
+| `LBL-03` | `POST /label` de la otra, vacío y de 101 caracteres | Se guarda en su entrada sin tocar el secreto; los otros dos, 400 |
+| `LBL-04` | Desemparejar con un nombre pendiente | Se borra |
+

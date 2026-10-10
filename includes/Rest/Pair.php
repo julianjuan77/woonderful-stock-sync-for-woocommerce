@@ -18,7 +18,8 @@ defined( 'ABSPATH' ) || exit;
 /**
  * `POST /wss/v1/pair`: la secundaria canjea el código por el secreto (ADR-001 §1).
  * `POST /wss/v1/pause` y `POST /wss/v1/unpair`: la otra pausó, reanudó o desemparejó, y ésta
- * queda igual (ADR-015 §2, §3). Firmados con el secreto.
+ * queda igual (ADR-015 §2, §3). `POST /wss/v1/label`: la otra cambió de nombre (ADR-016).
+ * Firmados con el secreto.
  */
 final class Pair {
 
@@ -52,6 +53,16 @@ final class Pair {
 			array(
 				'methods'             => 'POST',
 				'callback'            => array( self::class, 'pause' ),
+				'permission_callback' => array( self::class, 'signed' ),
+			)
+		);
+
+		register_rest_route(
+			Movements::NAMESPACE,
+			'/label',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( self::class, 'label' ),
 				'permission_callback' => array( self::class, 'signed' ),
 			)
 		);
@@ -95,6 +106,26 @@ final class Pair {
 		Pause::set( $payload['paused'], Pause::PEER );
 
 		return new \WP_REST_Response( array( 'paused' => Pause::is_on() ), 200 );
+	}
+
+	/**
+	 * La otra cambió de nombre (ADR-016).
+	 *
+	 * @param \WP_REST_Request $request `{"label": "…"}`.
+	 *
+	 * @return \WP_REST_Response|\WP_Error
+	 */
+	public static function label( \WP_REST_Request $request ) {
+		$payload = json_decode( $request->get_body(), true );
+		$label   = is_array( $payload ) && is_string( $payload['label'] ?? null ) ? sanitize_text_field( $payload['label'] ) : '';
+
+		if ( '' === $label || mb_strlen( $label ) > Peers::LABEL_MAX ) {
+			return new \WP_Error( 'wss_bad_request', __( 'El cuerpo tiene que ser un JSON con un "label" de hasta 100 caracteres.', 'woonderful-stock-sync-for-woocommerce' ), array( 'status' => 400 ) );
+		}
+
+		Peers::set_label( (string) $request->get_header( 'X-WSS-Store' ), $label );
+
+		return new \WP_REST_Response( array( 'label' => $label ), 200 );
 	}
 
 	/**
