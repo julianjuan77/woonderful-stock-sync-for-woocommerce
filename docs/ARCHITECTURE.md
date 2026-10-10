@@ -412,9 +412,15 @@ que dice el servidor, no lo que esperaba que pasara.
 **Resumen** (`src/screens/Dashboard.js`) sale entero de `GET /status`: la otra tienda con su
 nombre (`Peers::label()`), la última reconciliación (`Result::last()`, con la frase de
 `Events::describe()`), las discrepancias de acá (`Audit::open()`) y las de la otra —las que trajo
-la última reconciliación, `null` si no llegó a preguntarlas—, y **cuántos productos están sin
-vincular: un solo número, el mismo del filtro "Sin vincular" de Productos** (`Rows::unlinked_count()`,
-que aplica las mismas reglas sin calcular cada fila: `/status` se pide en cada carga). `POST /reconcile` y
+la última reconciliación, `null` si no llegó a preguntarlas—, con el SKU de cada producto, y
+**cuántos productos están sin vincular: un solo número, el mismo del filtro "Sin vincular" de
+Productos**, junto con cuántos están vinculados para la barra (`Rows::linking()`, que aplica las
+mismas reglas sin calcular cada fila: `/status` se pide en cada carga).
+
+La pantalla arranca por una cabecera que dice si hay algo que hacer, en este orden: reconciliando,
+suspendida, la otra rechaza, la otra no responde, discrepancias abiertas, todo al día. Con la otra
+caída, el aviso general de la app no se muestra en Resumen: lo dice la cabecera. Cada discrepancia
+se resuelve con un menú de las dos salidas, cada una con lo que hace. `POST /reconcile` y
 `POST /discrepancies/<producto>/accept|restore` llaman a `Reconciler` y `Audit` como
 `wp wss reconcile` y `wp wss discrepancy`. Que la otra no responda no es un error del pedido:
 vuelve `200` con "no se pudo mirar".

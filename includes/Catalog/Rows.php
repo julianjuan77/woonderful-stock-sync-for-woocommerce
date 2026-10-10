@@ -207,15 +207,17 @@ final class Rows {
 	}
 
 	/**
-	 * Cuántas filas están sin vincular: el mismo número que el filtro "Sin vincular" de
-	 * Productos, sin calcular las filas. Lo pide Resumen en cada carga, y calcular el estado
-	 * de cada vinculado lee cada producto.
+	 * Cuántas filas están sin vincular y cuántas vinculadas, sin calcular las filas. Lo pide
+	 * Resumen en cada carga, y calcular el estado de cada vinculado lee cada producto.
 	 *
-	 * Las mismas reglas que `page()`: un vinculable sin vínculo, salvo que esté descartado
-	 * —uno en la papelera cuenta igual: su motivo es la papelera—, y cada padre que lleva el
-	 * stock de sus variaciones.
+	 * `unlinked` es el mismo número que el filtro "Sin vincular" de Productos, con las mismas
+	 * reglas que `page()`: un vinculable sin vínculo, salvo que esté descartado —uno en la
+	 * papelera cuenta igual: su motivo es la papelera—, y cada padre que lleva el stock de sus
+	 * variaciones. `linked` cuenta los que tienen vínculo, estén al día o suspendidos.
+	 *
+	 * @return array{unlinked: int, linked: int}
 	 */
-	public static function unlinked_count(): int {
+	public static function linking(): array {
 		$local    = self::local();
 		$linkable = array_keys( array_filter( $local, static fn ( array $item ) => $item['own_stock'] ) );
 		$links    = Links::for_products( $linkable );
@@ -228,7 +230,10 @@ final class Rows {
 			}
 		}
 
-		return $count + count( array_filter( $local, static fn ( array $item ) => $item['stock_in_parent'] ) );
+		return array(
+			'unlinked' => $count + count( array_filter( $local, static fn ( array $item ) => $item['stock_in_parent'] ) ),
+			'linked'   => count( $links ),
+		);
 	}
 
 	/**

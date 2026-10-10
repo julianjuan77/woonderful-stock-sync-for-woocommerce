@@ -322,7 +322,8 @@ class Test_Rows extends WP_UnitTestCase {
 
 	/**
 	 * ROW-10 — **La cuenta de Resumen es la del filtro "Sin vincular"**, con un descartado, uno
-	 * descartado en la papelera, uno vinculado y un padre que lleva el stock: un solo número.
+	 * descartado en la papelera, uno vinculado y un padre que lleva el stock: un solo número. Y
+	 * los vinculados, los de los filtros "Vinculado" y "Suspendido" juntos.
 	 */
 	public function test_the_unlinked_count_matches_the_filter(): void {
 		$loose     = $this->simple( 'SUELTO' );
@@ -342,7 +343,10 @@ class Test_Rows extends WP_UnitTestCase {
 		$variation->set_parent_id( $parent_id );
 		$variation->save();
 
-		$this->assertSame( Rows::page( array() )['counts'][ State::UNLINKED ], Rows::unlinked_count() );
+		$counts = Rows::page( array() )['counts'];
+
+		$this->assertSame( $counts[ State::UNLINKED ], Rows::linking()['unlinked'] );
+		$this->assertSame( $counts[ State::LINKED ] + $counts[ State::SUSPENDED ], Rows::linking()['linked'] );
 		$this->assertArrayHasKey( $loose, $this->rows( array( 'state' => State::UNLINKED ) ) );
 	}
 

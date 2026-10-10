@@ -242,13 +242,17 @@ class Test_Admin extends WP_UnitTestCase {
 	/**
 	 * ADM-07 — **Resumen trae la última reconciliación en castellano, las discrepancias de las
 	 * dos tiendas y cuántos no sincronizan.** Las de la otra, con el producto de acá con que
-	 * están vinculadas.
+	 * están vinculadas; las dos, con su SKU si tiene.
 	 */
 	public function test_the_status_has_everything_for_the_summary(): void {
 		$this->as_user( 'administrator' );
 		$this->as_master();
 
 		$own = $this->linked( 47, 50, 900, 'Alpargata verde' );
+		$sku = 'ADM07-' . uniqid();
+		$product = wc_get_product( $own );
+		$product->set_sku( $sku );
+		$product->save();
 		Audit::confirm( array( array( (int) Links::for_product( $own )->id, -3 ) ) );
 		$mirror = $this->linked( 8, 8, 901, 'Ojota azul' );
 		Result::save(
@@ -283,10 +287,12 @@ class Test_Admin extends WP_UnitTestCase {
 		$this->assertSame( array( $own ), array_column( $data['discrepancies']['own'], 'product' ) );
 		$this->assertSame( 'Alpargata verde', $data['discrepancies']['own'][0]['name'] );
 		$this->assertSame( 50, $data['discrepancies']['own'][0]['expected'] );
+		$this->assertSame( $sku, $data['discrepancies']['own'][0]['sku'] );
+		$this->assertNull( $data['discrepancies']['peer'][0]['sku'], 'sin SKU, null' );
 		$this->assertSame( $mirror, $data['discrepancies']['peer'][0]['local'] );
 		$this->assertSame( 'Ojota azul', $data['discrepancies']['peer'][0]['name'] );
 		$this->assertSame( 6, $data['discrepancies']['peer'][0]['found'] );
-		$this->assertSame( Rows::page( array() )['counts']['unlinked'], $data['unlinked'], 'el mismo número que el filtro de Productos' );
+		$this->assertSame( Rows::linking(), $data['linking'], 'los mismos números que los filtros de Productos' );
 	}
 
 	/**

@@ -106,7 +106,9 @@ const App = () => {
 	}, [] );
 
 	const Screen = SCREENS[ currentScreen ]?.component || Dashboard;
-	const peerDown = status && 'ok' !== status.peer?.state;
+	// Resumen lo dice en su cabecera: el aviso, en las demás.
+	const peerDown =
+		status && 'ok' !== status.peer?.state && 'dashboard' !== currentScreen;
 
 	return (
 		<div className="woon-root">

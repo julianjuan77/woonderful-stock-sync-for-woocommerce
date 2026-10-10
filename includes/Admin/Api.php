@@ -105,7 +105,8 @@ final class Api {
 
 	/**
 	 * Lo que la app necesita al cargar, y todo lo de Resumen: esta tienda, la otra, la última
-	 * reconciliación, las discrepancias de las dos y cuántos productos están sin vincular.
+	 * reconciliación, las discrepancias de las dos y cuántos productos están vinculados y sin
+	 * vincular.
 	 */
 	public static function status(): \WP_REST_Response {
 		$peer  = Peers::describe();
@@ -134,8 +135,8 @@ final class Api {
 					// Sólo la maestra las conoce, y sólo si la última llegó a preguntarlas.
 					'peer' => isset( $last['details']['peer_discrepancies'] ) ? array_map( array( self::class, 'peer_discrepancy' ), (array) $last['details']['peer_discrepancies'] ) : null,
 				),
-				// El mismo número que el filtro "Sin vincular" de Productos: uno solo.
-				'unlinked'       => Rows::unlinked_count(),
+				// Los mismos números que los filtros de Productos: uno solo de cada cosa.
+				'linking'        => Rows::linking(),
 			),
 			200
 		);
@@ -677,6 +678,7 @@ final class Api {
 		return array(
 			'product'  => $open['product'],
 			'name'     => self::product_name( $open['product'] ),
+			'sku'      => self::product_sku( $open['product'] ),
 			'expected' => $open['expected'],
 			'found'    => $open['found'],
 			'since'    => Events::local_time( $open['since'] ),
@@ -701,6 +703,7 @@ final class Api {
 			'product'  => $remote,
 			'local'    => $local,
 			'name'     => null === $local ? null : self::product_name( $local ),
+			'sku'      => null === $local ? null : self::product_sku( $local ),
 			'expected' => (int) ( $open['expected'] ?? 0 ),
 			'found'    => (int) ( $open['found'] ?? 0 ),
 			'since'    => is_string( $open['since'] ?? null ) ? Events::local_time( $open['since'] ) : null,
@@ -716,5 +719,17 @@ final class Api {
 		$found = wc_get_product( $product );
 
 		return $found instanceof \WC_Product ? $found->get_name() : null;
+	}
+
+	/**
+	 * El SKU de un producto de acá, o null si no tiene o ya no existe.
+	 *
+	 * @param int $product El producto.
+	 */
+	private static function product_sku( int $product ): ?string {
+		$found = wc_get_product( $product );
+		$sku   = $found instanceof \WC_Product ? $found->get_sku() : '';
+
+		return '' === $sku ? null : $sku;
 	}
 }
