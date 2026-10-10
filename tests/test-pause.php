@@ -248,6 +248,7 @@ class Test_Pause extends WP_UnitTestCase {
 
 	/**
 	 * PAU-04 — **En pausa no se reconcilia ni se vincula**, y no queda guardado ningún resultado.
+	 * Descartar sí: no le habla a la otra.
 	 */
 	public function test_nothing_is_reconciled_or_linked_while_paused(): void {
 		Pause::set( true, Pause::HERE );
@@ -255,6 +256,8 @@ class Test_Pause extends WP_UnitTestCase {
 		$this->assertSame( Reconciler::PAUSED, Reconciler::run( Result::MANUAL )['outcome'] );
 		$this->assertNull( Result::last() );
 		$this->assertSame( 'wss_paused', Linker::link( 900502, 78, 5, 5 )->get_error_code() );
+		$product = self::factory()->post->create( array( 'post_type' => 'product' ) );
+		$this->assertTrue( Linker::discard( $product ), 'descartar es local: en pausa se puede' );
 		$this->assertSame( array(), $this->urls );
 	}
 

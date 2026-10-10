@@ -224,7 +224,7 @@ final class Linker {
 	 * @return true|\WP_Error
 	 */
 	public static function discard( int $local ) {
-		$refusal = self::refusal( Peers::only() );
+		$refusal = self::refusal( Peers::only(), false );
 
 		if ( null !== $refusal ) {
 			return $refusal;
@@ -251,7 +251,7 @@ final class Linker {
 	 * @return true|\WP_Error
 	 */
 	public static function undiscard( int $local ) {
-		$refusal = self::refusal( Peers::only() );
+		$refusal = self::refusal( Peers::only(), false );
 
 		if ( null !== $refusal ) {
 			return $refusal;
@@ -326,9 +326,10 @@ final class Linker {
 	 * la tienda real, que la otra daría por recibida y no aplicaría nunca. Los comandos se
 	 * registran antes de la guarda —por el emparejamiento—, así que la guarda va acá.
 	 *
-	 * @param array{store: string, rest_url: string, secret: string, role: string}|null $peer La otra tienda.
+	 * @param array{store: string, rest_url: string, secret: string, role: string}|null $peer   La otra tienda.
+	 * @param bool                                                                      $remote Si le habla a la otra: descartar no, y se puede en pausa.
 	 */
-	private static function refusal( ?array $peer ): ?\WP_Error {
+	private static function refusal( ?array $peer, bool $remote = true ): ?\WP_Error {
 		if ( null !== Plugin::suspension_reason() ) {
 			return new \WP_Error( 'wss_suspended', __( 'La sincronización está suspendida en esta tienda: no se vincula ni se desvincula.', 'woonderful-stock-sync-for-woocommerce' ) );
 		}
@@ -338,7 +339,7 @@ final class Linker {
 		}
 
 		// Vincular le pregunta el stock a la otra, y en pausa no se le habla (ADR-015 §1).
-		if ( Pause::is_on() ) {
+		if ( $remote && Pause::is_on() ) {
 			return new \WP_Error( 'wss_paused', __( 'La sincronización está en pausa: no se vincula ni se desvincula hasta reanudarla.', 'woonderful-stock-sync-for-woocommerce' ) );
 		}
 
