@@ -2164,6 +2164,7 @@ p.wss-meta {
 
 .wss-sku {
 	display: block;
+	margin-top: 3px;
 	overflow: hidden;
 	font-family: var(--woon-font-mono);
 	font-size: var(--woon-fs-xs);
@@ -2207,7 +2208,7 @@ p.wss-meta {
 
 .wss-why {
 	display: block;
-	margin-top: 4px;
+	margin-top: 6px;
 	font-size: var(--woon-fs-xs);
 	color: var(--woon-text-muted);
 }
@@ -2260,6 +2261,7 @@ p.wss-meta {
 
 	&__meta {
 		display: block;
+		margin-top: 3px;
 		font-size: var(--woon-fs-xs);
 		color: var(--woon-text-muted);
 	}
