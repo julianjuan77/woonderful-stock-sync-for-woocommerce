@@ -4162,3 +4162,68 @@ consulta nunca: el nombre nuevo no llegaría.
 - Una tienda con la versión anterior del plugin contesta `404` a `POST /label`: el nombre queda
   pendiente y se reintenta en cada pasada hasta que se actualice. **Si eso molesta**, habría que
   dejar de reintentar ante un `404`.
+
+---
+
+## ADR-017 — Lo que salía tarde por un fallo sale con lo nuevo, en orden
+
+Estado: Propuesta
+Temas: modulos
+Cubre: includes/Ledger/Ledger.php
+
+### En pocas palabras
+
+Hoy, si una venta falla al salir —la otra no respondía—, queda esperando su reintento (1 minuto,
+2, 4…, ADR-001 §2). Las ventas que vienen después no tienen esa espera: cuando la otra vuelve, la
+pasada manda primero las nuevas y la vieja recién cuando se cumple su minuto. El stock termina bien
+—cada venta resta, y restar da lo mismo en cualquier orden—, pero **la otra queda un rato con
+una venta de menos y su historial, desordenado**. Lo encontró la prueba manual 4.5 (2026-10-10).
+
+Con esta decisión, **cuando la pasada manda algo, manda también lo pendiente más viejo aunque su
+espera no haya vencido, y todo en el orden en que se anotó**.
+
+---
+
+| Opción | Por qué sí o por qué no |
+| --- | --- |
+| **A — Adelantar lo viejo: si sale algo, sale también lo anterior** ✅ | En orden y antes que hoy: la otra se pone al día de una vez. Un cambio en la consulta que reclama. Contra: una fila que la otra rechaza siempre se reintenta cada vez que sale algo nuevo, no con su espera |
+| B — Que lo nuevo espere a lo viejo | En orden. Pero la otra recibe todo más tarde: con tres ventas, le faltan tres durante ese minuto en vez de una. Empeora lo que más importa en un depósito compartido |
+| C — Sin espera por fila cuando falló el pedido entero | Todo queda listo a la vez y sale en orden. Pero con la otra caída se reintenta en cada pasada, un pedido por minuto que puede esperar 30 segundos (`Sender::TIMEOUT`): carga y pasadas lentas mientras dura la caída. Y distinguir "falló el pedido" de "rechazó esta fila" pide una columna nueva |
+
+**Qué cambia en `Ledger::claim()`:**
+
+- **Cuáles:** las listas para salir (`next_attempt_at` vencido, o las del envío inmediato) y,
+  **si hay alguna, también las pendientes propias anteriores a la más vieja de ellas**, aunque
+  estén esperando. Si no hay nada listo, nada se adelanta: con la otra caída y sin ventas nuevas,
+  la espera sigue como hoy.
+- **En qué orden:** por `id`, que es el orden en que se anotaron. Hoy es por `next_attempt_at`,
+  que pone al final justo lo que esperaba.
+- **Lo que no cambia:** lo que cuelga de un bootstrap sin resolver sigue sin salir (ADR-008 §4);
+  el techo de 6 horas se sigue contando desde el primer intento (`first_attempt_at`); el lote
+  sigue siendo de hasta `MAX_BATCH`; y cada intento adelantado cuenta como intento.
+
+---
+
+**Decisión:** opción A.
+
+**Por qué:** si algo nuevo puede salir es porque la otra está respondiendo, o al menos se va a
+intentar ahora. Que lo viejo siga esperando no protege nada y desordena. Mandarlo junto arregla el
+orden y la demora a la vez.
+
+**Por qué no B:** cambia un historial desprolijo por más tiempo con el stock desactualizado en la
+otra tienda, que es peor.
+
+**Por qué no C:** la espera por fila existe para no golpear a una tienda caída en cada pasada.
+Sacarla para los fallos del pedido entero devuelve ese costo, y además pide distinguir los dos
+fallos con una columna nueva (esquema).
+
+**Consecuencias:**
+
+- **Una fila que la otra rechaza siempre** —un motivo propio de esa fila, no una caída— se reintenta
+  cada vez que sale algo nuevo, en vez de cada 1, 2, 4… minutos. Son pedidos que ya iban a salir:
+  no suma pedidos, sólo filas al lote. Y sigue abandonándose a las 6 horas, como hoy.
+- El receptor ya ignora lo repetido (ADR-001 §3): adelantar una fila que en realidad había llegado
+  no descuenta dos veces.
+- **Si el supuesto falla** —si resultara que una fila rechazada traba el lote entero del
+  receptor—, habría que excluir del adelanto las filas con un rechazo propio, y para eso sí haría
+  falta guardar qué clase de fallo fue.
