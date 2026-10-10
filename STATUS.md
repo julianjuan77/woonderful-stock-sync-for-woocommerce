@@ -193,7 +193,7 @@ es lo normal: loguearlo en cada pasada sería ruido.
 
 **El diseño parte de woonderful-sync** (pedido de Julián, 2026-10-06): los mismos logos (`assets/brand/`), la misma disposición —sidebar con logo, pantallas como `src/screens/Logs.js`— y los mismos colores y estilos (`src/style.scss`, clases `woon-*`).
 
-**Productos y Resumen, rediseñados** (2026-10-09, a partir de los diseños de Julián): Productos con pestañas de estado que se cambian por las de motivo, variables contraídos y barra flotante para vincular; Resumen con una cabecera que dice si hay algo que hacer, el par de tiendas, la reconciliación en una tabla acá/la otra, la barra de vinculados (`Rows::linking()`) y las discrepancias de las dos tiendas lado a lado, resueltas con un menú de las dos salidas. Las clases nuevas son `wss-*`.
+**Productos y Resumen, rediseñados** (2026-10-09, a partir de los diseños de Julián): Productos con pestañas de estado que se cambian por las de motivo, variables contraídos y barra flotante para vincular; Resumen con una cabecera que dice si hay algo que hacer, el par de tiendas, la reconciliación en una tabla acá/la otra, la barra de vinculados (`Rows::linking()`) y las discrepancias de las dos tiendas lado a lado, resueltas con un menú de las dos salidas. Las clases nuevas son `wss-*`. Productos se lista primero lo vinculado (pedido de Julián, 2026-10-09).
 
 ### 9. Publicación
 

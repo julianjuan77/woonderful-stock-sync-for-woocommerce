@@ -457,7 +457,7 @@ reglas que `wp wss status`, pero con la copia en vez de preguntarle a la otra. E
 vincular, en este orden: en la papelera, descartado, sin SKU, SKU duplicado —acá o allá—, sin
 coincidencia —ninguno allá, o el único ya tiene par—, con sugerencia. **El SKU se compara sin
 espacios a los costados y sin mayúsculas** (`Rows::normalize()`). Un variable que lleva el stock en
-el padre tiene su propia fila, que lo dice. Lo descartado se esconde salvo pedido o buscado. Si la copia tiene más de 10 minutos, la pantalla la refresca al abrirse. Todos los filtros son botones, como en woonderful-sync.
+el padre tiene su propia fila, que lo dice. Lo descartado se esconde salvo pedido o buscado. **Primero lo vinculado**: los productos se ordenan vinculado, parcial —un variable con alguna variación vinculada—, suspendido, con sugerencia, sin vincular y descartado (`Rows::rank()`); dentro de cada uno, por ID. Si la copia tiene más de 10 minutos, la pantalla la refresca al abrirse. Todos los filtros son botones, como en woonderful-sync.
 **Los productos variables aparecen contraídos**: un renglón con su resumen —cuántas variaciones y
 en qué estado—, que se abre con un clic. Con un filtro o una búsqueda se ven abiertos, porque lo
 que se busca son las variaciones. **Se pagina de a 50 productos, no de a 50 filas**: un padre va

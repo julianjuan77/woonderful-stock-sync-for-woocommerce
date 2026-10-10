@@ -409,4 +409,21 @@ class Test_Rows extends WP_UnitTestCase {
 		$this->assertSame( 1, $motives[ Rows::NO_MATCH ] );
 		$this->assertSame( 1, $motives[ Rows::DISCARDED ] );
 	}
+
+	/**
+	 * ROW-13 — **Primero lo vinculado**: vinculado, con sugerencia, sin vincular y descartado,
+	 * aunque se hayan creado al revés.
+	 */
+	public function test_linked_rows_come_first(): void {
+		$discarded = $this->simple( 'DESC' );
+		Events::record( Events::DISCARDED, Events::INFO, $discarded );
+		$loose      = $this->simple( 'SOLO' );
+		$suggestion = $this->simple( 'SUG' );
+		$this->remote( 950, 'SUG' );
+		$linked = $this->simple( 'VINC' );
+		$this->remote( 951, 'VINC', array( 'linked' => 1 ) ); // phpcs:ignore WordPress.Arrays.ArrayDeclarationSpacing.AssociativeArrayFound
+		Links::create( $linked, self::REMOTE_STORE, 951, 1, 5 );
+
+		$this->assertSame( array( $linked, $suggestion, $loose, $discarded ), array_keys( $this->rows() ) );
+	}
 }

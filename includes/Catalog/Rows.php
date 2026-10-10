@@ -146,6 +146,10 @@ final class Rows {
 			$groups[ $row['group'] ][] = $row;
 		}
 
+		// Primero lo vinculado (pedido de Julián). `uasort` es estable: dentro de un mismo
+		// estado, el orden de `all()`.
+		uasort( $groups, static fn ( array $a, array $b ) => self::rank( $a ) <=> self::rank( $b ) );
+
 		$shown = array_slice( $groups, ( max( 1, $page ) - 1 ) * self::PER_PAGE, self::PER_PAGE, true );
 
 		return array(
@@ -155,6 +159,36 @@ final class Rows {
 			'summary' => array_intersect_key( $summary, $shown ),
 			'motives' => $motives,
 		);
+	}
+
+	/**
+	 * El lugar de un producto en la lista: vinculado, parcial —un variable con alguna
+	 * variación vinculada—, suspendido, con sugerencia, sin vincular y descartado.
+	 *
+	 * @param array<int, array<string, mixed>> $rows Las filas del producto: una, o sus variaciones.
+	 */
+	private static function rank( array $rows ): int {
+		$states  = array_count_values( array_column( $rows, 'state' ) );
+		$motives = array_count_values( array_filter( array_column( $rows, 'motive' ), 'is_string' ) );
+		$linked  = $states[ State::LINKED ] ?? 0;
+
+		if ( count( $rows ) === $linked ) {
+			return 0;
+		}
+
+		if ( $linked > 0 ) {
+			return 1;
+		}
+
+		if ( isset( $states[ State::SUSPENDED ] ) ) {
+			return 2;
+		}
+
+		if ( isset( $motives[ self::SUGGESTION ] ) ) {
+			return 3;
+		}
+
+		return count( $rows ) === ( $motives[ self::DISCARDED ] ?? 0 ) ? 5 : 4;
 	}
 
 	/**
