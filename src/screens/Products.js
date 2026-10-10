@@ -610,7 +610,7 @@ export default function Products( { apiFetch, status } ) {
 						<col style={ { width: 32 } } />
 						<col />
 						<col style={ { width: 72 } } />
-						<col style={ { width: 150 } } />
+						<col style={ { width: 230 } } />
 						<col style={ { width: 170 } } />
 					</colgroup>
 					<thead>
@@ -842,11 +842,6 @@ function GroupRow( {
 			'danger',
 			__( 'Suspendido', 'woonderful-stock-sync-for-woocommerce' ),
 		];
-	} else if ( selectable.length > 0 ) {
-		badge = [
-			'brand',
-			__( 'Con sugerencia', 'woonderful-stock-sync-for-woocommerce' ),
-		];
 	} else if ( linked > 0 ) {
 		badge = [
 			'info',
@@ -937,8 +932,13 @@ function GroupRow( {
 				</div>
 			</td>
 			<td>
-				<span className={ `woon-badge woon-badge--${ badge[ 0 ] }` }>
-					{ badge[ 1 ] }
+				<span className="wss-badges">
+					<span
+						className={ `woon-badge woon-badge--${ badge[ 0 ] }` }
+					>
+						{ badge[ 1 ] }
+					</span>
+					{ selectable.length > 0 && <SuggestionBadge /> }
 				</span>
 			</td>
 			<td className="wss-actions">
@@ -1059,8 +1059,11 @@ function Row( { row, actions, selected, onSelect, onHistory } ) {
 				{ other?.stock ?? row.suggestion?.stock ?? '—' }
 			</td>
 			<td>
-				<span className={ `woon-badge woon-badge--${ badge }` }>
-					{ label }
+				<span className="wss-badges">
+					<span className={ `woon-badge woon-badge--${ badge }` }>
+						{ label }
+					</span>
+					{ 'suggestion' === row.motive && <SuggestionBadge /> }
 				</span>
 				{ ( row.reason ||
 					( row.motive && 'suggestion' !== row.motive ) ) && (
@@ -1073,6 +1076,15 @@ function Row( { row, actions, selected, onSelect, onHistory } ) {
 				{ actions && <RowActions row={ row } actions={ actions } /> }
 			</td>
 		</tr>
+	);
+}
+
+// Al lado del estado, no en su lugar: un producto con sugerencia sigue sin vincular.
+function SuggestionBadge() {
+	return (
+		<span className="woon-badge woon-badge--brand">
+			{ __( 'Con sugerencia', 'woonderful-stock-sync-for-woocommerce' ) }
+		</span>
 	);
 }
 

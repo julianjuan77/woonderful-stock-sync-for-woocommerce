@@ -2163,10 +2163,30 @@ p.wss-meta {
 	padding-left: var(--woon-sp-6) !important;
 }
 
-.wss-name {
+// El nombre de esta tienda, del tamaño y el color del de la otra: un simple, en negrita
+// como un padre; una variación, sin.
+.woon-btn-link.wss-name {
 	display: block;
+	font-size: var(--woon-fs-body);
 	font-weight: 600;
+	color: var(--woon-ink);
 	text-align: left;
+	text-decoration: none;
+
+	&:hover {
+		color: var(--woon-primary);
+		text-decoration: underline;
+	}
+
+	.wss-indent & {
+		font-weight: 400;
+	}
+}
+
+.wss-badges {
+	display: inline-flex;
+	flex-wrap: wrap;
+	gap: 6px;
 }
 
 .wss-sku {
