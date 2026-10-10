@@ -4108,3 +4108,57 @@ cambio de dominio, una migración—, y obligaría a vincular cientos de product
 - **Si el supuesto del depósito compartido no vale** —si mientras están separadas cada tienda lleva
   su propio stock—, mandar lo anotado al re-emparejar descuadraría. Habría que ofrecer descartar la
   cola al re-emparejar, o vincular de nuevo, que arranca con el stock de la maestra (ADR-008 §1).
+
+---
+
+## ADR-016 — El nombre de la tienda llega a la otra al cambiarlo
+
+Estado: Propuesta
+Temas: opciones, rest-api, uninstall
+Cubre: includes/Transport/Peers.php, includes/Rest/Pair.php, includes/Transport/Pass.php, includes/Admin/Api.php, uninstall.php
+
+### En pocas palabras
+
+Hoy el nombre de cada tienda viaja una sola vez, al emparejarse (ADR-001 §1): si después se cambia,
+la otra sigue mostrando el viejo en Resumen, la barra lateral y los avisos hasta re-emparejar.
+Con esta decisión, **guardar el nombre se lo avisa a la otra** con un pedido firmado, como la
+pausa (ADR-015 §2). Si la otra no responde, queda pendiente y sale en la próxima pasada.
+
+---
+
+| Opción | Por qué sí o por qué no |
+| --- | --- |
+| **A — Avisarle al guardar: `POST /label`** ✅ | El nombre nuevo aparece al instante en la otra. Contra: un endpoint más entre las tiendas |
+| B — Guardarlo cada vez que se pregunta `GET /health` | Sin endpoint nuevo: `health` ya trae `label`. Pero sólo se pregunta al probar la conexión o con la otra caída: el nombre nuevo puede tardar días en aparecer |
+| C — Mandarlo en cada lote de movimientos | Llega con la próxima venta. Pero toca el cuerpo de `POST /movements`, el contrato más sensible, para algo que no es stock |
+
+**El endpoint:** `POST wss/v1/label` con `{"label": "…"}`, firmado con el secreto (ADR-001).
+Guarda la etiqueta en la entrada de `wss_peers` de quien lo manda, sin tocar la URL ni el secreto.
+Una etiqueta vacía o de más de 100 caracteres es un `400`.
+
+**Si la otra no responde:** queda anotado en `wss_label_pending` y **la pasada lo reintenta**
+mientras la otra conteste y no haya pausa. Se borra al confirmarse, al desemparejar y siempre al
+desinstalar.
+
+**Quién lo dispara:** guardar el nombre desde Configuración (`POST wss-admin/v1/store`). Al
+emparejarse no hace falta: ya viaja en el canje.
+
+---
+
+**Decisión:** opción A, con reintento en la pasada.
+
+**Por qué:** el nombre es lo que el dueño ve para reconocer la otra tienda en todas las pantallas
+y en los emails; que tarde días en cambiar parece un error.
+
+**Por qué no B:** `health` se consulta con la otra caída o a mano, y con la otra andando bien no se
+consulta nunca: el nombre nuevo no llegaría.
+
+**Por qué no C:** el cuerpo de `POST /movements` es el contrato que más cuesta cambiar (romperlo es
+`wss/v2`), y el nombre no tiene nada que ver con el stock.
+
+**Consecuencias:**
+
+- Un endpoint firmado más en `wss/v1`, y una opción más, `wss_label_pending`.
+- Una tienda con la versión anterior del plugin contesta `404` a `POST /label`: el nombre queda
+  pendiente y se reintenta en cada pasada hasta que se actualice. **Si eso molesta**, habría que
+  dejar de reintentar ante un `404`.
