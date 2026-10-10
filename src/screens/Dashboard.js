@@ -244,22 +244,10 @@ function Hero( { status, running, open, navigate } ) {
 		'Todo sincronizado',
 		'woonderful-stock-sync-for-woocommerce'
 	);
-	let text =
-		status.linking.unlinked > 0
-			? sprintf(
-					/* translators: %d: cuántos productos. */
-					_n(
-						'Los productos vinculados tienen el mismo stock en las dos tiendas. %d sin vincular no se sincroniza.',
-						'Los productos vinculados tienen el mismo stock en las dos tiendas. Los %d sin vincular no se sincronizan.',
-						status.linking.unlinked,
-						'woonderful-stock-sync-for-woocommerce'
-					),
-					status.linking.unlinked
-			  )
-			: __(
-					'Las dos tiendas coinciden con el libro de movimientos.',
-					'woonderful-stock-sync-for-woocommerce'
-			  );
+	let text = __(
+		'Los productos vinculados tienen el mismo stock en las dos tiendas.',
+		'woonderful-stock-sync-for-woocommerce'
+	);
 	let action = null;
 	let detail = null;
 

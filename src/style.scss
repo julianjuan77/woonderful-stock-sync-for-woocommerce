@@ -1991,7 +1991,7 @@ p.woon-footnote {
 		color: var(--woon-ink);
 	}
 
-	&__subtitle {
+	p#{&}__subtitle {
 		margin: 6px 0 0;
 		max-width: 560px;
 		font-size: var(--woon-fs-sm);
@@ -2607,7 +2607,7 @@ h2.wss-confirm__title {
 		text-wrap: pretty;
 	}
 
-	&__detail {
+	p#{&}__detail {
 		margin: 8px 0 0;
 		font-family: var(--woon-font-mono);
 		font-size: 12px;
@@ -2744,7 +2744,7 @@ h2.wss-confirm__title {
 		justify-content: space-between;
 		align-items: center;
 		gap: 12px;
-		margin-bottom: 6px;
+		margin-bottom: 10px;
 
 		h3 {
 			margin: 0;
@@ -2762,12 +2762,13 @@ h2.wss-confirm__title {
 		color: var(--woon-text-muted);
 	}
 
-	&__lead {
+	// `p#{&}`: `.woon-root p` les pone margen 0 y pesa más que una clase sola.
+	p#{&}__lead {
 		margin: 0 0 18px;
 	}
 
-	&__note {
-		margin: 12px 0 0;
+	p#{&}__note {
+		margin: 14px 0 0;
 		font-size: 13px;
 		color: var(--woon-text-muted);
 	}
