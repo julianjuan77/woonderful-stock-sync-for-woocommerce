@@ -1,26 +1,21 @@
-import { useState, useEffect, useCallback } from '@wordpress/element';
-import { __, sprintf } from '@wordpress/i18n';
+import { useState, useEffect, useCallback, useRef } from '@wordpress/element';
+import { __, sprintf, _n } from '@wordpress/i18n';
 import Pagination from '../components/Pagination';
 import StockChange from '../components/StockChange';
 
-const LEVEL_LABELS = {
-	info: __( 'Info', 'woonderful-stock-sync-for-woocommerce' ),
-	warning: __( 'Aviso', 'woonderful-stock-sync-for-woocommerce' ),
-	error: __( 'Error', 'woonderful-stock-sync-for-woocommerce' ),
-};
+const LEVELS = [
+	[ '', __( 'Todos', 'woonderful-stock-sync-for-woocommerce' ) ],
+	[ 'info', __( 'Info', 'woonderful-stock-sync-for-woocommerce' ) ],
+	[ 'warning', __( 'Avisos', 'woonderful-stock-sync-for-woocommerce' ) ],
+	[ 'error', __( 'Errores', 'woonderful-stock-sync-for-woocommerce' ) ],
+];
 
-// El color de woonderful-sync para cada nivel.
-const LEVEL_CLASS = {
-	info: 'success',
-	warning: 'conflict',
-	error: 'error',
-};
-
-const BADGE_CLASS = {
-	info: 'info',
-	warning: 'warning',
-	error: 'danger',
-};
+const PERIODS = [
+	[ 1, __( 'Hoy', 'woonderful-stock-sync-for-woocommerce' ) ],
+	[ 7, __( '7 días', 'woonderful-stock-sync-for-woocommerce' ) ],
+	[ 30, __( '30 días', 'woonderful-stock-sync-for-woocommerce' ) ],
+	[ 0, __( 'Todo', 'woonderful-stock-sync-for-woocommerce' ) ],
+];
 
 const KIND_LABELS = {
 	linked: __( 'Vinculado', 'woonderful-stock-sync-for-woocommerce' ),
@@ -96,6 +91,95 @@ const KIND_LABELS = {
 	),
 };
 
+// Lo que vuelve a la normalidad lleva el tilde, aunque su nivel sea info.
+const RECOVERED = [
+	'peer_back',
+	'peer_accepted',
+	'pair_restored',
+	'discrepancy_closed',
+];
+
+// Los que suelen venir de a muchos —una vinculación masiva, un resumen—: seguidos y en
+// menos de 3 minutos, van en un solo renglón que se abre.
+const GROUPED = {
+	linked: ( n ) =>
+		sprintf(
+			/* translators: %d: cuántos productos. */
+			_n(
+				'Se vinculó %d producto.',
+				'Se vincularon %d productos.',
+				n,
+				'woonderful-stock-sync-for-woocommerce'
+			),
+			n
+		),
+	unlinked: ( n ) =>
+		sprintf(
+			/* translators: %d: cuántos productos. */
+			_n(
+				'Se desvinculó %d producto.',
+				'Se desvincularon %d productos.',
+				n,
+				'woonderful-stock-sync-for-woocommerce'
+			),
+			n
+		),
+	discarded: ( n ) =>
+		sprintf(
+			/* translators: %d: cuántos productos. */
+			_n(
+				'Se descartó %d producto.',
+				'Se descartaron %d productos.',
+				n,
+				'woonderful-stock-sync-for-woocommerce'
+			),
+			n
+		),
+	link_failed: ( n ) =>
+		sprintf(
+			/* translators: %d: cuántas. */
+			_n(
+				'Falló %d vinculación.',
+				'Fallaron %d vinculaciones.',
+				n,
+				'woonderful-stock-sync-for-woocommerce'
+			),
+			n
+		),
+	notified: ( n ) =>
+		sprintf(
+			/* translators: %d: cuántos productos. */
+			_n(
+				'%d producto avisado.',
+				'%d productos avisados.',
+				n,
+				'woonderful-stock-sync-for-woocommerce'
+			),
+			n
+		),
+};
+
+const GROUP_WINDOW = 180;
+
+// Lo del contexto que se lee en el detalle; lo demás, en "Ver JSON".
+const CONTEXT_LABELS = {
+	remote: [
+		__( 'En la otra tienda', 'woonderful-stock-sync-for-woocommerce' ),
+		( v ) => `#${ v }`,
+	],
+	error: [ __( 'Error', 'woonderful-stock-sync-for-woocommerce' ) ],
+	minutes: [
+		__( 'Minutos sin responder', 'woonderful-stock-sync-for-woocommerce' ),
+	],
+	count: [ __( 'Productos', 'woonderful-stock-sync-for-woocommerce' ) ],
+	total: [ __( 'En total', 'woonderful-stock-sync-for-woocommerce' ) ],
+	expected: [
+		__( 'El libro decía', 'woonderful-stock-sync-for-woocommerce' ),
+	],
+	found: [ __( 'Había', 'woonderful-stock-sync-for-woocommerce' ) ],
+	difference: [ __( 'Diferencia', 'woonderful-stock-sync-for-woocommerce' ) ],
+};
+
 // Filtros iniciales desde el hash (ej. #/logs?level=error o #/logs?product=12), para que la
 // navegación desde otra pantalla aterrice ya filtrada.
 const getInitialFilters = () => {
@@ -105,34 +189,105 @@ const getInitialFilters = () => {
 	return {
 		level: params.get( 'level' ) || '',
 		kind: params.get( 'kind' ) || '',
-		from: '',
-		to: '',
+		days: 0,
+		search: '',
 		product: params.get( 'product' ) || '',
 	};
 };
 
+const pad = ( n ) => String( n ).padStart( 2, '0' );
+const ymd = ( d ) =>
+	`${ d.getFullYear() }-${ pad( d.getMonth() + 1 ) }-${ pad( d.getDate() ) }`;
+const seconds = ( at ) => new Date( at.replace( ' ', 'T' ) ).getTime() / 1000;
+
+function dayLabel( day ) {
+	const today = new Date();
+	const yesterday = new Date();
+	yesterday.setDate( today.getDate() - 1 );
+
+	if ( day === ymd( today ) ) {
+		return __( 'Hoy', 'woonderful-stock-sync-for-woocommerce' );
+	}
+	if ( day === ymd( yesterday ) ) {
+		return __( 'Ayer', 'woonderful-stock-sync-for-woocommerce' );
+	}
+	return new Date( `${ day }T00:00:00` ).toLocaleDateString( undefined, {
+		day: 'numeric',
+		month: 'short',
+	} );
+}
+
+// Las entradas de la página, por día, con los seguidos del mismo tipo juntos.
+function byDay( entries ) {
+	const days = [];
+
+	entries.forEach( ( entry, index ) => {
+		const key = entry.id ?? `m${ index }`;
+		const day = entry.at.slice( 0, 10 );
+		let current = days[ days.length - 1 ];
+
+		if ( ! current || current.day !== day ) {
+			current = { day, items: [] };
+			days.push( current );
+		}
+
+		const last = current.items[ current.items.length - 1 ];
+		const lastEntry = last?.group
+			? last.group[ last.group.length - 1 ].entry
+			: last?.entry;
+
+		if (
+			last &&
+			GROUPED[ entry.kind ] &&
+			lastEntry.kind === entry.kind &&
+			seconds( lastEntry.at ) - seconds( entry.at ) <= GROUP_WINDOW
+		) {
+			if ( ! last.group ) {
+				last.group = [ { key: last.key, entry: last.entry } ];
+				last.key = `g${ last.key }`;
+			}
+			last.group.push( { key, entry } );
+		} else {
+			current.items.push( { key, entry } );
+		}
+	} );
+
+	return days;
+}
+
 export default function Logs( { apiFetch, navigate } ) {
 	const [ entries, setEntries ] = useState( [] );
 	const [ total, setTotal ] = useState( 0 );
+	const [ levels, setLevels ] = useState( null );
 	const [ name, setName ] = useState( null );
 	const [ page, setPage ] = useState( 1 );
 	const [ loading, setLoading ] = useState( false );
 	const [ error, setError ] = useState( null );
-	const [ expanded, setExpanded ] = useState( null );
+	const [ open, setOpen ] = useState( {} );
 	const [ filters, setFilters ] = useState( getInitialFilters );
+	const [ search, setSearch ] = useState( '' );
+	const searchTimer = useRef();
 
 	const fetchLogs = useCallback( async () => {
 		setLoading( true );
 		setError( null );
 		try {
+			const { days, ...rest } = filters;
+			const query = { page, ...rest };
+			if ( days > 0 ) {
+				const from = new Date();
+				from.setDate( from.getDate() - ( days - 1 ) );
+				query.from = ymd( from );
+			}
 			const params = new URLSearchParams(
-				Object.entries( { page, ...filters } ).filter(
+				Object.entries( query ).filter(
 					( [ , value ] ) => '' !== value
 				)
 			);
 			const data = await apiFetch( { path: `/log?${ params }` } );
 			setEntries( data.items );
 			setTotal( data.total );
+			setLevels( data.levels ?? null );
 			setName( data.name ?? null );
 		} catch ( e ) {
 			setError(
@@ -151,8 +306,32 @@ export default function Logs( { apiFetch, navigate } ) {
 		fetchLogs();
 	}, [ fetchLogs ] );
 
+	useEffect( () => () => clearTimeout( searchTimer.current ), [] );
+
 	const updateFilter = ( key, value ) => {
 		setFilters( ( prev ) => ( { ...prev, [ key ]: value } ) );
+		setPage( 1 );
+		setOpen( {} );
+	};
+
+	const onSearch = ( value ) => {
+		setSearch( value );
+		clearTimeout( searchTimer.current );
+		searchTimer.current = setTimeout(
+			() => updateFilter( 'search', value.trim() ),
+			300
+		);
+	};
+
+	const clearFilters = () => {
+		setSearch( '' );
+		setFilters( ( prev ) => ( {
+			...prev,
+			level: '',
+			kind: '',
+			days: 0,
+			search: '',
+		} ) );
 		setPage( 1 );
 	};
 
@@ -161,105 +340,196 @@ export default function Logs( { apiFetch, navigate } ) {
 		updateFilter( 'product', '' );
 	};
 
-	const toggleExpand = ( key ) =>
-		setExpanded( ( prev ) => ( prev === key ? null : key ) );
+	const showHistory = ( product ) => {
+		navigate( 'logs', { product } );
+		updateFilter( 'product', String( product ) );
+	};
+
+	const toggle = ( key ) =>
+		setOpen( ( prev ) => ( { ...prev, [ key ]: ! prev[ key ] } ) );
+
+	const history = '' !== filters.product;
+	const errors = levels?.error ?? 0;
+	const counts = levels
+		? { '': levels.info + levels.warning + levels.error, ...levels }
+		: {};
 
 	return (
-		<div>
-			{ filters.product ? (
-				<div className="woon-toolbar">
-					<h3 className="woon-dashboard__section-title">
-						{ sprintf(
-							/* translators: %s: el producto. */
-							__(
-								'Historial de %s',
+		<div className="wss-logs">
+			<header className="wss-header">
+				<div>
+					<h1 className="wss-header__title">
+						{ history
+							? sprintf(
+									/* translators: %s: el producto. */
+									__(
+										'Historial de %s',
+										'woonderful-stock-sync-for-woocommerce'
+									),
+									name ?? `#${ filters.product }`
+							  )
+							: __(
+									'Registros',
+									'woonderful-stock-sync-for-woocommerce'
+							  ) }
+					</h1>
+					<p className="wss-header__subtitle">
+						{ history
+							? __(
+									'Sus movimientos de stock y lo que le pasó, de lo más nuevo a lo más viejo.',
+									'woonderful-stock-sync-for-woocommerce'
+							  )
+							: __(
+									'Lo que pasó entre las dos tiendas: vínculos, reconciliaciones, discrepancias y cortes de conexión.',
+									'woonderful-stock-sync-for-woocommerce'
+							  ) }
+					</p>
+				</div>
+				{ history && (
+					<div className="wss-header__actions">
+						<button
+							className="woon-btn woon-btn--ghost"
+							onClick={ showAll }
+						>
+							{ __(
+								'Ver todo el registro',
 								'woonderful-stock-sync-for-woocommerce'
-							),
-							name ?? `#${ filters.product }`
-						) }
-					</h3>
-					<button
-						className="woon-btn woon-btn--ghost"
-						onClick={ showAll }
-					>
-						{ __(
-							'Ver todo el registro',
+							) }
+						</button>
+					</div>
+				) }
+			</header>
+
+			{ ! history && (
+				<div className="wss-log-filters">
+					<div
+						className="wss-seg"
+						role="group"
+						aria-label={ __(
+							'Nivel',
 							'woonderful-stock-sync-for-woocommerce'
 						) }
-					</button>
+					>
+						{ LEVELS.map( ( [ value, label ] ) => (
+							<button
+								key={ value || 'all' }
+								className={ `wss-seg__btn ${
+									filters.level === value ? 'is-on' : ''
+								}` }
+								aria-pressed={ filters.level === value }
+								onClick={ () => updateFilter( 'level', value ) }
+							>
+								{ value && (
+									<span
+										className={ `wss-dot wss-dot--${ value }` }
+									/>
+								) }
+								{ label }
+								{ levels && (
+									<span className="wss-count">
+										{ counts[ value ] }
+									</span>
+								) }
+							</button>
+						) ) }
+					</div>
+					<div className="wss-select">
+						<select
+							aria-label={ __(
+								'Tipo',
+								'woonderful-stock-sync-for-woocommerce'
+							) }
+							value={ filters.kind }
+							onChange={ ( e ) =>
+								updateFilter( 'kind', e.target.value )
+							}
+						>
+							<option value="">
+								{ __(
+									'Todos los tipos',
+									'woonderful-stock-sync-for-woocommerce'
+								) }
+							</option>
+							{ Object.entries( KIND_LABELS ).map(
+								( [ value, label ] ) => (
+									<option key={ value } value={ value }>
+										{ label }
+									</option>
+								)
+							) }
+						</select>
+					</div>
+					<div
+						className="wss-seg"
+						role="group"
+						aria-label={ __(
+							'Período',
+							'woonderful-stock-sync-for-woocommerce'
+						) }
+					>
+						{ PERIODS.map( ( [ days, label ] ) => (
+							<button
+								key={ days }
+								className={ `wss-seg__btn ${
+									filters.days === days ? 'is-on' : ''
+								}` }
+								aria-pressed={ filters.days === days }
+								onClick={ () => updateFilter( 'days', days ) }
+							>
+								{ label }
+							</button>
+						) ) }
+					</div>
+					<div className="wss-search wss-log-search">
+						<IconSearch />
+						<input
+							type="search"
+							value={ search }
+							aria-label={ __(
+								'Buscar producto',
+								'woonderful-stock-sync-for-woocommerce'
+							) }
+							placeholder={ __(
+								'Producto, SKU o ID',
+								'woonderful-stock-sync-for-woocommerce'
+							) }
+							onChange={ ( e ) => onSearch( e.target.value ) }
+						/>
+					</div>
 				</div>
-			) : (
-				<div
-					className="woon-toolbar"
-					style={ { flexWrap: 'wrap', gap: '8px' } }
+			) }
+
+			{ ! history && errors > 0 && 'error' !== filters.level && (
+				<button
+					className="wss-log-alert"
+					onClick={ () => updateFilter( 'level', 'error' ) }
 				>
-					<select
-						className="woon-select"
-						style={ { maxWidth: 200 } }
-						value={ filters.level }
-						onChange={ ( e ) =>
-							updateFilter( 'level', e.target.value )
-						}
-					>
-						<option value="">
-							{ __(
-								'Todos los niveles',
-								'woonderful-stock-sync-for-woocommerce'
+					<Level level="error" />
+					<span>
+						<b>
+							{ sprintf(
+								/* translators: %d: cuántos errores. */
+								_n(
+									'%d error',
+									'%d errores',
+									errors,
+									'woonderful-stock-sync-for-woocommerce'
+								),
+								errors
 							) }
-						</option>
-						{ Object.entries( LEVEL_LABELS ).map( ( [ v, l ] ) => (
-							<option key={ v } value={ v }>
-								{ l }
-							</option>
-						) ) }
-					</select>
-					<select
-						className="woon-select"
-						style={ { maxWidth: 220 } }
-						value={ filters.kind }
-						onChange={ ( e ) =>
-							updateFilter( 'kind', e.target.value )
-						}
-					>
-						<option value="">
-							{ __(
-								'Todos los tipos',
-								'woonderful-stock-sync-for-woocommerce'
-							) }
-						</option>
-						{ Object.entries( KIND_LABELS ).map( ( [ v, l ] ) => (
-							<option key={ v } value={ v }>
-								{ l }
-							</option>
-						) ) }
-					</select>
-					<input
-						className="woon-input"
-						style={ { maxWidth: 160 } }
-						type="date"
-						value={ filters.from }
-						aria-label={ __(
-							'Desde',
+						</b>{ ' ' }
+						{ __(
+							'con estos filtros.',
 							'woonderful-stock-sync-for-woocommerce'
 						) }
-						onChange={ ( e ) =>
-							updateFilter( 'from', e.target.value )
-						}
-					/>
-					<input
-						className="woon-input"
-						style={ { maxWidth: 160 } }
-						type="date"
-						value={ filters.to }
-						aria-label={ __(
-							'Hasta',
+					</span>
+					<span className="wss-log-alert__go">
+						{ __(
+							'Ver errores',
 							'woonderful-stock-sync-for-woocommerce'
 						) }
-						onChange={ ( e ) =>
-							updateFilter( 'to', e.target.value )
-						}
-					/>
-				</div>
+					</span>
+				</button>
 			) }
 
 			{ error && (
@@ -276,102 +546,76 @@ export default function Logs( { apiFetch, navigate } ) {
 				</div>
 			) }
 			{ ! loading && ! error && entries.length === 0 && (
-				<div className="woon-empty">
-					<div className="woon-empty__title">
-						{ __(
-							'Sin registros',
-							'woonderful-stock-sync-for-woocommerce'
+				<div className="woon-card">
+					<div className="woon-empty">
+						<h3 className="woon-empty__title">
+							{ history
+								? __(
+										'Todavía no tiene movimientos ni eventos',
+										'woonderful-stock-sync-for-woocommerce'
+								  )
+								: __(
+										'No hay registros con estos filtros',
+										'woonderful-stock-sync-for-woocommerce'
+								  ) }
+						</h3>
+						{ ! history && (
+							<>
+								<p className="woon-empty__text">
+									{ __(
+										'Probá con otro período o tipo.',
+										'woonderful-stock-sync-for-woocommerce'
+									) }
+								</p>
+								<button
+									className="woon-btn woon-btn--ghost"
+									onClick={ clearFilters }
+								>
+									{ __(
+										'Limpiar filtros',
+										'woonderful-stock-sync-for-woocommerce'
+									) }
+								</button>
+							</>
 						) }
 					</div>
-					<p className="woon-empty__text">
-						{ __(
-							'No hay registros con estos filtros.',
-							'woonderful-stock-sync-for-woocommerce'
-						) }
-					</p>
 				</div>
 			) }
 
-			{ ! loading && entries.length > 0 && (
-				<div className="woon-log-list">
-					{ entries.map( ( entry, index ) => {
-						const key = entry.id ?? `m${ index }`;
-						const level = entry.level ?? 'info';
-						return (
-							<div
-								key={ key }
-								className={ `woon-log-entry woon-log-entry--${ LEVEL_CLASS[ level ] }` }
-							>
-								<div
-									className="woon-log-entry__summary"
-									onClick={ () => toggleExpand( key ) }
-									role="button"
-									tabIndex={ 0 }
-									onKeyDown={ ( e ) =>
-										e.key === 'Enter' && toggleExpand( key )
-									}
-								>
-									<span
-										className={ `woon-badge woon-badge--${
-											'movement' === entry.type
-												? 'brand'
-												: BADGE_CLASS[ level ]
-										}` }
-									>
-										{ 'movement' === entry.type
-											? __(
-													'Movimiento',
-													'woonderful-stock-sync-for-woocommerce'
-											  )
-											: KIND_LABELS[ entry.kind ] ||
-											  entry.kind }
-									</span>
-									<span
-										style={ {
-											fontSize: 'var(--woon-fs-sm)',
-										} }
-									>
-										{ entry.text }
-									</span>
-									<StockChange stocks={ entry.stocks } />
-									<span
-										style={ {
-											color: 'var(--woon-text-faint)',
-											fontSize: 'var(--woon-fs-xs)',
-											marginLeft: 'auto',
-											whiteSpace: 'nowrap',
-										} }
-									>
-										{ entry.at }
-									</span>
-									<span
-										className="woon-log-entry__toggle"
-										style={ { marginLeft: 0 } }
-									>
-										{ expanded === key ? '▲' : '▼' }
-									</span>
-								</div>
-
-								{ expanded === key && (
-									<Detail
-										entry={ entry }
-										onHistory={ ( product ) => {
-											navigate( 'logs', { product } );
-											updateFilter(
-												'product',
-												String( product )
-											);
-										} }
-										inHistory={ '' !== filters.product }
+			{ ! loading &&
+				byDay( entries ).map( ( { day, items } ) => (
+					<section key={ day } className="wss-log-day">
+						<h2 className="wss-log-day__title">
+							{ dayLabel( day ) }
+							<span>{ day }</span>
+						</h2>
+						<div className="wss-log-list">
+							{ items.map( ( item ) =>
+								item.group ? (
+									<Group
+										key={ item.key }
+										item={ item }
+										open={ open }
+										toggle={ toggle }
+										onHistory={ showHistory }
+										inHistory={ history }
 									/>
-								) }
-							</div>
-						);
-					} ) }
-				</div>
-			) }
+								) : (
+									<Entry
+										key={ item.key }
+										entry={ item.entry }
+										open={ !! open[ item.key ] }
+										onToggle={ () => toggle( item.key ) }
+										onHistory={ showHistory }
+										inHistory={ history }
+									/>
+								)
+							) }
+						</div>
+					</section>
+				) ) }
 
-			{ ! filters.product && (
+			{ ! history && (
 				<Pagination
 					page={ page }
 					total={ total }
@@ -383,7 +627,121 @@ export default function Logs( { apiFetch, navigate } ) {
 	);
 }
 
+function Group( { item, open, toggle, onHistory, inHistory } ) {
+	const first = item.group[ 0 ].entry;
+	const last = item.group[ item.group.length - 1 ].entry;
+	const isOpen = !! open[ item.key ];
+
+	return (
+		<div className={ `wss-log-item ${ isOpen ? 'is-open' : '' }` }>
+			<button
+				className="wss-log-row"
+				onClick={ () => toggle( item.key ) }
+				aria-expanded={ isOpen }
+			>
+				<span className="wss-log-row__time">
+					{ first.at.slice( 11 ) }
+				</span>
+				<Level level={ first.level } />
+				<span className="wss-log-row__type">
+					{ KIND_LABELS[ first.kind ] ?? first.kind }
+				</span>
+				<span className="wss-log-row__text">
+					{ GROUPED[ first.kind ]( item.group.length ) }
+					<span className="wss-log-row__extra">
+						{ last.at.slice( 11, 16 ) } –{ ' ' }
+						{ first.at.slice( 11, 16 ) }
+					</span>
+				</span>
+				<span className="wss-log-row__stack">
+					{ item.group.length }
+				</span>
+			</button>
+			{ isOpen && (
+				<div className="wss-log-children">
+					{ item.group.map( ( { key, entry } ) => (
+						<Entry
+							key={ key }
+							entry={ entry }
+							child
+							open={ !! open[ key ] }
+							onToggle={ () => toggle( key ) }
+							onHistory={ onHistory }
+							inHistory={ inHistory }
+						/>
+					) ) }
+				</div>
+			) }
+		</div>
+	);
+}
+
+function Entry( { entry, child, open, onToggle, onHistory, inHistory } ) {
+	const movement = 'movement' === entry.type;
+	const level = RECOVERED.includes( entry.kind )
+		? 'ok'
+		: entry.level ?? 'info';
+	const extra =
+		'peer_back' === entry.kind && entry.context?.minutes
+			? sprintf(
+					/* translators: %d: minutos. */
+					__(
+						'Sin responder %d min',
+						'woonderful-stock-sync-for-woocommerce'
+					),
+					entry.context.minutes
+			  )
+			: null;
+
+	return (
+		<div
+			className={ `wss-log-item ${ open ? 'is-open' : '' } ${
+				child ? 'is-child' : ''
+			}` }
+		>
+			<button
+				className="wss-log-row"
+				onClick={ onToggle }
+				aria-expanded={ open }
+			>
+				<span className="wss-log-row__time">
+					{ entry.at.slice( 11 ) }
+				</span>
+				<Level level={ level } />
+				<span className="wss-log-row__type">
+					{ movement
+						? __(
+								'Movimiento',
+								'woonderful-stock-sync-for-woocommerce'
+						  )
+						: KIND_LABELS[ entry.kind ] ?? entry.kind }
+				</span>
+				<span className="wss-log-row__text">
+					{ entry.text }
+					<StockChange stocks={ entry.stocks } />
+					{ extra && (
+						<span className="wss-log-row__extra">{ extra }</span>
+					) }
+				</span>
+				<span className="wss-log-row__chev">
+					<IconChevron />
+				</span>
+			</button>
+			{ open && (
+				<Detail
+					entry={ entry }
+					onHistory={ onHistory }
+					inHistory={ inHistory }
+				/>
+			) }
+		</div>
+	);
+}
+
 function Detail( { entry, onHistory, inHistory } ) {
+	const [ raw, setRaw ] = useState( false );
+	const [ copied, setCopied ] = useState( false );
+	const context = entry.context ?? {};
 	const rows = [
 		[
 			__( 'Producto', 'woonderful-stock-sync-for-woocommerce' ),
@@ -394,55 +752,134 @@ function Detail( { entry, onHistory, inHistory } ) {
 			entry.cause,
 		],
 		[ __( 'Quién', 'woonderful-stock-sync-for-woocommerce' ), entry.user ],
+		...Object.entries( context )
+			.filter(
+				( [ key, value ] ) =>
+					CONTEXT_LABELS[ key ] &&
+					null !== value &&
+					'object' !== typeof value
+			)
+			.map( ( [ key, value ] ) => {
+				const [ label, format = String ] = CONTEXT_LABELS[ key ];
+				return [ label, format( value ) ];
+			} ),
 	].filter( ( [ , value ] ) => value );
 
-	const context = entry.context ?? {};
+	const json = JSON.stringify( entry, null, 2 );
+
+	const copy = async () => {
+		try {
+			await window.navigator.clipboard.writeText( json );
+			setCopied( true );
+			setTimeout( () => setCopied( false ), 2000 );
+		} catch ( e ) {
+			setRaw( true );
+		}
+	};
 
 	return (
-		<div className="woon-log-entry__detail">
+		<div className="wss-log-detail">
 			{ rows.length > 0 && (
-				<div
-					className="woon-log-conflict-resolution"
-					style={ { marginBottom: '12px' } }
-				>
+				<dl className="wss-log-kv">
 					{ rows.map( ( [ label, value ] ) => (
-						<div
-							key={ label }
-							className="woon-log-conflict-resolution__item"
-						>
-							<span className="woon-log-conflict-resolution__label">
-								{ label }
-							</span>
-							<span>{ value }</span>
+						<div key={ label } className="wss-log-kv__row">
+							<dt>{ label }</dt>
+							<dd>{ value }</dd>
 						</div>
 					) ) }
-				</div>
+				</dl>
 			) }
-			{ Object.keys( context ).length > 0 && (
-				<details>
-					<summary>
+			<div className="wss-log-detail__actions">
+				{ entry.product && ! inHistory && (
+					<button
+						className="wss-link"
+						onClick={ () => onHistory( entry.product ) }
+					>
 						{ __(
-							'Datos',
+							'Ver el historial del producto',
 							'woonderful-stock-sync-for-woocommerce'
 						) }
-					</summary>
-					<pre className="woon-log-entry__code">
-						{ JSON.stringify( context, null, 2 ) }
-					</pre>
-				</details>
-			) }
-			{ entry.product && ! inHistory && (
-				<button
-					className="woon-btn woon-btn--ghost woon-btn--sm"
-					style={ { marginTop: '12px' } }
-					onClick={ () => onHistory( entry.product ) }
-				>
-					{ __(
-						'Ver el historial del producto',
-						'woonderful-stock-sync-for-woocommerce'
-					) }
+					</button>
+				) }
+				<button className="wss-link" onClick={ () => setRaw( ! raw ) }>
+					{ raw
+						? __(
+								'Ocultar JSON',
+								'woonderful-stock-sync-for-woocommerce'
+						  )
+						: __(
+								'Ver JSON',
+								'woonderful-stock-sync-for-woocommerce'
+						  ) }
 				</button>
-			) }
+				<button className="wss-link" onClick={ copy }>
+					{ copied
+						? __(
+								'Copiado',
+								'woonderful-stock-sync-for-woocommerce'
+						  )
+						: __(
+								'Copiar',
+								'woonderful-stock-sync-for-woocommerce'
+						  ) }
+				</button>
+			</div>
+			{ raw && <pre className="wss-log-raw">{ json }</pre> }
 		</div>
+	);
+}
+
+function Level( { level } ) {
+	const labels = {
+		info: __( 'Info', 'woonderful-stock-sync-for-woocommerce' ),
+		ok: __( 'Info', 'woonderful-stock-sync-for-woocommerce' ),
+		warning: __( 'Aviso', 'woonderful-stock-sync-for-woocommerce' ),
+		error: __( 'Error', 'woonderful-stock-sync-for-woocommerce' ),
+	};
+	const marks = { ok: '✓', warning: '!', error: '!' };
+
+	return (
+		<span
+			className={ `wss-level wss-level--${ level }` }
+			title={ labels[ level ] }
+		>
+			{ marks[ level ] ?? '' }
+		</span>
+	);
+}
+
+function IconSearch() {
+	return (
+		<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+			<circle
+				cx="7"
+				cy="7"
+				r="4.5"
+				fill="none"
+				stroke="currentColor"
+				strokeWidth="1.5"
+			/>
+			<path
+				d="M10.5 10.5L14 14"
+				stroke="currentColor"
+				strokeWidth="1.5"
+				strokeLinecap="round"
+			/>
+		</svg>
+	);
+}
+
+function IconChevron() {
+	return (
+		<svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
+			<path
+				d="M4 6l4 4 4-4"
+				fill="none"
+				stroke="currentColor"
+				strokeWidth="1.6"
+				strokeLinecap="round"
+				strokeLinejoin="round"
+			/>
+		</svg>
 	);
 }

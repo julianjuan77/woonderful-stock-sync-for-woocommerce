@@ -937,7 +937,7 @@ visto cae `AUD-17`; sin la tercera pregunta caen `RCL-17` y `RCL-18`; ignorando 
 | `EVT-01` | Un evento con producto, causa y datos, sin persona | Queda todo, y el usuario en `NULL`: WP-CLI sin `--user` da 0 |
 | `EVT-02` | Con una persona | Queda quién fue |
 | `EVT-03` | **Escribir con la tabla borrada** | No corta nada, no imprime nada, y deja los errores de la base como estaban (ADR-011 §7) |
-| `EVT-04` | Tres eventos | De lo más nuevo a lo más viejo; filtra por producto, tipo, nivel y causa; pagina |
+| `EVT-04` | Tres eventos | De lo más nuevo a lo más viejo; filtra por producto —uno o una lista, y una lista vacía no trae nada—, tipo, nivel y causa; pagina; `levels` cuenta cada nivel sin el filtro de nivel |
 | `EVT-05` | **Movimientos del libro y eventos de un producto, y de otro** | Una sola línea de tiempo, sólo de ese producto (UC-03) |
 | `EVT-06` | **Eventos de hace 91 días: uno común, un descarte, un deshacer, un aviso; y uno de hace 89** | La purga borra sólo el común (ADR-011 §6) |
 | `EVT-07` | Cada tipo | Tiene su frase, no el nombre interno |
@@ -1216,3 +1216,4 @@ Mutaciones: sin revisar el SKU fresco, o el vinculado allá, cae `BLK-03`.
 | ID | Caso | Esperado |
 | --- | --- | --- |
 | `ADM-33` | **El CSS de las fuentes** | Cuatro archivos, todos del plugin y todos presentes en `assets/fonts/`; ningún pedido a Google (ADR-013 §2.1) |
+| `ADM-34` | **Registros busca por producto**: por parte del nombre, por SKU y por ID, y algo que no es ningún producto | Cada búsqueda trae los eventos de ese producto; la que no encuentra, nada. `levels` cuenta los de cada nivel |

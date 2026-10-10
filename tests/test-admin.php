@@ -486,6 +486,32 @@ class Test_Admin extends WP_UnitTestCase {
 	}
 
 	/**
+	 * ADM-34 — **Registros busca por producto**: por parte del nombre, por SKU o por ID; lo que
+	 * no encuentra productos no trae nada.
+	 */
+	public function test_the_log_searches_by_product(): void {
+		$this->as_user( 'administrator' );
+		$token = uniqid( 'adm34' );
+		$green = $this->linked( 5, 5, 900, "Alpargata verde {$token}" );
+		$blue  = $this->linked( 5, 5, 901, 'Ojota azul' );
+		$found = wc_get_product( $blue );
+		$found->set_sku( "SKU-{$token}" );
+		$found->save();
+
+		Events::record( Events::LINKED, Events::INFO, $green );
+		Events::record( Events::LINKED, Events::INFO, $blue );
+		Events::record( Events::RECONCILED, Events::INFO, null, array( 'trigger' => 'manual', 'outcome' => 'done' ) ); // phpcs:ignore WordPress.Arrays.ArrayDeclarationSpacing.AssociativeArrayFound
+
+		$products = fn ( string $search ) => array_column( $this->send( 'GET', '/log', array( 'search' => $search ) )->get_data()['items'], 'product' );
+
+		$this->assertSame( array( $green ), $products( "verde {$token}" ) );
+		$this->assertSame( array( $blue ), $products( "sku-{$token}" ) );
+		$this->assertSame( array( $green ), $products( (string) $green ) );
+		$this->assertSame( array(), $products( 'no-existe-' . $token ) );
+		$this->assertSame( 3, $this->call( 'GET', '/log' )->get_data()['levels'][ Events::INFO ] );
+	}
+
+	/**
 	 * Un pedido a `wss-admin/v1` con parámetros.
 	 *
 	 * @param string               $method El método.

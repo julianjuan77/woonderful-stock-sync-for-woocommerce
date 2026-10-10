@@ -97,22 +97,63 @@ final class Events {
 	}
 
 	/**
-	 * Los eventos, de lo más nuevo a lo más viejo, filtrados y paginados.
+	 * Los eventos, de lo más nuevo a lo más viejo, filtrados y paginados, y cuántos hay de cada
+	 * nivel con los mismos filtros salvo el nivel: los botones de nivel muestran su cuenta.
 	 *
-	 * Sin `product` ni `kind`, no trae las marcas `notified`: son una por producto avisado, y
-	 * el email que las produjo ya es un `digest_sent`.
+	 * Sin `product`, `products` ni `kind`, no trae las marcas `notified`: son una por producto
+	 * avisado, y el email que las produjo ya es un `digest_sent`.
 	 *
-	 * @param array<string, mixed> $filters  `product`, `kind`, `level`, `cause`, `after_id`, y
-	 *                                       `since` y `until`, fechas UTC inclusive.
+	 * @param array<string, mixed> $filters  `product`, `products` —una lista de IDs—, `kind`,
+	 *                                       `level`, `cause`, `after_id`, y `since` y `until`,
+	 *                                       fechas UTC inclusive.
 	 * @param int                  $page     La página, desde 1.
 	 * @param int                  $per_page Cuántos, hasta 100.
 	 *
-	 * @return array{items: array<int, array<string, mixed>>, total: int}
+	 * @return array{items: array<int, array<string, mixed>>, total: int, levels: array<string, int>}
 	 */
 	public static function list( array $filters = array(), int $page = 1, int $per_page = 50 ): array {
 		global $wpdb;
 
-		$table  = Installer::table( 'events' );
+		$table = Installer::table( 'events' );
+
+		list( $sql, $values )     = self::where( $filters );
+		list( $any, $any_values ) = self::where( array_diff_key( $filters, array( 'level' => true ) ) );
+
+		$per_page = max( 1, min( 100, $per_page ) );
+
+		// Los valores van en un array: PHPCS no los cuenta.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		$total  = (int) $wpdb->get_var( array() === $values ? "SELECT COUNT(*) FROM {$table} WHERE {$sql}" : $wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE {$sql}", $values ) );
+		$counts = (array) $wpdb->get_results( array() === $any_values ? "SELECT level, COUNT(*) AS n FROM {$table} WHERE {$any} GROUP BY level" : $wpdb->prepare( "SELECT level, COUNT(*) AS n FROM {$table} WHERE {$any} GROUP BY level", $any_values ) );
+		$rows   = (array) $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT * FROM {$table} WHERE {$sql} ORDER BY id DESC LIMIT %d OFFSET %d",
+				array_merge( $values, array( $per_page, ( max( 1, $page ) - 1 ) * $per_page ) )
+			)
+		);
+		// phpcs:enable
+
+		$levels = array_fill_keys( array( self::INFO, self::WARNING, self::ERROR ), 0 );
+
+		foreach ( $counts as $count ) {
+			$levels[ (string) $count->level ] = (int) $count->n;
+		}
+
+		return array(
+			'items'  => array_map( array( self::class, 'row' ), $rows ),
+			'total'  => $total,
+			'levels' => $levels,
+		);
+	}
+
+	/**
+	 * El `WHERE` de `list()`, con sus valores.
+	 *
+	 * @param array<string, mixed> $filters Los de `list()`.
+	 *
+	 * @return array{0: string, 1: array<int, mixed>}
+	 */
+	private static function where( array $filters ): array {
 		$where  = array( '1=1' );
 		$values = array();
 
@@ -124,9 +165,9 @@ final class Events {
 		}
 
 		// Las marcas de "ya avisé" son la memoria del resumen, una por producto: en la lista
-		// general parecían un email cada una. Se ven al pedirlas, o en el historial de cada
-		// producto; el email queda como un solo `digest_sent`.
-		if ( ! isset( $filters['product'] ) && ( $filters['kind'] ?? '' ) === '' ) {
+		// general parecían un email cada una. Se ven al pedirlas, o al mirar productos; el
+		// email queda como un solo `digest_sent`.
+		if ( ! isset( $filters['product'] ) && ! isset( $filters['products'] ) && ( $filters['kind'] ?? '' ) === '' ) {
 			$where[]  = 'kind <> %s';
 			$values[] = self::NOTIFIED;
 		}
@@ -134,6 +175,14 @@ final class Events {
 		if ( isset( $filters['product'] ) ) {
 			$where[]  = 'product = %d';
 			$values[] = (int) $filters['product'];
+		}
+
+		// Una búsqueda que no encontró productos no encuentra eventos: `IN (0)`.
+		if ( isset( $filters['products'] ) ) {
+			$products = array_map( 'intval', (array) $filters['products'] );
+			$products = array() === $products ? array( 0 ) : $products;
+			$where[]  = 'product IN (' . implode( ',', array_fill( 0, count( $products ), '%d' ) ) . ')';
+			$values   = array_merge( $values, $products );
 		}
 
 		if ( isset( $filters['since'] ) ) {
@@ -151,23 +200,7 @@ final class Events {
 			$values[] = (int) $filters['after_id'];
 		}
 
-		$per_page = max( 1, min( 100, $per_page ) );
-		$sql      = implode( ' AND ', $where );
-
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
-		$total = (int) $wpdb->get_var( array() === $values ? "SELECT COUNT(*) FROM {$table} WHERE {$sql}" : $wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE {$sql}", $values ) );
-		$rows  = (array) $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT * FROM {$table} WHERE {$sql} ORDER BY id DESC LIMIT %d OFFSET %d",
-				array_merge( $values, array( $per_page, ( max( 1, $page ) - 1 ) * $per_page ) )
-			)
-		);
-		// phpcs:enable
-
-		return array(
-			'items' => array_map( array( self::class, 'row' ), $rows ),
-			'total' => $total,
-		);
+		return array( implode( ' AND ', $where ), $values );
 	}
 
 	/**

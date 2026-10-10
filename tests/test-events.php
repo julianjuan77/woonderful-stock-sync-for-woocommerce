@@ -104,8 +104,8 @@ class Test_Events extends WP_UnitTestCase {
 	}
 
 	/**
-	 * EVT-04 — La lista va de lo más nuevo a lo más viejo, filtra por producto, tipo, nivel y
-	 * causa, y pagina.
+	 * EVT-04 — La lista va de lo más nuevo a lo más viejo, filtra por producto —uno o una lista—,
+	 * tipo, nivel y causa, y pagina. Cuenta cuántos hay de cada nivel sin el filtro de nivel.
 	 */
 	public function test_the_list_filters_and_pages(): void {
 		Events::record( Events::LINKED, Events::INFO, 1 );
@@ -117,6 +117,17 @@ class Test_Events extends WP_UnitTestCase {
 		$this->assertSame( 2, Events::list( array( 'kind' => Events::LINK_FAILED ) )['total'] );
 		$this->assertSame( 1, Events::list( array( 'cause' => 'peer_unreachable' ) )['total'] );
 		$this->assertSame( 1, Events::list( array( 'level' => Events::INFO ) )['total'] );
+		$this->assertSame(
+			array(
+				Events::INFO    => 1,
+				Events::WARNING => 2,
+				Events::ERROR   => 0,
+			),
+			Events::list( array( 'level' => Events::INFO ) )['levels'],
+			'las cuentas, sin el filtro de nivel'
+		);
+		$this->assertSame( array( 3, 1 ), array_column( Events::list( array( 'products' => array( 1, 3 ) ) )['items'], 'product' ) );
+		$this->assertSame( 0, Events::list( array( 'products' => array() ) )['total'], 'una búsqueda sin productos no trae nada' );
 
 		$second = Events::list( array(), 2, 2 );
 

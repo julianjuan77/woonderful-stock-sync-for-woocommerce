@@ -425,8 +425,15 @@ se resuelve con un menú de las dos salidas, cada una con lo que hace. `POST /re
 `wp wss reconcile` y `wp wss discrepancy`. Que la otra no responda no es un error del pedido:
 vuelve `200` con "no se pudo mirar".
 
-**Registros** (`src/screens/Logs.js`, la de woonderful-sync adaptada) pide `GET /log`: de a 50,
-filtrado por nivel, tipo y fecha. **Las fechas del filtro son días del sitio** y se pasan a UTC,
+**Registros** (`src/screens/Logs.js`) pide `GET /log`: de a 50, filtrado por nivel, tipo, período
+(hoy, 7 días, 30 días o todo, que la pantalla manda como `from`) y producto. **Lista sólo eventos**:
+los movimientos de stock están en el historial de cada producto, para que una tanda de ventas no tape
+lo que se viene a buscar (decidido con Julián, 2026-10-09). La búsqueda (`search`) es de productos
+de acá: el ID, o parte del nombre o del SKU (`Api::products_matching()`, hasta 200), y trae sus
+eventos. La respuesta trae `levels`, cuántos hay de cada nivel con los demás filtros, para los
+botones de nivel. La pantalla agrupa por día, y junta en un renglón los seguidos del mismo tipo que
+vienen de a muchos —vincular, desvincular, descartar, fallar al vincular, avisar— si están a menos
+de 3 minutos. **Las fechas del filtro son días del sitio** y se pasan a UTC,
 que es como se guardan: un evento de las 00:09 UTC es del día anterior en Buenos Aires. Con
 `product`, el historial del producto (`Events::history()`), que se abre desde una fila del log o
 desde Productos con `#/logs?product=<id>`. Cada entrada llega con su frase: `Events::describe()`

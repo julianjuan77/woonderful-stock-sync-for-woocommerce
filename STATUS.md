@@ -2,7 +2,7 @@
 
 > Plugin: `woonderful-stock-sync-for-woocommerce` | WP 6.5+ | PHP 8.1+ | WooCommerce 9.1+
 > Repo: [woonderful-stock-sync-for-woocommerce](https://github.com/julianjuan77/woonderful-stock-sync-for-woocommerce)
-> Creado: 2026-09-20 · Última sesión: 2026-10-09 — el rediseño de Productos y de Resumen, el logo y las fuentes de la marca dentro del plugin (ADR-013 §2.1). Antes, 2026-10-07 — los ADRs de la interfaz (ADR-013, con la configuración inicial, y ADR-014) y el bloque 8 entero: de la base (8.1) a la configuración inicial (8.10). Antes, 2026-10-06 — los ADRs del log (ADR-011) y de los avisos (ADR-012), y el bloque 10 entero: la tabla del log, el estado de la otra tienda, los eventos de cada pieza, los pares rotos, la purga y los avisos por email
+> Creado: 2026-09-20 · Última sesión: 2026-10-09 — el rediseño de Productos, Resumen y Registros, el logo y las fuentes de la marca dentro del plugin (ADR-013 §2.1). Antes, 2026-10-07 — los ADRs de la interfaz (ADR-013, con la configuración inicial, y ADR-014) y el bloque 8 entero: de la base (8.1) a la configuración inicial (8.10). Antes, 2026-10-06 — los ADRs del log (ADR-011) y de los avisos (ADR-012), y el bloque 10 entero: la tabla del log, el estado de la otra tienda, los eventos de cada pieza, los pares rotos, la purga y los avisos por email
 
 Sincroniza el stock entre dos tiendas WooCommerce propias que despachan del mismo depósito.
 Pool único, sin reparto: lo que se vende en una descuenta en las dos.
@@ -193,7 +193,7 @@ es lo normal: loguearlo en cada pasada sería ruido.
 
 **El diseño parte de woonderful-sync** (pedido de Julián, 2026-10-06): los mismos logos (`assets/brand/`), la misma disposición —sidebar con logo, pantallas como `src/screens/Logs.js`— y los mismos colores y estilos (`src/style.scss`, clases `woon-*`).
 
-**Productos y Resumen, rediseñados** (2026-10-09, a partir de los diseños de Julián): Productos con pestañas de estado que se cambian por las de motivo, variables contraídos y barra flotante para vincular; Resumen con una cabecera que dice si hay algo que hacer, el par de tiendas, la reconciliación en una tabla acá/la otra, la barra de vinculados (`Rows::linking()`) y las discrepancias de las dos tiendas lado a lado, resueltas con un menú de las dos salidas. Las clases nuevas son `wss-*`. Productos se lista primero lo vinculado (pedido de Julián, 2026-10-09).
+**Productos y Resumen, rediseñados** (2026-10-09, a partir de los diseños de Julián): Productos con pestañas de estado que se cambian por las de motivo, variables contraídos y barra flotante para vincular; Resumen con una cabecera que dice si hay algo que hacer, el par de tiendas, la reconciliación en una tabla acá/la otra, la barra de vinculados (`Rows::linking()`) y las discrepancias de las dos tiendas lado a lado, resueltas con un menú de las dos salidas. Las clases nuevas son `wss-*`. Productos se lista primero lo vinculado (pedido de Julián, 2026-10-09). Registros, rediseñado: filtros de nivel con su cuenta, tipo, período y búsqueda por producto; agrupado por día, con las tandas en un renglón y el detalle legible. Sin exportar a CSV, por ahora.
 
 ### 9. Publicación
 

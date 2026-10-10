@@ -226,15 +226,56 @@ final class Api {
 			}
 		}
 
+		$search = trim( (string) $request['search'] );
+
+		if ( '' !== $search ) {
+			$filters['products'] = self::products_matching( $search );
+		}
+
 		$list = Events::list( $filters, max( 1, (int) $request['page'] ), 50 );
 
 		return new \WP_REST_Response(
 			array(
-				'items' => array_map( array( self::class, 'entry' ), $list['items'] ),
-				'total' => $list['total'],
+				'items'  => array_map( array( self::class, 'entry' ), $list['items'] ),
+				'total'  => $list['total'],
+				'levels' => $list['levels'],
 			),
 			200
 		);
+	}
+
+	/**
+	 * Los productos de acá que busca Registros: el ID, o parte del nombre o del SKU. Hasta 200;
+	 * más no le sirve a nadie para buscar.
+	 *
+	 * @param string $search Lo que se escribió.
+	 *
+	 * @return array<int, int>
+	 */
+	private static function products_matching( string $search ): array {
+		global $wpdb;
+
+		if ( ctype_digit( $search ) ) {
+			return array( (int) $search );
+		}
+
+		$like = '%' . $wpdb->esc_like( $search ) . '%';
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT DISTINCT p.ID FROM {$wpdb->posts} p
+				 LEFT JOIN {$wpdb->postmeta} m ON m.post_id = p.ID AND m.meta_key = '_sku'
+				 WHERE p.post_type IN ( 'product', 'product_variation' )
+				   AND ( p.post_title LIKE %s OR m.meta_value LIKE %s )
+				 LIMIT 200",
+				$like,
+				$like
+			)
+		);
+		// phpcs:enable
+
+		return array_map( 'intval', $ids );
 	}
 
 	/**
