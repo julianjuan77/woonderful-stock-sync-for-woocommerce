@@ -446,7 +446,6 @@ function StepNotify( { apiFetch, onContinue, onBack, onSkip } ) {
 				method: 'POST',
 				data: {
 					notify_email: form.notify_email,
-					notify_after: form.notify_after,
 				},
 			} );
 			onContinue();
@@ -500,37 +499,6 @@ function StepNotify( { apiFetch, onContinue, onBack, onSkip } ) {
 									setForm( {
 										...form,
 										notify_email: e.target.value,
-									} )
-								}
-							/>
-						</div>
-						<div className="woon-field">
-							<label
-								className="woon-label"
-								htmlFor="wss-setup-after"
-							>
-								{ __(
-									'Plazo de lo que no sincroniza',
-									'woonderful-stock-sync-for-woocommerce'
-								) }
-							</label>
-							<div className="woon-help">
-								{ __(
-									'Horas que un producto puede estar sin vincular antes de entrar en el resumen de la noche.',
-									'woonderful-stock-sync-for-woocommerce'
-								) }
-							</div>
-							<input
-								id="wss-setup-after"
-								type="number"
-								min="1"
-								className="woon-input"
-								style={ { maxWidth: 100 } }
-								value={ form.notify_after }
-								onChange={ ( e ) =>
-									setForm( {
-										...form,
-										notify_after: e.target.value,
 									} )
 								}
 							/>

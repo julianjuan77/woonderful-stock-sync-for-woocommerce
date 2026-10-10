@@ -3507,18 +3507,6 @@ h2.wss-confirm__title {
 	}
 }
 
-.wss-hours {
-	display: flex;
-	align-items: center;
-	gap: 10px;
-	color: var(--woon-text-muted);
-
-	.wss-input {
-		width: 88px;
-		font-variant-numeric: tabular-nums;
-	}
-}
-
 .wss-toggle {
 	display: flex;
 	justify-content: space-between;

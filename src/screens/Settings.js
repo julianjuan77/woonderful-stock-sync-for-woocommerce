@@ -251,40 +251,6 @@ export default function Settings( { apiFetch, status, onStatus } ) {
 									}
 								/>
 							</Field>
-							<Field
-								id="wss-notify-after"
-								title={ __(
-									'Plazo de lo que no sincroniza',
-									'woonderful-stock-sync-for-woocommerce'
-								) }
-								help={ __(
-									'Horas que un producto puede estar sin vincular antes de entrar en el resumen de la noche.',
-									'woonderful-stock-sync-for-woocommerce'
-								) }
-							>
-								<div className="wss-hours">
-									<input
-										id="wss-notify-after"
-										type="number"
-										min="1"
-										className="wss-input"
-										value={ form.notify_after }
-										disabled={ ! form.notify_enabled }
-										onChange={ ( e ) =>
-											set(
-												'notify_after',
-												e.target.value
-											)
-										}
-									/>
-									<span>
-										{ __(
-											'horas',
-											'woonderful-stock-sync-for-woocommerce'
-										) }
-									</span>
-								</div>
-							</Field>
 						</div>
 					</div>
 				</section>
