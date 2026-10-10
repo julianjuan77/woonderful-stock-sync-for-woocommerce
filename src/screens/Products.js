@@ -1094,7 +1094,7 @@ function Row( { row, actions, selected, onSelect, onHistory } ) {
 // Al lado del estado, no en su lugar: un producto con sugerencia sigue sin vincular.
 function SuggestionBadge() {
 	return (
-		<span className="woon-badge woon-badge--brand">
+		<span className="woon-badge wss-badge-suggest">
 			{ __( 'Con sugerencia', 'woonderful-stock-sync-for-woocommerce' ) }
 		</span>
 	);
