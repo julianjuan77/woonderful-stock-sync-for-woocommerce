@@ -951,4 +951,23 @@ class Test_Admin extends WP_UnitTestCase {
 
 		$this->assertCount( 8, $this->call( 'GET', '/requirements' )->get_data()['items'] );
 	}
+
+	/**
+	 * ADM-33 — **Las fuentes de la marca salen del plugin**, no de otro servidor, y cada archivo
+	 * que nombra existe (ADR-013 §2.1).
+	 */
+	public function test_the_brand_fonts_are_served_by_the_plugin(): void {
+		$css = Page::fonts_css();
+
+		preg_match_all( '/url\("([^"]+)"\)/', $css, $urls );
+
+		$this->assertCount( 4, $urls[1] );
+
+		foreach ( $urls[1] as $url ) {
+			$this->assertStringStartsWith( plugins_url( 'assets/fonts/', WSS_PLUGIN_FILE ), $url );
+			$this->assertFileExists( WSS_PLUGIN_DIR . 'assets/fonts/' . basename( $url ) );
+		}
+
+		$this->assertStringNotContainsString( 'googleapis', $css );
+	}
 }

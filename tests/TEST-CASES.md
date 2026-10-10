@@ -1209,3 +1209,9 @@ Mutaciones: sin revisar el SKU fresco, o el vinculado allá, cae `BLK-03`.
 | --- | --- | --- |
 | `ROW-11` | **Un variable con 3 variaciones y 50 simples** | 51 productos: la primera página lleva el padre entero —3 variaciones— y 49 simples; la segunda, el que queda. El padre trae su resumen: 3 variaciones, 1 vinculada, 2 sin vincular |
 | `ROW-12` | **Uno sin SKU, uno sin coincidencia y uno descartado** | `motives` cuenta uno de cada uno, el descartado también: es una pestaña |
+
+## Las fuentes de la marca
+
+| ID | Caso | Esperado |
+| --- | --- | --- |
+| `ADM-33` | **El CSS de las fuentes** | Cuatro archivos, todos del plugin y todos presentes en `assets/fonts/`; ningún pedido a Google (ADR-013 §2.1) |

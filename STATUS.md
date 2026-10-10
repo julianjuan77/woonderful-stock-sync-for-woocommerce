@@ -24,7 +24,7 @@ git show 2668a7a --stat      # qué archivos tocó y cuántas líneas
 git show 2668a7a             # el diff completo
 ```
 
-Y para correr sólo los tests de una pieza, en vez de los 554:
+Y para correr sólo los tests de una pieza, en vez de los 555:
 
 ```bash
 make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS="--filter Test_Ledger"
@@ -197,7 +197,7 @@ es lo normal: loguearlo en cada pasada sería ruido.
 
 | | Tarea | Estado |
 |---|---|---|
-| 9.1 | `readme.txt`. Recomendar un cron real del servidor contra `wp-cron.php` con `DISABLE_WP_CRON`: sin él, la pasada de cada minuto depende de que alguien visite el sitio | ⬜ |
+| 9.1 | `readme.txt`. Recomendar un cron real del servidor contra `wp-cron.php` con `DISABLE_WP_CRON`: sin él, la pasada de cada minuto depende de que alguien visite el sitio. **Créditos de las fuentes** —Bricolage Grotesque, DM Sans, JetBrains Mono, SIL OFL 1.1— (ADR-013 §2.1) | ⬜ |
 | 9.2 | `.pot` con `wp i18n make-pot` | ⬜ |
 | 9.3 | `make check-release` | ⬜ |
 

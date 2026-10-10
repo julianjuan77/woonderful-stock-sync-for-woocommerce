@@ -112,6 +112,7 @@ final class Page {
 
 		wp_enqueue_script( 'wss-admin', plugins_url( 'build/index.js', WSS_PLUGIN_FILE ), $asset['dependencies'], $asset['version'], true );
 		wp_enqueue_style( 'wss-admin', plugins_url( 'build/style-index.css', WSS_PLUGIN_FILE ), array( 'wp-components' ), $asset['version'] );
+		wp_add_inline_style( 'wss-admin', self::fonts_css() );
 		wp_set_script_translations( 'wss-admin', 'woonderful-stock-sync-for-woocommerce' );
 
 		wp_localize_script(
@@ -122,5 +123,31 @@ final class Page {
 				'version' => \Woonderful\StockSync\VERSION,
 			)
 		);
+	}
+
+	/**
+	 * Las fuentes de la marca, servidas desde el plugin: ningún pedido a otro servidor
+	 * (ADR-013 §2.1). Acá y no en `style.scss`: el build las copiaría a `build/` y viajarían dos
+	 * veces.
+	 */
+	public static function fonts_css(): string {
+		$fonts = array(
+			array( 'Bricolage Grotesque', 'bricolage-grotesque-latin-600-normal.woff2', '600' ),
+			array( 'DM Sans', 'dm-sans-latin-wght-normal.woff2', '400 700' ),
+			array( 'JetBrains Mono', 'jetbrains-mono-latin-400-normal.woff2', '400' ),
+			array( 'JetBrains Mono', 'jetbrains-mono-latin-500-normal.woff2', '500' ),
+		);
+		$css   = '';
+
+		foreach ( $fonts as $font ) {
+			$css .= sprintf(
+				'@font-face{font-family:"%1$s";font-style:normal;font-weight:%3$s;font-display:swap;src:url("%2$s") format("woff2");}',
+				$font[0],
+				esc_url( plugins_url( 'assets/fonts/' . $font[1], WSS_PLUGIN_FILE ) ),
+				$font[2]
+			);
+		}
+
+		return $css;
 	}
 }

@@ -394,7 +394,9 @@ guarda en una opción **autocargada**. `PLG-09` lo verifica contando consultas.
 **La interfaz** (ADR-013). Una app en React, copiada en estructura y diseño de woonderful-sync:
 `src/index.js` arma la sidebar y elige la pantalla por `#/ruta` (`src/routing.js`); `src/style.scss`
 es el de woonderful-sync, con sus tokens y clases `woon-*`; el logo y los íconos están en
-`assets/brand/`. Se compila con `npm run build` a `build/`, **que se sube al repo**: el ZIP lo
+`assets/brand/`; las fuentes de la marca —Bricolage Grotesque, DM Sans y JetBrains Mono, con su
+licencia OFL— en `assets/fonts/`, servidas desde el plugin con un `@font-face` que agrega
+`Admin\Page::fonts_css()`: ningún pedido a otro servidor (ADR-013 §2.1). Se compila con `npm run build` a `build/`, **que se sube al repo**: el ZIP lo
 necesita. El `package-lock.json` es el de woonderful-sync, para usar las mismas herramientas —con
 otras versiones, el lint de JavaScript no carga—.
 

@@ -3575,8 +3575,8 @@ Estado: Aprobada · 2026-10-07 · aprobada por Julián
 Revisado: 2026-10-07 — aprobado por Julián. Suma la configuración inicial: un asistente en pasos
 que revisa lo que el plugin necesita para funcionar, nombra la tienda, la empareja y configura
 los avisos. Ver §3.
-Revisión propuesta: 2026-10-09 — **Estado: Propuesta**, pendiente de aprobación. Las fuentes de la
-marca viajan dentro del plugin en vez de caer al stack del sistema. Ver §2.1.
+Revisado: 2026-10-09 — aprobado por Julián. Las fuentes de la marca viajan dentro del plugin en
+vez de caer al stack del sistema. Ver §2.1.
 Temas: rest-api, capabilities, dependencias, modulos
 Cubre: admin/_.php, src/_, build/_, assets/brand/_, package.json, includes/Rest/Health.php
 
@@ -3617,7 +3617,7 @@ espaciado de `style.scss`, las clases `woon-*`, la sidebar, el logo y los ícono
 tipografía cae al stack del sistema. Es lo que pide WordPress.org, y lo que ya hace el otro
 plugin.
 
-#### 2.1 Las fuentes, dentro del plugin (revisión propuesta)
+#### 2.1 Las fuentes, dentro del plugin (revisado el 2026-10-09)
 
 **Qué pasó.** Con el stack del sistema, el logo y los títulos no se ven como la marca: el logo de
 Woonderful es tipográfico —Bricolage Grotesque, con las "oo" en lila y la estrella—, y con otra
@@ -3643,7 +3643,9 @@ las mismas fuentes de Google Fonts.
 
 **De dónde salen y cómo se cargan.** Los woff2 se copian una vez de Fontsource a `assets/fonts/` y
 se versionan: **no es una dependencia de npm** —el build no los necesita, y el plugin no baja
-nada—. Se declaran con `@font-face` en `style.scss`, con `font-display: swap`: mientras cargan, se
+nada—. Se declaran con `@font-face` en un CSS que `Admin\Page` agrega al encolar la app —no en
+`style.scss`, porque el build las copiaría a `build/` y viajarían dos veces—, con
+`font-display: swap`: mientras cargan, se
 ve el texto con la fuente del sistema, que ya es el respaldo de los tokens. Los tokens no cambian:
 ya nombran estas tres fuentes.
 
