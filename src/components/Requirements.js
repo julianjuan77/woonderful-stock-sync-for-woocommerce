@@ -21,6 +21,15 @@ export default function Requirements( { apiFetch, onChecks } ) {
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	useEffect( load, [ apiFetch ] );
 
+	// El correo no se puede saber sin probar: si el email de prueba sale, queda en verde.
+	const mailSent = () => {
+		const next = checks.map( ( check ) =>
+			'mail' === check.id ? { ...check, pass: true, fix: null } : check
+		);
+		setChecks( next );
+		onChecks?.( next );
+	};
+
 	const criticalFails = ( checks ?? [] ).filter(
 		( check ) => check.critical && false === check.pass
 	);
@@ -67,7 +76,10 @@ export default function Requirements( { apiFetch, onChecks } ) {
 										</p>
 									) }
 									{ 'mail' === check.id && (
-										<TestEmail apiFetch={ apiFetch } />
+										<TestEmail
+											apiFetch={ apiFetch }
+											onSent={ mailSent }
+										/>
 									) }
 								</div>
 								{ ! check.critical && true !== check.pass && (
@@ -116,16 +128,21 @@ function checkIcon( check ) {
 	return [ 'woon-check-item__icon--warn', '!' ];
 }
 
-function TestEmail( { apiFetch } ) {
+function TestEmail( { apiFetch, onSent } ) {
 	const [ result, setResult ] = useState( null );
 	const [ busy, setBusy ] = useState( false );
 
 	const send = async () => {
 		setBusy( true );
 		try {
-			setResult(
-				await apiFetch( { path: '/test-email', method: 'POST' } )
-			);
+			const sent = await apiFetch( {
+				path: '/test-email',
+				method: 'POST',
+			} );
+			setResult( sent );
+			if ( sent.sent ) {
+				onSent?.();
+			}
 		} catch ( e ) {
 			setResult( { sent: false } );
 		} finally {
