@@ -239,8 +239,9 @@ export default function LinkModal( {
 																			.linked_to
 																			.id
 																  )
-																: __(
-																		'Ya vinculado',
+																: // Allá vinculado y acá con nada: un desvincular en camino.
+																  __(
+																		'Desvinculando: la otra tienda todavía no se enteró',
 																		'woonderful-stock-sync-for-woocommerce'
 																  ) }
 														</small>

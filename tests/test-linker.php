@@ -614,4 +614,17 @@ class Test_Linker extends WP_UnitTestCase {
 
 		$this->assertSame( '0', $wpdb->get_var( "SELECT linked FROM {$table} WHERE remote_product = 900" ) ); // phpcs:ignore WordPress.DB
 	}
+
+	/**
+	 * LNK-21 — **Volver al mismo par antes de que la otra reciba el desvincular**: allá sigue
+	 * vinculado, y se dice eso. Con otro par —reasignar, LNK-16— no choca.
+	 */
+	public function test_relinking_the_same_pair_waits_for_the_unlink(): void {
+		$local = $this->product( 10 );
+		Links::create( $local, self::OTHER, 900, 77, 10 );
+		Linker::unlink( $local );
+
+		$this->assertSame( 'peer_unlinking', Linker::link( $local, 900, 10, 10 )->get_error_code() );
+		$this->assertSame( array(), $this->sent, 'ni se intentó' );
+	}
 }

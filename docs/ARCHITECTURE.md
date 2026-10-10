@@ -537,6 +537,13 @@ quedaba un minuto con el vínculo, y vincular de nuevo en ese rato decía "ya es
 igual pasa —la otra caída—, la masiva lo nombra: allá vinculado y acá sin nada que lo apunte es
 `peer_unlinking`, "probá de nuevo en un minuto".
 
+**Mientras la otra no confirma el desvincular, la fila dice "Desvinculando"** (en azul): sin
+acciones y sin poder tildarse, y la pantalla vuelve a mirar cada 4 segundos hasta que pasa a "Sin
+vincular". `Ledger::unlinking_among()` lo saca de los `unlink` propios sin confirmar; cada uno guarda
+en `details` —que no viaja— con qué producto de allá estaba. Con eso, `Linker` frena sólo volver al
+**mismo** par (`peer_unlinking`): reasignar a otro sigue en el mismo request (ADR-014 §7). En el
+modal de vincular, un producto de allá vinculado y sin nada acá que lo apunte dice "Desvinculando".
+
 **La secundaria, en modo lectura** (ADR-013 §6): ve lo mismo, sin las acciones —que el servidor
 igual le rechaza—, y Productos dice que la vinculación se hace desde la maestra, nombrándola y con
 el enlace a su pantalla. Lo pide al abrir: `GET /peer` llama a `Peer::health()`, el `GET /health`

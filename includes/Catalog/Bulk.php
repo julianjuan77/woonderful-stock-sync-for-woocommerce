@@ -131,6 +131,10 @@ final class Bulk {
 			return 'already_linked';
 		}
 
+		if ( ! empty( $row['unlinking'] ) ) {
+			return 'peer_unlinking';
+		}
+
 		if ( in_array( $row['motive'], array( Rows::DISCARDED, Rows::DUPLICATE_SKU ), true ) ) {
 			return $row['motive'];
 		}

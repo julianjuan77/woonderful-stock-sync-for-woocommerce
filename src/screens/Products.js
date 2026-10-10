@@ -216,6 +216,17 @@ export default function Products( { apiFetch, status } ) {
 		await load();
 	}, [ apiFetch, load ] );
 
+	// Mientras algo se está desvinculando, se vuelve a mirar: pasa a "Sin vincular" cuando la
+	// otra confirma, en segundos con PHP-FPM y en la próxima pasada sin él.
+	const leaving = ( data?.rows ?? [] ).some( ( r ) => r.unlinking );
+	useEffect( () => {
+		if ( ! leaving ) {
+			return;
+		}
+		const timer = setTimeout( load, 4000 );
+		return () => clearTimeout( timer );
+	}, [ leaving, data, load ] );
+
 	useEffect( () => {
 		load().then( ( next ) => {
 			if ( next?.catalog?.stale && ! autoRefreshed.current ) {
@@ -332,7 +343,8 @@ export default function Products( { apiFetch, status } ) {
 	// Se tildan las que tienen sugerencia, para aceptarlas en lote (ADR-014 §6), y las
 	// vinculadas, para desvincularlas en lote.
 	const checkable = ( r ) =>
-		'suggestion' === r.motive || ( r.state && 'unlinked' !== r.state );
+		! r.unlinking &&
+		( 'suggestion' === r.motive || ( r.state && 'unlinked' !== r.state ) );
 	const selectable = actions ? rows.filter( checkable ) : [];
 	const toggle = ( list, on ) =>
 		setSelected( ( prev ) => {
@@ -396,8 +408,8 @@ export default function Products( { apiFetch, status } ) {
 				: sprintf(
 						/* translators: %d: cuántos. */
 						_n(
-							'Se desvinculó %d producto.',
-							'Se desvincularon %d productos.',
+							'Desvinculando %d producto: la otra tienda se entera en menos de un minuto.',
+							'Desvinculando %d productos: la otra tienda se entera en menos de un minuto.',
 							list.length,
 							'woonderful-stock-sync-for-woocommerce'
 						),
@@ -622,7 +634,7 @@ export default function Products( { apiFetch, status } ) {
 							'/unlink',
 							row,
 							__(
-								'Desvinculado.',
+								'Desvinculando: la otra tienda se entera en menos de un minuto.',
 								'woonderful-stock-sync-for-woocommerce'
 							)
 						);
@@ -1073,7 +1085,12 @@ function GroupRow( {
 }
 
 function Row( { row, actions, selected, onSelect, onHistory } ) {
-	const [ badge, label ] = STATE_BADGE[ row.state ] ?? [ 'muted', row.state ];
+	const [ badge, label ] = row.unlinking
+		? [
+				'info',
+				__( 'Desvinculando', 'woonderful-stock-sync-for-woocommerce' ),
+		  ]
+		: STATE_BADGE[ row.state ] ?? [ 'muted', row.state ];
 	const other = row.remote;
 	const on = 'linked' === row.state;
 	// Vinculados con distinto stock: en tránsito, o una discrepancia. Vale mirarlo.
@@ -1174,7 +1191,9 @@ function Row( { row, actions, selected, onSelect, onHistory } ) {
 					<span className={ `woon-badge woon-badge--${ badge }` }>
 						{ label }
 					</span>
-					{ 'suggestion' === row.motive && <SuggestionBadge /> }
+					{ 'suggestion' === row.motive && ! row.unlinking && (
+						<SuggestionBadge />
+					) }
 				</span>
 				{ ( row.reason ||
 					( row.motive && 'suggestion' !== row.motive ) ) && (
@@ -1200,7 +1219,11 @@ function SuggestionBadge() {
 }
 
 function RowActions( { row, actions } ) {
-	if ( 'stock_in_parent' === row.motive || 'trashed' === row.motive ) {
+	if (
+		row.unlinking ||
+		'stock_in_parent' === row.motive ||
+		'trashed' === row.motive
+	) {
 		return null;
 	}
 

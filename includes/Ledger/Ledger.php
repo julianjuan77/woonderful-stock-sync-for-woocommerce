@@ -1124,6 +1124,49 @@ final class Ledger {
 	}
 
 	/**
+	 * De esos productos, los que tienen un `unlink` propio que la otra todavía no confirmó: se
+	 * están desvinculando. Con PHP-FPM dura un segundo; sin él, hasta la próxima pasada.
+	 *
+	 * @param int[] $products Productos de esta tienda.
+	 *
+	 * @return array<int, int|null> Por producto, con cuál de allá estaba vinculado; null en
+	 *                              los anotados antes de guardarlo.
+	 */
+	public static function unlinking_among( array $products ): array {
+		global $wpdb;
+
+		$products = array_values( array_filter( array_map( 'intval', $products ) ) );
+
+		if ( array() === $products ) {
+			return array();
+		}
+
+		$table        = Installer::table( 'movements' );
+		$placeholders = implode( ',', array_fill( 0, count( $products ), '%d' ) );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT origin_product, details FROM {$table}
+				 WHERE origin_store = %s AND reason = %s AND delivery IN ( 'pending', 'in_flight', 'abandoned' )
+				   AND origin_product IN ( {$placeholders} )",
+				array_merge( array( Store::id(), self::UNLINK ), $products )
+			)
+		);
+		// phpcs:enable
+
+		$leaving = array();
+
+		foreach ( (array) $rows as $row ) {
+			$details = json_decode( (string) $row->details, true );
+
+			$leaving[ (int) $row->origin_product ] = isset( $details['remote_product'] ) ? (int) $details['remote_product'] : null;
+		}
+
+		return $leaving;
+	}
+
+	/**
 	 * Escribe un `unlink` propio y borra el vínculo, juntos (ADR-005 §3, ADR-008 §6).
 	 *
 	 * Primero el movimiento, con la generación del vínculo, y después el borrado: al revés
@@ -1158,6 +1201,9 @@ final class Ledger {
 				'created_at'      => gmdate( 'Y-m-d H:i:s', $now ),
 				'link_id'         => (int) $link->id,
 				'origin_product'  => $product,
+				// Sólo para acá —no viaja—: con qué producto de allá estaba, para saber si
+				// volver a vincular choca con el desvincular que todavía no llegó.
+				'details'         => wp_json_encode( array( 'remote_product' => (int) $link->remote_product ) ),
 				'delivery'        => 'pending',
 				'next_attempt_at' => gmdate( 'Y-m-d H:i:s', $now + self::DELIVERY_DELAY ),
 			)

@@ -637,6 +637,7 @@ Esta tienda hace de maestra; la otra la hace `pre_http_request`.
 | `LNK-18` | Descartar dos veces, deshacer dos veces | Una vez cada uno en el log; lo repetido, `already_discarded` y `not_discarded` |
 | `LNK-19` | Descartar desde la secundaria | `wss_not_master` |
 | `LNK-20` | **Vincular, con la copia diciendo stock 4 y sin par; después desvincular** | La copia queda con el stock de la maestra y con par, sin esperar al refresco; al desvincular, sin par |
+| `LNK-21` | **Desvincular y volver al mismo par antes de que la otra lo reciba** | `peer_unlinking`, sin mandar nada; reasignar a otro par sigue andando (`LNK-16`) |
 
 Verificado rompiéndolo, con seis cambios: sin revisar el stock propio (`LNK-02`) o la maestra
 (`LNK-02`); el timeout como fallido (`LNK-04`, `LNK-06`); el 5xx como fallido (`LNK-05`); el
@@ -1211,6 +1212,7 @@ Mutaciones: sin revisar el SKU fresco, o el vinculado allá, cae `BLK-03`.
 | `ROW-11` | **Un variable con 3 variaciones y 50 simples** | 51 productos: la primera página lleva el padre entero —3 variaciones— y 49 simples; la segunda, el que queda. El padre trae su resumen: 3 variaciones, 1 vinculada, 2 sin vincular |
 | `ROW-12` | **Uno sin SKU, uno sin coincidencia y uno descartado** | `motives` cuenta uno de cada uno, el descartado también: es una pestaña |
 | `ROW-13` | **Uno descartado, uno sin coincidencia, uno con sugerencia y uno vinculado, creados en ese orden** | Se listan al revés: vinculado, con sugerencia, sin vincular, descartado |
+| `ROW-14` | **Un desvincular anotado y sin confirmar; después confirmado** | La fila con `unlinking`; confirmado, ya no |
 
 ## Las fuentes de la marca
 

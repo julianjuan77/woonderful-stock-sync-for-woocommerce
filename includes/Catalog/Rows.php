@@ -9,6 +9,7 @@ declare( strict_types = 1 );
 
 namespace Woonderful\StockSync\Catalog;
 
+use Woonderful\StockSync\Ledger\Ledger;
 use Woonderful\StockSync\Linking\Links;
 use Woonderful\StockSync\Linking\State;
 use Woonderful\StockSync\Log\Events;
@@ -207,6 +208,7 @@ final class Rows {
 		$skus     = self::sku_counts( $linkable );
 		$by_sku   = self::remote_by_sku( $remote );
 		$discards = Events::discarded_among( array_keys( $linkable ) );
+		$leaving  = Ledger::unlinking_among( array_keys( $linkable ) );
 		$rows     = array();
 
 		foreach ( $linkable as $id => $item ) {
@@ -218,6 +220,9 @@ final class Rows {
 
 			if ( State::UNLINKED === $state['state'] ) {
 				list( $row['motive'], $row['suggestion'] ) = self::motive( $item, isset( $discards[ $id ] ), $skus, $by_sku, $linked );
+
+				// Sin vínculo acá, pero la otra todavía no se enteró: no se vincula hasta que sí.
+				$row['unlinking'] = array_key_exists( $id, $leaving );
 			} elseif ( isset( $links[ $id ] ) ) {
 				$row['remote'] = $remote[ $links[ $id ] ] ?? array( 'id' => $links[ $id ] );
 			}

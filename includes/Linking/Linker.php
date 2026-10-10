@@ -114,6 +114,14 @@ final class Linker {
 			return new \WP_Error( 'already_linked', __( 'Alguno de los dos productos ya está vinculado.', 'woonderful-stock-sync-for-woocommerce' ) );
 		}
 
+		// Volver al mismo par antes de que la otra reciba el desvincular: allá sigue vinculado.
+		// Con otro par —reasignar— no choca (ADR-014 §7).
+		$leaving = Ledger::unlinking_among( array( $local ) );
+
+		if ( array_key_exists( $local, $leaving ) && in_array( $leaving[ $local ], array( null, $remote ), true ) ) {
+			return new \WP_Error( 'peer_unlinking', __( 'La otra tienda todavía no recibió el desvinculado: probá de nuevo en un minuto.', 'woonderful-stock-sync-for-woocommerce' ) );
+		}
+
 		// El stock de arranque es el de la maestra (UC-07).
 		$details = array(
 			'target_product'        => $remote,

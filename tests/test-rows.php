@@ -9,6 +9,7 @@ declare( strict_types = 1 );
 
 use Woonderful\StockSync\Catalog\Rows;
 use Woonderful\StockSync\Identity\Store;
+use Woonderful\StockSync\Ledger\Ledger;
 use Woonderful\StockSync\Linking\Links;
 use Woonderful\StockSync\Linking\State;
 use Woonderful\StockSync\Log\Events;
@@ -425,5 +426,23 @@ class Test_Rows extends WP_UnitTestCase {
 		Links::create( $linked, self::REMOTE_STORE, 951, 1, 5 );
 
 		$this->assertSame( array( $linked, $suggestion, $loose, $discarded ), array_keys( $this->rows() ) );
+	}
+
+	/**
+	 * ROW-14 — **Desvinculado acá, sin confirmar allá**: la fila dice que se está
+	 * desvinculando hasta que la otra lo confirma.
+	 */
+	public function test_an_unconfirmed_unlink_is_shown(): void {
+		global $wpdb;
+
+		$product = $this->simple( 'DESV' );
+		Links::create( $product, self::REMOTE_STORE, 960, 1, 5 );
+		$movement = Ledger::record_unlink( $product );
+
+		$this->assertTrue( $this->rows()[ $product ]['unlinking'] );
+
+		$wpdb->update( Installer::table( 'movements' ), array( 'delivery' => 'confirmed' ), array( 'id' => $movement ) ); // phpcs:ignore WordPress.DB
+
+		$this->assertFalse( $this->rows()[ $product ]['unlinking'] );
 	}
 }
