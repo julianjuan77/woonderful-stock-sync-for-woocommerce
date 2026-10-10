@@ -2159,8 +2159,10 @@ p.wss-meta {
 	}
 }
 
-.wss-indent {
-	padding-left: var(--woon-sp-6) !important;
+// El nombre de un simple y el de una variación, al ras del nombre de un padre: el de la
+// celda más la flecha y su separación.
+.wss-name-cell {
+	padding-left: calc(var(--woon-sp-4) + 16px + var(--woon-sp-2)) !important;
 }
 
 // El nombre de esta tienda, del tamaño y el color del de la otra: un simple, en negrita
@@ -2181,6 +2183,12 @@ p.wss-meta {
 	.wss-indent & {
 		font-weight: 400;
 	}
+}
+
+.wss-actions__spacer {
+	display: inline-block;
+	width: 38px;
+	vertical-align: middle;
 }
 
 .wss-badges {

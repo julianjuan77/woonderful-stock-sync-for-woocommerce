@@ -957,12 +957,16 @@ function GroupRow( {
 						{ sprintf(
 							/* translators: %d: cuántas sugerencias. */
 							__(
-								'Vincular %d',
+								'Aceptar %d',
 								'woonderful-stock-sync-for-woocommerce'
 							),
 							selectable.length
 						) }
 					</button>
+				) }
+				{ actions && selectable.length > 0 && (
+					// El lugar del ⋯ de las filas: el botón termina donde terminan sus "Aceptar".
+					<span className="wss-actions__spacer" aria-hidden="true" />
 				) }
 			</td>
 		</tr>
@@ -999,7 +1003,11 @@ function Row( { row, actions, selected, onSelect, onHistory } ) {
 					) }
 				</td>
 			) }
-			<td className={ row.parent > 0 ? 'wss-indent' : '' }>
+			<td
+				className={ `wss-name-cell ${
+					row.parent > 0 ? 'wss-indent' : ''
+				}` }
+			>
 				<button
 					className="woon-btn-link wss-name"
 					onClick={ onHistory }
@@ -1152,27 +1160,34 @@ function RowActions( { row, actions } ) {
 		);
 	}
 
+	// Sin ⋯, con su lugar reservado: los botones terminan todos en la misma columna.
 	if ( 'discarded' === row.motive ) {
 		return (
-			<button
-				className="woon-btn woon-btn--ghost woon-btn--sm"
-				onClick={ () => actions.undiscard( row ) }
-			>
-				{ __(
-					'Deshacer descarte',
-					'woonderful-stock-sync-for-woocommerce'
-				) }
-			</button>
+			<>
+				<button
+					className="woon-btn woon-btn--ghost woon-btn--sm"
+					onClick={ () => actions.undiscard( row ) }
+				>
+					{ __(
+						'Deshacer descarte',
+						'woonderful-stock-sync-for-woocommerce'
+					) }
+				</button>
+				<span className="wss-actions__spacer" aria-hidden="true" />
+			</>
 		);
 	}
 
 	return (
-		<button
-			className="woon-btn woon-btn--ghost woon-btn--sm"
-			onClick={ () => actions.choose( row ) }
-		>
-			{ __( 'Vincular', 'woonderful-stock-sync-for-woocommerce' ) }
-		</button>
+		<>
+			<button
+				className="woon-btn woon-btn--ghost woon-btn--sm"
+				onClick={ () => actions.choose( row ) }
+			>
+				{ __( 'Vincular', 'woonderful-stock-sync-for-woocommerce' ) }
+			</button>
+			<span className="wss-actions__spacer" aria-hidden="true" />
+		</>
 	);
 }
 
