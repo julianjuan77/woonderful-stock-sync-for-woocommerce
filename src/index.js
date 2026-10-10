@@ -222,32 +222,22 @@ if ( container ) {
 
 /* ── Logo e íconos, los de woonderful-sync ──────────────────────────── */
 
+// El logo como en el rediseño: tipográfico, con las "oo" en lila y la estrella sobre ellas.
 function WoonderfulLogo() {
 	return (
-		<svg
-			xmlns="http://www.w3.org/2000/svg"
-			viewBox="0 0 1200 260"
-			className="woon-sidebar__logo-img"
-			role="img"
-			aria-label="Woonderful"
-		>
-			<text
-				x="20"
-				y="200"
-				fill="#F7F4FF"
-				fontFamily='"Bricolage Grotesque", sans-serif'
-				fontSize="195"
-				fontWeight="600"
-			>
-				Woonderful
-			</text>
-			<g transform="translate(355 30)">
-				<path
-					d="M45 0 L54 36 L90 45 L54 54 L45 90 L36 54 L0 45 L36 36 Z"
-					fill="#F7F4FF"
-				/>
-			</g>
-		</svg>
+		<span className="wss-logo" role="img" aria-label="Woonderful">
+			W
+			<span className="wss-logo__oo">
+				oo
+				<svg viewBox="0 0 32 32" aria-hidden="true">
+					<path
+						d="M16 0 L19 13 L32 16 L19 19 L16 32 L13 19 L0 16 L13 13 Z"
+						fill="#FFD66B"
+					/>
+				</svg>
+			</span>
+			nderful
+		</span>
 	);
 }
 

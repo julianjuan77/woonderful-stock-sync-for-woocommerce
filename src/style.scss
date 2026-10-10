@@ -2502,3 +2502,27 @@ h2.wss-confirm__title {
 		color: rgba(247, 244, 255, 0.6);
 	}
 }
+
+/* El logo de la barra lateral, como en el rediseño: tipográfico. */
+.wss-logo {
+	display: flex;
+	font-family: var(--woon-font-display);
+	font-size: 22px;
+	font-weight: 600;
+	line-height: 1;
+	letter-spacing: -0.04em;
+	color: var(--woon-paper);
+
+	&__oo {
+		position: relative;
+		color: var(--woon-light);
+
+		svg {
+			position: absolute;
+			top: 4%;
+			left: 74%;
+			width: 8px;
+			height: 8px;
+		}
+	}
+}
