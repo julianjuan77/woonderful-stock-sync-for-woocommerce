@@ -11,9 +11,11 @@ namespace Woonderful\StockSync\Catalog;
 
 use Woonderful\StockSync\Detector\Detector;
 use Woonderful\StockSync\Linking\Linker;
+use Woonderful\StockSync\Linking\Links;
 use Woonderful\StockSync\Linking\State;
 use Woonderful\StockSync\Log\Events;
 use Woonderful\StockSync\Transport\Catalog;
+use Woonderful\StockSync\Transport\Peers;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -146,7 +148,10 @@ final class Bulk {
 		}
 
 		if ( $other['linked'] ) {
-			return 'already_linked';
+			$peer = Peers::only();
+
+			// Allá vinculado y acá con nada que lo apunte: un desvincular que todavía viaja.
+			return null !== $peer && null === Links::for_remote_product( $peer['store'], (int) $other['id'] ) ? 'peer_unlinking' : 'already_linked';
 		}
 
 		if ( Rows::normalize( (string) $row['sku'] ) !== Rows::normalize( (string) $other['sku'] ) || '' === Rows::normalize( (string) $row['sku'] ) ) {

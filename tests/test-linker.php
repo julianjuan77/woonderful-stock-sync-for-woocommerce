@@ -14,6 +14,7 @@ use Woonderful\StockSync\Ledger\Ledger;
 use Woonderful\StockSync\Linking\Linker;
 use Woonderful\StockSync\Linking\Links;
 use Woonderful\StockSync\Schema\Installer;
+use Woonderful\StockSync\Transport\Express;
 use Woonderful\StockSync\Transport\Peers;
 use Woonderful\StockSync\Transport\Signature;
 
@@ -357,18 +358,21 @@ class Test_Linker extends WP_UnitTestCase {
 	}
 
 	/**
-	 * Desvincular escribe el `unlink`, que sale por la cola. Sin vínculo, o desde la
-	 * secundaria, no.
+	 * Desvincular escribe el `unlink`, que sale por la cola y queda anotado para salir al
+	 * terminar el request, como una venta. Sin vínculo, o desde la secundaria, no.
 	 *
 	 * LNK-08
 	 */
 	public function test_unlink(): void {
 		$local = $this->product( 10 );
 		Links::create( $local, self::OTHER, 900, 77, 10 );
+		Express::forget_all();
 
 		$this->assertTrue( Linker::unlink( $local ) );
 		$this->assertSame( 'unlink', $this->row()->reason );
 		$this->assertSame( 'pending', $this->row()->delivery );
+		$this->assertSame( array( (int) $this->row()->id ), Express::queued(), 'sale al terminar el request' );
+		Express::forget_all();
 		$this->assertSame( 'not_linked', Linker::unlink( $local )->get_error_code() );
 
 		Links::create( $local, self::OTHER, 900, 78, 10 );

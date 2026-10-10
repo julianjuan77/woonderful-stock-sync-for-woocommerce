@@ -15,10 +15,11 @@ use Woonderful\StockSync\Ledger\Ledger;
 use Woonderful\StockSync\Log\Events;
 use Woonderful\StockSync\Log\Peer;
 use Woonderful\StockSync\Plugin;
+use Woonderful\StockSync\Transport\Express;
+use Woonderful\StockSync\Transport\Pause;
 use Woonderful\StockSync\Transport\Peers;
 use Woonderful\StockSync\Transport\Sender;
 use Woonderful\StockSync\Transport\Signature;
-use Woonderful\StockSync\Transport\Pause;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -182,9 +183,15 @@ final class Linker {
 			return new \WP_Error( 'not_linked', __( 'Ese producto no está vinculado.', 'woonderful-stock-sync-for-woocommerce' ) );
 		}
 
-		if ( null === Ledger::record_unlink( $local ) ) {
+		$movement_id = Ledger::record_unlink( $local );
+
+		if ( null === $movement_id ) {
 			return new \WP_Error( 'not_stored', __( 'No se pudo escribir el desvincular.', 'woonderful-stock-sync-for-woocommerce' ) );
 		}
+
+		// Sale al terminar el request, como una venta: esperar la pasada dejaba a la otra un
+		// minuto con el vínculo, y vincular de nuevo en ese rato decía "ya estaba vinculado".
+		Express::queue( $movement_id );
 
 		Copy::note( (int) $link->remote_product, false );
 

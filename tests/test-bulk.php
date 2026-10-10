@@ -235,6 +235,8 @@ class Test_Bulk extends WP_UnitTestCase {
 			713 => array( 'linked' => true ),
 			714 => array( 'sku' => 'OTRO' ),
 		);
+		// El de allá, vinculado con otro de acá.
+		Links::create( $this->suggested( 790 ), self::REMOTE_STORE, 713, 1, 5 );
 		Events::record( Events::DISCARDED, Events::INFO, $discarded );
 
 		$result = Bulk::link(
@@ -273,6 +275,27 @@ class Test_Bulk extends WP_UnitTestCase {
 
 		$this->assertSame( array(), $again['linked'] );
 		$this->assertSame( 'already_linked', $again['omitted'][0]['reason'] );
+	}
+
+	/**
+	 * BLK-06 — **Allá vinculado y acá con nada que lo apunte**: es un desvincular que todavía
+	 * viaja, y lo dice; no "ya estaba vinculado".
+	 */
+	public function test_an_unlink_in_flight_is_named(): void {
+		$local       = $this->suggested( 720 );
+		$this->fresh = array( 720 => array( 'linked' => true ) );
+
+		$result = Bulk::link(
+			array(
+				array(
+					'local'  => $local,
+					'remote' => 720,
+				),
+			)
+		);
+
+		$this->assertSame( 'peer_unlinking', $result['omitted'][0]['reason'] );
+		$this->assertStringContainsString( 'en un minuto', $result['omitted'][0]['text'] );
 	}
 
 	/**

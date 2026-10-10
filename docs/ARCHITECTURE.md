@@ -531,7 +531,11 @@ Reintentar no duplica: lo ya vinculado vuelve omitido, `already_linked`.
 vinculadas, y la barra separa "Aceptar N" —la vinculación masiva de arriba— y "Desvincular N". Éste
 pide confirmación y llama a `POST /unlink` de a uno, como el botón de cada fila, mostrando el avance:
 uno que falla no frena a los demás, y al final se avisa cuántos no se pudieron. Sin endpoint nuevo:
-desvincular ya va por la cola (ADR-008 §6), y el contrato entre las tiendas no cambia.
+desvincular ya va por la cola (ADR-008 §6), y el contrato entre las tiendas no cambia. **El
+`unlink` sale al terminar el request** (`Express::queue()`), como una venta: con la pasada, la otra
+quedaba un minuto con el vínculo, y vincular de nuevo en ese rato decía "ya estaba vinculado". Si
+igual pasa —la otra caída—, la masiva lo nombra: allá vinculado y acá sin nada que lo apunte es
+`peer_unlinking`, "probá de nuevo en un minuto".
 
 **La secundaria, en modo lectura** (ADR-013 §6): ve lo mismo, sin las acciones —que el servidor
 igual le rechaza—, y Productos dice que la vinculación se hace desde la maestra, nombrándola y con

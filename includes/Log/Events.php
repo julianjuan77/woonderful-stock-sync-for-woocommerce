@@ -525,6 +525,7 @@ final class Events {
 			'not_applied: discarded'     => __( 'la otra tienda lo descartó', 'woonderful-stock-sync-for-woocommerce' ),
 			'stock_changed'              => __( 'el stock cambió desde que se miró', 'woonderful-stock-sync-for-woocommerce' ),
 			'already_linked'             => __( 'alguno de los dos productos ya estaba vinculado', 'woonderful-stock-sync-for-woocommerce' ),
+			'peer_unlinking'             => __( 'la otra tienda todavía no recibió el desvinculado: probá de nuevo en un minuto', 'woonderful-stock-sync-for-woocommerce' ),
 			'product_missing'            => __( 'el producto no existe', 'woonderful-stock-sync-for-woocommerce' ),
 			'product_not_managing_stock' => __( 'el producto no lleva su propio stock', 'woonderful-stock-sync-for-woocommerce' ),
 			'target_missing'             => __( 'el producto de la otra tienda no existe', 'woonderful-stock-sync-for-woocommerce' ),

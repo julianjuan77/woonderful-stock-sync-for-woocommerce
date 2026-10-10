@@ -624,7 +624,7 @@ Esta tienda hace de maestra; la otra la hace `pre_http_request`.
 | `LNK-05` | Un 500, y un 401 del lote entero | El 500 queda `uncertain`; el 401 es `bootstrap_failed`, con el detalle en el mensaje, y borra el par |
 | `LNK-06` | **Tres inciertos viejos: la otra dice `applied`, `unknown`, y uno no contesta** | El primero queda, el segundo se borra, el tercero sigue `uncertain`; la pregunta es un GET firmado |
 | `LNK-07` | Un incierto nuevo | No se pregunta |
-| `LNK-08` | Desvincular; otra vez sin vínculo; y desde la secundaria | El `unlink` a la cola; `not_linked`; `wss_not_master` |
+| `LNK-08` | Desvincular; otra vez sin vínculo; y desde la secundaria | El `unlink` a la cola, y anotado para salir al terminar el request, como una venta; `not_linked`; `wss_not_master` |
 | `LNK-09` | **Una copia de la tienda, suspendida, vincula y desvincula** | `wss_suspended` las dos, sin salir a la red ni escribir nada. Sin la guarda, cae |
 | `LNK-10` | Vincular sin emparejar | `wss_not_paired` |
 | `LNK-11` | La espera antes de preguntar contra la ventana de la firma | Es más larga: un bootstrap tardío ya no pasa la firma cuando se pregunta |
@@ -1164,6 +1164,7 @@ ignorar el duplicado de acá, `ROW-04`.
 | `BLK-03` | **Seis pares: allá uno se borró, otro está en la papelera, otro ya tiene par, otro cambió de SKU; acá uno se descartó** | Se omiten con su motivo y no cortan la tanda: el sexto se vincula |
 | `BLK-04` | La misma tanda dos veces | La segunda no duplica: `already_linked` |
 | `BLK-05` | 21 pares | `wss_bad_request`, sin vincular ninguno |
+| `BLK-06` | **Allá vinculado y acá sin ningún vínculo que lo apunte** | Omitido con `peer_unlinking`: el desvincular todavía no llegó, "probá de nuevo en un minuto". En `BLK-03`, el vinculado allá tiene par acá y sigue siendo `already_linked` |
 
 Mutaciones: sin revisar el SKU fresco, o el vinculado allá, cae `BLK-03`.
 
