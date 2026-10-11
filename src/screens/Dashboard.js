@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from '@wordpress/element';
-import { __, sprintf, _n } from '@wordpress/i18n';
+import { __, sprintf, _n, _x } from '@wordpress/i18n';
 
 export default function Dashboard( { apiFetch, navigate, status, onStatus } ) {
 	const [ busy, setBusy ] = useState( null );
@@ -774,8 +774,9 @@ function DiscrepancyList( { store, rows, empty, unknown, actions, note } ) {
 										row.since &&
 											sprintf(
 												/* translators: %s: fecha. */
-												__(
+												_x(
 													'desde %s',
+													'desde una fecha',
 													'woonderful-stock-sync-for-woocommerce'
 												),
 												row.since

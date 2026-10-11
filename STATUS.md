@@ -2,7 +2,7 @@
 
 > Plugin: `woonderful-stock-sync-for-woocommerce` | WP 6.5+ | PHP 8.1+ | WooCommerce 9.1+
 > Repo: [woonderful-stock-sync-for-woocommerce](https://github.com/julianjuan77/woonderful-stock-sync-for-woocommerce)
-> Creado: 2026-09-20 · Última sesión: 2026-10-11 — El orden de lo que sale después de una caída (ADR-017) las ventas retenidas cuando el producto vuelve (ADR-018) volver a gestionar el stock (ADR-019) y la cancelación con su motivo (ADR-020). Antes, 2026-10-10 — Configuración rediseñada, y pausar y desemparejar (ADR-015). Antes, 2026-10-09 — el rediseño de Productos, Resumen y Registros, el logo y las fuentes de la marca dentro del plugin (ADR-013 §2.1). Antes, 2026-10-07 — los ADRs de la interfaz (ADR-013, con la configuración inicial, y ADR-014) y el bloque 8 entero: de la base (8.1) a la configuración inicial (8.10). Antes, 2026-10-06 — los ADRs del log (ADR-011) y de los avisos (ADR-012), y el bloque 10 entero: la tabla del log, el estado de la otra tienda, los eventos de cada pieza, los pares rotos, la purga y los avisos por email
+> Creado: 2026-09-20 · Última sesión: 2026-10-11 — El orden de lo que sale después de una caída (ADR-017) las ventas retenidas cuando el producto vuelve (ADR-018) volver a gestionar el stock (ADR-019) y la cancelación con su motivo (ADR-020). Las pruebas manuales repetidas y el bloque 9: readme, .pot y check-release. Antes, 2026-10-10 — Configuración rediseñada, y pausar y desemparejar (ADR-015). Antes, 2026-10-09 — el rediseño de Productos, Resumen y Registros, el logo y las fuentes de la marca dentro del plugin (ADR-013 §2.1). Antes, 2026-10-07 — los ADRs de la interfaz (ADR-013, con la configuración inicial, y ADR-014) y el bloque 8 entero: de la base (8.1) a la configuración inicial (8.10). Antes, 2026-10-06 — los ADRs del log (ADR-011) y de los avisos (ADR-012), y el bloque 10 entero: la tabla del log, el estado de la otra tienda, los eventos de cada pieza, los pares rotos, la purga y los avisos por email
 
 Sincroniza el stock entre dos tiendas WooCommerce propias que despachan del mismo depósito.
 Pool único, sin reparto: lo que se vende en una descuenta en las dos.
@@ -37,7 +37,13 @@ make test-plugin SITE=sandbox PLUGIN=woonderful-stock-sync-for-woocommerce ARGS=
 El bloque 8, la interfaz, está completo (8.1 a 8.10). Están Resumen, Registros, Configuración,
 Productos —con la copia del catálogo de la otra, las filas, vincular a mano, desvincular, reasignar,
 descartar y la vinculación masiva—, la secundaria en modo lectura con el enlace a la maestra, y la
-configuración inicial con los requisitos y el email de prueba. Falta decidir qué bloque sigue.
+configuración inicial con los requisitos y el email de prueba.
+
+**2026-10-11:** el plan de pruebas manuales (Claude Doc "Woonderful Stock Sync — Pruebas
+manuales") está corrido entero, con el bloque 10 —papelera, borrado, stock reactivado— sumado
+hoy: todos los bloques OK salvo el 8, por la 8.2, que necesita un período sin movimientos. El
+bloque 9 (publicación) está hecho. **Lo que falta:** un empaquetado propio para este plugin
+—`make release-plugin` es el de los comerciales—, con `vendor/` de producción y `src/`.
 
 El JavaScript se compila con `npm run build` y se prueba con `npm run lint:js` y
 `npm run test:unit`, desde la carpeta del plugin.
@@ -207,9 +213,9 @@ es lo normal: loguearlo en cada pasada sería ruido.
 
 | | Tarea | Estado |
 |---|---|---|
-| 9.1 | `readme.txt`. Recomendar un cron real del servidor contra `wp-cron.php` con `DISABLE_WP_CRON`: sin él, la pasada de cada minuto depende de que alguien visite el sitio. **Créditos de las fuentes** —Bricolage Grotesque, DM Sans, JetBrains Mono, SIL OFL 1.1— (ADR-013 §2.1) | ⬜ |
-| 9.2 | `.pot` con `wp i18n make-pot` | ⬜ |
-| 9.3 | `make check-release` | ⬜ |
+| 9.1 | `readme.txt`. Recomendar un cron real del servidor contra `wp-cron.php` con `DISABLE_WP_CRON`: sin él, la pasada de cada minuto depende de que alguien visite el sitio. **Créditos de las fuentes** —Bricolage Grotesque, DM Sans, JetBrains Mono, SIL OFL 1.1— (ADR-013 §2.1) | ✅ |
+| 9.2 | `.pot` con `wp i18n make-pot`: `languages/woonderful-stock-sync-for-woocommerce.pot`, 578 cadenas (las del JS, de `build/`). Se genera en `/tmp` del contenedor y se copia: la carpeta montada no deja escribir. "desde %s" con fecha pasó a `_x()`, porque con tienda significa otra cosa | ✅ |
+| 9.3 | `make check-release` sobre una copia como la que se publicaría —sin `.git`, `node_modules`, tests ni docs; con `vendor/` de producción (`composer install --no-dev`, sólo el autoloader) y con `src/`, la fuente del JS—: sin errores. `license.txt` agregado. La advertencia que queda es PHPCS, que el entorno no tiene en su raíz y ya cubre `make lint-plugin`. **Pendiente:** `make release-plugin` es para los plugins comerciales —exige el bundle de licencias y saca `vendor/` y `src/`—; éste necesita su propio empaquetado | ✅ |
 
 ---
 
