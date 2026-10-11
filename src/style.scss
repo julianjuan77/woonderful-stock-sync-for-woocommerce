@@ -2401,6 +2401,11 @@ p.wss-meta {
 		bottom: 36px;
 	}
 
+	&.is-fixed {
+		position: fixed;
+		z-index: 100000;
+	}
+
 	&__item {
 		display: block;
 		width: 100%;

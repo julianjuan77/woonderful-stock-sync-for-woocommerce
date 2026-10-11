@@ -1360,26 +1360,32 @@ function RowActions( { row, actions } ) {
 }
 
 // Lo que mide el menú abierto, con aire: si abajo no entra, se abre para arriba.
-const MENU_ROOM = 130;
+// Alto de cada ítem del menú, para saber si entra abajo.
+const MENU_ITEM = 38;
 
 function Menu( { items } ) {
 	const [ open, setOpen ] = useState( false );
-	const [ up, setUp ] = useState( false );
+	const [ place, setPlace ] = useState( null );
 	const ref = useRef();
 
-	// La tabla recorta lo que sale de ella (sus esquinas redondeadas), y abajo está el pie de
-	// WordPress: en las últimas filas el menú quedaba cortado.
+	// Fijo en la pantalla, al lado del botón: la tabla recorta lo que sale de ella (sus esquinas
+	// redondeadas), y con pocas filas el menú no entraba ni arriba ni abajo. Hacia arriba sólo
+	// si abajo no entra en la ventana.
 	const toggleMenu = () => {
 		if ( ! open && ref.current ) {
 			const button = ref.current.getBoundingClientRect();
-			const table = ref.current.closest( '.wss-table' );
-			const limit = Math.min(
-				window.innerHeight,
-				table
-					? table.getBoundingClientRect().bottom
-					: window.innerHeight
+			const height = items.length * MENU_ITEM + 14;
+			const right = window.innerWidth - button.right;
+
+			setPlace(
+				button.bottom + height + 8 > window.innerHeight
+					? {
+							top: 'auto',
+							bottom: window.innerHeight - button.top + 4,
+							right,
+					  }
+					: { top: button.bottom + 4, right }
 			);
-			setUp( button.bottom + MENU_ROOM > limit );
 		}
 		setOpen( ! open );
 	};
@@ -1393,8 +1399,16 @@ function Menu( { items } ) {
 				setOpen( false );
 			}
 		};
+		// Fijo, no sigue al botón: al desplazar la página se cierra.
+		const hide = () => setOpen( false );
 		document.addEventListener( 'mousedown', close );
-		return () => document.removeEventListener( 'mousedown', close );
+		window.addEventListener( 'scroll', hide, true );
+		window.addEventListener( 'resize', hide );
+		return () => {
+			document.removeEventListener( 'mousedown', close );
+			window.removeEventListener( 'scroll', hide, true );
+			window.removeEventListener( 'resize', hide );
+		};
 	}, [ open ] );
 
 	return (
@@ -1411,7 +1425,7 @@ function Menu( { items } ) {
 				<IconDots />
 			</button>
 			{ open && (
-				<div className={ `wss-pop ${ up ? 'is-up' : '' }` }>
+				<div className="wss-pop is-fixed" style={ place }>
 					{ items.map( ( [ label, run, danger ] ) => (
 						<button
 							key={ label }
