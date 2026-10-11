@@ -514,6 +514,7 @@ final class Events {
 		$reasons = array(
 			'sale'       => __( 'venta', 'woonderful-stock-sync-for-woocommerce' ),
 			'refund'     => __( 'devolución', 'woonderful-stock-sync-for-woocommerce' ),
+			'cancel'     => __( 'cancelación', 'woonderful-stock-sync-for-woocommerce' ),
 			'adjustment' => __( 'ajuste', 'woonderful-stock-sync-for-woocommerce' ),
 			'bootstrap'  => __( 'stock inicial del vínculo', 'woonderful-stock-sync-for-woocommerce' ),
 			'unlink'     => __( 'desvinculación', 'woonderful-stock-sync-for-woocommerce' ),

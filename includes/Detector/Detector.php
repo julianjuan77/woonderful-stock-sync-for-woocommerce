@@ -142,7 +142,9 @@ final class Detector {
 	 */
 	public static function stamp_restore( $item, $new_stock, $old_stock, $order ): void {
 		if ( $item instanceof \WC_Order_Item_Product ) {
-			self::stamp( $item->get_product(), 'refund', $order );
+			// El mismo hook sale al pasar a pendiente o a fallido: para el stock, igual una
+			// venta que se deshace (ADR-020).
+			self::stamp( $item->get_product(), 'cancel', $order );
 		}
 	}
 

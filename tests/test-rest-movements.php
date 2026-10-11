@@ -503,4 +503,22 @@ class Test_Rest_Movements extends WP_UnitTestCase {
 		$this->assertSame( 'received', $results[3]['status'] );
 		$this->assertSame( 9, $this->stock_of( $product_id ) );
 	}
+
+	/**
+	 * MOV-14 — **Un motivo que el receptor no conoce se guarda como vino** (ADR-020): una tienda
+	 * con la versión vieja recibe `cancel` sin rechazarlo, y el stock se mueve igual.
+	 */
+	public function test_an_unknown_reason_is_kept(): void {
+		global $wpdb;
+
+		list( $product, $remote ) = $this->linked_product( 10 );
+
+		$response = $this->send( array( $this->movement( 1, $remote, 1, array( 'reason' => 'cancel' ) ), $this->movement( 2, $remote, 1, array( 'reason' => 'otro-motivo' ) ) ) );
+
+		$this->assertSame( array( 'received', 'received' ), $this->statuses( $response ) );
+		$this->assertSame( 12, $this->stock_of( $product ) );
+
+		$table = Installer::table( 'movements' );
+		$this->assertSame( array( 'cancel', 'otro-motivo' ), $wpdb->get_col( "SELECT reason FROM {$table} WHERE origin_store <> '" . esc_sql( Store::id() ) . "' ORDER BY origin_seq" ) ); // phpcs:ignore WordPress.DB
+	}
 }

@@ -4384,7 +4384,7 @@ después sobre A.
 
 ## ADR-020 — La cancelación tiene su propio motivo
 
-Estado: Propuesta
+Estado: Aprobada · 2026-10-11 · aprobada por Julián
 Temas: rest-api, modulos
 Cubre: includes/Detector/Detector.php, includes/Log/Events.php
 

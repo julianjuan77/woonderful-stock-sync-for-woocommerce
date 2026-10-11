@@ -182,6 +182,7 @@ mientras escribía la función.
 | El lote no pasa de 200 | ADR-001 §4 | `LED-27` | [test-ledger.php](test-ledger.php) |
 | Si algo sale, sale lo anterior que esperaba, en orden | ADR-017 | `LED-63`…`LED-67`, `BOO-13` | [test-ledger.php](test-ledger.php) |
 | Volver a gestionar el stock no viaja, y el libro arranca del número cargado | ADR-019 | `DET-20`, `DET-21` | [test-detector.php](test-detector.php) |
+| La cancelación viaja como `cancel` y se lee "cancelación"; el receptor guarda cualquier motivo | ADR-020 | `DET-13`, `MOV-14`, `EVT-11` | [test-detector.php](test-detector.php), [test-rest-movements.php](test-rest-movements.php) |
 | Lo retenido se aplica cuando el producto vuelve; lo que no va a volver se descarta | ADR-018 | `LED-68`…`LED-71`, `PAS-05`, `ROW-15`, `ROW-16` | [test-ledger.php](test-ledger.php) |
 | El secreto se borra siempre al desinstalar | ADR-003 | `UNI-01` | [test-uninstall.php](test-uninstall.php) |
 | Los nonces se borran siempre | ADR-003 | `UNI-02` | [test-uninstall.php](test-uninstall.php) |
@@ -423,6 +424,7 @@ control de largo cae `NON-03`; tomando como nuevo cualquier resultado que no sea
 | `MOV-11` | Un hook de terceros hace fallar un movimiento | Ése vuelve `error` `not_stored`, sin tocar su stock; el siguiente se aplica |
 | `MOV-12` | Un lote de 200 justos | 200, con 200 resultados |
 | `MOV-13` | Un `delta` de ±2³¹ y una `generation` de 2³² | `error` `invalid_delta` e `invalid_generation`: el rango es el de la columna, no el de PHP |
+| `MOV-14` | **Un `cancel` y un motivo inventado** (ADR-020) | Los dos `received`, el stock se mueve y el motivo se guarda como vino: una tienda vieja no rechaza el nuevo |
 
 Verificado rompiéndolo: sin el control de `origin` cae `MOV-08`; anotando el nonce antes de la
 firma cae `MOV-04`; mirando la firma antes que el timestamp cae `MOV-03`; tomando el `null` de
@@ -744,7 +746,7 @@ nuestro callback (ADR-006 §3).
 | `DET-10` | `apply()` de un movimiento remoto, con el detector enganchado | Aplica y no emite nada propio: no hay eco |
 | `DET-11` | Un cambio sin pedido detrás | Queda `adjustment`, sin referencia |
 | `DET-12` | `wc_reduce_stock_levels()` de un pedido | `sale` con `pedido #<número>` |
-| `DET-13` | El mismo pedido, cancelado: `wc_increase_stock_levels()` | El segundo movimiento es `refund` con la misma referencia |
+| `DET-13` | El mismo pedido, cancelado: `wc_increase_stock_levels()` | El segundo movimiento es `cancel` con la misma referencia (ADR-020; antes, `refund`) |
 | `DET-14` | Un reembolso que repone una unidad | `refund` de +1 |
 | `DET-15` | **El cambio del pedido lo tapó el guard**, con un ajuste anterior del mismo producto | El ajuste sigue siendo `adjustment`: el estampado no cae sobre una fila ajena |
 | `DET-16` | El pedido de una variación que toma el stock del padre | Se estampa la fila del padre |
@@ -1203,7 +1205,7 @@ Mutaciones: sin revisar el SKU fresco, o el vinculado allá, cae `BLK-03`.
 | `DET-21` | Un producto con 0 recibe 5 | Movimiento de +5: 0 es un número, no un stock vacío |
 | `LED-61` | **Uno recibido que se aplica, y uno que se retiene** | El aplicado guarda el de antes y el de después; el retenido, nada: acá no cambió |
 | `LED-62` | **Dos esperando —uno en vuelo—, uno abandonado, uno confirmado y uno recibido** | La cola: 2 esperando, el más viejo primero, 1 abandonado; lo confirmado y lo recibido no cuentan |
-| `EVT-11` | **Un bootstrap, una venta con los números y una sin; un desvincular** | El historial los muestra —el bootstrap con el de acá y el de arranque—; sin anotar, sólo la diferencia. En pantalla, la diferencia no va dos veces. El desvincular, sin "+0" |
+| `EVT-11` | **Un bootstrap, una venta con los números y una sin; un desvincular** | El historial los muestra —el bootstrap con el de acá y el de arranque—; sin anotar, sólo la diferencia. En pantalla, la diferencia no va dos veces. El desvincular, sin "+0". Una cancelación dice "cancelación"; un motivo que no conoce, como vino (ADR-020) |
 
 ## El resumen en el log
 

@@ -293,6 +293,29 @@ class Test_Events extends WP_UnitTestCase {
 			),
 			'sin "+0": desvincular no mueve stock'
 		);
+		$this->assertSame(
+			'Acá: cancelación (pedido #4512), +1',
+			Events::movement_text(
+				array(
+					'own'       => true,
+					'reason'    => 'cancel',
+					'reference' => 'pedido #4512',
+					'delta'     => 1,
+				)
+			),
+			'la cancelación, con su nombre (ADR-020)'
+		);
+		$this->assertSame(
+			'Acá: otro-motivo, +1',
+			Events::movement_text(
+				array(
+					'own'    => true,
+					'reason' => 'otro-motivo',
+					'delta'  => 1,
+				)
+			),
+			'uno que no conoce, como vino'
+		);
 	}
 
 	/**

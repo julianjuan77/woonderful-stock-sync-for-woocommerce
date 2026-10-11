@@ -410,9 +410,10 @@ class Test_Detector extends WP_UnitTestCase {
 	}
 
 	/**
-	 * DET-13 — Un pedido cancelado devuelve el stock, y eso es un `refund`.
+	 * DET-13 — Un pedido cancelado devuelve el stock, y eso es un `cancel` (ADR-020): antes era un
+	 * `refund`, y el historial decía "devolución".
 	 */
-	public function test_a_restored_order_stamps_a_refund(): void {
+	public function test_a_restored_order_stamps_a_cancel(): void {
 		$product_id = $this->create_product( 10 );
 		$order      = $this->create_order( $product_id, 2 );
 
@@ -422,7 +423,7 @@ class Test_Detector extends WP_UnitTestCase {
 		$reference = 'pedido #' . $order->get_order_number();
 
 		$this->assertSame( array( array( $product_id, -2 ), array( $product_id, 2 ) ), $this->movements() );
-		$this->assertSame( array( array( 'sale', $reference ), array( 'refund', $reference ) ), $this->stamps() );
+		$this->assertSame( array( array( 'sale', $reference ), array( 'cancel', $reference ) ), $this->stamps() );
 	}
 
 	/**

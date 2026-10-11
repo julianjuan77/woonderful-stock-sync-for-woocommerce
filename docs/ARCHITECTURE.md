@@ -330,7 +330,9 @@ opciones (ADR-001, revisado el 2026-09-29).
   "product": 123, "reason": "sale", "reference": "pedido #4512" }
 ```
 
-`reason`: `sale` · `refund` · `adjustment` · `bootstrap` · `unlink`.
+`reason`: `sale` · `refund` · `cancel` · `adjustment` · `bootstrap` · `unlink`. `cancel` es lo que
+repone un pedido cancelado, pendiente o fallido; `refund`, un reembolso (ADR-020). El receptor
+guarda cualquier motivo, aunque no lo conozca.
 
 **El bootstrap y el `unlink` viajan como movimientos**, con `delta: 0` y los campos extra en
 `details` (ADR-005). Van por la cola y no por un endpoint aparte para que no adelanten a una
@@ -849,3 +851,4 @@ Ver `DECISIONS.md`. Índice de las aprobadas:
 | ADR-017 | Lo que salía tarde por un fallo sale con lo nuevo, en orden | modulos |
 | ADR-018 | Las ventas retenidas se aplican cuando el producto vuelve | modulos |
 | ADR-019 | Volver a gestionar el stock no es un movimiento | modulos |
+| ADR-020 | La cancelación tiene su propio motivo | rest-api, modulos |
