@@ -95,6 +95,10 @@ class Test_Pause extends WP_UnitTestCase {
 
 		remove_filter( 'pre_http_request', array( $this, 'intercept' ), 10 );
 
+		// El DROP de abajo confirma lo escrito: sin esto, la pausa y el corte quedan en el log
+		// del test siguiente.
+		$wpdb->query( 'DELETE FROM ' . Installer::table( 'events' ) ); // phpcs:ignore WordPress.DB
+
 		foreach ( array( 'movements', 'links', 'nonces' ) as $name ) {
 			$table = Installer::table( $name );
 			$wpdb->query( "DROP TABLE IF EXISTS {$table}" ); // phpcs:ignore WordPress.DB
