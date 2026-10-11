@@ -180,6 +180,7 @@ mientras escribía la función.
 | Al purgar, el stock base absorbe lo purgado | ADR-004 §4 | `LED-47`, `LED-48` | [test-ledger.php](test-ledger.php) |
 | Cada tienda declara hasta dónde purgó | ADR-004 §4 | `LED-49` | [test-ledger.php](test-ledger.php) |
 | El lote no pasa de 200 | ADR-001 §4 | `LED-27` | [test-ledger.php](test-ledger.php) |
+| Si algo sale, sale lo anterior que esperaba, en orden | ADR-017 | `LED-63`…`LED-67`, `BOO-13` | [test-ledger.php](test-ledger.php) |
 | El secreto se borra siempre al desinstalar | ADR-003 | `UNI-01` | [test-uninstall.php](test-uninstall.php) |
 | Los nonces se borran siempre | ADR-003 | `UNI-02` | [test-uninstall.php](test-uninstall.php) |
 | Con la casilla en falso no se pierde nada más | ADR-003 | `UNI-02`, `UNI-03` | [test-uninstall.php](test-uninstall.php) |
@@ -310,6 +311,11 @@ varios tests sin chocar.
 | `LED-26` | Un claim de hace 30 segundos | No se toca |
 | `LED-27` | Cinco pendientes, tope de 3 | Reclama 3 |
 | `LED-28` | La sesión de MySQL en otra zona horaria | Reclama igual: el paso 2 compara contra `UTC_TIMESTAMP()` |
+| `LED-63` | **Una venta que falló y espera su reintento, y una nueva lista** (ADR-017) | Salen las dos, la vieja primero; el adelanto cuenta como intento |
+| `LED-64` | Lista, esperando, lista, esperando | Salen las tres primeras en orden; la última espera: el lote llega hasta la más nueva de las listas |
+| `LED-65` | Dos esperando y nada listo | No se adelanta nada |
+| `LED-66` | El envío inmediato de una nueva, con una vieja esperando | Salen las dos, la vieja primero |
+| `LED-67` | Una pasada del techo de 6 horas y una nueva lista | La vieja se abandona, no se adelanta; sale la nueva. Lo retenido por un bootstrap sigue retenido aunque salga algo después: `BOO-13` |
 | `LED-29` | Reclamar un movimiento | Cuenta como intento: `attempts` sube y queda `first_attempt_at` |
 | `LED-30` | Reclamar uno que ya tenía intentos | `first_attempt_at` no se pisa; `attempts` sube |
 | `LED-31` | Una fila confirmada | Queda `confirmed`, con su hora y sin claim |

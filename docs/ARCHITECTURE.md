@@ -135,7 +135,10 @@ crea el par al revés y fija el stock con el guard. Un `unlink` viejo o ajeno se
 `discarded`. `GET /movements/<origen>/<secuencia>` responde `Ledger::state_of()`, sin anotar el
 nonce. Del lado de la maestra, `Ledger::record_bootstrap()` escribe la fila `syncing` y el
 vínculo juntos; `resolve_bootstrap()` anota cómo terminó y, si falló, borra el vínculo;
-`record_unlink()` escribe el `unlink` con la generación del vínculo y lo borra. **`claim()`
+`record_unlink()` escribe el `unlink` con la generación del vínculo y lo borra. **Lo que sale,
+sale en orden** (ADR-017): si hay algo listo —vencido, o lo del envío inmediato—, `claim()` se
+lleva todo lo pendiente hasta la más nueva de las listas, por `id`, aunque espere su reintento;
+sin nada listo, nada se adelanta. **`claim()`
 retiene todo movimiento del vínculo de un bootstrap en `syncing` o `uncertain`**: por `link_id` y
 no por generación, porque después de invertir los roles la generación de un vínculo recibido
 puede coincidir con la secuencia de un bootstrap propio. Los `link_id` se leen en una consulta
@@ -233,7 +236,7 @@ un POST redirigido llega como GET. Empareja los resultados por posición, y uno 
 detector estampa un movimiento con su pedido, lo anota. En `shutdown`, con `PHP_INT_MAX`, si hay
 PHP-FPM o LiteSpeed, se cierra la conexión del cliente con `fastcgi_finish_request()` o
 `litespeed_finish_request()` y se llama a `Sender::run()` con esos IDs y 5 segundos de timeout:
-`claim()` se lleva sólo esas filas, sin mirar `next_attempt_at`, y con la misma retención de los
+`claim()` se lleva esas filas, sin mirar `next_attempt_at`, y con la misma retención de los
 bootstraps. Sin ninguna de las dos no se manda nada y lo lleva la pasada. Tampoco si un envío
 falló entero hace menos de una pasada: `Sender::run()` lo anota en el transient
 `wss_send_failed`, de 60 segundos, y lo borra el primero que sale bien. Los ajustes a mano y las importaciones no se anotan: esperan la pasada,

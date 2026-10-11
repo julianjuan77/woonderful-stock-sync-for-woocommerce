@@ -4167,7 +4167,7 @@ consulta nunca: el nombre nuevo no llegaría.
 
 ## ADR-017 — Lo que salía tarde por un fallo sale con lo nuevo, en orden
 
-Estado: Propuesta
+Estado: Aprobada · 2026-10-11 · aprobada por Julián
 Temas: modulos
 Cubre: includes/Ledger/Ledger.php
 
@@ -4193,8 +4193,9 @@ espera no haya vencido, y todo en el orden en que se anotó**.
 **Qué cambia en `Ledger::claim()`:**
 
 - **Cuáles:** las listas para salir (`next_attempt_at` vencido, o las del envío inmediato) y,
-  **si hay alguna, también las pendientes propias anteriores a la más vieja de ellas**, aunque
-  estén esperando. Si no hay nada listo, nada se adelanta: con la otra caída y sin ventas nuevas,
+  **si hay alguna, también las pendientes propias anteriores a la más nueva de ellas**, aunque
+  estén esperando: con "anteriores a la más vieja", una que espera entre dos listas quedaría
+  atrás. Si no hay nada listo, nada se adelanta: con la otra caída y sin ventas nuevas,
   la espera sigue como hoy.
 - **En qué orden:** por `id`, que es el orden en que se anotaron. Hoy es por `next_attempt_at`,
   que pone al final justo lo que esperaba.

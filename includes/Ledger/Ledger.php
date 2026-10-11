@@ -386,6 +386,9 @@ final class Ledger {
 	 * Con `$only`, reclama sólo esas filas y sin mirar `next_attempt_at`: es el envío al
 	 * final del request de un pedido, que no necesita la espera (ADR-006 §5).
 	 *
+	 * Si hay algo listo, se lleva también lo pendiente anterior aunque espere su reintento,
+	 * en el orden en que se anotó (ADR-017).
+	 *
 	 * @param int        $limit Tope de movimientos por lote.
 	 * @param int[]|null $only  Sólo estos movimientos.
 	 *
@@ -467,6 +470,20 @@ final class Ledger {
 		$not_held = array() === $held ? '' : ' AND ( link_id IS NULL OR link_id NOT IN ( ' . implode( ',', $held ) . ' ) )';
 		$due      = null === $only ? 'next_attempt_at <= UTC_TIMESTAMP()' : 'id IN ( ' . implode( ',', array_map( 'intval', $only ) ) . ' )';
 
+		// Si algo sale, sale también lo anterior que esperaba su reintento, y todo por `id`
+		// (ADR-017): ordenado por `next_attempt_at`, la venta que falló salía después de las
+		// nuevas. Hasta la más nueva de las listas y no sólo antes de la más vieja: si no, una
+		// que espera entre dos listas quedaría atrás. Sin nada listo, nada se adelanta.
+		$newest = $wpdb->get_var( "SELECT MAX( id ) FROM {$table} WHERE delivery = 'pending' AND " . $due . $not_held );
+
+		if ( null === $newest ) {
+			if ( '' !== $wpdb->last_error ) {
+				self::$last_claim['error'] = $wpdb->last_error;
+			}
+
+			return array();
+		}
+
 		//
 		// El intento se cuenta acá y no al anotar el resultado: si el worker muere, nadie
 		// llega a anotarlo y el techo de 6 horas no avanzaría nunca (ADR-001 §2). Un lote
@@ -480,10 +497,11 @@ final class Ledger {
 				        attempts = attempts + 1,
 				        first_attempt_at = COALESCE( first_attempt_at, UTC_TIMESTAMP() )
 				  WHERE delivery = 'pending'
-				    AND " . $due . $not_held . '
-				  ORDER BY next_attempt_at, id
+				    AND id <= %d" . $not_held . '
+				  ORDER BY id
 				  LIMIT %d',
 				$worker,
+				(int) $newest,
 				max( 1, min( $limit, self::MAX_BATCH ) )
 			)
 		);

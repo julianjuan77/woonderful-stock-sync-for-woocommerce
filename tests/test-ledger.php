@@ -1476,4 +1476,102 @@ class Test_Ledger extends WP_UnitTestCase {
 			Ledger::queue_summary()
 		);
 	}
+
+	/**
+	 * Un movimiento que falló y espera su reintento.
+	 */
+	private function failed_movement(): int {
+		return $this->pending_movement(
+			array(
+				'attempts'         => 1,
+				'first_attempt_at' => gmdate( 'Y-m-d H:i:s', time() - 60 ),
+				'next_attempt_at'  => gmdate( 'Y-m-d H:i:s', time() + 120 ),
+			)
+		);
+	}
+
+	/**
+	 * Los ids reclamados, en el orden en que salen.
+	 *
+	 * @param \stdClass[] $rows Filas de `claim()`.
+	 *
+	 * @return int[]
+	 */
+	private function ids_of( array $rows ): array {
+		return array_map( static fn( $row ): int => (int) $row->id, $rows );
+	}
+
+	/**
+	 * La venta que falló sale con la nueva y antes que ella, aunque su espera no venció. Con
+	 * el orden por `next_attempt_at` salía después: la prueba manual 4.5 (ADR-017).
+	 *
+	 * LED-63
+	 */
+	public function test_what_failed_goes_out_first_with_what_is_new(): void {
+		$old = $this->failed_movement();
+		$new = $this->pending_movement();
+
+		$this->assertSame( array( $old, $new ), $this->ids_of( Ledger::claim() ) );
+		$this->assertSame( '2', $this->column_of( $old, 'attempts' ), 'el adelanto cuenta como intento' );
+	}
+
+	/**
+	 * Lo que espera entre dos listas sale también, y lo que falló después de la última lista
+	 * se queda: el lote es lo pendiente en orden hasta la más nueva de las listas.
+	 *
+	 * LED-64
+	 */
+	public function test_the_batch_is_everything_pending_up_to_the_newest_ready(): void {
+		$first  = $this->pending_movement();
+		$middle = $this->failed_movement();
+		$last   = $this->pending_movement();
+		$after  = $this->failed_movement();
+
+		$this->assertSame( array( $first, $middle, $last ), $this->ids_of( Ledger::claim() ) );
+		$this->assertSame( 'pending', $this->column_of( $after, 'delivery' ) );
+	}
+
+	/**
+	 * Sin nada listo, nada se adelanta: con la otra caída y sin ventas nuevas, la espera
+	 * sigue.
+	 *
+	 * LED-65
+	 */
+	public function test_nothing_is_advanced_when_nothing_is_ready(): void {
+		$this->failed_movement();
+		$this->failed_movement();
+
+		$this->assertSame( array(), Ledger::claim() );
+	}
+
+	/**
+	 * El envío inmediato de un pedido también se lleva lo que esperaba antes, en orden.
+	 *
+	 * LED-66
+	 */
+	public function test_the_immediate_send_takes_what_was_waiting(): void {
+		$old = $this->failed_movement();
+		$new = $this->pending_movement( array( 'next_attempt_at' => gmdate( 'Y-m-d H:i:s', time() + 60 ) ) );
+
+		$this->assertSame( array( $old, $new ), $this->ids_of( Ledger::claim( Ledger::MAX_BATCH, array( $new ) ) ) );
+	}
+
+	/**
+	 * Lo que pasó el techo se abandona aunque haya algo listo: el adelanto no lo revive.
+	 *
+	 * LED-67
+	 */
+	public function test_the_ceiling_still_wins_over_the_advance(): void {
+		$expired = $this->pending_movement(
+			array(
+				'attempts'         => 9,
+				'first_attempt_at' => gmdate( 'Y-m-d H:i:s', time() - 7 * HOUR_IN_SECONDS ),
+				'next_attempt_at'  => gmdate( 'Y-m-d H:i:s', time() + 600 ),
+			)
+		);
+		$new     = $this->pending_movement();
+
+		$this->assertSame( array( $new ), $this->ids_of( Ledger::claim() ) );
+		$this->assertSame( 'abandoned', $this->column_of( $expired, 'delivery' ) );
+	}
 }

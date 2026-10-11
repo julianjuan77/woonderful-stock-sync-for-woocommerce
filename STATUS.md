@@ -2,7 +2,7 @@
 
 > Plugin: `woonderful-stock-sync-for-woocommerce` | WP 6.5+ | PHP 8.1+ | WooCommerce 9.1+
 > Repo: [woonderful-stock-sync-for-woocommerce](https://github.com/julianjuan77/woonderful-stock-sync-for-woocommerce)
-> Creado: 2026-09-20 · Última sesión: 2026-10-10 — Configuración rediseñada, y pausar y desemparejar (ADR-015). Antes, 2026-10-09 — el rediseño de Productos, Resumen y Registros, el logo y las fuentes de la marca dentro del plugin (ADR-013 §2.1). Antes, 2026-10-07 — los ADRs de la interfaz (ADR-013, con la configuración inicial, y ADR-014) y el bloque 8 entero: de la base (8.1) a la configuración inicial (8.10). Antes, 2026-10-06 — los ADRs del log (ADR-011) y de los avisos (ADR-012), y el bloque 10 entero: la tabla del log, el estado de la otra tienda, los eventos de cada pieza, los pares rotos, la purga y los avisos por email
+> Creado: 2026-09-20 · Última sesión: 2026-10-11 — El orden de lo que sale después de una caída (ADR-017). Antes, 2026-10-10 — Configuración rediseñada, y pausar y desemparejar (ADR-015). Antes, 2026-10-09 — el rediseño de Productos, Resumen y Registros, el logo y las fuentes de la marca dentro del plugin (ADR-013 §2.1). Antes, 2026-10-07 — los ADRs de la interfaz (ADR-013, con la configuración inicial, y ADR-014) y el bloque 8 entero: de la base (8.1) a la configuración inicial (8.10). Antes, 2026-10-06 — los ADRs del log (ADR-011) y de los avisos (ADR-012), y el bloque 10 entero: la tabla del log, el estado de la otra tienda, los eventos de cada pieza, los pares rotos, la purga y los avisos por email
 
 Sincroniza el stock entre dos tiendas WooCommerce propias que despachan del mismo depósito.
 Pool único, sin reparto: lo que se vende en una descuenta en las dos.
@@ -195,6 +195,8 @@ es lo normal: loguearlo en cada pasada sería ruido.
 
 **Productos y Resumen, rediseñados** (2026-10-09, a partir de los diseños de Julián): Productos con pestañas de estado que se cambian por las de motivo, variables contraídos y barra flotante para vincular; Resumen con una cabecera que dice si hay algo que hacer, el par de tiendas, la reconciliación en una tabla acá/la otra, la barra de vinculados (`Rows::linking()`) y las discrepancias de las dos tiendas lado a lado, resueltas con un menú de las dos salidas. Las clases nuevas son `wss-*`. Productos se lista primero lo vinculado (pedido de Julián, 2026-10-09). Registros, rediseñado: filtros de nivel con su cuenta, tipo, período y búsqueda por producto; agrupado por día, con las tandas en un renglón y el detalle legible. Sin exportar a CSV, por ahora. Configuración, rediseñada, con la pausa y el corte (ADR-015): un interruptor "Sincronización activa" y "Desemparejar" con confirmación, avisados a la otra tienda; la pausa se ve en Resumen y en la barra lateral. El nombre de la tienda llega a la otra al guardarlo (ADR-016). Desvincular también en lote, con la misma selección que la vinculación masiva. El plazo de lo que no sincroniza ya no está en la pantalla: queda en 24 horas, y se cambia con `wp wss notify --after=`.
 
+**El orden después de una caída** (ADR-017, 2026-10-11, de la prueba manual 4.5): la venta que falló y esperaba su reintento salía después de las nuevas. Ahora, si algo sale, sale también lo pendiente anterior, en el orden en que se anotó. `LED-63`…`LED-67`.
+
 ### 9. Publicación
 
 | | Tarea | Estado |
@@ -228,6 +230,7 @@ La fuente es `docs/DECISIONS.md`. Acá sólo el índice de las aprobadas.
 | ADR-014 | La vinculación en la pantalla: una copia del catálogo de la otra (`wss_remote_products`) que se refresca; filas con los dos lados, motivos y sugerencia por SKU; filtros y búsqueda en el servidor; vincular a mano mirando el stock en el momento; masiva de a 20 revalidando; reasignar, descartar | 2026-10-07 |
 | ADR-015 | Pausar la sincronización (el libro sigue anotando; nadie manda, aplica, reconcilia ni vincula; `POST /pause` a la otra y `409 wss_paused`) y desemparejar (las dos olvidan URL y secreto; vínculos y libro quedan; `POST /unpair` a la otra) | 2026-10-10 |
 | ADR-016 | El nombre de la tienda llega a la otra al cambiarlo: `POST /label` firmado; si la otra no responde, `wss_label_pending` y la pasada reintenta | 2026-10-10 |
+| ADR-017 | Lo que esperaba su reintento por un fallo sale con lo nuevo: si hay algo listo, `claim()` se lleva lo pendiente hasta la más nueva de las listas, por `id`. Sin nada listo, nada se adelanta | 2026-10-11 |
 
 El 2026-09-28 el SPEC §5 subió el mínimo de WooCommerce de 8.2 a 9.1: es la versión que trae
 el hook que estampa las cancelaciones (ADR-006 §2).
