@@ -4231,7 +4231,7 @@ fallos con una columna nueva (esquema).
 
 ## ADR-018 — Las ventas retenidas se aplican cuando el producto vuelve
 
-Estado: Propuesta
+Estado: Aprobada · 2026-10-11 · aprobada por Julián
 Temas: modulos
 Cubre: includes/Ledger/Ledger.php, includes/Transport/Pass.php, includes/Catalog/Rows.php, src/screens/Products.js
 
@@ -4275,8 +4275,11 @@ volver se descarta al desvincular, y **el par de un producto borrado se ve en Pr
    estaba, así que restar al volver da el número correcto. El que dejó de gestionar su stock
    vuelve con un número que **el dueño acaba de cargar**, contando lo que hay en el depósito:
    restarle lo retenido descontaría dos veces. Esas filas se descartan al volver, con un aviso en
-   Registros ("N ventas de la otra tienda no se aplicaron: el stock se cargó a mano"). Si el número
-   cargado no da, la auditoría lo marca a la noche, porque ya no hay nada retenido.
+   Registros ("N ventas de la otra tienda no se aplicaron: el stock se cargó a mano"). **Corregido
+   al implementarlo (2026-10-11):** decía que si el número cargado no da, la auditoría lo marca a
+   la noche. No es así: la auditoría compara cada tienda con su propio libro, nunca con la otra
+   (ADR-010), y una venta descartada deja los dos libros cerrando. La única señal es el aviso en
+   Registros y los dos números distintos en Productos.
 4. **Lo que no va a volver se descarta.** Al desvincular —acá o porque llegó el `unlink`— y al
    cambiar de generación, lo retenido de ese vínculo pasa a `discarded`: el vínculo nuevo arranca
    del stock que el dueño ve (ADR-005 §4). Es la salida para un producto borrado.
@@ -4304,7 +4307,8 @@ plugin puede hacer solo. Sí se usa para el caso del punto 3, donde aplicar ser�
 - Restaurar un producto que estuvo días en la papelera le baja el stock de golpe, en la próxima
   pasada. Es lo correcto —esas ventas pasaron—, y queda en Registros.
 - **Una ventana de hasta un minuto:** si el dueño restaura y corrige el stock a mano antes de la
-  pasada, lo retenido se resta encima. Es raro y la auditoría lo marca a la noche.
+  pasada, lo retenido se resta encima. Es raro, y la auditoría no lo marca (ADR-010 compara cada
+  tienda con su libro): se ve en Productos, con los dos números distintos.
 - Las filas retenidas antes de este cambio no tienen motivo: se tratan como el punto 3, se
   descartan con aviso. El plugin no está publicado; sólo pasa en los sitios de prueba.
 - **Si el supuesto falla** —si un dueño mandara a la papelera para recontar y cargar el número

@@ -1574,4 +1574,137 @@ class Test_Ledger extends WP_UnitTestCase {
 		$this->assertSame( array( $new ), $this->ids_of( Ledger::claim() ) );
 		$this->assertSame( 'abandoned', $this->column_of( $expired, 'delivery' ) );
 	}
+
+	/**
+	 * Cómo quedó un movimiento recibido: su aplicación y sus detalles.
+	 *
+	 * @param int $seq Su secuencia en la tienda de origen.
+	 *
+	 * @return array{0: string, 1: array<string, mixed>|null}
+	 */
+	private function received( int $seq ): array {
+		global $wpdb;
+
+		$table = Installer::table( 'movements' );
+		$row   = $wpdb->get_row( $wpdb->prepare( "SELECT application, details FROM {$table} WHERE origin_store = %s AND origin_seq = %d", self::REMOTE_STORE, $seq ) ); // phpcs:ignore WordPress.DB
+
+		return array( (string) $row->application, json_decode( (string) $row->details, true ) );
+	}
+
+	/**
+	 * Lo retenido por la papelera se aplica cuando el producto vuelve, con el stock de antes
+	 * y el de después; mientras sigue en la papelera, no (ADR-018).
+	 *
+	 * LED-68
+	 */
+	public function test_what_was_held_by_the_trash_is_applied_when_it_comes_back(): void {
+		$product_id = $this->create_product( 10 );
+		$this->link_product( $product_id, 789, 77 );
+		wp_trash_post( $product_id );
+
+		Ledger::apply( $this->incoming( 789, -2 ) );
+
+		$this->assertSame( array( 'held', array( 'held' => 'trashed' ) ), $this->received( 77 ) );
+		$this->assertSame( array(), Ledger::release_held()['applied'], 'en la papelera, sigue retenido' );
+
+		wp_untrash_post( $product_id );
+		$released = Ledger::release_held();
+
+		$this->assertSame( array( $product_id => 1 ), $released['applied'] );
+		$this->assertSame( 8, $this->stock_of( $product_id ) );
+		$this->assertSame(
+			array(
+				'applied',
+				array(
+					'stock_before' => 10,
+					'stock_after'  => 8,
+				),
+			),
+			$this->received( 77 )
+		);
+	}
+
+	/**
+	 * Varios retenidos salen en orden y una sola vez: una segunda pasada no los aplica de nuevo.
+	 *
+	 * LED-69
+	 */
+	public function test_held_movements_are_applied_once(): void {
+		$product_id = $this->create_product( 10 );
+		$this->link_product( $product_id, 789, 77 );
+		wp_trash_post( $product_id );
+
+		Ledger::apply( $this->incoming( 789, -2 ) );
+		Ledger::apply( $this->incoming( 789, -3, array( 'seq' => 78 ) ) );
+		wp_untrash_post( $product_id );
+
+		$this->assertSame( array( $product_id => 2 ), Ledger::release_held()['applied'] );
+		$this->assertSame( array(), Ledger::release_held()['applied'] );
+		$this->assertSame( 5, $this->stock_of( $product_id ) );
+		$this->assertSame( array( 'stock_before' => 8, 'stock_after' => 5 ), $this->received( 78 )[1] ); // phpcs:ignore WordPress.Arrays.ArrayDeclarationSpacing.AssociativeArrayFound
+	}
+
+	/**
+	 * Lo retenido porque no llevaba su stock se descarta al volver: el número lo cargó el dueño
+	 * contando el depósito, y aplicarlo descontaría dos veces.
+	 *
+	 * LED-70
+	 */
+	public function test_what_was_held_without_own_stock_is_discarded_when_it_comes_back(): void {
+		$product_id = $this->create_product( 10 );
+		$this->link_product( $product_id, 789, 77 );
+
+		$product = wc_get_product( $product_id );
+		$product->set_manage_stock( false );
+		$product->save();
+
+		Ledger::apply( $this->incoming( 789, -2 ) );
+
+		$this->assertSame( array( 'held', array( 'held' => 'not_managing_stock' ) ), $this->received( 77 ) );
+
+		$product = wc_get_product( $product_id );
+		$product->set_manage_stock( true );
+		$product->set_stock_quantity( 15 );
+		$product->save();
+
+		$released = Ledger::release_held();
+
+		$this->assertSame( array(), $released['applied'] );
+		$this->assertSame( array( $product_id => 1 ), $released['by_hand'] );
+		$this->assertSame( 'discarded', $this->received( 77 )[0] );
+		$this->assertSame( 15, $this->stock_of( $product_id ) );
+	}
+
+	/**
+	 * Lo de un producto borrado queda retenido hasta que se desvincula; entonces se descarta.
+	 * Lo de un vínculo que cambió de generación, también.
+	 *
+	 * LED-71
+	 */
+	public function test_what_will_not_come_back_is_discarded(): void {
+		global $wpdb;
+
+		$deleted = $this->create_product( 10 );
+		$link    = $this->link_product( $deleted, 789, 77 );
+		wp_delete_post( $deleted, true );
+		Ledger::apply( $this->incoming( 789, -2 ) );
+
+		$relinked = $this->create_product( 10 );
+		$this->link_product( $relinked, 790, 80 );
+		wp_trash_post( $relinked );
+		Ledger::apply( $this->incoming( 790, -1, array( 'seq' => 81, 'generation' => 80 ) ) ); // phpcs:ignore WordPress.Arrays.ArrayDeclarationSpacing.AssociativeArrayFound
+
+		$this->assertSame( 0, Ledger::release_held()['discarded'], 'borrado y vinculado: sigue retenido' );
+
+		$wpdb->delete( Installer::table( 'links' ), array( 'id' => $link ) ); // phpcs:ignore WordPress.DB
+		$wpdb->update( Installer::table( 'links' ), array( 'generation' => 90 ), array( 'local_product' => $relinked ) ); // phpcs:ignore WordPress.DB
+		wp_untrash_post( $relinked );
+
+		$released = Ledger::release_held();
+
+		$this->assertSame( 2, $released['discarded'] );
+		$this->assertSame( array(), $released['applied'] );
+		$this->assertSame( 'discarded', $this->received( 77 )[0] );
+		$this->assertSame( 10, $this->stock_of( $relinked ), 'el vínculo nuevo arrancó de su stock' );
+	}
 }

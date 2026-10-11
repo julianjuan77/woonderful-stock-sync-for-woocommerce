@@ -213,6 +213,25 @@ final class Links {
 	}
 
 	/**
+	 * Todos los vínculos, por producto de acá.
+	 *
+	 * @return array<int, \stdClass>
+	 */
+	public static function all(): array {
+		global $wpdb;
+
+		$table = Installer::table( 'links' );
+		$links = array();
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		foreach ( (array) $wpdb->get_results( "SELECT * FROM {$table}" ) as $row ) {
+			$links[ (int) $row->local_product ] = $row;
+		}
+
+		return $links;
+	}
+
+	/**
 	 * Los vínculos de esos productos de acá, por producto. Una consulta, no una por producto.
 	 *
 	 * @param int[] $product_ids Productos de esta tienda.

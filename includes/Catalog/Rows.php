@@ -230,6 +230,22 @@ final class Rows {
 			$rows[] = $row;
 		}
 
+		// Un vínculo cuyo producto de acá ya no se lista —se borró, o dejó de llevar su stock—
+		// se ve igual, suspendido: si no, el par desaparece y no hay de dónde desvincularlo
+		// (ADR-018 §6).
+		$orphans = array_diff_key( Links::all(), $linkable );
+
+		foreach ( State::from_copy( array_keys( $orphans ), $remote ) as $id => $state ) {
+			$row = self::row( $local[ $id ] ?? self::deleted( $id ), $local );
+
+			$row['stock']  = null; // Borrado o sin su stock: no hay número que mostrar.
+			$row['state']  = $state['state'];
+			$row['reason'] = null === $state['reason'] ? null : Events::reason_text( (string) $state['reason'] );
+			$row['remote'] = $remote[ (int) $orphans[ $id ]->remote_product ] ?? array( 'id' => (int) $orphans[ $id ]->remote_product );
+
+			$rows[] = $row;
+		}
+
 		foreach ( $local as $item ) {
 			if ( $item['stock_in_parent'] ) {
 				$row           = self::row( $item, $local );
@@ -271,7 +287,8 @@ final class Rows {
 
 		return array(
 			'unlinked' => $count + count( array_filter( $local, static fn ( array $item ) => $item['stock_in_parent'] ) ),
-			'linked'   => count( $links ),
+			// Todos, también los de un producto borrado: se listan como suspendidos.
+			'linked'   => count( Links::all() ),
 		);
 	}
 
@@ -326,6 +343,25 @@ final class Rows {
 			'motive'      => null,
 			'remote'      => null,
 			'suggestion'  => null,
+		);
+	}
+
+	/**
+	 * Lo que se muestra de un producto vinculado que ya no existe.
+	 *
+	 * @param int $id Su ID.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private static function deleted( int $id ): array {
+		return array(
+			'id'     => $id,
+			'parent' => 0,
+			/* translators: %d: el ID del producto. */
+			'name'   => sprintf( __( 'Producto borrado (#%d)', 'woonderful-stock-sync-for-woocommerce' ), $id ),
+			'sku'    => '',
+			'stock'  => null,
+			'status' => 'deleted',
 		);
 	}
 

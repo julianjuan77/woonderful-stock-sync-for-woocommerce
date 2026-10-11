@@ -9,7 +9,9 @@ declare( strict_types = 1 );
 
 namespace Woonderful\StockSync\Transport;
 
+use Woonderful\StockSync\Ledger\Ledger;
 use Woonderful\StockSync\Linking\Linker;
+use Woonderful\StockSync\Log\Events;
 use Woonderful\StockSync\Log\Notifier;
 use Woonderful\StockSync\Log\Peer;
 use Woonderful\StockSync\Plugin;
@@ -111,6 +113,7 @@ final class Pass {
 		if ( ! Pause::is_on() ) {
 			Schedule::after_pass( Sender::run() );
 			Linker::resolve_uncertain();
+			self::release_held();
 
 			// El nombre que la otra no recibió: con la otra caída, esperar a que vuelva.
 			if ( get_option( Peers::OPTION_LABEL_PENDING ) && Peer::OK === Peer::current()['state'] ) {
@@ -122,6 +125,21 @@ final class Pass {
 
 		// Corre aunque no haya nada que mandar: es lo que mira el reloj de los avisos.
 		Notifier::tick();
+	}
+
+	/**
+	 * Lo retenido cuyo producto volvió, y lo anota en el log por producto (ADR-018).
+	 */
+	private static function release_held(): void {
+		$released = Ledger::release_held();
+
+		foreach ( $released['applied'] as $product => $count ) {
+			Events::record( Events::HELD_APPLIED, Events::INFO, $product, array( 'count' => $count ) );
+		}
+
+		foreach ( $released['by_hand'] as $product => $count ) {
+			Events::record( Events::HELD_DISCARDED, Events::WARNING, $product, array( 'count' => $count ) );
+		}
 	}
 
 	/**

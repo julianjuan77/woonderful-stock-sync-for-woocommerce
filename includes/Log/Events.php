@@ -53,6 +53,8 @@ final class Events {
 	public const PAUSED               = 'paused';
 	public const RESUMED              = 'resumed';
 	public const UNPAIRED             = 'unpaired';
+	public const HELD_APPLIED         = 'held_applied';
+	public const HELD_DISCARDED       = 'held_discarded';
 
 	/**
 	 * Lo que la purga no borra: decisiones y memorias, no eventos (ADR-011 §6).
@@ -437,6 +439,30 @@ final class Events {
 			case self::PAIR_RESTORED:
 				/* translators: %s: producto. */
 				return sprintf( __( 'El par del producto %s volvió a estar bien.', 'woonderful-stock-sync-for-woocommerce' ), $product );
+			case self::HELD_APPLIED:
+				return sprintf(
+					/* translators: 1: cuántas ventas, 2: producto. */
+					_n(
+						'Se aplicó %1$d venta retenida de la otra tienda al producto %2$s: volvió de la papelera.',
+						'Se aplicaron %1$d ventas retenidas de la otra tienda al producto %2$s: volvió de la papelera.',
+						(int) ( $context['count'] ?? 0 ),
+						'woonderful-stock-sync-for-woocommerce'
+					),
+					(int) ( $context['count'] ?? 0 ),
+					$product
+				);
+			case self::HELD_DISCARDED:
+				return sprintf(
+					/* translators: 1: cuántas ventas, 2: producto. */
+					_n(
+						'%1$d venta de la otra tienda no se aplicó al producto %2$s: su stock se cargó a mano al volver a gestionarlo. Revisá que el número esté bien.',
+						'%1$d ventas de la otra tienda no se aplicaron al producto %2$s: su stock se cargó a mano al volver a gestionarlo. Revisá que el número esté bien.',
+						(int) ( $context['count'] ?? 0 ),
+						'woonderful-stock-sync-for-woocommerce'
+					),
+					(int) ( $context['count'] ?? 0 ),
+					$product
+				);
 			case self::NOTIFIED:
 				/* translators: %s: producto. */
 				return sprintf( __( 'Se avisó por email que el producto %s no sincroniza.', 'woonderful-stock-sync-for-woocommerce' ), $product );

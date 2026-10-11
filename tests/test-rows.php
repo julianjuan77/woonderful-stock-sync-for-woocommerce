@@ -445,4 +445,56 @@ class Test_Rows extends WP_UnitTestCase {
 
 		$this->assertFalse( $this->rows()[ $product ]['unlinking'] );
 	}
+
+	/**
+	 * Una fila de `Rows::all()`, por ID: un borrado no tiene la marca de la corrida.
+	 *
+	 * @param int $id El producto.
+	 *
+	 * @return array<string, mixed>|null
+	 */
+	private function any_row( int $id ): ?array {
+		return array_column( Rows::all(), null, 'id' )[ $id ] ?? null;
+	}
+
+	/**
+	 * ROW-15 — **Un vinculado que se borró se sigue viendo**, suspendido, con el de allá: si
+	 * no, el par desaparece y no hay de dónde desvincularlo (ADR-018 §6). Y cuenta como
+	 * vinculado.
+	 */
+	public function test_a_deleted_linked_product_is_still_listed(): void {
+		$product = $this->simple( 'BORR' );
+		$this->remote( 970, 'BORR', array( 'linked' => 1 ) ); // phpcs:ignore WordPress.Arrays.ArrayDeclarationSpacing.AssociativeArrayFound
+		Links::create( $product, self::REMOTE_STORE, 970, 1, 5 );
+		wp_delete_post( $product, true );
+
+		$row = $this->any_row( $product );
+
+		$this->assertNotNull( $row );
+		$this->assertSame( State::SUSPENDED, $row['state'] );
+		$this->assertSame( Events::reason_text( 'local_missing' ), $row['reason'] );
+		$this->assertStringContainsString( (string) $product, $row['name'] );
+		$this->assertNull( $row['stock'] );
+		$this->assertSame( 970, $row['remote']['id'] );
+		$this->assertSame( 1, Rows::linking()['linked'] );
+	}
+
+	/**
+	 * ROW-16 — **Un vinculado que dejó de llevar su stock también se ve**, suspendido y sin
+	 * número.
+	 */
+	public function test_a_linked_product_without_own_stock_is_still_listed(): void {
+		$product = $this->simple( 'SINS' );
+		Links::create( $product, self::REMOTE_STORE, 971, 1, 5 );
+
+		$item = wc_get_product( $product );
+		$item->set_manage_stock( false );
+		$item->save();
+
+		$row = $this->rows()[ $product ];
+
+		$this->assertSame( State::SUSPENDED, $row['state'] );
+		$this->assertSame( Events::reason_text( 'local_not_managing_stock' ), $row['reason'] );
+		$this->assertNull( $row['stock'] );
+	}
 }

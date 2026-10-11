@@ -7,6 +7,7 @@
 
 declare( strict_types = 1 );
 
+use Woonderful\StockSync\Log\Events;
 use Woonderful\StockSync\Log\Notifier;
 use Woonderful\StockSync\Log\Peer;
 use Woonderful\StockSync\Identity\Store;
@@ -16,6 +17,7 @@ use Woonderful\StockSync\Reconciliation\Schedule;
 use Woonderful\StockSync\Schema\Installer;
 use Woonderful\StockSync\Transport\Nonces;
 use Woonderful\StockSync\Transport\Pass;
+use Woonderful\StockSync\Transport\Pause;
 use Woonderful\StockSync\Transport\Sender;
 use Woonderful\StockSync\Transport\Peers;
 
@@ -352,5 +354,55 @@ class Test_Pass extends WP_UnitTestCase {
 
 		delete_option( Peer::OPTION );
 		delete_option( Notifier::OPTION_STATE );
+	}
+
+	/**
+	 * La pasada aplica lo retenido cuyo producto volvió y lo anota; en pausa, no (ADR-018).
+	 *
+	 * PAS-05
+	 */
+	public function test_a_pass_applies_what_was_held(): void {
+		global $wpdb;
+
+		$product = new WC_Product_Simple();
+		$product->set_manage_stock( true );
+		$product->set_stock_quantity( 10 );
+		$product_id = (int) $product->save();
+
+		$wpdb->insert( // phpcs:ignore WordPress.DB
+			Installer::table( 'links' ),
+			array(
+				'local_product'  => $product_id,
+				'remote_store'   => self::REMOTE_STORE,
+				'remote_product' => 4001,
+				'generation'     => 5,
+				'base_stock'     => 10,
+				'base_set_at'    => gmdate( 'Y-m-d H:i:s' ),
+			)
+		);
+
+		wp_trash_post( $product_id );
+		Ledger::apply(
+			array(
+				'origin'     => self::REMOTE_STORE,
+				'seq'        => 9,
+				'generation' => 5,
+				'delta'      => -2,
+				'product'    => 4001,
+				'reason'     => 'sale',
+			)
+		);
+		wp_untrash_post( $product_id );
+
+		Pause::set( true, Pause::HERE );
+		Pass::run();
+
+		$this->assertSame( 10, (int) get_post_meta( $product_id, '_stock', true ), 'en pausa no se aplica' );
+
+		Pause::set( false, Pause::HERE );
+		Pass::run();
+
+		$this->assertSame( 8, (int) get_post_meta( $product_id, '_stock', true ) );
+		$this->assertSame( 1, (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . Installer::table( 'events' ) . ' WHERE kind = %s AND product = %d', Events::HELD_APPLIED, $product_id ) ) ); // phpcs:ignore WordPress.DB
 	}
 }

@@ -181,6 +181,7 @@ mientras escribía la función.
 | Cada tienda declara hasta dónde purgó | ADR-004 §4 | `LED-49` | [test-ledger.php](test-ledger.php) |
 | El lote no pasa de 200 | ADR-001 §4 | `LED-27` | [test-ledger.php](test-ledger.php) |
 | Si algo sale, sale lo anterior que esperaba, en orden | ADR-017 | `LED-63`…`LED-67`, `BOO-13` | [test-ledger.php](test-ledger.php) |
+| Lo retenido se aplica cuando el producto vuelve; lo que no va a volver se descarta | ADR-018 | `LED-68`…`LED-71`, `PAS-05`, `ROW-15`, `ROW-16` | [test-ledger.php](test-ledger.php) |
 | El secreto se borra siempre al desinstalar | ADR-003 | `UNI-01` | [test-uninstall.php](test-uninstall.php) |
 | Los nonces se borran siempre | ADR-003 | `UNI-02` | [test-uninstall.php](test-uninstall.php) |
 | Con la casilla en falso no se pierde nada más | ADR-003 | `UNI-02`, `UNI-03` | [test-uninstall.php](test-uninstall.php) |
@@ -316,6 +317,10 @@ varios tests sin chocar.
 | `LED-65` | Dos esperando y nada listo | No se adelanta nada |
 | `LED-66` | El envío inmediato de una nueva, con una vieja esperando | Salen las dos, la vieja primero |
 | `LED-67` | Una pasada del techo de 6 horas y una nueva lista | La vieja se abandona, no se adelanta; sale la nueva. Lo retenido por un bootstrap sigue retenido aunque salga algo después: `BOO-13` |
+| `LED-68` | **Una venta retenida por la papelera; el producto sigue ahí, después vuelve** (ADR-018) | Retenida con `held: trashed`; en la papelera no se aplica; al volver, sí, con el stock de antes y el de después |
+| `LED-69` | Dos retenidas, y dos pasadas | Se aplican las dos en orden, y la segunda pasada no las aplica de nuevo |
+| `LED-70` | **Una retenida porque no llevaba su stock; vuelve con 15 cargado a mano** | Se descarta, el stock queda en 15, y cuenta en `by_hand` |
+| `LED-71` | Una de un producto borrado, y una de un vínculo que cambió de generación | Mientras siguen vinculados, retenidas; sin vínculo o con otra generación, descartadas, y el stock no se toca |
 | `LED-29` | Reclamar un movimiento | Cuenta como intento: `attempts` sube y queda `first_attempt_at` |
 | `LED-30` | Reclamar uno que ya tenía intentos | `first_attempt_at` no se pisa; `attempts` sube |
 | `LED-31` | Una fila confirmada | Queda `confirmed`, con su hora y sin claim |
@@ -468,6 +473,7 @@ LiteSpeed cae `SND-18`.
 | `PAS-02` | **La misma pasada en un sitio suspendido** | No manda ni purga nada |
 | `PAS-03` | Agendar dos veces | Una sola acción, recurrente, cada 60 segundos |
 | `PAS-04` | Desactivar el plugin | La acción se desagenda |
+| `PAS-05` | **Una venta retenida por la papelera, el producto restaurado; primero en pausa** (ADR-018) | En pausa no se aplica; reanudada, la pasada la aplica y anota `held_applied` |
 | `PAS-05` | El primer control | Agenda, y la hora queda en una opción **autocargada** |
 | `PAS-06` | Un control dentro de la hora | No mira: aunque la acción se haya perdido, no hace nada |
 | `PAS-07` | **La pasada se perdió y nadie entra al admin**; pasó la hora | Cualquier request la vuelve a agendar |
@@ -1220,6 +1226,8 @@ Mutaciones: sin revisar el SKU fresco, o el vinculado allá, cae `BLK-03`.
 | `ROW-12` | **Uno sin SKU, uno sin coincidencia y uno descartado** | `motives` cuenta uno de cada uno, el descartado también: es una pestaña |
 | `ROW-13` | **Uno descartado, uno sin coincidencia, uno con sugerencia y uno vinculado, creados en ese orden** | Se listan al revés: vinculado, con sugerencia, sin vincular, descartado |
 | `ROW-14` | **Un desvincular anotado y sin confirmar; después confirmado** | La fila con `unlinking`; confirmado, ya no |
+| `ROW-15` | **Un vinculado que se borró** (ADR-018 §6) | Se lista igual: suspendido, "se borró", sin stock, con el de allá; cuenta en `linking()['linked']` |
+| `ROW-16` | Un vinculado que dejó de llevar su stock | Se lista suspendido, con el motivo y sin stock |
 
 ## Las fuentes de la marca
 

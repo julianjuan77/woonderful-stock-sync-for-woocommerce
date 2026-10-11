@@ -92,6 +92,14 @@ const KIND_LABELS = {
 	paused: __( 'En pausa', 'woonderful-stock-sync-for-woocommerce' ),
 	resumed: __( 'Reanudada', 'woonderful-stock-sync-for-woocommerce' ),
 	unpaired: __( 'Desemparejadas', 'woonderful-stock-sync-for-woocommerce' ),
+	held_applied: __(
+		'Retenidas aplicadas',
+		'woonderful-stock-sync-for-woocommerce'
+	),
+	held_discarded: __(
+		'Retenidas sin aplicar',
+		'woonderful-stock-sync-for-woocommerce'
+	),
 };
 
 // Lo que vuelve a la normalidad lleva el tilde, aunque su nivel sea info.

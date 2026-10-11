@@ -624,6 +624,15 @@ error: "no se pudo mirar" no es "no había nada".
 acción agendada desde la tienda real, y sin callback Action Scheduler la marcaría fallida cada
 minuto. Es la pasada la que, suspendida, no hace nada.
 
+**Lo retenido se aplica en la pasada** (ADR-018). Al retener, `apply()` anota el motivo en
+`details`: `{"held": "trashed" | "missing" | "not_managing_stock"}`. Fuera de pausa, cada pasada
+llama a `Ledger::release_held()`, que recorre lo `held` por `id`: si el producto volvió —existe,
+fuera de la papelera, con su stock— y el vínculo sigue con esa generación, lo retenido por la
+papelera se aplica (`UPDATE` condicional `held` → `applied`, el `Guard`, el stock de antes y el
+de después) y lo demás se descarta, porque el stock lo cargó el dueño. Lo de un vínculo que ya
+no está o de otra generación se descarta siempre. Un producto que falla no sigue en esa pasada:
+lo que viene después saldría antes. Al log van `held_applied` y `held_discarded`, por producto.
+
 **El agendado se controla en cualquier request, a lo sumo una vez por hora**, en
 `action_scheduler_init`. Action Scheduler agenda la próxima vuelta **después** de ejecutar la
 acción: un fatal a mitad —sin memoria, o PHP-FPM que mata el proceso— o cinco fallas seguidas
@@ -833,3 +842,4 @@ Ver `DECISIONS.md`. Índice de las aprobadas:
 | ADR-015 | Pausar la sincronización y desemparejar | opciones, rest-api, uninstall |
 | ADR-016 | El nombre de la tienda llega a la otra al cambiarlo | opciones, rest-api, uninstall |
 | ADR-017 | Lo que salía tarde por un fallo sale con lo nuevo, en orden | modulos |
+| ADR-018 | Las ventas retenidas se aplican cuando el producto vuelve | modulos |

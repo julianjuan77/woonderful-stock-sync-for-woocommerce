@@ -2,7 +2,7 @@
 
 > Plugin: `woonderful-stock-sync-for-woocommerce` | WP 6.5+ | PHP 8.1+ | WooCommerce 9.1+
 > Repo: [woonderful-stock-sync-for-woocommerce](https://github.com/julianjuan77/woonderful-stock-sync-for-woocommerce)
-> Creado: 2026-09-20 · Última sesión: 2026-10-11 — El orden de lo que sale después de una caída (ADR-017). Antes, 2026-10-10 — Configuración rediseñada, y pausar y desemparejar (ADR-015). Antes, 2026-10-09 — el rediseño de Productos, Resumen y Registros, el logo y las fuentes de la marca dentro del plugin (ADR-013 §2.1). Antes, 2026-10-07 — los ADRs de la interfaz (ADR-013, con la configuración inicial, y ADR-014) y el bloque 8 entero: de la base (8.1) a la configuración inicial (8.10). Antes, 2026-10-06 — los ADRs del log (ADR-011) y de los avisos (ADR-012), y el bloque 10 entero: la tabla del log, el estado de la otra tienda, los eventos de cada pieza, los pares rotos, la purga y los avisos por email
+> Creado: 2026-09-20 · Última sesión: 2026-10-11 — El orden de lo que sale después de una caída (ADR-017) y las ventas retenidas cuando el producto vuelve (ADR-018). Antes, 2026-10-10 — Configuración rediseñada, y pausar y desemparejar (ADR-015). Antes, 2026-10-09 — el rediseño de Productos, Resumen y Registros, el logo y las fuentes de la marca dentro del plugin (ADR-013 §2.1). Antes, 2026-10-07 — los ADRs de la interfaz (ADR-013, con la configuración inicial, y ADR-014) y el bloque 8 entero: de la base (8.1) a la configuración inicial (8.10). Antes, 2026-10-06 — los ADRs del log (ADR-011) y de los avisos (ADR-012), y el bloque 10 entero: la tabla del log, el estado de la otra tienda, los eventos de cada pieza, los pares rotos, la purga y los avisos por email
 
 Sincroniza el stock entre dos tiendas WooCommerce propias que despachan del mismo depósito.
 Pool único, sin reparto: lo que se vende en una descuenta en las dos.
@@ -197,6 +197,8 @@ es lo normal: loguearlo en cada pasada sería ruido.
 
 **El orden después de una caída** (ADR-017, 2026-10-11, de la prueba manual 4.5): la venta que falló y esperaba su reintento salía después de las nuevas. Ahora, si algo sale, sale también lo pendiente anterior, en el orden en que se anotó. `LED-63`…`LED-67`.
 
+**Las ventas retenidas, cuando el producto vuelve** (ADR-018, 2026-10-11, de la prueba de papelera y borrado): una venta de la otra tienda para un producto en la papelera quedaba retenida para siempre, y al restaurarlo el stock quedaba de más sin que la reconciliación lo viera. Ahora la pasada la aplica al volver; la retenida porque el producto no llevaba su stock se descarta con aviso, porque el número lo carga el dueño. El par de un producto borrado se ve en Productos. Vincular uno en la papelera dice que está en la papelera, no que no existe. `LED-68`…`LED-71`, `PAS-05`, `ROW-15`, `ROW-16`.
+
 ### 9. Publicación
 
 | | Tarea | Estado |
@@ -231,6 +233,7 @@ La fuente es `docs/DECISIONS.md`. Acá sólo el índice de las aprobadas.
 | ADR-015 | Pausar la sincronización (el libro sigue anotando; nadie manda, aplica, reconcilia ni vincula; `POST /pause` a la otra y `409 wss_paused`) y desemparejar (las dos olvidan URL y secreto; vínculos y libro quedan; `POST /unpair` a la otra) | 2026-10-10 |
 | ADR-016 | El nombre de la tienda llega a la otra al cambiarlo: `POST /label` firmado; si la otra no responde, `wss_label_pending` y la pasada reintenta | 2026-10-10 |
 | ADR-017 | Lo que esperaba su reintento por un fallo sale con lo nuevo: si hay algo listo, `claim()` se lleva lo pendiente hasta la más nueva de las listas, por `id`. Sin nada listo, nada se adelanta | 2026-10-11 |
+| ADR-018 | Las ventas retenidas se aplican cuando el producto vuelve: la pasada aplica lo retenido por la papelera y descarta, con aviso, lo retenido sin stock propio; lo de un vínculo que ya no está se descarta. El par de un producto borrado se lista en Productos | 2026-10-11 |
 
 El 2026-09-28 el SPEC §5 subió el mínimo de WooCommerce de 8.2 a 9.1: es la versión que trae
 el hook que estampa las cancelaciones (ADR-006 §2).

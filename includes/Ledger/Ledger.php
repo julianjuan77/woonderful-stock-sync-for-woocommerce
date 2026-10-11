@@ -196,6 +196,21 @@ final class Ledger {
 	public const DISCARDED = 'discarded';
 
 	/**
+	 * Por qué se retuvo: el producto de acá no existe.
+	 */
+	public const HELD_MISSING = 'missing';
+
+	/**
+	 * Por qué se retuvo: estaba en la papelera.
+	 */
+	public const HELD_TRASHED = 'trashed';
+
+	/**
+	 * Por qué se retuvo: no llevaba su propio stock.
+	 */
+	public const HELD_NOT_MANAGING = 'not_managing_stock';
+
+	/**
 	 * Cuánto puede quedar una fila en vuelo antes de volver a estar disponible.
 	 *
 	 * Un worker que muere a mitad la dejaría tomada para siempre (ADR-001 §2).
@@ -585,10 +600,13 @@ final class Ledger {
 			$state = self::APPLIED;
 		}
 
+		// Por qué se retuvo: al volver el producto decide si se aplica o se descarta (ADR-018).
+		$held_details = self::HELD === $state ? (string) wp_json_encode( array( 'held' => self::held_cause( $local ) ) ) : null;
+
 		$guarded = self::APPLIED === $state && $local instanceof \WC_Product ? (int) $local->get_stock_managed_by_id() : 0;
 
 		return self::applying(
-			static function () use ( $wpdb, $origin, $seq, $movement, $delta, $link, $product, $state, $local, $guarded ): array {
+			static function () use ( $wpdb, $origin, $seq, $movement, $delta, $link, $product, $state, $local, $guarded, $held_details ): array {
 				// La fila primero: es el registro que deduplica. Si se cambiara el stock y el
 				// proceso muriera antes de escribirla, el movimiento se reentregaría y se
 				// aplicaría de nuevo.
@@ -606,6 +624,7 @@ final class Ledger {
 						'origin_product' => $product,
 						'application'    => $state,
 						'applied_at'     => self::APPLIED === $state ? gmdate( 'Y-m-d H:i:s' ) : null,
+						'details'        => $held_details,
 					)
 				);
 
@@ -807,6 +826,166 @@ final class Ledger {
 	 */
 	public static function state_of( string $origin, int $seq ): string {
 		return self::application_state_of( $origin, $seq ) ?? 'unknown';
+	}
+
+	/**
+	 * Por qué no se pudo aplicar un movimiento a ese producto.
+	 *
+	 * @param \WC_Product|null|false $local El producto de acá, si existe.
+	 */
+	private static function held_cause( $local ): string {
+		if ( ! $local instanceof \WC_Product ) {
+			return self::HELD_MISSING;
+		}
+
+		return 'trash' === $local->get_status() ? self::HELD_TRASHED : self::HELD_NOT_MANAGING;
+	}
+
+	/**
+	 * Aplica lo retenido cuyo producto volvió, y descarta lo que no se va a aplicar (ADR-018).
+	 *
+	 * Lo retenido por la papelera se aplica: el stock quedó como estaba, y restarle al volver
+	 * da el número correcto. Lo retenido porque no llevaba su stock se descarta al volver: el
+	 * número lo acaba de cargar el dueño, contando el depósito, y aplicarlo descontaría dos
+	 * veces. Lo de un vínculo que ya no está, o de otra generación, se descarta: el vínculo
+	 * nuevo arrancó del stock que el dueño vio (ADR-005 §4).
+	 *
+	 * @return array{applied: array<int, int>, by_hand: array<int, int>, discarded: int} Por
+	 *         producto de acá, cuántos se aplicaron y cuántos se descartaron al volver; y
+	 *         cuántos se descartaron porque el vínculo ya no está.
+	 */
+	public static function release_held(): array {
+		global $wpdb;
+
+		$result = array(
+			'applied'   => array(),
+			'by_hand'   => array(),
+			'discarded' => 0,
+		);
+
+		$table = Installer::table( 'movements' );
+		$links = Installer::table( 'links' );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT m.id, m.origin_store, m.origin_seq, m.generation, m.delta, m.details,
+				        l.local_product, l.generation AS link_generation
+				   FROM {$table} m
+				   LEFT JOIN {$links} l ON l.id = m.link_id
+				  WHERE m.application = %s
+				  ORDER BY m.id
+				  LIMIT %d",
+				self::HELD,
+				self::MAX_BATCH
+			)
+		);
+		// phpcs:enable
+
+		// Un producto que falló no sigue: lo que viene después saldría antes que lo que falló.
+		$stuck = array();
+
+		foreach ( (array) $rows as $row ) {
+			if ( null === $row->local_product || (int) $row->generation !== (int) $row->link_generation ) {
+				$result['discarded'] += self::discard_held( (int) $row->id );
+				continue;
+			}
+
+			$product_id = (int) $row->local_product;
+			$local      = wc_get_product( $product_id );
+
+			if ( isset( $stuck[ $product_id ] ) || ! $local instanceof \WC_Product || 'trash' === $local->get_status() || ! Links::holds_own_stock( $local ) ) {
+				continue;
+			}
+
+			$details = json_decode( (string) $row->details, true );
+
+			if ( self::HELD_TRASHED !== ( is_array( $details ) ? ( $details['held'] ?? null ) : null ) ) {
+				if ( 1 === self::discard_held( (int) $row->id ) ) {
+					$result['by_hand'][ $product_id ] = ( $result['by_hand'][ $product_id ] ?? 0 ) + 1;
+				}
+
+				continue;
+			}
+
+			if ( self::APPLIED === self::apply_held( $row, $local ) ) {
+				$result['applied'][ $product_id ] = ( $result['applied'][ $product_id ] ?? 0 ) + 1;
+			} else {
+				$stuck[ $product_id ] = true;
+			}
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Pasa un retenido a descartado, si sigue retenido.
+	 *
+	 * @param int $movement_id ID.
+	 *
+	 * @return int 1 si cambió, 0 si no.
+	 */
+	private static function discard_held( int $movement_id ): int {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->update(
+			Installer::table( 'movements' ),
+			array( 'application' => self::DISCARDED ),
+			array(
+				'id'          => $movement_id,
+				'application' => self::HELD,
+			)
+		);
+	}
+
+	/**
+	 * Aplica un retenido, como `apply()` aplica uno recién llegado.
+	 *
+	 * @param \stdClass   $row   La fila retenida.
+	 * @param \WC_Product $local El producto de acá.
+	 *
+	 * @return string|null `applied`, o lo que haya quedado si no se pudo.
+	 */
+	private static function apply_held( \stdClass $row, \WC_Product $local ): ?string {
+		global $wpdb;
+
+		$delta   = (int) $row->delta;
+		$guarded = (int) $local->get_stock_managed_by_id();
+
+		return self::applying(
+			static function () use ( $wpdb, $row, $local, $delta, $guarded ): array {
+				// Condicional: dos pasadas a la vez no lo aplican dos veces.
+				$claimed = $wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+					Installer::table( 'movements' ),
+					array(
+						'application' => self::APPLIED,
+						'applied_at'  => gmdate( 'Y-m-d H:i:s' ),
+					),
+					array(
+						'id'          => (int) $row->id,
+						'application' => self::HELD,
+					)
+				);
+
+				if ( 1 !== $claimed ) {
+					return array( false, null );
+				}
+
+				Guard::expect( $guarded );
+
+				$before = Detector::stock_in_db( $guarded );
+
+				wc_update_product_stock( $local, abs( $delta ), $delta < 0 ? 'decrease' : 'increase' );
+
+				$wpdb->update( Installer::table( 'movements' ), array( 'details' => self::stocks_json( $before, Detector::stock_in_db( $guarded ) ) ), array( 'id' => (int) $row->id ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+				return array( true, self::APPLIED );
+			},
+			$guarded,
+			(string) $row->origin_store,
+			(int) $row->origin_seq
+		);
 	}
 
 	/**
