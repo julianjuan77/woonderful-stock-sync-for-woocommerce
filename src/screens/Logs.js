@@ -100,6 +100,10 @@ const KIND_LABELS = {
 		'Retenidas sin aplicar',
 		'woonderful-stock-sync-for-woocommerce'
 	),
+	managed_again: __(
+		'Stock reactivado',
+		'woonderful-stock-sync-for-woocommerce'
+	),
 };
 
 // Lo que vuelve a la normalidad lleva el tilde, aunque su nivel sea info.

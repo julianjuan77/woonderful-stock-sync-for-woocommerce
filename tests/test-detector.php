@@ -11,6 +11,9 @@ use Woonderful\StockSync\Detector\Detector;
 use Woonderful\StockSync\Detector\Guard;
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Ledger\Ledger;
+use Woonderful\StockSync\Linking\Links;
+use Woonderful\StockSync\Log\Events;
+use Woonderful\StockSync\Reconciliation\Audit;
 use Woonderful\StockSync\Schema\Installer;
 use Woonderful\StockSync\Transport\Express;
 
@@ -515,5 +518,50 @@ class Test_Detector extends WP_UnitTestCase {
 			),
 			$details
 		);
+	}
+
+	/**
+	 * DET-20 — **Volver a gestionar el stock no es un movimiento** (ADR-019): el número que
+	 * carga el dueño es un recuento, no viaja, y el libro arranca desde ahí. Antes se mandaba
+	 * entero, como una entrada desde 0.
+	 */
+	public function test_managing_the_stock_again_is_not_a_movement(): void {
+		global $wpdb;
+
+		$product_id = $this->create_product( 10 );
+
+		$product = wc_get_product( $product_id );
+		$product->set_manage_stock( false );
+		$product->save();
+
+		$this->assertSame( '', (string) get_post_meta( $product_id, '_stock', true ), 'WooCommerce vacía el número: es lo que reconoce el detector' );
+
+		$product = wc_get_product( $product_id );
+		$product->set_manage_stock( true );
+		$product->set_stock_quantity( 20 );
+		$product->save();
+
+		$this->assertSame( array(), $this->movements() );
+		$this->assertSame( 20, Audit::expected( Links::for_product( $product_id ) ), 'el libro da el número cargado' );
+		$this->assertSame( 1, (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . Installer::table( 'events' ) . ' WHERE kind = %s AND product = %d', Events::MANAGED_AGAIN, $product_id ) ) ); // phpcs:ignore WordPress.DB
+
+		$product = wc_get_product( $product_id );
+		$product->set_stock_quantity( 18 );
+		$product->save();
+
+		$this->assertSame( array( array( $product_id, -2 ) ), $this->movements(), 'después, cada cambio viaja como siempre' );
+	}
+
+	/**
+	 * DET-21 — **Un producto con 0 sí tiene número**: cargarle stock es una entrada y viaja.
+	 */
+	public function test_a_stock_of_zero_is_a_number(): void {
+		$product_id = $this->create_product( 0 );
+
+		$product = wc_get_product( $product_id );
+		$product->set_stock_quantity( 5 );
+		$product->save();
+
+		$this->assertSame( array( array( $product_id, 5 ) ), $this->movements() );
 	}
 }

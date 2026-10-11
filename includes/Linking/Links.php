@@ -213,6 +213,25 @@ final class Links {
 	}
 
 	/**
+	 * Corre el stock base de un vínculo: el libro arranca de otro número sin un movimiento.
+	 *
+	 * @param int $link_id El vínculo.
+	 * @param int $delta   Cuánto.
+	 */
+	public static function shift_base( int $link_id, int $delta ): void {
+		global $wpdb;
+
+		if ( 0 === $delta ) {
+			return;
+		}
+
+		$table = Installer::table( 'links' );
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$wpdb->query( $wpdb->prepare( "UPDATE {$table} SET base_stock = base_stock + %d WHERE id = %d", $delta, $link_id ) );
+	}
+
+	/**
 	 * Todos los vínculos, por producto de acá.
 	 *
 	 * @return array<int, \stdClass>

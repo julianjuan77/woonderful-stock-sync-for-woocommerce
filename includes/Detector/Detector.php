@@ -10,6 +10,9 @@ declare( strict_types = 1 );
 namespace Woonderful\StockSync\Detector;
 
 use Woonderful\StockSync\Ledger\Ledger;
+use Woonderful\StockSync\Linking\Links;
+use Woonderful\StockSync\Log\Events;
+use Woonderful\StockSync\Reconciliation\Audit;
 use Woonderful\StockSync\Transport\Express;
 
 defined( 'ABSPATH' ) || exit;
@@ -29,7 +32,9 @@ final class Detector {
 	 * Cada `before` pisa el anterior en vez de apilarse: un guardado que no cambia el valor
 	 * dispara `before` pero no `set`, y lo que dejó no puede usarse para el cambio siguiente.
 	 *
-	 * @var array<int, int>
+	 * Null si no tenía número: dejó de gestionar su stock y ahora vuelve (ADR-019).
+	 *
+	 * @var array<int, int|null>
 	 */
 	private static array $before = array();
 
@@ -68,7 +73,7 @@ final class Detector {
 			return;
 		}
 
-		self::$before[ $product->get_id() ] = self::stock_in_db( $product->get_id() );
+		self::$before[ $product->get_id() ] = self::number_in_db( $product->get_id() );
 	}
 
 	/**
@@ -100,7 +105,13 @@ final class Detector {
 			return;
 		}
 
-		$after       = self::stock_in_db( $product_id );
+		$after = self::stock_in_db( $product_id );
+
+		if ( null === $before ) {
+			self::managed_again( $product_id, $after );
+			return;
+		}
+
 		$movement_id = Ledger::record( $product_id, $after - $before, 'adjustment', null, array( $before, $after ) );
 
 		if ( null !== $movement_id ) {
@@ -184,6 +195,36 @@ final class Detector {
 	 * @param int $product_id Producto.
 	 */
 	public static function stock_in_db( int $product_id ): int {
+		return self::number_in_db( $product_id ) ?? 0;
+	}
+
+	/**
+	 * Volvió a gestionar su stock: el número es un recuento del dueño, no una entrada, y no
+	 * viaja (ADR-019). El libro lo absorbe, o la auditoría lo vería como discrepancia y
+	 * aceptarla lo mandaría a la otra.
+	 *
+	 * @param int $product_id El que lleva el stock.
+	 * @param int $stock      El número que cargó el dueño.
+	 */
+	private static function managed_again( int $product_id, int $stock ): void {
+		$link = Links::for_product( $product_id );
+
+		if ( null === $link ) {
+			return;
+		}
+
+		Links::shift_base( (int) $link->id, $stock - Audit::expected( $link ) );
+
+		Events::record( Events::MANAGED_AGAIN, Events::INFO, $product_id, array( 'stock' => $stock ) );
+	}
+
+	/**
+	 * El stock de la base, o null si no tiene número: WooCommerce lo vacía al dejar de
+	 * gestionarlo, y no es lo mismo que 0.
+	 *
+	 * @param int $product_id El producto.
+	 */
+	private static function number_in_db( int $product_id ): ?int {
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -195,7 +236,7 @@ final class Detector {
 		);
 		// phpcs:enable
 
-		return (int) wc_stock_amount( $value );
+		return null === $value || '' === $value ? null : (int) wc_stock_amount( $value );
 	}
 
 	/**

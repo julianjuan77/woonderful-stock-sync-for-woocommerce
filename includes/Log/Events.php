@@ -55,6 +55,7 @@ final class Events {
 	public const UNPAIRED             = 'unpaired';
 	public const HELD_APPLIED         = 'held_applied';
 	public const HELD_DISCARDED       = 'held_discarded';
+	public const MANAGED_AGAIN        = 'managed_again';
 
 	/**
 	 * Lo que la purga no borra: decisiones y memorias, no eventos (ADR-011 §6).
@@ -463,6 +464,9 @@ final class Events {
 					(int) ( $context['count'] ?? 0 ),
 					$product
 				);
+			case self::MANAGED_AGAIN:
+				/* translators: 1: producto, 2: el stock cargado. */
+				return sprintf( __( 'Se volvió a gestionar el stock del producto %1$s con %2$d: no se mandó a la otra tienda.', 'woonderful-stock-sync-for-woocommerce' ), $product, (int) ( $context['stock'] ?? 0 ) );
 			case self::NOTIFIED:
 				/* translators: %s: producto. */
 				return sprintf( __( 'Se avisó por email que el producto %s no sincroniza.', 'woonderful-stock-sync-for-woocommerce' ), $product );

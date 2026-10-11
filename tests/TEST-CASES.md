@@ -181,6 +181,7 @@ mientras escribía la función.
 | Cada tienda declara hasta dónde purgó | ADR-004 §4 | `LED-49` | [test-ledger.php](test-ledger.php) |
 | El lote no pasa de 200 | ADR-001 §4 | `LED-27` | [test-ledger.php](test-ledger.php) |
 | Si algo sale, sale lo anterior que esperaba, en orden | ADR-017 | `LED-63`…`LED-67`, `BOO-13` | [test-ledger.php](test-ledger.php) |
+| Volver a gestionar el stock no viaja, y el libro arranca del número cargado | ADR-019 | `DET-20`, `DET-21` | [test-detector.php](test-detector.php) |
 | Lo retenido se aplica cuando el producto vuelve; lo que no va a volver se descarta | ADR-018 | `LED-68`…`LED-71`, `PAS-05`, `ROW-15`, `ROW-16` | [test-ledger.php](test-ledger.php) |
 | El secreto se borra siempre al desinstalar | ADR-003 | `UNI-01` | [test-uninstall.php](test-uninstall.php) |
 | Los nonces se borran siempre | ADR-003 | `UNI-02` | [test-uninstall.php](test-uninstall.php) |
@@ -1198,6 +1199,8 @@ Mutaciones: sin revisar el SKU fresco, o el vinculado allá, cae `BLK-03`.
 | ID | Caso | Esperado |
 | --- | --- | --- |
 | `DET-19` | Una venta de 2 con stock 10 | El movimiento guarda 10 y 8 en `details` |
+| `DET-20` | **Un vinculado deja de gestionar su stock y vuelve con 20; después baja a 18** (ADR-019) | WooCommerce vació `_stock`; al volver, ningún movimiento, el libro da 20 y queda `managed_again`; el cambio a 18 viaja como −2 |
+| `DET-21` | Un producto con 0 recibe 5 | Movimiento de +5: 0 es un número, no un stock vacío |
 | `LED-61` | **Uno recibido que se aplica, y uno que se retiene** | El aplicado guarda el de antes y el de después; el retenido, nada: acá no cambió |
 | `LED-62` | **Dos esperando —uno en vuelo—, uno abandonado, uno confirmado y uno recibido** | La cola: 2 esperando, el más viejo primero, 1 abandonado; lo confirmado y lo recibido no cuentan |
 | `EVT-11` | **Un bootstrap, una venta con los números y una sin; un desvincular** | El historial los muestra —el bootstrap con el de acá y el de arranque—; sin anotar, sólo la diferencia. En pantalla, la diferencia no va dos veces. El desvincular, sin "+0" |

@@ -4317,7 +4317,7 @@ plugin puede hacer solo. Sí se usa para el caso del punto 3, donde aplicar ser�
 
 ## ADR-019 — Volver a gestionar el stock no es un movimiento
 
-Estado: Propuesta
+Estado: Aprobada · 2026-10-11 · aprobada por Julián
 Temas: modulos
 Cubre: includes/Detector/Detector.php, includes/Linking/Links.php
 

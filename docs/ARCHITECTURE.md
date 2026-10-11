@@ -588,6 +588,11 @@ los pares `before`/`set` de producto y variación y en cada uno hace un `SELECT`
 en una venta, y ya trae el valor nuevo en el `before` de un guardado (ADR-006 §1). Se
 registra en `boot()` después de la guarda: un sitio suspendido no emite (`PLG-17`).
 
+**Volver a gestionar el stock no es un movimiento** (ADR-019). WooCommerce vacía `_stock` al
+dejar de gestionarlo; si el `before` no tiene número —vacío, no 0—, el detector no escribe nada
+y, si el producto está vinculado, corre el `base_stock` con `Links::shift_base()` para que
+`Audit::expected()` dé el número cargado. Anota `managed_again` en el log.
+
 **El motivo se estampa sobre la fila recién escrita.** El detector recuerda, por producto, el
 movimiento que acaba de escribir; cada `set` pisa o borra ese recuerdo. Los tres hooks de
 pedido lo consumen y llaman a `Ledger::stamp()`, que sólo toca una fila propia que siga
@@ -843,3 +848,4 @@ Ver `DECISIONS.md`. Índice de las aprobadas:
 | ADR-016 | El nombre de la tienda llega a la otra al cambiarlo | opciones, rest-api, uninstall |
 | ADR-017 | Lo que salía tarde por un fallo sale con lo nuevo, en orden | modulos |
 | ADR-018 | Las ventas retenidas se aplican cuando el producto vuelve | modulos |
+| ADR-019 | Volver a gestionar el stock no es un movimiento | modulos |
