@@ -158,7 +158,8 @@ class Test_Rows extends WP_UnitTestCase {
 		$row = $this->rows()[ $product ];
 
 		$this->assertSame( State::SUSPENDED, $row['state'] );
-		$this->assertSame( Events::reason_text( 'remote_trashed' ), $row['reason'] );
+		// El texto, no `reason_text()`: comparar contra la misma función daba verde con el código crudo.
+		$this->assertSame( 'el de la otra tienda está en la papelera', $row['reason'] );
 	}
 
 	/**
@@ -472,7 +473,7 @@ class Test_Rows extends WP_UnitTestCase {
 
 		$this->assertNotNull( $row );
 		$this->assertSame( State::SUSPENDED, $row['state'] );
-		$this->assertSame( Events::reason_text( 'local_missing' ), $row['reason'] );
+		$this->assertSame( 'se borró', $row['reason'] );
 		$this->assertStringContainsString( (string) $product, $row['name'] );
 		$this->assertNull( $row['stock'] );
 		$this->assertSame( 970, $row['remote']['id'] );
@@ -494,7 +495,7 @@ class Test_Rows extends WP_UnitTestCase {
 		$row = $this->rows()[ $product ];
 
 		$this->assertSame( State::SUSPENDED, $row['state'] );
-		$this->assertSame( Events::reason_text( 'local_not_managing_stock' ), $row['reason'] );
+		$this->assertSame( 'dejó de llevar su propio stock', $row['reason'] );
 		$this->assertNull( $row['stock'] );
 	}
 }

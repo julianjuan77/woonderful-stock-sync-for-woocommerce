@@ -241,6 +241,11 @@ class Test_Events extends WP_UnitTestCase {
 		$this->assertSame( 'Se rompió el par del producto 13: está en la papelera.', $broken );
 		$this->assertSame( 'Reconciliación de la noche: la otra tienda no respondió, no se pudo mirar.', $reconciled );
 		$this->assertSame( 'HTTP 418', Events::reason_text( 'HTTP 418' ) );
+
+		// Todo motivo que `State` devuelve tiene su texto: Productos los mostraba crudos.
+		foreach ( array( 'local_trashed', 'local_missing', 'local_not_managing_stock', 'remote_trashed', 'remote_missing', 'remote_not_managing_stock', 'peer_changed' ) as $reason ) {
+			$this->assertNotSame( $reason, Events::reason_text( $reason ), $reason );
+		}
 	}
 
 	/**

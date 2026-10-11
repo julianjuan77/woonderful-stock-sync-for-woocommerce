@@ -958,7 +958,7 @@ visto cae `AUD-17`; sin la tercera pregunta caen `RCL-17` y `RCL-18`; ignorando 
 | `EVT-06` | **Eventos de hace 91 días: uno común, un descarte, un deshacer, un aviso; y uno de hace 89** | La purga borra sólo el común (ADR-011 §6) |
 | `EVT-07` | Cada tipo | Tiene su frase, no el nombre interno |
 | `EVT-08` | Un movimiento recibido de la otra para el producto | Entra en su historial, por el vínculo |
-| `EVT-09` | Un par roto, una reconciliación, un motivo desconocido | En castellano —"está en la papelera", "de la noche", "no se pudo mirar"—; el desconocido, como vino |
+| `EVT-09` | Un par roto, una reconciliación, un motivo desconocido | En castellano —"está en la papelera", "de la noche", "no se pudo mirar"—; el desconocido, como vino. Todo motivo de `State` tiene su texto: los de la otra tienda y `peer_changed` se mostraban crudos en Productos |
 | `EVT-10` | Una fecha del log, en Buenos Aires | Se muestra en la hora del sitio, no en UTC |
 
 Verificado rompiéndolo: guardando el usuario 0 cae `EVT-01`; sin restaurar los errores cae
