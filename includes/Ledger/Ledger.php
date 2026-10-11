@@ -1148,12 +1148,23 @@ final class Ledger {
 	 * @param array<string, int> $details   `target_product`, `base_stock`,
 	 *                                      `origin_previous_stock`, `target_previous_stock`.
 	 * @param string|null        $reference Quién lo vinculó.
+	 * @param \stdClass|null     $replaces  El vínculo que se arranca de nuevo, al igualar.
 	 *
 	 * @return int|string|null ID del movimiento —que es también la generación del par—,
 	 *                         `stock_changed` si el stock ya no es el que vio el dueño, o null.
 	 */
-	public static function record_bootstrap( int $product, string $remote, array $details, ?string $reference ) {
+	public static function record_bootstrap( int $product, string $remote, array $details, ?string $reference, ?\stdClass $replaces = null ) {
 		global $wpdb;
+
+		// Igualar (ADR-022): el vínculo de la maestra no se borra, se actualiza en su lugar, y
+		// lo de antes queda en el bootstrap para volver si falla.
+		if ( null !== $replaces ) {
+			$details['replaces'] = array(
+				'generation'  => (int) $replaces->generation,
+				'base_stock'  => (int) $replaces->base_stock,
+				'base_set_at' => (string) $replaces->base_set_at,
+			);
+		}
 
 		$table = Installer::table( 'movements' );
 		$now   = gmdate( 'Y-m-d H:i:s' );
@@ -1194,7 +1205,9 @@ final class Ledger {
 		}
 
 		$movement_id = (int) $wpdb->insert_id;
-		$link_id     = Links::create( $product, $remote, (int) $details['target_product'], $movement_id, (int) $details['base_stock'] );
+		$link_id     = null === $replaces
+			? Links::create( $product, $remote, (int) $details['target_product'], $movement_id, (int) $details['base_stock'] )
+			: Links::restart( (int) $replaces->id, $movement_id, (int) $details['base_stock'] );
 
 		$updated = null === $link_id ? false : $wpdb->update(
 			$table,
@@ -1273,9 +1286,17 @@ final class Ledger {
 			// Por el `link_id` de la fila y no por la generación: después de invertir los
 			// roles, un vínculo que esta tienda recibió puede tener la generación igual a la
 			// secuencia de este bootstrap.
-			$link_id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT link_id FROM {$table} WHERE id = %d", $movement_id ) ); // phpcs:ignore WordPress.DB
+			$row      = $wpdb->get_row( $wpdb->prepare( "SELECT link_id, details FROM {$table} WHERE id = %d", $movement_id ) ); // phpcs:ignore WordPress.DB
+			$link_id  = null === $row ? 0 : (int) $row->link_id;
+			$details  = null === $row ? null : json_decode( (string) $row->details, true );
+			$replaces = is_array( $details ) && is_array( $details['replaces'] ?? null ) ? $details['replaces'] : null;
 
-			if ( 0 !== $link_id && ! Links::delete( $link_id ) ) {
+			// Un igualar que falla vuelve al vínculo de antes; un vincular, lo borra.
+			$undone = null === $replaces
+				? ( 0 === $link_id || Links::delete( $link_id ) )
+				: Links::restore( $link_id, (int) $replaces['generation'], (int) $replaces['base_stock'], (string) $replaces['base_set_at'] );
+
+			if ( ! $undone ) {
 				self::rollback();
 
 				return;

@@ -112,6 +112,7 @@ const KIND_LABELS = {
 		'Stock igual de nuevo',
 		'woonderful-stock-sync-for-woocommerce'
 	),
+	equalized: __( 'Stock igualado', 'woonderful-stock-sync-for-woocommerce' ),
 };
 
 // Lo que vuelve a la normalidad lleva el tilde, aunque su nivel sea info.

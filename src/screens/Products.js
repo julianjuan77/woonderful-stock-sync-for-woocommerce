@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from '@wordpress/element';
 import { __, sprintf, _n } from '@wordpress/i18n';
 import Pagination from '../components/Pagination';
 import LinkModal from '../components/LinkModal';
+import EqualizeModal from '../components/EqualizeModal';
 import BulkModal from '../components/BulkModal';
 import HistoryModal from '../components/HistoryModal';
 
@@ -122,6 +123,7 @@ export default function Products( { apiFetch, status } ) {
 	const [ error, setError ] = useState( null );
 	const [ refreshing, setRefreshing ] = useState( null );
 	const [ modal, setModal ] = useState( null );
+	const [ equalizing, setEqualizing ] = useState( null );
 	const [ bulk, setBulk ] = useState( null );
 	const [ selected, setSelected ] = useState( {} );
 	const [ history, setHistory ] = useState( null );
@@ -290,6 +292,7 @@ export default function Products( { apiFetch, status } ) {
 				choose: ( row ) =>
 					setModal( { row, reassign: false, choose: true } ),
 				reassign: ( row ) => setModal( { row, reassign: true } ),
+				equalize: ( row ) => setEqualizing( row ),
 				unlink: ( row ) => setConfirm( row ),
 				discard: ( row ) =>
 					act(
@@ -618,6 +621,32 @@ export default function Products( { apiFetch, status } ) {
 					onClose={ () => setModal( null ) }
 					onDone={ ( result ) => linked( modal.row.id, result ) }
 					onRefresh={ refresh }
+				/>
+			) }
+			{ equalizing && (
+				<EqualizeModal
+					apiFetch={ apiFetch }
+					row={ equalizing }
+					onClose={ () => setEqualizing( null ) }
+					onDone={ ( result, stock ) => {
+						setEqualizing( null );
+						replaceRow( equalizing.id, result.row );
+						say(
+							'uncertain' === result.result
+								? __(
+										'La otra tienda no respondió: no se sabe si igualó. El plugin le pregunta solo dentro de 10 minutos.',
+										'woonderful-stock-sync-for-woocommerce'
+								  )
+								: sprintf(
+										/* translators: %d: el stock. */
+										__(
+											'Listo: las dos tiendas quedaron en %d.',
+											'woonderful-stock-sync-for-woocommerce'
+										),
+										stock
+								  )
+						);
+					} }
 				/>
 			) }
 			{ confirm && (
@@ -1229,9 +1258,25 @@ function RowActions( { row, actions } ) {
 	}
 
 	if ( 'unlinked' !== row.state ) {
+		// Igualar, en todo par al día: la copia puede tener un día, y el modal mira los dos
+		// números en el momento (ADR-022).
+		const equalize =
+			'linked' === row.state && row.remote
+				? [
+						[
+							__(
+								'Igualar stock',
+								'woonderful-stock-sync-for-woocommerce'
+							),
+							() => actions.equalize( row ),
+						],
+				  ]
+				: [];
+
 		return (
 			<Menu
 				items={ [
+					...equalize,
 					[
 						__(
 							'Reasignar',

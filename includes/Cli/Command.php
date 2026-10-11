@@ -9,7 +9,9 @@ declare( strict_types = 1 );
 
 namespace Woonderful\StockSync\Cli;
 
+use Woonderful\StockSync\Detector\Detector;
 use Woonderful\StockSync\Linking\Linker;
+use Woonderful\StockSync\Linking\Links;
 use Woonderful\StockSync\Linking\State;
 use Woonderful\StockSync\Ledger\Ledger;
 use Woonderful\StockSync\Log\Events;
@@ -18,6 +20,7 @@ use Woonderful\StockSync\Plugin;
 use Woonderful\StockSync\Reconciliation\Audit;
 use Woonderful\StockSync\Reconciliation\Reconciler;
 use Woonderful\StockSync\Reconciliation\Result;
+use Woonderful\StockSync\Transport\Catalog;
 use Woonderful\StockSync\Transport\Pairing;
 use Woonderful\StockSync\Transport\Peers;
 use Woonderful\StockSync\Transport\Pause;
@@ -154,6 +157,62 @@ final class Command {
 		}
 
 		\WP_CLI::success( __( 'Desvinculado. La otra tienda se entera en la próxima pasada.', 'woonderful-stock-sync-for-woocommerce' ) );
+	}
+
+	/**
+	 * Iguala el stock de un par que difiere entre las dos tiendas (ADR-022). En la maestra.
+	 *
+	 * Mira los dos stocks en el momento y deja los dos en el que vale.
+	 *
+	 * ## OPTIONS
+	 *
+	 * <local>
+	 * : El ID del producto en esta tienda.
+	 *
+	 * --keep=<cual>
+	 * : Cuál vale: `here`, el de esta tienda; `there`, el de la otra.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp wss equalize 123 --keep=here
+	 *
+	 * @param array<int, string>    $args       El producto.
+	 * @param array<string, string> $assoc_args `keep`.
+	 */
+	public function equalize( array $args, array $assoc_args ): void {
+		$local = (int) ( $args[0] ?? 0 );
+		$keep  = (string) ( $assoc_args['keep'] ?? '' );
+		$link  = Links::for_product( $local );
+
+		if ( ! in_array( $keep, array( 'here', 'there' ), true ) ) {
+			\WP_CLI::error( __( '--keep tiene que ser here o there.', 'woonderful-stock-sync-for-woocommerce' ) );
+		}
+
+		if ( null === $link ) {
+			\WP_CLI::error( __( 'Ese producto no está vinculado.', 'woonderful-stock-sync-for-woocommerce' ) );
+		}
+
+		$theirs = Catalog::fetch( 1, Catalog::MAX_INCLUDE, array( (int) $link->remote_product ) );
+
+		if ( is_wp_error( $theirs ) || null === ( $theirs['products'][0]['stock'] ?? null ) ) {
+			\WP_CLI::error( __( 'No se pudo leer el stock de la otra tienda.', 'woonderful-stock-sync-for-woocommerce' ) );
+		}
+
+		$here   = Detector::stock_in_db( $local );
+		$there  = (int) $theirs['products'][0]['stock'];
+		$result = Linker::equalize( $local, $keep, $here, $there );
+
+		if ( is_wp_error( $result ) ) {
+			\WP_CLI::error( $result->get_error_code() . ': ' . $result->get_error_message() );
+		}
+
+		if ( 'uncertain' === $result ) {
+			\WP_CLI::warning( __( 'La otra tienda no respondió: no se sabe si igualó. El plugin le pregunta solo dentro de 10 minutos.', 'woonderful-stock-sync-for-woocommerce' ) );
+			return;
+		}
+
+		/* translators: %d: el stock. */
+		\WP_CLI::success( sprintf( __( 'Igualados: las dos tiendas quedaron en %d.', 'woonderful-stock-sync-for-woocommerce' ), 'there' === $keep ? $there : $here ) );
 	}
 
 	/**

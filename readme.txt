@@ -90,7 +90,7 @@ El número que cargues al reactivarlo queda en esa tienda y no se manda a la otr
 
 = Las dos tiendas tienen un stock distinto en el mismo producto. ¿Cómo lo arreglo? =
 
-Corregirlo a mano en una tienda no alcanza: el cambio se manda a la otra como diferencia, y las dos se mueven lo mismo. Cargá el número correcto en la maestra y, en **Stock Sync → Productos**, desvinculá el par, esperá a que deje de decir «Desvinculando» y volvé a vincularlo: al vincular, la maestra le pasa su número a la otra.
+Corregirlo a mano en una tienda no alcanza: el cambio se manda a la otra como diferencia, y las dos se mueven lo mismo. En la maestra, en **Stock Sync → Productos**, abrí el menú del producto y elegí **Igualar stock**: te muestra los dos números y elegís cuál vale.
 
 = ¿Se borran los datos al desinstalar? =
 

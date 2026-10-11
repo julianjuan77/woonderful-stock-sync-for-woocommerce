@@ -633,4 +633,91 @@ class Test_Linker extends WP_UnitTestCase {
 		$this->assertSame( 'peer_unlinking', Linker::link( $local, 900, 10, 10 )->get_error_code() );
 		$this->assertSame( array(), $this->sent, 'ni se intentó' );
 	}
+
+	/**
+	 * Un par ya vinculado, con el stock de acá y una generación vieja.
+	 *
+	 * @param int $stock El de acá.
+	 *
+	 * @return array{0: int, 1: \stdClass} El producto y su vínculo.
+	 */
+	private function linked_pair( int $stock ): array {
+		$local = $this->product( $stock );
+		Links::create( $local, self::OTHER, 900, 5, $stock );
+
+		return array( $local, Links::for_product( $local ) );
+	}
+
+	/**
+	 * LNK-22 — **"Vale el de acá" arranca el par de nuevo sin desvincularlo** (ADR-022): un
+	 * bootstrap con los dos stocks vistos, el mismo vínculo con otra generación y la base
+	 * nueva, y queda en Registros.
+	 */
+	public function test_equalizing_to_here_restarts_the_same_link(): void {
+		list( $local, $before ) = $this->linked_pair( 10 );
+		$this->other_answers( 'received' );
+
+		$this->assertSame( 'confirmed', Linker::equalize( $local, 'here', 10, 7 ) );
+
+		$movement = json_decode( (string) $this->sent[0]['args']['body'], true )['movements'][0];
+		$after    = Links::for_product( $local );
+
+		$this->assertSame( 'bootstrap', $movement['reason'] );
+		$this->assertSame( 10, $movement['base_stock'] );
+		$this->assertSame( 7, $movement['target_previous_stock'] );
+		$this->assertArrayNotHasKey( 'replaces', $movement, 'lo de antes no viaja' );
+		$this->assertSame( $before->id, $after->id, 'el mismo vínculo' );
+		$this->assertSame( (string) $movement['seq'], $after->generation );
+		$this->assertSame( '10', $after->base_stock );
+		$this->assertContains( Events::EQUALIZED, array_column( $this->events(), 'kind' ) );
+	}
+
+	/**
+	 * LNK-23 — **Si la otra lo rechaza, el par vuelve a como estaba**: no se borra, como al
+	 * vincular, porque ya sincronizaba.
+	 */
+	public function test_a_rejected_equalize_restores_the_link(): void {
+		list( $local, $before ) = $this->linked_pair( 10 );
+		$this->other_answers( 'error', 'stock_changed' );
+
+		$result = Linker::equalize( $local, 'here', 10, 7 );
+		$after  = Links::for_product( $local );
+
+		$this->assertSame( 'stock_changed', $result->get_error_code() );
+		$this->assertNotNull( $after );
+		$this->assertSame( $before->id, $after->id );
+		$this->assertSame( $before->generation, $after->generation );
+		$this->assertSame( $before->base_stock, $after->base_stock );
+		$this->assertNotContains( Events::EQUALIZED, array_column( $this->events(), 'kind' ) );
+	}
+
+	/**
+	 * LNK-24 — **"Vale el de la otra" corrige acá sin anotar movimiento**: nada sale, y el libro
+	 * da el número nuevo, o la auditoría lo vería como discrepancia.
+	 */
+	public function test_equalizing_to_there_adopts_without_a_movement(): void {
+		global $wpdb;
+
+		list( $local, $link ) = $this->linked_pair( 10 );
+
+		$this->assertSame( 'adopted', Linker::equalize( $local, 'there', 10, 7 ) );
+		$this->assertSame( array(), $this->sent );
+		$this->assertSame( 7, (int) get_post_meta( $local, '_stock', true ) );
+		$this->assertSame( '0', (string) $wpdb->get_var( 'SELECT COUNT(*) FROM ' . Installer::table( 'movements' ) ) ); // phpcs:ignore WordPress.DB
+		$this->assertSame( 7, \Woonderful\StockSync\Reconciliation\Audit::expected( Links::find( (int) $link->id ) ) );
+	}
+
+	/**
+	 * LNK-25 — **Lo que se niega antes de escribir**: ya coinciden, no está vinculado, y el de
+	 * acá cambió desde que se miró.
+	 */
+	public function test_equalize_refusals(): void {
+		list( $local ) = $this->linked_pair( 10 );
+
+		$this->assertSame( 'already_equal', Linker::equalize( $local, 'here', 8, 8 )->get_error_code() );
+		$this->assertSame( 'not_linked', Linker::equalize( $this->product( 5 ), 'here', 5, 4 )->get_error_code() );
+		$this->assertSame( 'stock_changed', Linker::equalize( $local, 'there', 9, 7 )->get_error_code() );
+		$this->assertSame( array(), $this->sent );
+		$this->assertSame( 10, (int) get_post_meta( $local, '_stock', true ) );
+	}
 }

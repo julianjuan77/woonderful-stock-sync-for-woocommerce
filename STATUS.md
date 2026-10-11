@@ -2,7 +2,7 @@
 
 > Plugin: `woonderful-stock-sync-for-woocommerce` | WP 6.5+ | PHP 8.1+ | WooCommerce 9.1+
 > Repo: [woonderful-stock-sync-for-woocommerce](https://github.com/julianjuan77/woonderful-stock-sync-for-woocommerce)
-> Creado: 2026-09-20 · Última sesión: 2026-10-11 — El orden de lo que sale después de una caída (ADR-017) las ventas retenidas cuando el producto vuelve (ADR-018) volver a gestionar el stock (ADR-019) y la cancelación con su motivo (ADR-020). Las pruebas manuales repetidas, el bloque 9 —readme, .pot y check-release— y la comparación entre tiendas (ADR-021). Antes, 2026-10-10 — Configuración rediseñada, y pausar y desemparejar (ADR-015). Antes, 2026-10-09 — el rediseño de Productos, Resumen y Registros, el logo y las fuentes de la marca dentro del plugin (ADR-013 §2.1). Antes, 2026-10-07 — los ADRs de la interfaz (ADR-013, con la configuración inicial, y ADR-014) y el bloque 8 entero: de la base (8.1) a la configuración inicial (8.10). Antes, 2026-10-06 — los ADRs del log (ADR-011) y de los avisos (ADR-012), y el bloque 10 entero: la tabla del log, el estado de la otra tienda, los eventos de cada pieza, los pares rotos, la purga y los avisos por email
+> Creado: 2026-09-20 · Última sesión: 2026-10-11 — El orden de lo que sale después de una caída (ADR-017) las ventas retenidas cuando el producto vuelve (ADR-018) volver a gestionar el stock (ADR-019) y la cancelación con su motivo (ADR-020). Las pruebas manuales repetidas, el bloque 9 —readme, .pot y check-release— la comparación entre tiendas (ADR-021) e Igualar stock (ADR-022). Antes, 2026-10-10 — Configuración rediseñada, y pausar y desemparejar (ADR-015). Antes, 2026-10-09 — el rediseño de Productos, Resumen y Registros, el logo y las fuentes de la marca dentro del plugin (ADR-013 §2.1). Antes, 2026-10-07 — los ADRs de la interfaz (ADR-013, con la configuración inicial, y ADR-014) y el bloque 8 entero: de la base (8.1) a la configuración inicial (8.10). Antes, 2026-10-06 — los ADRs del log (ADR-011) y de los avisos (ADR-012), y el bloque 10 entero: la tabla del log, el estado de la otra tienda, los eventos de cada pieza, los pares rotos, la purga y los avisos por email
 
 Sincroniza el stock entre dos tiendas WooCommerce propias que despachan del mismo depósito.
 Pool único, sin reparto: lo que se vende en una descuenta en las dos.
@@ -211,6 +211,8 @@ es lo normal: loguearlo en cada pasada sería ruido.
 
 **Las diferencias entre tiendas, por email** (ADR-021, 2026-10-11, pedido de Julián): la reconciliación compara cada tienda con su libro, y una diferencia entre las dos no la veía nadie. Ahora la maestra compara cada noche, confirma a los 2 minutos y avisa. `CRS-01`…`CRS-06`, `UNI-12`.
 
+**Igualar stock** (ADR-022, 2026-10-11): el email de diferencias decía que se corrigiera a mano, pero eso viaja como diferencia y no iguala. Ahora el menú de cada par tiene "Igualar stock": muestra los dos números en el momento y el dueño elige cuál vale. `LNK-22`…`LNK-25`.
+
 ### 9. Publicación
 
 | | Tarea | Estado |
@@ -249,6 +251,7 @@ La fuente es `docs/DECISIONS.md`. Acá sólo el índice de las aprobadas.
 | ADR-019 | Volver a gestionar el stock no es un movimiento: el número cargado no viaja, y el `base_stock` se corre para que el libro dé ese número | 2026-10-11 |
 | ADR-020 | La cancelación tiene su propio motivo: `cancel`, "cancelación"; el reembolso sigue siendo `refund` | 2026-10-11 |
 | ADR-021 | Cada noche la maestra compara el stock de cada par con el de la otra (pedido en el momento), confirma a los 2 minutos y avisa por email una vez por diferencia; `wss_cross_diffs` | 2026-10-11 |
+| ADR-022 | "Igualar stock" en Productos y `wp wss equalize`: el dueño elige cuál vale; el de acá con un bootstrap del mismo par (que se deshace si falla), el de allá sin movimiento | 2026-10-11 |
 
 El 2026-09-28 el SPEC §5 subió el mínimo de WooCommerce de 8.2 a 9.1: es la versión que trae
 el hook que estampa las cancelaciones (ADR-006 §2).

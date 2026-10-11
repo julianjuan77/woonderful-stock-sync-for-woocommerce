@@ -4521,7 +4521,7 @@ ignorar los emails del plugin.
 
 ## ADR-022 — "Igualar stock": un botón para que las dos tiendas vuelvan a tener el mismo número
 
-Estado: Propuesta
+Estado: Aprobada · 2026-10-11 · aprobada por Julián
 Temas: rest-api, modulos
 Cubre: includes/Linking/Linker.php, includes/Ledger/Ledger.php, includes/Admin/Api.php, includes/Cli/Command.php, includes/Log/Notifier.php, src/screens/Products.js, src/components/EqualizeModal.js
 
@@ -4589,3 +4589,13 @@ par sin sincronizar mientras tanto. Elegir cuál vale cubre los dos casos sin cu
 - **"Vale el de la otra" no escribe en la otra tienda**: sólo corrige la maestra.
 - **Si el supuesto falla** —si se igualara mucho por ventas en viaje—, habría que negarse
   mientras la maestra tenga movimientos del par sin entregar.
+
+**Ajustes al implementarlo (2026-10-11):**
+
+- **El vínculo de la maestra no se borra y se crea:** se arranca de nuevo en su lugar —otra
+  generación y otra base, el mismo ID— y lo de antes queda guardado en el bootstrap. Si la otra
+  lo rechaza o no se resuelve, vuelve a como estaba. Borrándolo, un igualar fallido dejaba el par
+  sin vincular, que es lo que hace un vincular fallido.
+- **"Igualar stock" aparece en todo par al día, no sólo en los que difieren:** la diferencia sale
+  de la copia del catálogo, que puede tener un día, y el email manda al botón. El modal mira los
+  dos números en el momento y, si coinciden, lo dice.

@@ -261,7 +261,7 @@ final class Notifier {
 
 		$how = sprintf(
 			/* translators: %s: la tienda maestra. */
-			__( 'Corregirlo a mano en una de las dos no alcanza: el cambio se manda a la otra como diferencia, y las dos se mueven lo mismo. Para igualarlas, contá lo que hay en el depósito, cargá ese número en %s (la maestra) y, en Stock Sync → Productos, desvinculá el par, esperá a que deje de decir «Desvinculando» y volvé a vincularlo: al vincular, la maestra le pasa su número a la otra.', 'woonderful-stock-sync-for-woocommerce' ),
+			__( 'Corregirlo a mano en una de las dos no alcanza: el cambio se manda a la otra como diferencia, y las dos se mueven lo mismo. Para igualarlas, entrá a Stock Sync → Productos en %s (la maestra), abrí el menú del producto y elegí «Igualar stock»: te muestra los dos números y elegís cuál vale.', 'woonderful-stock-sync-for-woocommerce' ),
 			Store::label()
 		);
 

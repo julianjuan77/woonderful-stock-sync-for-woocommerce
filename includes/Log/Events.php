@@ -58,6 +58,7 @@ final class Events {
 	public const MANAGED_AGAIN        = 'managed_again';
 	public const CROSS_DIFF           = 'cross_diff';
 	public const CROSS_DIFF_CLOSED    = 'cross_diff_closed';
+	public const EQUALIZED            = 'equalized';
 
 	/**
 	 * Lo que la purga no borra: decisiones y memorias, no eventos (ADR-011 §6).
@@ -469,6 +470,9 @@ final class Events {
 			case self::CROSS_DIFF:
 				/* translators: 1: producto, 2: el stock de acá, 3: el de la otra tienda. */
 				return sprintf( __( 'El stock del producto %1$s no coincide con el de la otra tienda: acá %2$d, allá %3$d.', 'woonderful-stock-sync-for-woocommerce' ), $product, (int) ( $context['here'] ?? 0 ), (int) ( $context['there'] ?? 0 ) );
+			case self::EQUALIZED:
+				/* translators: 1: producto, 2: el stock. */
+				return sprintf( __( 'Se igualó el stock del producto %1$s: las dos tiendas quedaron en %2$d.', 'woonderful-stock-sync-for-woocommerce' ), $product, (int) ( $context['stock'] ?? 0 ) );
 			case self::CROSS_DIFF_CLOSED:
 				/* translators: %s: producto. */
 				return sprintf( __( 'El stock del producto %s vuelve a coincidir con el de la otra tienda.', 'woonderful-stock-sync-for-woocommerce' ), $product );

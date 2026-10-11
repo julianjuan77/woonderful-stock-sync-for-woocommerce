@@ -185,6 +185,7 @@ mientras escribía la función.
 | Volver a gestionar el stock no viaja, y el libro arranca del número cargado | ADR-019 | `DET-20`, `DET-21` | [test-detector.php](test-detector.php) |
 | La cancelación viaja como `cancel` y se lee "cancelación"; el receptor guarda cualquier motivo | ADR-020 | `DET-13`, `MOV-14`, `EVT-11` | [test-detector.php](test-detector.php), [test-rest-movements.php](test-rest-movements.php) |
 | Cada noche la maestra compara el stock con la otra, confirma a los 2 minutos y avisa una vez por diferencia | ADR-021 | `CRS-01`…`CRS-06`, `UNI-12` | [test-crosscheck.php](test-crosscheck.php) |
+| Igualar stock: el de acá con un bootstrap del mismo par que se deshace si falla; el de allá, sin movimiento | ADR-022 | `LNK-22`…`LNK-25` | [test-linker.php](test-linker.php) |
 | Lo retenido se aplica cuando el producto vuelve; lo que no va a volver se descarta | ADR-018 | `LED-68`…`LED-71`, `PAS-05`, `ROW-15`, `ROW-16` | [test-ledger.php](test-ledger.php) |
 | El secreto se borra siempre al desinstalar | ADR-003 | `UNI-01` | [test-uninstall.php](test-uninstall.php) |
 | Los nonces se borran siempre | ADR-003 | `UNI-02` | [test-uninstall.php](test-uninstall.php) |
@@ -656,6 +657,10 @@ Esta tienda hace de maestra; la otra la hace `pre_http_request`.
 | `LNK-19` | Descartar desde la secundaria | `wss_not_master` |
 | `LNK-20` | **Vincular, con la copia diciendo stock 4 y sin par; después desvincular** | La copia queda con el stock de la maestra y con par, sin esperar al refresco; al desvincular, sin par |
 | `LNK-21` | **Desvincular y volver al mismo par antes de que la otra lo reciba** | `peer_unlinking`, sin mandar nada; reasignar a otro par sigue andando (`LNK-16`) |
+| `LNK-22` | **Igualar con "vale el de acá"** (ADR-022) | Un bootstrap con los dos stocks vistos, sin `replaces` en lo que viaja; el mismo vínculo con la generación del bootstrap y la base nueva; `equalized` |
+| `LNK-23` | El mismo, y la otra lo rechaza con `stock_changed` | El vínculo sigue, con su generación y su base de antes; sin `equalized` |
+| `LNK-24` | **Igualar con "vale el de la otra"** | Nada sale ni se anota; acá queda el de allá y el libro da ese número |
+| `LNK-25` | Ya coinciden; no vinculado; el de acá cambió desde que se miró | `already_equal`, `not_linked`, `stock_changed`, sin mandar ni tocar el stock |
 
 Verificado rompiéndolo, con seis cambios: sin revisar el stock propio (`LNK-02`) o la maestra
 (`LNK-02`); el timeout como fallido (`LNK-04`, `LNK-06`); el 5xx como fallido (`LNK-05`); el

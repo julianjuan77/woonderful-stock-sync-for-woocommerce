@@ -10,11 +10,14 @@ declare( strict_types = 1 );
 namespace Woonderful\StockSync\Linking;
 
 use Woonderful\StockSync\Catalog\Copy;
+use Woonderful\StockSync\Detector\Detector;
+use Woonderful\StockSync\Detector\Guard;
 use Woonderful\StockSync\Identity\Store;
 use Woonderful\StockSync\Ledger\Ledger;
 use Woonderful\StockSync\Log\Events;
 use Woonderful\StockSync\Log\Peer;
 use Woonderful\StockSync\Plugin;
+use Woonderful\StockSync\Reconciliation\Audit;
 use Woonderful\StockSync\Transport\Express;
 use Woonderful\StockSync\Transport\Pause;
 use Woonderful\StockSync\Transport\Peers;
@@ -135,8 +138,23 @@ final class Linker {
 			'target_previous_stock' => $remote_seen,
 		);
 
+		return self::bootstrap( $peer, $local, $details, $reference );
+	}
+
+	/**
+	 * Escribe el bootstrap, lo manda y anota cómo terminó.
+	 *
+	 * @param array{store: string, rest_url: string, secret: string, role: string} $peer      La otra tienda.
+	 * @param int                                                                  $local     Producto de esta tienda.
+	 * @param array<string, int>                                                   $details   Lo que viaja.
+	 * @param string|null                                                          $reference Quién lo pidió.
+	 * @param \stdClass|null                                                       $replaces  El vínculo que se arranca de nuevo, al igualar.
+	 *
+	 * @return string|\WP_Error `confirmed`, `uncertain`, o por qué no.
+	 */
+	private static function bootstrap( array $peer, int $local, array $details, ?string $reference, ?\stdClass $replaces = null ) {
 		// El stock propio se revisa adentro, con la fila bloqueada (ADR-008 §3).
-		$movement_id = Ledger::record_bootstrap( $local, $peer['store'], $details, $reference );
+		$movement_id = Ledger::record_bootstrap( $local, $peer['store'], $details, $reference, $replaces );
 
 		if ( 'stock_changed' === $movement_id ) {
 			return new \WP_Error( 'stock_changed', __( 'El stock de esta tienda cambió desde que lo miraste. Volvé a mirarlo.', 'woonderful-stock-sync-for-woocommerce' ) );
@@ -174,6 +192,96 @@ final class Linker {
 		}
 
 		return $outcome[0];
+	}
+
+	/**
+	 * Iguala el stock de un par que difiere (ADR-022). `here`: la otra pasa al de acá, con un
+	 * bootstrap del mismo par. `there`: acá pasa al de allá, sin anotar movimiento.
+	 *
+	 * @param int    $local       Producto de esta tienda.
+	 * @param string $keep        `here` o `there`: cuál vale.
+	 * @param int    $seen        El stock de acá que vio el dueño.
+	 * @param int    $remote_seen El stock de allá que vio el dueño.
+	 *
+	 * @return string|\WP_Error `confirmed`, `uncertain`, `adopted`, o por qué no.
+	 */
+	public static function equalize( int $local, string $keep, int $seen, int $remote_seen ) {
+		$peer    = Peers::only();
+		$refusal = self::refusal( $peer );
+
+		if ( null !== $refusal || null === $peer ) {
+			return $refusal ?? new \WP_Error( 'wss_not_paired', '' );
+		}
+
+		$link    = Links::for_product( $local );
+		$product = wc_get_product( $local );
+
+		if ( null === $link ) {
+			return new \WP_Error( 'not_linked', __( 'Ese producto no está vinculado.', 'woonderful-stock-sync-for-woocommerce' ) );
+		}
+
+		if ( ! $product instanceof \WC_Product || 'trash' === $product->get_status() || ! Links::holds_own_stock( $product ) ) {
+			return new \WP_Error( 'product_not_managing_stock', __( 'Ese producto no gestiona su propio stock.', 'woonderful-stock-sync-for-woocommerce' ) );
+		}
+
+		if ( $seen === $remote_seen ) {
+			return new \WP_Error( 'already_equal', __( 'Las dos tiendas ya tienen el mismo stock.', 'woonderful-stock-sync-for-woocommerce' ) );
+		}
+
+		if ( 'there' === $keep ) {
+			$result = self::adopt( $product, $link, $seen, $remote_seen );
+		} else {
+			$result = self::bootstrap(
+				$peer,
+				$local,
+				array(
+					'target_product'        => (int) $link->remote_product,
+					'base_stock'            => $seen,
+					'origin_previous_stock' => $seen,
+					'target_previous_stock' => $remote_seen,
+				),
+				__( 'stock igualado', 'woonderful-stock-sync-for-woocommerce' ),
+				$link
+			);
+		}
+
+		if ( ! is_wp_error( $result ) && 'uncertain' !== $result ) {
+			$stock = 'there' === $keep ? $remote_seen : $seen;
+
+			Events::record( Events::EQUALIZED, Events::INFO, $local, array( 'stock' => $stock ) );
+			Copy::note( (int) $link->remote_product, true, $stock );
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Acá pasa al número de allá sin anotar movimiento: ya coinciden, no hay nada que mandar. El
+	 * libro lo absorbe, como al volver a gestionar el stock (ADR-019).
+	 *
+	 * @param \WC_Product $product     El de acá.
+	 * @param \stdClass   $link        Su vínculo.
+	 * @param int         $seen        El de acá que vio el dueño.
+	 * @param int         $remote_seen El de allá: el que vale.
+	 *
+	 * @return string|\WP_Error `adopted`, o `stock_changed`.
+	 */
+	private static function adopt( \WC_Product $product, \stdClass $link, int $seen, int $remote_seen ) {
+		$holder = (int) $product->get_stock_managed_by_id();
+
+		if ( Detector::stock_in_db( $holder ) !== $seen ) {
+			return new \WP_Error( 'stock_changed', __( 'El stock de esta tienda cambió desde que lo miraste. Volvé a mirarlo.', 'woonderful-stock-sync-for-woocommerce' ) );
+		}
+
+		$difference = $remote_seen - $seen;
+
+		// Sumar o restar, no fijar: una venta que entre en el medio se suma (ADR-010 §6).
+		Guard::expect( $holder );
+		wc_update_product_stock( $product, abs( $difference ), $difference < 0 ? 'decrease' : 'increase' );
+
+		Links::shift_base( (int) $link->id, $remote_seen - Audit::expected( $link ) );
+
+		return 'adopted';
 	}
 
 	/**

@@ -540,6 +540,15 @@ sin vincular. Descartar y deshacerlo son `Linker::discard()` y `undiscard()`, qu
 que usan también las filas. **Cada acción devuelve la fila como quedó** (`Rows::one()`), y la
 pantalla la reemplaza.
 
+**Igualar stock** (ADR-022), en el menú de todo par al día: `EqualizeModal` lee los dos stocks
+con `/catalog/fresh` y ofrece cuál vale; `POST /equalize` y `wp wss equalize --keep=here|there`
+llaman a `Linker::equalize()`. **`here`** es un bootstrap del mismo par: `record_bootstrap()`
+con `$replaces` no crea el vínculo, lo arranca de nuevo en su lugar (`Links::restart()`) y
+guarda lo de antes en `details.replaces` —que no viaja—; si falla, `resolve_bootstrap()` lo
+vuelve a eso (`Links::restore()`) en vez de borrarlo. **`there`** no manda nada: `Guard`, suma o
+resta hasta el de allá, y `Links::shift_base()` para que el libro dé ese número. Anota
+`equalized`.
+
 **La vinculación masiva** (`Catalog\Bulk`, `src/components/BulkModal.js`), sólo en la maestra.
 `GET /link/bulk` dice qué va a vincular —los pares con sugerencia— y cuántos ambiguos quedan
 aparte; la pantalla avisa que todos arrancan con el stock de la maestra. Al confirmar, la app
@@ -864,3 +873,4 @@ Ver `DECISIONS.md`. Índice de las aprobadas:
 | ADR-019 | Volver a gestionar el stock no es un movimiento | modulos |
 | ADR-020 | La cancelación tiene su propio motivo | rest-api, modulos |
 | ADR-021 | Cada noche, la maestra compara su stock con el de la otra y avisa las diferencias | modulos, opciones, uninstall |
+| ADR-022 | "Igualar stock": un botón para que las dos tiendas vuelvan a tener el mismo número | rest-api, modulos |

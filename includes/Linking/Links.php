@@ -213,6 +213,44 @@ final class Links {
 	}
 
 	/**
+	 * Arranca de nuevo un vínculo en su lugar: otra generación y otro stock base (ADR-022).
+	 *
+	 * @param int $link_id    El vínculo.
+	 * @param int $generation La generación nueva: el ID del bootstrap.
+	 * @param int $base_stock El stock de arranque.
+	 *
+	 * @return int|null El vínculo, o null si no se pudo.
+	 */
+	public static function restart( int $link_id, int $generation, int $base_stock ): ?int {
+		return self::restore( $link_id, $generation, $base_stock, gmdate( 'Y-m-d H:i:s' ) ) ? $link_id : null;
+	}
+
+	/**
+	 * Le pone a un vínculo esa generación y ese stock base.
+	 *
+	 * @param int    $link_id     El vínculo.
+	 * @param int    $generation  La generación.
+	 * @param int    $base_stock  El stock base.
+	 * @param string $base_set_at Desde cuándo, en UTC.
+	 */
+	public static function restore( int $link_id, int $generation, int $base_stock, string $base_set_at ): bool {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$updated = $wpdb->update(
+			Installer::table( 'links' ),
+			array(
+				'generation'  => $generation,
+				'base_stock'  => $base_stock,
+				'base_set_at' => $base_set_at,
+			),
+			array( 'id' => $link_id )
+		);
+
+		return false !== $updated;
+	}
+
+	/**
 	 * Corre el stock base de un vínculo: el libro arranca de otro número sin un movimiento.
 	 *
 	 * @param int $link_id El vínculo.

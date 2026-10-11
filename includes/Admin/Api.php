@@ -76,6 +76,7 @@ final class Api {
 			'/link'                           => array( 'POST', 'link' ),
 			'/unlink'                         => array( 'POST', 'unlink' ),
 			'/reassign'                       => array( 'POST', 'reassign' ),
+			'/equalize'                       => array( 'POST', 'equalize' ),
 			'/discard'                        => array( 'POST', 'discard' ),
 			'/undiscard'                      => array( 'POST', 'undiscard' ),
 			'/link/bulk'                      => array( 'GET, POST', 'link_bulk' ),
@@ -621,6 +622,24 @@ final class Api {
 		return self::acted(
 			(int) $request['local'],
 			Linker::reassign( (int) $request['local'], (int) $request['remote'], self::seen( $request['stock'] ), self::seen( $request['remote_stock'] ), __( 'reasignado desde la pantalla', 'woonderful-stock-sync-for-woocommerce' ) )
+		);
+	}
+
+	/**
+	 * Iguala el stock de un par que difiere, con los dos stocks que vio el dueño (ADR-022).
+	 *
+	 * @param \WP_REST_Request $request `local`, `keep` (`here` o `there`), `stock` y `remote_stock`.
+	 */
+	public static function equalize( \WP_REST_Request $request ): \WP_REST_Response|\WP_Error {
+		$keep = (string) $request['keep'];
+
+		if ( ! in_array( $keep, array( 'here', 'there' ), true ) ) {
+			return new \WP_Error( 'invalid_keep', __( 'Hay que elegir cuál de los dos números vale.', 'woonderful-stock-sync-for-woocommerce' ), array( 'status' => 400 ) );
+		}
+
+		return self::acted(
+			(int) $request['local'],
+			Linker::equalize( (int) $request['local'], $keep, self::seen( $request['stock'] ), self::seen( $request['remote_stock'] ) )
 		);
 	}
 
