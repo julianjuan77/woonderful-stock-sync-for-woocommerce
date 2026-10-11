@@ -49,6 +49,7 @@ Prefijo por dominio, número correlativo, y **no se renumeran** aunque un caso s
 | `SIG-NN` | La firma de los requests | [`tests/test-signature.php`](test-signature.php) |
 | `NON-NN` | El almacén de nonces | [`tests/test-nonces.php`](test-nonces.php) |
 | `MOV-NN` | `POST /movements` | [`tests/test-rest-movements.php`](test-rest-movements.php) |
+| `CRS-NN` | La comparación de la noche entre las dos tiendas | [`tests/test-crosscheck.php`](test-crosscheck.php) |
 | `SND-NN` | El envío del lado emisor | [`tests/test-sender.php`](test-sender.php) |
 | `PAS-NN` | La pasada recurrente | [`tests/test-pass.php`](test-pass.php) |
 | `HLT-NN` | `GET /health` | [`tests/test-rest-health.php`](test-rest-health.php) |
@@ -183,6 +184,7 @@ mientras escribía la función.
 | Si algo sale, sale lo anterior que esperaba, en orden | ADR-017 | `LED-63`…`LED-67`, `BOO-13` | [test-ledger.php](test-ledger.php) |
 | Volver a gestionar el stock no viaja, y el libro arranca del número cargado | ADR-019 | `DET-20`, `DET-21` | [test-detector.php](test-detector.php) |
 | La cancelación viaja como `cancel` y se lee "cancelación"; el receptor guarda cualquier motivo | ADR-020 | `DET-13`, `MOV-14`, `EVT-11` | [test-detector.php](test-detector.php), [test-rest-movements.php](test-rest-movements.php) |
+| Cada noche la maestra compara el stock con la otra, confirma a los 2 minutos y avisa una vez por diferencia | ADR-021 | `CRS-01`…`CRS-06`, `UNI-12` | [test-crosscheck.php](test-crosscheck.php) |
 | Lo retenido se aplica cuando el producto vuelve; lo que no va a volver se descarta | ADR-018 | `LED-68`…`LED-71`, `PAS-05`, `ROW-15`, `ROW-16` | [test-ledger.php](test-ledger.php) |
 | El secreto se borra siempre al desinstalar | ADR-003 | `UNI-01` | [test-uninstall.php](test-uninstall.php) |
 | Los nonces se borran siempre | ADR-003 | `UNI-02` | [test-uninstall.php](test-uninstall.php) |
@@ -282,6 +284,7 @@ varios tests sin chocar.
 | `UNI-09` | Desinstalar conservando los datos, con un envío fallido anotado | `wss_send_failed` se borra igual (ADR-003, revisado el 2026-10-02) |
 | `UNI-10` | Desinstalar conservando los datos, con el candado y el resultado de la reconciliación | Los dos se borran igual (ADR-003, revisado el 2026-10-05) |
 | `UNI-11` | Desinstalar conservando los datos, con el estado de la otra tienda y el de los avisos | Los dos se borran igual (ADR-011, ADR-012) |
+| `UNI-12` | Desinstalar conservando los datos, con diferencias entre tiendas avisadas | `wss_cross_diffs` se borra igual (ADR-021) |
 
 ## [`tests/test-ledger.php`](test-ledger.php) — el libro
 
@@ -1265,4 +1268,15 @@ Mutaciones: sin revisar el SKU fresco, o el vinculado allá, cae `BLK-03`.
 | `LBL-02` | **Con la otra caída** | Queda pendiente; la pasada no lo intenta mientras está caída, y cuando responde lo manda y se borra |
 | `LBL-03` | `POST /label` de la otra, vacío y de 101 caracteres | Se guarda en su entrada sin tocar el secreto; los otros dos, 400 |
 | `LBL-04` | Desemparejar con un nombre pendiente | Se borra |
+
+## La comparación entre las dos tiendas (ADR-021)
+
+| ID | Caso | Esperado |
+| --- | --- | --- |
+| `CRS-01` | **Un par que coincide y uno con 7 acá y 6 allá; la segunda medida igual** | La primera medida compara 2 y sospecha 1, sin email. La segunda manda un email con el producto y los dos números, anota `cross_diff` y guarda la diferencia |
+| `CRS-02` | Una diferencia que en la segunda medida ya no es la misma | Ni email ni diferencia guardada: era una venta anotándose |
+| `CRS-03` | **La misma diferencia dos veces, después otra, después coinciden** | Un email por diferencia, no por noche; al coincidir, `cross_diff_closed` y se olvida |
+| `CRS-04` | Un movimiento propio sin entregar, un recibido retenido, el de allá en la papelera y sin stock | No se compara ninguno |
+| `CRS-05` | La otra no responde; en pausa; en la secundaria | Esa noche no se compara |
+| `CRS-06` | Con los avisos apagados | Sin email, pero queda en Registros |
 

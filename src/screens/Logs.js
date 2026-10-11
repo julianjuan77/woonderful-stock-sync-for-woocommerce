@@ -104,6 +104,14 @@ const KIND_LABELS = {
 		'Stock reactivado',
 		'woonderful-stock-sync-for-woocommerce'
 	),
+	cross_diff: __(
+		'Stock distinto entre tiendas',
+		'woonderful-stock-sync-for-woocommerce'
+	),
+	cross_diff_closed: __(
+		'Stock igual de nuevo',
+		'woonderful-stock-sync-for-woocommerce'
+	),
 };
 
 // Lo que vuelve a la normalidad lleva el tilde, aunque su nivel sea info.
@@ -113,6 +121,7 @@ const RECOVERED = [
 	'peer_accepted',
 	'pair_restored',
 	'discrepancy_closed',
+	'cross_diff_closed',
 ];
 
 // Los que suelen venir de a muchos —una vinculación masiva, un resumen—: seguidos y en

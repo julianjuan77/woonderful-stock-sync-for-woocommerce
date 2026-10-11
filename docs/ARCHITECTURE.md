@@ -288,6 +288,16 @@ niegan si la diferencia no es la guardada:
 Hasta la pantalla, `wp wss discrepancies` y `wp wss discrepancy accept|restore <producto>`, cada
 tienda con las suyas.
 
+**La comparación entre las dos tiendas** (`Reconciliation\Crosscheck`, ADR-021). La fase 2
+compara cada tienda con su libro; ésta, una tienda con la otra. Sólo en la maestra, en la noche,
+después de `Reconciler::run()`. `run()` toma los pares con la otra emparejada que la auditoría
+revisaría (`Audit::measure()` no null) y sin movimientos propios `pending`, `in_flight` o
+`abandoned`, y pide el stock de allá con `Catalog::fetch()` e `include`. Lo que no coincide se
+vuelve a medir a los 2 minutos (`wss_crosscheck_confirm`); `confirm()` avisa lo que sigue igual
+con `Notifier::cross_diffs()` y `cross_diff` en el log. Lo avisado va en `wss_cross_diffs`, por
+vínculo, para no repetir la misma diferencia; al coincidir de nuevo se borra con
+`cross_diff_closed`. No corrige nada.
+
 **Los avisos por email** (`Log\Notifier`, ADR-012). Cada tienda avisa de lo suyo, y cada aviso
 sale de un evento del log. **El tick** corre con la pasada, cada minuto, aunque no haya nada que
 mandar:
@@ -364,6 +374,7 @@ compatible; quitar uno o cambiarle el significado es `wss/v2`.
 | `wss_catalog_run` · `wss_catalog_refreshed_at` | Cuándo empezó el refresco de la copia del catálogo que está en curso, y cuándo terminó el último completo. No autocargadas. Se borran siempre al desinstalar, y al emparejarse con otra tienda (ADR-014 §1) |
 | `wss_paused` | **La pausa del par** (ADR-015): `{at, by, user}` —cuándo, si la pidió esta tienda (`here`) o la otra (`peer`), y quién—, o no existe. Autocargada: la miran el emisor, `POST /movements` y la reconciliación en cada request. La escribe `Transport\Pause`; un `409 wss_paused` de la otra la pone también acá (`Log\Peer::observe()`). Se borra al desemparejar y siempre al desinstalar |
 | `wss_label_pending` | **El nombre nuevo de esta tienda que la otra todavía no recibió** (ADR-016). Lo escribe `Peers::announce_label()` si `POST /label` falla; la pasada lo reintenta con la otra respondiendo y sin pausa. Se borra al confirmarse, al desemparejar y siempre al desinstalar |
+| `wss_cross_diffs` | **Las diferencias de stock entre tiendas ya avisadas** (ADR-021): `{link_id: {here, there, at}}`. La escribe `Crosscheck::confirm()`; `run()` borra las que vuelven a coincidir y las de vínculos que ya no están. Se borra siempre al desinstalar |
 
 ### Hooks para terceros
 
@@ -384,7 +395,7 @@ woonderful-stock-sync-for-woocommerce/
 │   ├── Ledger/                                 # el libro
 │   ├── Detector/                               # ADR-006
 │   ├── Linking/                                # pendiente de ADR
-│   ├── Reconciliation/                         # ADR-009, ADR-010
+│   ├── Reconciliation/                         # ADR-009, ADR-010, ADR-021
 │   ├── Log/                                    # ADR-011, ADR-012
 │   ├── Catalog/                                # La copia del catálogo de la otra (ADR-014)
 │   └── Admin/                                  # La página y wss-admin/v1 (ADR-013)
@@ -852,3 +863,4 @@ Ver `DECISIONS.md`. Índice de las aprobadas:
 | ADR-018 | Las ventas retenidas se aplican cuando el producto vuelve | modulos |
 | ADR-019 | Volver a gestionar el stock no es un movimiento | modulos |
 | ADR-020 | La cancelación tiene su propio motivo | rest-api, modulos |
+| ADR-021 | Cada noche, la maestra compara su stock con el de la otra y avisa las diferencias | modulos, opciones, uninstall |

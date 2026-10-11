@@ -219,6 +219,63 @@ final class Notifier {
 	}
 
 	/**
+	 * Las diferencias de stock entre las dos tiendas que la noche confirmó (ADR-021).
+	 *
+	 * @param array<int, array{product: int, here: int, there: int}> $diffs Las nuevas.
+	 */
+	public static function cross_diffs( array $diffs ): void {
+		if ( ! self::enabled() || array() === $diffs ) {
+			return;
+		}
+
+		$peer  = Peers::describe();
+		$other = null === $peer ? __( 'la otra tienda', 'woonderful-stock-sync-for-woocommerce' ) : $peer['label'];
+		$lines = array();
+
+		foreach ( array_slice( $diffs, 0, self::LIST_LIMIT ) as $diff ) {
+			$product = wc_get_product( $diff['product'] );
+
+			$lines[] = sprintf(
+				/* translators: 1: producto, 2: su ID, 3: esta tienda, 4: su stock, 5: la otra tienda, 6: su stock. */
+				__( '- %1$s (#%2$d): %3$s tiene %4$d, %5$s tiene %6$d.', 'woonderful-stock-sync-for-woocommerce' ),
+				$product instanceof \WC_Product ? $product->get_name() : '#' . $diff['product'],
+				$diff['product'],
+				Store::label(),
+				$diff['here'],
+				$other,
+				$diff['there']
+			);
+		}
+
+		if ( count( $diffs ) > self::LIST_LIMIT ) {
+			/* translators: %d: cuántos más. */
+			$lines[] = sprintf( __( '…y otros %d.', 'woonderful-stock-sync-for-woocommerce' ), count( $diffs ) - self::LIST_LIMIT );
+		}
+
+		$intro = _n(
+			'Este producto vinculado tiene un stock distinto en cada tienda. Como las dos venden del mismo depósito, uno de los dos números está mal:',
+			'Estos productos vinculados tienen un stock distinto en cada tienda. Como las dos venden del mismo depósito, en cada uno hay un número que está mal:',
+			count( $diffs ),
+			'woonderful-stock-sync-for-woocommerce'
+		);
+
+		$how = __( 'Puede pasar si se volvió a gestionar el stock de un producto con otro número, o si se corrigió a mano en una sola tienda. Para arreglarlo, contá lo que hay en el depósito y corregí el stock en la tienda que está mal: ese cambio se manda solo a la otra.', 'woonderful-stock-sync-for-woocommerce' );
+
+		$once = __( 'Este aviso llega una vez por diferencia: si mañana sigue igual, no se repite.', 'woonderful-stock-sync-for-woocommerce' );
+
+		$subject = sprintf(
+			/* translators: %d: cuántos productos. */
+			_n( '%d producto con stock distinto entre las tiendas', '%d productos con stock distinto entre las tiendas', count( $diffs ), 'woonderful-stock-sync-for-woocommerce' ),
+			count( $diffs )
+		);
+
+		$state = self::state();
+
+		self::send( $state, $subject, $intro . "\n\n" . implode( "\n", $lines ) . "\n\n" . $how . "\n\n" . $once, 'cross_diff', time() );
+		self::save( $state );
+	}
+
+	/**
 	 * Cambia los avisos (ADR-012 §6). Valida todo antes de guardar nada: con un dato malo, no
 	 * cambia ninguno.
 	 *

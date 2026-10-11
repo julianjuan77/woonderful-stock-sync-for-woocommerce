@@ -322,4 +322,19 @@ class Test_Uninstall extends WP_UnitTestCase {
 		$this->assertFalse( get_option( 'wss_peer_state', false ) );
 		$this->assertFalse( get_option( 'wss_notify_state', false ) );
 	}
+
+	/**
+	 * Las diferencias entre tiendas ya avisadas son estado de los avisos: se van siempre
+	 * (ADR-021).
+	 *
+	 * UNI-12
+	 */
+	public function test_the_reported_cross_differences_are_always_deleted(): void {
+		update_option( self::OPTION_DELETE_ALL, false );
+		update_option( 'wss_cross_diffs', array( 3 => array( 'here' => 7, 'there' => 6 ) ), false ); // phpcs:ignore WordPress.Arrays.ArrayDeclarationSpacing.AssociativeArrayFound
+
+		$this->run_uninstall();
+
+		$this->assertFalse( get_option( 'wss_cross_diffs', false ) );
+	}
 }

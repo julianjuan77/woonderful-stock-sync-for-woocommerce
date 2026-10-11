@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-10-11T22:45:40+00:00\n"
+"POT-Creation-Date: 2026-10-11T23:26:44+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: woonderful-stock-sync-for-woocommerce\n"
@@ -431,342 +431,356 @@ msgid "La otra tienda no reconoce a ésta como su maestra: volvé a emparejarlas
 msgstr ""
 
 #. translators: 1: producto de acá, 2: producto de la otra tienda.
-#: includes/Log/Events.php:387
+#: includes/Log/Events.php:389
 #, php-format
 msgid "Se vinculó el producto %1$s con el %2$s de la otra tienda."
 msgstr ""
 
 #. translators: 1: producto, 2: motivo.
-#: includes/Log/Events.php:390
+#: includes/Log/Events.php:392
 #, php-format
 msgid "No se pudo vincular el producto %1$s: %2$s."
 msgstr ""
 
 #. translators: %s: producto.
-#: includes/Log/Events.php:393
+#: includes/Log/Events.php:395
 #, php-format
 msgid "Se desvinculó el producto %s."
 msgstr ""
 
 #. translators: %s: producto.
-#: includes/Log/Events.php:396
+#: includes/Log/Events.php:398
 #, php-format
 msgid "No se sabe si la otra tienda vinculó el producto %s, y la pregunta falla: sus ventas quedan retenidas hasta que se resuelva."
 msgstr ""
 
 #. translators: %s: producto.
-#: includes/Log/Events.php:399
+#: includes/Log/Events.php:401
 #, php-format
 msgid "Se descartó la sugerencia del producto %s."
 msgstr ""
 
 #. translators: %s: producto.
-#: includes/Log/Events.php:402
+#: includes/Log/Events.php:404
 #, php-format
 msgid "Se deshizo el descarte del producto %s."
 msgstr ""
 
 #. translators: %s: el error.
-#: includes/Log/Events.php:405
+#: includes/Log/Events.php:407
 #, php-format
 msgid "La otra tienda dejó de responder (%s)."
 msgstr ""
 
-#: includes/Log/Events.php:407
+#: includes/Log/Events.php:409
 msgid "La otra tienda volvió a responder."
 msgstr ""
 
 #. translators: %s: el código del rechazo.
-#: includes/Log/Events.php:410
+#: includes/Log/Events.php:412
 #, php-format
 msgid "La otra tienda rechaza los pedidos de ésta (%s)."
 msgstr ""
 
-#: includes/Log/Events.php:412
+#: includes/Log/Events.php:414
 msgid "La otra tienda dejó de rechazar los pedidos de ésta."
 msgstr ""
 
 #. translators: %d: cuántos.
-#: includes/Log/Events.php:415
+#: includes/Log/Events.php:417
 #, php-format
 msgid "Se abandonaron %d movimientos por pasar 6 horas sin entregarse."
 msgstr ""
 
 #. translators: %s: el error de la base.
-#: includes/Log/Events.php:418
+#: includes/Log/Events.php:420
 #, php-format
 msgid "La base rechazó una escritura del libro: %s."
 msgstr ""
 
 #. translators: 1: quién la lanzó, 2: cómo terminó.
-#: includes/Log/Events.php:421
+#: includes/Log/Events.php:423
 #, php-format
 msgid "Reconciliación %1$s: %2$s."
 msgstr ""
 
 #. translators: 1: producto, 2: lo que dice el libro, 3: lo que hay.
-#: includes/Log/Events.php:424
+#: includes/Log/Events.php:426
 #, php-format
 msgid "Discrepancia en el producto %1$s: el libro dice %2$d, hay %3$d."
 msgstr ""
 
 #. translators: %s: producto.
-#: includes/Log/Events.php:427
+#: includes/Log/Events.php:429
 #, php-format
 msgid "Se cerró sola la discrepancia del producto %s."
 msgstr ""
 
 #. translators: %s: producto.
-#: includes/Log/Events.php:430
+#: includes/Log/Events.php:432
 #, php-format
 msgid "Se aceptó el stock del producto %s: la diferencia viaja como ajuste."
 msgstr ""
 
 #. translators: %s: producto.
-#: includes/Log/Events.php:433
+#: includes/Log/Events.php:435
 #, php-format
 msgid "El stock del producto %s volvió a lo que dice el libro."
 msgstr ""
 
 #. translators: %s: producto.
-#: includes/Log/Events.php:436
+#: includes/Log/Events.php:438
 #, php-format
 msgid "Se borró el vínculo del producto %s: la maestra no lo tenía."
 msgstr ""
 
 #. translators: 1: producto, 2: por qué.
-#: includes/Log/Events.php:439
+#: includes/Log/Events.php:441
 #, php-format
 msgid "Se rompió el par del producto %1$s: %2$s."
 msgstr ""
 
 #. translators: %s: producto.
-#: includes/Log/Events.php:442
+#: includes/Log/Events.php:444
 #, php-format
 msgid "El par del producto %s volvió a estar bien."
 msgstr ""
 
+#. translators: 1: producto, 2: el stock de acá, 3: el de la otra tienda.
+#: includes/Log/Events.php:471
+#, php-format
+msgid "El stock del producto %1$s no coincide con el de la otra tienda: acá %2$d, allá %3$d."
+msgstr ""
+
+#. translators: %s: producto.
+#: includes/Log/Events.php:474
+#, php-format
+msgid "El stock del producto %s vuelve a coincidir con el de la otra tienda."
+msgstr ""
+
 #. translators: 1: producto, 2: el stock cargado.
-#: includes/Log/Events.php:469
+#: includes/Log/Events.php:477
 #, php-format
 msgid "Se volvió a gestionar el stock del producto %1$s con %2$d: no se mandó a la otra tienda."
 msgstr ""
 
 #. translators: %s: producto.
-#: includes/Log/Events.php:472
+#: includes/Log/Events.php:480
 #, php-format
 msgid "Se avisó por email que el producto %s no sincroniza."
 msgstr ""
 
-#: includes/Log/Events.php:475
+#: includes/Log/Events.php:483
 msgid "La otra tienda pausó la sincronización."
 msgstr ""
 
-#: includes/Log/Events.php:476
+#: includes/Log/Events.php:484
 msgid "Se pausó la sincronización."
 msgstr ""
 
-#: includes/Log/Events.php:479
+#: includes/Log/Events.php:487
 msgid "La otra tienda reanudó la sincronización."
 msgstr ""
 
-#: includes/Log/Events.php:480
+#: includes/Log/Events.php:488
 msgid "Se reanudó la sincronización."
 msgstr ""
 
-#: includes/Log/Events.php:483
+#: includes/Log/Events.php:491
 msgid "La otra tienda desemparejó las dos tiendas."
 msgstr ""
 
-#: includes/Log/Events.php:484
+#: includes/Log/Events.php:492
 msgid "Se desemparejaron las dos tiendas."
 msgstr ""
 
 #. translators: %s: de qué era el aviso.
-#: includes/Log/Events.php:499
+#: includes/Log/Events.php:507
 #, php-format
 msgid "No se pudo mandar un email de aviso (%s)."
 msgstr ""
 
-#: includes/Log/Events.php:515
+#: includes/Log/Events.php:523
 msgid "venta"
 msgstr ""
 
-#: includes/Log/Events.php:516
+#: includes/Log/Events.php:524
 msgid "devolución"
 msgstr ""
 
-#: includes/Log/Events.php:517
+#: includes/Log/Events.php:525
 msgid "cancelación"
 msgstr ""
 
-#: includes/Log/Events.php:518
+#: includes/Log/Events.php:526
 msgid "ajuste"
 msgstr ""
 
-#: includes/Log/Events.php:519
+#: includes/Log/Events.php:527
 msgid "stock inicial del vínculo"
 msgstr ""
 
-#: includes/Log/Events.php:520
+#: includes/Log/Events.php:528
 msgid "desvinculación"
 msgstr ""
 
-#: includes/Log/Events.php:524
+#: includes/Log/Events.php:532
 msgid "Acá"
 msgstr ""
 
-#: includes/Log/Events.php:524
+#: includes/Log/Events.php:532
 #: build/index.js:42
 msgid "En la otra tienda"
 msgstr ""
 
 #. translators: 1: dónde pasó, 2: el motivo con su referencia.
-#: includes/Log/Events.php:531
+#: includes/Log/Events.php:539
 #, php-format
 msgid "%1$s: %2$s"
 msgstr ""
 
 #. translators: 1: dónde pasó, 2: el motivo con su referencia, 3: unidades con signo.
-#: includes/Log/Events.php:535
+#: includes/Log/Events.php:543
 #, php-format
 msgid "%1$s: %2$s, %3$s"
 msgstr ""
 
 #. translators: 1: el texto del movimiento, 2: stock de antes, 3: stock de después.
-#: includes/Log/Events.php:542
+#: includes/Log/Events.php:550
 #, php-format
 msgid "%1$s · stock %2$d → %3$d"
 msgstr ""
 
-#: includes/Log/Events.php:552
+#: includes/Log/Events.php:560
 msgid "está en la papelera"
 msgstr ""
 
-#: includes/Log/Events.php:553
+#: includes/Log/Events.php:561
 msgid "se borró"
 msgstr ""
 
-#: includes/Log/Events.php:554
+#: includes/Log/Events.php:562
 msgid "dejó de llevar su propio stock"
 msgstr ""
 
-#: includes/Log/Events.php:555
+#: includes/Log/Events.php:563
 msgid "el de la otra tienda está en la papelera"
 msgstr ""
 
-#: includes/Log/Events.php:556
+#: includes/Log/Events.php:564
 msgid "el de la otra tienda se borró"
 msgstr ""
 
-#: includes/Log/Events.php:557
+#: includes/Log/Events.php:565
 msgid "el de la otra tienda dejó de llevar su propio stock"
 msgstr ""
 
-#: includes/Log/Events.php:558
+#: includes/Log/Events.php:566
 msgid "el vínculo es con otra tienda, que ya no es la emparejada"
 msgstr ""
 
-#: includes/Log/Events.php:559
+#: includes/Log/Events.php:567
 msgid "a la otra tienda nunca le llegó"
 msgstr ""
 
-#: includes/Log/Events.php:560
+#: includes/Log/Events.php:568
 msgid "la otra tienda lo retuvo"
 msgstr ""
 
-#: includes/Log/Events.php:561
+#: includes/Log/Events.php:569
 msgid "la otra tienda lo descartó"
 msgstr ""
 
-#: includes/Log/Events.php:562
+#: includes/Log/Events.php:570
 msgid "el stock cambió desde que se miró"
 msgstr ""
 
-#: includes/Log/Events.php:563
+#: includes/Log/Events.php:571
 msgid "alguno de los dos productos ya estaba vinculado"
 msgstr ""
 
-#: includes/Log/Events.php:564
+#: includes/Log/Events.php:572
 msgid "la otra tienda todavía no recibió el desvinculado: probá de nuevo en un minuto"
 msgstr ""
 
-#: includes/Log/Events.php:565
+#: includes/Log/Events.php:573
 msgid "el producto no existe"
 msgstr ""
 
-#: includes/Log/Events.php:566
+#: includes/Log/Events.php:574
 msgid "el producto no lleva su propio stock"
 msgstr ""
 
-#: includes/Log/Events.php:567
+#: includes/Log/Events.php:575
 msgid "el producto de la otra tienda no existe"
 msgstr ""
 
-#: includes/Log/Events.php:568
+#: includes/Log/Events.php:576
 msgid "el producto de la otra tienda no lleva su propio stock"
 msgstr ""
 
-#: includes/Log/Events.php:569
+#: includes/Log/Events.php:577
 msgid "la sugerencia está descartada"
 msgstr ""
 
-#: includes/Log/Events.php:570
+#: includes/Log/Events.php:578
 msgid "el SKU se repite: hay que elegir a mano"
 msgstr ""
 
-#: includes/Log/Events.php:571
+#: includes/Log/Events.php:579
 msgid "alguno de los dos no está publicado"
 msgstr ""
 
-#: includes/Log/Events.php:572
+#: includes/Log/Events.php:580
 msgid "el SKU ya no coincide"
 msgstr ""
 
-#: includes/Log/Events.php:585
+#: includes/Log/Events.php:593
 msgid "la otra tienda no respondía"
 msgstr ""
 
-#: includes/Log/Events.php:586
+#: includes/Log/Events.php:594
 msgid "la otra tienda rechazaba los pedidos"
 msgstr ""
 
-#: includes/Log/Events.php:599
+#: includes/Log/Events.php:607
 msgid "de la noche"
 msgstr ""
 
-#: includes/Log/Events.php:600
+#: includes/Log/Events.php:608
 msgid "manual"
 msgstr ""
 
-#: includes/Log/Events.php:601
+#: includes/Log/Events.php:609
 msgid "al cerrar una importación"
 msgstr ""
 
-#: includes/Log/Events.php:602
+#: includes/Log/Events.php:610
 msgid "lanzada por la otra tienda"
 msgstr ""
 
-#: includes/Log/Events.php:615
+#: includes/Log/Events.php:623
 msgid "completa"
 msgstr ""
 
-#: includes/Log/Events.php:616
+#: includes/Log/Events.php:624
 msgid "la otra tienda no respondió, no se pudo mirar"
 msgstr ""
 
-#: includes/Log/Events.php:617
+#: includes/Log/Events.php:625
 msgid "había otra en curso"
 msgstr ""
 
 #. translators: %d: cuántos más.
 #: includes/Log/Notifier.php:150
-#: includes/Log/Notifier.php:546
+#: includes/Log/Notifier.php:252
+#: includes/Log/Notifier.php:603
 #, php-format
 msgid "…y otros %d."
 msgstr ""
 
 #: includes/Log/Notifier.php:154
+#: includes/Log/Notifier.php:232
 msgid "la otra tienda"
 msgstr ""
 
@@ -810,30 +824,58 @@ msgid_plural "%1$d productos nuevos sin vincular (%2$d en total)"
 msgstr[0] ""
 msgstr[1] ""
 
+#. translators: 1: producto, 2: su ID, 3: esta tienda, 4: su stock, 5: la otra tienda, 6: su stock.
+#: includes/Log/Notifier.php:240
+#, php-format
+msgid "- %1$s (#%2$d): %3$s tiene %4$d, %5$s tiene %6$d."
+msgstr ""
+
+#: includes/Log/Notifier.php:255
+msgid "Este producto vinculado tiene un stock distinto en cada tienda. Como las dos venden del mismo depósito, uno de los dos números está mal:"
+msgid_plural "Estos productos vinculados tienen un stock distinto en cada tienda. Como las dos venden del mismo depósito, en cada uno hay un número que está mal:"
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/Log/Notifier.php:262
+msgid "Puede pasar si se volvió a gestionar el stock de un producto con otro número, o si se corrigió a mano en una sola tienda. Para arreglarlo, contá lo que hay en el depósito y corregí el stock en la tienda que está mal: ese cambio se manda solo a la otra."
+msgstr ""
+
+#: includes/Log/Notifier.php:264
+msgid "Este aviso llega una vez por diferencia: si mañana sigue igual, no se repite."
+msgstr ""
+
+#. translators: %d: cuántos productos.
+#: includes/Log/Notifier.php:268
+#, php-format
+msgid "%d producto con stock distinto entre las tiendas"
+msgid_plural "%d productos con stock distinto entre las tiendas"
+msgstr[0] ""
+msgstr[1] ""
+
 #. translators: %s: lo que se pasó.
-#: includes/Log/Notifier.php:237
+#: includes/Log/Notifier.php:294
 #, php-format
 msgid "\"%s\" no es un email."
 msgstr ""
 
-#: includes/Log/Notifier.php:242
+#: includes/Log/Notifier.php:299
 msgid "El plazo es una cantidad de horas, desde 1."
 msgstr ""
 
-#: includes/Log/Notifier.php:266
+#: includes/Log/Notifier.php:323
 msgid "Email de prueba"
 msgstr ""
 
-#: includes/Log/Notifier.php:267
+#: includes/Log/Notifier.php:324
 msgid "Si leés esto, los avisos de Woonderful Stock Sync llegan a esta casilla."
 msgstr ""
 
-#: includes/Log/Notifier.php:322
+#: includes/Log/Notifier.php:379
 msgid "La otra tienda no responde"
 msgstr ""
 
 #. translators: 1: desde cuándo, 2: el error.
-#: includes/Log/Notifier.php:325
+#: includes/Log/Notifier.php:382
 #, php-format
 msgid ""
 "La otra tienda no responde desde %1$s (%2$s).\n"
@@ -843,12 +885,12 @@ msgid ""
 "Se avisa una sola vez. Cuando vuelva, llega otro aviso."
 msgstr ""
 
-#: includes/Log/Notifier.php:334
+#: includes/Log/Notifier.php:391
 msgid "La otra tienda rechaza los pedidos de ésta"
 msgstr ""
 
 #. translators: 1: desde cuándo, 2: el error.
-#: includes/Log/Notifier.php:337
+#: includes/Log/Notifier.php:394
 #, php-format
 msgid ""
 "La otra tienda responde, pero rechaza los pedidos de ésta desde %1$s (%2$s).\n"
@@ -856,26 +898,26 @@ msgid ""
 "Esto no se arregla solo: puede ser un emparejamiento que quedó mal, o un reloj desfasado. Las ventas se guardan, pero no llegan a la otra."
 msgstr ""
 
-#: includes/Log/Notifier.php:353
+#: includes/Log/Notifier.php:410
 msgid "La otra tienda volvió"
 msgstr ""
 
-#: includes/Log/Notifier.php:354
+#: includes/Log/Notifier.php:411
 msgid "La otra tienda volvió a responder. Lo que quedó pendiente lo mandan la cola y la reconciliación: no hace falta hacer nada."
 msgstr ""
 
-#: includes/Log/Notifier.php:468
+#: includes/Log/Notifier.php:525
 msgid "Muchos avisos hoy"
 msgstr ""
 
 #. translators: %d: el tope.
-#: includes/Log/Notifier.php:471
+#: includes/Log/Notifier.php:528
 #, php-format
 msgid "Hoy ya salieron %d avisos, el máximo por día. Hasta mañana no sale ninguno más: lo que pase queda en el log de la tienda. Mirá el log para ver qué está pasando."
 msgstr ""
 
 #. translators: 1: la tienda, 2: el panel.
-#: includes/Log/Notifier.php:505
+#: includes/Log/Notifier.php:562
 #, php-format
 msgid ""
 "Tienda: %1$s\n"
@@ -883,7 +925,7 @@ msgid ""
 msgstr ""
 
 #. translators: %d: cuántos.
-#: includes/Log/Notifier.php:522
+#: includes/Log/Notifier.php:579
 #, php-format
 msgid "Se rompió %d par"
 msgid_plural "Se rompieron %d pares"
@@ -891,23 +933,23 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %d: cuántos.
-#: includes/Log/Notifier.php:526
+#: includes/Log/Notifier.php:583
 #, php-format
 msgid "No se pudo vincular %d producto"
 msgid_plural "No se pudieron vincular %d productos"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/Log/Notifier.php:550
+#: includes/Log/Notifier.php:607
 msgid "Estos productos estaban vinculados y ya no pueden sincronizar: se borraron, están en la papelera o dejaron de llevar su propio stock. Sus ventas quedan retenidas en la otra tienda hasta que vuelvan."
 msgstr ""
 
-#: includes/Log/Notifier.php:551
+#: includes/Log/Notifier.php:608
 msgid "Estos productos no se pudieron vincular, o no se sabe si la otra tienda los vinculó. El vínculo no se reintenta solo: volvé a vincularlos."
 msgstr ""
 
 #. translators: %d: horas.
-#: includes/Log/Notifier.php:642
+#: includes/Log/Notifier.php:699
 #, php-format
 msgid "%d hora"
 msgid_plural "%d horas"
@@ -1892,6 +1934,14 @@ msgstr ""
 
 #: build/index.js:37
 msgid "Stock reactivado"
+msgstr ""
+
+#: build/index.js:37
+msgid "Stock distinto entre tiendas"
+msgstr ""
+
+#: build/index.js:37
+msgid "Stock igual de nuevo"
 msgstr ""
 
 #. translators: %d: cuántos productos.

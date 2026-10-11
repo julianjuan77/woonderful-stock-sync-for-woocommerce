@@ -64,6 +64,7 @@ final class Schedule {
 		add_action( self::NIGHTLY, array( self::class, 'nightly' ) );
 		add_action( self::IMPORT, array( self::class, 'import_closed' ) );
 		add_action( Audit::CONFIRM, array( Audit::class, 'confirm' ) );
+		add_action( Crosscheck::CONFIRM, array( Crosscheck::class, 'confirm' ) );
 	}
 
 	/**
@@ -110,7 +111,8 @@ final class Schedule {
 	}
 
 	/**
-	 * La noche: agenda la siguiente; si esta tienda es la maestra, reconcilia; y en las dos,
+	 * La noche: agenda la siguiente; si esta tienda es la maestra, reconcilia y compara su
+	 * stock con el de la otra (ADR-021); y en las dos,
 	 * revisa los pares rotos (ADR-011 §7), purga el libro y el log (ADR-004 §4, ADR-011 §6),
 	 * manda el resumen de lo que no sincroniza (ADR-012 §3) y refresca la copia del catálogo de
 	 * la otra, para que la mañana arranque con ella al día (ADR-014 §1).
@@ -128,6 +130,9 @@ final class Schedule {
 
 		if ( Peers::this_is_master() ) {
 			Reconciler::run( Result::NIGHTLY );
+
+			// Después de reconciliar: lo que estaba en viaje ya llegó a las dos (ADR-021).
+			Crosscheck::run();
 		}
 
 		Pairs::check();
@@ -224,6 +229,7 @@ final class Schedule {
 			as_unschedule_all_actions( self::NIGHTLY, array(), Pass::GROUP );
 			as_unschedule_all_actions( self::IMPORT, null, Pass::GROUP );
 			as_unschedule_all_actions( Audit::CONFIRM, null, Pass::GROUP );
+			as_unschedule_all_actions( Crosscheck::CONFIRM, null, Pass::GROUP );
 		}
 	}
 }

@@ -4442,7 +4442,7 @@ lo que el historial tendría que ahorrar.
 
 ## ADR-021 — Cada noche, la maestra compara su stock con el de la otra y avisa las diferencias
 
-Estado: Propuesta
+Estado: Aprobada · 2026-10-11 · aprobada por Julián
 Temas: modulos, opciones, uninstall
 Cubre: includes/Reconciliation/Crosscheck.php, includes/Reconciliation/Schedule.php, includes/Log/Notifier.php, includes/Log/Events.php, uninstall.php
 
