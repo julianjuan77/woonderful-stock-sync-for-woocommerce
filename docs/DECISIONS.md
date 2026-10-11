@@ -4228,3 +4228,85 @@ fallos con una columna nueva (esquema).
 - **Si el supuesto falla** —si resultara que una fila rechazada traba el lote entero del
   receptor—, habría que excluir del adelanto las filas con un rechazo propio, y para eso sí haría
   falta guardar qué clase de fallo fue.
+
+## ADR-018 — Las ventas retenidas se aplican cuando el producto vuelve
+
+Estado: Propuesta
+Temas: modulos
+Cubre: includes/Ledger/Ledger.php, includes/Transport/Pass.php, includes/Catalog/Rows.php, src/screens/Products.js
+
+### En pocas palabras
+
+Cuando a una tienda le llega una venta de un producto vinculado que no puede tocar —está en la
+papelera, ya no gestiona su stock, o es una variación que pasó a tomar el del padre—, la guarda
+como `held` y no le toca el stock (ADR-004). La idea siempre fue aplicarla cuando el producto
+vuelva, pero **hoy ningún `held` se reintenta**: esa pieza quedó sin escribir. Lo encontró la
+prueba del 2026-10-11:
+
+- **Papelera y vuelta:** el par vuelve solo a "Vinculado", con 7 en una tienda y 8 en la otra. Y
+  nadie se entera: la auditoría saltea los pares con algo retenido (ADR-010 §2), así que la
+  reconciliación no marca la discrepancia. Si estuvo poco en la papelera, la revisión de la noche
+  ni lo vio, y no queda registro ni email.
+- **Borrado del todo:** las ventas quedan retenidas para siempre. Y en Productos de la tienda que
+  lo borró, el par no aparece: la pantalla lista productos de acá, y ese ya no existe.
+
+Con esta decisión, **la pasada aplica lo retenido cuando el producto vuelve**, lo que no va a
+volver se descarta al desvincular, y **el par de un producto borrado se ve en Productos**.
+
+---
+
+| Opción | Por qué sí o por qué no |
+| --- | --- |
+| **A — La pasada aplica lo retenido** ✅ | Cada minuto, en cada tienda, mira si lo retenido ya se puede aplicar. Agarra cualquier forma de volver —restaurar, importar, un plugin, la base— porque mira el resultado y no el camino. Contra: hasta un minuto de demora, y una consulta por pasada (barata: sólo las filas `held`) |
+| B — Engancharse a los hooks de WordPress | Al instante: `untrashed_post`, el guardado del producto. Pero hay muchos caminos para que un producto vuelva, y algunos no pasan por ningún hook —una importación, un cambio directo en la base—. Se escaparían casos, y para cubrirlos haría falta A igual |
+| C — No aplicar nada; que se vea como discrepancia | Sacar el salto de la auditoría para que la diferencia aparezca a la noche y el dueño la resuelva con el menú. Simple. Pero es trabajo a mano para algo que el plugin sabe hacer, y la diferencia vive hasta la noche, con stock de más a la venta |
+
+**Qué cambia:**
+
+1. **Por qué se retuvo, guardado en la fila.** Al retener, `apply()` anota el motivo en
+   `details`: `trashed`, `missing` o `not_managing_stock` (la variación que toma el del padre
+   cuenta como esta). Sin columna nueva.
+2. **La pasada lo aplica cuando el producto vuelve** —existe, fuera de la papelera, con su propio
+   stock— y el vínculo sigue con la misma generación. En el orden en que llegó, por `id`, con el
+   mismo camino que `apply()`: el `Guard`, y el stock de antes y el de después en `details`. El
+   paso de `held` a `applied` es un `UPDATE` condicional: dos pasadas a la vez no lo aplican dos
+   veces. En pausa no se aplica nada (ADR-015).
+3. **Sólo lo retenido por la papelera.** El stock de un producto en la papelera queda como
+   estaba, así que restar al volver da el número correcto. El que dejó de gestionar su stock
+   vuelve con un número que **el dueño acaba de cargar**, contando lo que hay en el depósito:
+   restarle lo retenido descontaría dos veces. Esas filas se descartan al volver, con un aviso en
+   Registros ("N ventas de la otra tienda no se aplicaron: el stock se cargó a mano"). Si el número
+   cargado no da, la auditoría lo marca a la noche, porque ya no hay nada retenido.
+4. **Lo que no va a volver se descarta.** Al desvincular —acá o porque llegó el `unlink`— y al
+   cambiar de generación, lo retenido de ese vínculo pasa a `discarded`: el vínculo nuevo arranca
+   del stock que el dueño ve (ADR-005 §4). Es la salida para un producto borrado.
+5. **Un aviso en Registros** cuando se aplica: "Se aplicaron N ventas retenidas de la otra tienda
+   al producto X".
+6. **El par de un producto borrado se ve en Productos**, con el de la otra tienda y "Suspendido ·
+   se borró". En la maestra, con Desvincular; en la secundaria, en modo lectura como el resto.
+
+---
+
+**Decisión:** opción A.
+
+**Por qué:** lo retenido es stock que ya salió del depósito compartido. Mientras no se aplica, la
+tienda vende de más. La pasada ya corre cada minuto en las dos tiendas, y mirar el resultado en
+lugar del camino cubre cualquier forma de restaurar un producto.
+
+**Por qué no B:** cubre los caminos que conocemos y deja afuera los que no. El hueco es justo el
+que este ADR quiere cerrar: stock de más sin aviso.
+
+**Por qué no C:** deja la diferencia a la venta hasta la noche y le pasa al dueño algo que el
+plugin puede hacer solo. Sí se usa para el caso del punto 3, donde aplicar sería peor.
+
+**Consecuencias:**
+
+- Restaurar un producto que estuvo días en la papelera le baja el stock de golpe, en la próxima
+  pasada. Es lo correcto —esas ventas pasaron—, y queda en Registros.
+- **Una ventana de hasta un minuto:** si el dueño restaura y corrige el stock a mano antes de la
+  pasada, lo retenido se resta encima. Es raro y la auditoría lo marca a la noche.
+- Las filas retenidas antes de este cambio no tienen motivo: se tratan como el punto 3, se
+  descartan con aviso. El plugin no está publicado; sólo pasa en los sitios de prueba.
+- **Si el supuesto falla** —si un dueño mandara a la papelera para recontar y cargar el número
+  al restaurar—, aplicar lo retenido descontaría dos veces. Entonces la papelera tendría que ir
+  por el camino del punto 3, y la pantalla avisar al restaurar que hay ventas pendientes.

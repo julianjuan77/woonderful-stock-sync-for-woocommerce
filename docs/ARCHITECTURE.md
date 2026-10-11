@@ -830,3 +830,6 @@ Ver `DECISIONS.md`. Índice de las aprobadas:
 | ADR-012 | Los avisos por email | opciones, uninstall, modulos |
 | ADR-013 | La interfaz: la app, sus pantallas y cómo habla con el servidor | rest-api, capabilities, dependencias, modulos |
 | ADR-014 | La vinculación en la pantalla | db-schema, rest-api, uninstall, modulos |
+| ADR-015 | Pausar la sincronización y desemparejar | opciones, rest-api, uninstall |
+| ADR-016 | El nombre de la tienda llega a la otra al cambiarlo | opciones, rest-api, uninstall |
+| ADR-017 | Lo que salía tarde por un fallo sale con lo nuevo, en orden | modulos |
