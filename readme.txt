@@ -86,7 +86,11 @@ El par queda suspendido. Las ventas de la otra tienda se guardan sin tocar el st
 
 = ¿Qué pasa si un producto deja de gestionar su stock y lo vuelvo a activar? =
 
-El número que cargues al reactivarlo queda en esa tienda y no se manda a la otra: se toma como un recuento del depósito, no como mercadería nueva. Si las dos tiendas quedan con números distintos, se ve en Productos.
+El número que cargues al reactivarlo queda en esa tienda y no se manda a la otra: se toma como un recuento del depósito, no como mercadería nueva. Si las dos tiendas quedan con números distintos, se ve en Productos y la maestra lo avisa por email a la noche.
+
+= Las dos tiendas tienen un stock distinto en el mismo producto. ¿Cómo lo arreglo? =
+
+Corregirlo a mano en una tienda no alcanza: el cambio se manda a la otra como diferencia, y las dos se mueven lo mismo. Cargá el número correcto en la maestra y, en **Stock Sync → Productos**, desvinculá el par, esperá a que deje de decir «Desvinculando» y volvé a vincularlo: al vincular, la maestra le pasa su número a la otra.
 
 = ¿Se borran los datos al desinstalar? =
 

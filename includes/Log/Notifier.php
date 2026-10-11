@@ -259,7 +259,11 @@ final class Notifier {
 			'woonderful-stock-sync-for-woocommerce'
 		);
 
-		$how = __( 'Puede pasar si se volvió a gestionar el stock de un producto con otro número, o si se corrigió a mano en una sola tienda. Para arreglarlo, contá lo que hay en el depósito y corregí el stock en la tienda que está mal: ese cambio se manda solo a la otra.', 'woonderful-stock-sync-for-woocommerce' );
+		$how = sprintf(
+			/* translators: %s: la tienda maestra. */
+			__( 'Corregirlo a mano en una de las dos no alcanza: el cambio se manda a la otra como diferencia, y las dos se mueven lo mismo. Para igualarlas, contá lo que hay en el depósito, cargá ese número en %s (la maestra) y, en Stock Sync → Productos, desvinculá el par, esperá a que deje de decir «Desvinculando» y volvé a vincularlo: al vincular, la maestra le pasa su número a la otra.', 'woonderful-stock-sync-for-woocommerce' ),
+			Store::label()
+		);
 
 		$once = __( 'Este aviso llega una vez por diferencia: si mañana sigue igual, no se repite.', 'woonderful-stock-sync-for-woocommerce' );
 

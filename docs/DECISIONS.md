@@ -4373,8 +4373,11 @@ después sobre A.
 
 - **Si el dueño carga un número que no coincide con el de la otra**, las dos quedan distintas. La
   reconciliación no lo detecta —compara cada tienda con su libro (ADR-010)— y la diferencia sólo
-  se ve en Productos, con los dos números lado a lado. Se corrige a mano en cualquiera de las dos:
-  ese cambio sí viaja.
+  se ve en Productos, con los dos números lado a lado. **Corregido el 2026-10-11:** decía que se
+  arregla a mano en cualquiera de las dos. No: un cambio a mano viaja como diferencia y mueve a la
+  otra lo mismo, así que la distancia entre las dos no cambia. Lo que iguala es volver a vincular
+  el par —la maestra le pasa su número completo a la otra (ADR-008)—, con el número bueno cargado
+  antes en la maestra.
 - **Una entrada de mercadería cargada justo al reactivar** tampoco viaja. Si el dueño reactiva y
   suma mercadería en el mismo guardado, la otra no se entera. Hay que hacerlo en dos pasos:
   reactivar con lo que hay, y después cargar la entrada.
@@ -4485,8 +4488,11 @@ confirma la diferencia a los 2 minutos y avisa por email lo que no coincide**.
    repite; una distinta, sí. Cuando coinciden de nuevo se borra, y queda en Registros que se
    resolvió. `uninstall.php` la borra.
 6. **El email**, de la maestra, a su destinatario, con el resto de los avisos (ADR-012: avisos
-   encendidos, tope diario). Lista cada producto con los dos números y dice cómo se arregla:
-   corregir el stock a mano en la tienda que está mal, que sí viaja a la otra.
+   encendidos, tope diario). Lista cada producto con los dos números y dice cómo se arregla.
+   **Corregido el 2026-10-11:** decía "corregir el stock a mano en la tienda que está mal". Eso no
+   iguala nada: el cambio viaja como diferencia y la otra se mueve lo mismo. El email dice ahora
+   que se cargue el número bueno en la maestra y se vuelva a vincular el par, que le pasa ese
+   número completo a la otra.
 7. **En Registros**, un evento `cross_diff` por producto (aviso) y `cross_diff_closed` cuando
    vuelven a coincidir.
 
