@@ -4381,3 +4381,61 @@ después sobre A.
 - **Si el supuesto falla** —si WooCommerce dejara un número guardado al dejar de gestionar el
   stock—, el detector no reconocería la reactivación y seguiría el comportamiento de hoy. Se
   prueba con un producto real en el test, no con el valor armado a mano.
+
+## ADR-020 — La cancelación tiene su propio motivo
+
+Estado: Propuesta
+Temas: rest-api, modulos
+Cubre: includes/Detector/Detector.php, includes/Log/Events.php
+
+### En pocas palabras
+
+Cada movimiento viaja con su motivo (ADR-001): `sale`, `refund`, `adjustment`, más `bootstrap` y
+`unlink`. WooCommerce avisa por separado cuando repone stock por un pedido que se cancela
+(`woocommerce_restore_order_item_stock`) y cuando lo repone por un reembolso
+(`woocommerce_restock_refunded_item`), pero el detector anota los dos como `refund` (ADR-006), y el
+historial dice "devolución" para una cancelación. Lo encontró la prueba manual 3.3 (2026-10-10). El
+stock da bien: es sólo lo que se lee.
+
+Con esta decisión, **lo que repone un pedido cancelado viaja como `cancel`** y se lee
+"cancelación"; el reembolso sigue siendo `refund`, "devolución".
+
+---
+
+| Opción | Por qué sí o por qué no |
+| --- | --- |
+| **A — Un motivo nuevo, `cancel`** ✅ | El historial dice lo que pasó. Poco código: el motivo del hook y un texto. El receptor ya guarda cualquier motivo (`Rest\Movements`, hasta 20 caracteres), así que no rechaza nada. Contra: cambia la lista de motivos del contrato entre tiendas |
+| B — El mismo `refund`, con el texto "devolución o cancelación" | No toca el contrato. Pero nunca dice cuál de las dos fue |
+| C — Dejarlo como está | Nada que hacer. El historial sigue diciendo "devolución" para una cancelación |
+
+**Qué cambia:**
+
+1. **El detector estampa `cancel`** en lo que repone `woocommerce_restore_order_item_stock`. El
+   reembolso (`woocommerce_restock_refunded_item`) sigue con `refund`.
+2. **La lista de motivos** de ADR-001 suma `cancel`. La columna `reason` es `VARCHAR(20)`: no
+   cambia el esquema.
+3. **El texto:** "cancelación", donde se arma la frase del historial (`Events::movement_text()`).
+4. **Lo anotado antes no se toca:** las cancelaciones viejas siguen diciendo "devolución".
+
+---
+
+**Decisión:** opción A.
+
+**Por qué:** las dos tiendas son del mismo dueño y se actualizan juntas, así que sumar un motivo no
+rompe a nadie. Y el historial es lo que el dueño lee para entender qué pasó con un producto.
+
+**Por qué no B:** "devolución o cancelación" obliga a ir al pedido para saber cuál fue, que es justo
+lo que el historial tendría que ahorrar.
+
+**Por qué no C:** la prueba lo marcó como falla, y arreglarlo cuesta poco.
+
+**Consecuencias:**
+
+- **El mismo aviso de WooCommerce sale también cuando un pedido pasa a "pendiente" o a
+  "fallido"**, no sólo a "cancelado" (`wc_maybe_increase_stock_levels`). Esos casos también van a
+  decir "cancelación": para el stock son lo mismo, una venta que se deshace. Distinguirlos pediría
+  mirar el estado del pedido, y no hace falta.
+- **Con una tienda en la versión vieja**, la otra recibe `cancel` y lo guarda, pero no tiene el
+  texto: muestra el motivo como vino. No cambia el stock.
+- **Si el supuesto falla** —si un receptor rechazara motivos que no conoce—, haría falta que
+  `Rest\Movements` aceptara cualquiera, como hoy. Un test lo deja fijo.
