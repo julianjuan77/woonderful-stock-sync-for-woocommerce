@@ -4439,3 +4439,76 @@ lo que el historial tendría que ahorrar.
   texto: muestra el motivo como vino. No cambia el stock.
 - **Si el supuesto falla** —si un receptor rechazara motivos que no conoce—, haría falta que
   `Rest\Movements` aceptara cualquiera, como hoy. Un test lo deja fijo.
+
+## ADR-021 — Cada noche, la maestra compara su stock con el de la otra y avisa las diferencias
+
+Estado: Propuesta
+Temas: modulos, opciones, uninstall
+Cubre: includes/Reconciliation/Crosscheck.php, includes/Reconciliation/Schedule.php, includes/Log/Notifier.php, includes/Log/Events.php, uninstall.php
+
+### En pocas palabras
+
+Las dos tiendas pueden quedar con números distintos en un par vinculado sin que nadie se entere:
+el dueño reactiva la gestión de stock con un número que no coincide (ADR-019), se descarta una
+venta retenida (ADR-018), alguien se equivoca a mano, o hay una causa que no conocemos. La
+reconciliación no lo ve: la auditoría compara cada tienda con **su propio** libro, nunca con la
+otra (ADR-010), y una diferencia entre tiendas deja los dos libros cerrando. Hoy sólo se nota en
+Productos, con los dos números lado a lado. Lo pidió Julián el 2026-10-11.
+
+Con esta decisión, **cada noche la maestra compara el stock de cada par con el de la otra tienda,
+confirma la diferencia a los 2 minutos y avisa por email lo que no coincide**.
+
+---
+
+| Opción | Por qué sí o por qué no |
+| --- | --- |
+| A — Avisar al reactivar el stock | Los eventos `managed_again` y `held_discarded` mandan email en el momento. Poco código. Pero avisa aunque el número esté bien, y no cubre otras causas |
+| B — Al reactivar, preguntarle a la otra y avisar si difiere | Sin avisos de más. Pero sólo cubre la reactivación, y con la otra caída hay que avisar igual |
+| **C — Comparar las dos tiendas cada noche** ✅ | Cubre cualquier causa, incluidas las que no conocemos. Contra: hasta 24 horas de demora, y comparar entre tiendas es justo lo que ADR-010 evitó por las ventas en viaje: hay que confirmar antes de avisar |
+
+**Qué cambia:**
+
+1. **Quién y cuándo.** Sólo la maestra —donde se administran los pares—, en la noche, después
+   de reconciliar: la fase 1 ya entregó lo que estaba en viaje en las dos direcciones. Así llega
+   un solo email por diferencia, no uno de cada tienda.
+2. **Qué pares.** Los vinculados y al día (`State::LINKED`), sin movimientos propios por entregar
+   —`pending`, `in_flight` o `abandoned`—, sin recibidos retenidos y sin bootstrap sin resolver.
+   Uno suspendido ya se avisa como par roto (ADR-011 §7).
+3. **Contra qué.** El stock de la otra **en el momento**, pedido con `GET /products` e `include`
+   (ADR-005 §5), de a 100. No la copia del catálogo: se refresca al final de la noche y puede
+   tener un día. Si la otra no responde, esa noche no se compara.
+4. **Dos veces, como la auditoría** (ADR-010 §3). Una diferencia se vuelve a medir a los 2
+   minutos, en las dos tiendas; sólo si sigue igual se toma como real. Una venta que se estaba
+   anotando no llega al email.
+5. **Una vez por diferencia.** Lo avisado se guarda en la opción `wss_cross_diffs` —por vínculo:
+   el stock de acá, el de allá y cuándo se avisó—. La noche siguiente, la misma diferencia no se
+   repite; una distinta, sí. Cuando coinciden de nuevo se borra, y queda en Registros que se
+   resolvió. `uninstall.php` la borra.
+6. **El email**, de la maestra, a su destinatario, con el resto de los avisos (ADR-012: avisos
+   encendidos, tope diario). Lista cada producto con los dos números y dice cómo se arregla:
+   corregir el stock a mano en la tienda que está mal, que sí viaja a la otra.
+7. **En Registros**, un evento `cross_diff` por producto (aviso) y `cross_diff_closed` cuando
+   vuelven a coincidir.
+
+---
+
+**Decisión:** opción C.
+
+**Por qué:** avisa cuando hay una diferencia de verdad, sea cual sea la causa. Las otras dos
+avisan una causa conocida, y la que más importa es la que no conocemos.
+
+**Por qué no A:** avisaría cada reactivación, también las que quedaron bien, y el dueño aprende a
+ignorar los emails del plugin.
+
+**Por qué no B:** pide una pieza nueva para cubrir una sola causa.
+
+**Consecuencias:**
+
+- **Hasta 24 horas** entre que las tiendas se separan y el email. Mientras tanto, la diferencia se
+  ve en Productos.
+- **El plugin no corrige nada:** no sabe cuál de los dos números es el bueno. Lo decide el dueño.
+- **Un pedido más por noche**, de a 100 productos, sólo de los pares que se comparan.
+- **El email lo recibe el destinatario de la maestra.** Si la secundaria tiene otro, no se entera.
+- **Si el supuesto falla** —si una diferencia apareciera y desapareciera entre las dos medidas
+  muchas noches seguidas, por ventas de madrugada—, habría que comparar sólo los pares sin
+  movimientos en la última hora.
