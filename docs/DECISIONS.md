@@ -4518,3 +4518,74 @@ ignorar los emails del plugin.
 - **Si el supuesto falla** —si una diferencia apareciera y desapareciera entre las dos medidas
   muchas noches seguidas, por ventas de madrugada—, habría que comparar sólo los pares sin
   movimientos en la última hora.
+
+## ADR-022 — "Igualar stock": un botón para que las dos tiendas vuelvan a tener el mismo número
+
+Estado: Propuesta
+Temas: rest-api, modulos
+Cubre: includes/Linking/Linker.php, includes/Ledger/Ledger.php, includes/Admin/Api.php, includes/Cli/Command.php, includes/Log/Notifier.php, src/screens/Products.js, src/components/EqualizeModal.js
+
+### En pocas palabras
+
+Cuando las dos tiendas tienen un stock distinto en un par (ADR-021), corregirlo a mano no sirve:
+el cambio viaja como diferencia y la otra se mueve lo mismo. Lo que iguala es volver a vincular,
+porque la maestra le pasa su número **completo** a la otra (ADR-008). Hoy eso son tres pasos —
+desvincular, esperar a que la otra se entere, volver a vincular— y entre medio el par no
+sincroniza. Lo pidió Julián el 2026-10-11.
+
+Con esta decisión, **en Productos de la maestra, un par con números distintos tiene "Igualar
+stock"**: el dueño elige cuál de los dos números vale, y las dos tiendas quedan con ese.
+
+---
+
+| Opción | Por qué sí o por qué no |
+| --- | --- |
+| **A — Volver a arrancar el par sin desvincularlo, eligiendo qué número vale** ✅ | Un paso, y el par nunca queda sin vínculo. Usa la pieza de vincular (ADR-008): los dos stocks vistos se revisan antes de escribir. Contra: una variante nueva del arranque, que reemplaza el vínculo propio en el mismo paso |
+| B — El botón hace desvincular, esperar y vincular | Reusa todo tal cual. Pero tarda hasta un minuto sin PHP-FPM, y en ese rato una venta no se sincroniza |
+| C — Sólo "vale el de la maestra" | Más simple. Pero si el bueno es el de la otra, el dueño tiene que cargarlo antes en la maestra, y eso mueve a la otra: dos pasos y una cuenta para hacer |
+
+**Qué cambia:**
+
+1. **Dónde.** En Productos de la maestra, en el menú de un par vinculado cuyos dos números
+   difieren. Y por consola: `wp wss equalize <producto> --keep=here|there`.
+2. **El modal pide los dos stocks en el momento** —el de acá, de la base; el de allá, con
+   `GET /catalog/fresh`—, porque la copia del catálogo puede tener un día. Si ya coinciden, lo
+   dice y no hace nada. Si no, ofrece dos salidas, con los números a la vista:
+   - **"Vale el de esta tienda (N)"** — la otra pasa a N.
+   - **"Vale el de la otra (M)"** — esta pasa a M.
+3. **Cómo:**
+   - **"Vale el de la otra"**: la maestra se pone en M **sin anotar movimiento** —con el
+     `Guard`, como una restauración (ADR-010 §6)—, corre el `base_stock` para que su libro dé M
+     (ADR-019) y listo: ya coinciden, no hay nada que mandar.
+   - **"Vale el de esta tienda"**: un arranque nuevo del mismo par (`Linker::equalize()`), con la
+     misma revisión que vincular: el stock de acá y el de allá tienen que ser los que vio el
+     dueño, o se niega con `stock_changed` sin escribir. En la maestra, el vínculo viejo se
+     borra y el nuevo se crea en la misma transacción que el arranque; en la otra,
+     `apply_bootstrap()` ya reemplaza el vínculo que choca (`Links::delete_conflicting()`).
+     Arranca una generación nueva.
+4. **Queda en Registros** de la tienda que iguala: "Se igualó el stock del producto X: las dos
+   tiendas quedaron en N".
+5. **El email de ADR-021** pasa a nombrar el botón en vez de los tres pasos.
+
+---
+
+**Decisión:** opción A.
+
+**Por qué:** igualar es la salida de cada aviso de ADR-021; tiene que ser un paso, y no dejar el
+par sin sincronizar mientras tanto. Elegir cuál vale cubre los dos casos sin cuentas.
+
+**Por qué no B:** el minuto sin vínculo es justo cuando el dueño está mirando ese producto.
+
+**Por qué no C:** deja al dueño haciendo la cuenta en el caso en que el bueno es el de la otra.
+
+**Consecuencias:**
+
+- **Una venta en viaje justo al igualar.** Si se vendió en la otra y la venta todavía no llegó,
+  el stock de allá ya no es el que vio el dueño: el arranque se niega con `stock_changed` y el
+  modal pide mirar de nuevo. Si la venta se anotó **antes** de que el dueño mirara pero todavía
+  no llegó a la maestra, el arranque la pisa —la otra pasa al número de la maestra— y su
+  movimiento llega con la generación vieja y se descarta. Es el mismo riesgo de vincular, y por
+  eso se miran los números en el momento.
+- **"Vale el de la otra" no escribe en la otra tienda**: sólo corrige la maestra.
+- **Si el supuesto falla** —si se igualara mucho por ventas en viaje—, habría que negarse
+  mientras la maestra tenga movimientos del par sin entregar.
