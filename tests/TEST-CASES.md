@@ -624,7 +624,7 @@ Esta tienda hace de maestra; la otra la hace `pre_http_request`.
 | ID | Caso | Resultado esperado |
 |---|---|---|
 | `LNK-01` | **Vincular, y la otra dice que sí** | El bootstrap sale firmado a `<url>/movements` con sus campos, la secuencia como generación; queda `confirmed` y el par armado |
-| `LNK-02` | Stock distinto del visto, uno de los dos ya vinculado, sin stock gestionado, un producto que no existe, y desde la secundaria | Cada uno con su código, **sin salir a la red ni escribir nada** |
+| `LNK-02` | Stock distinto del visto, uno de los dos ya vinculado, sin stock gestionado, un producto que no existe, uno en la papelera, y desde la secundaria | Cada uno con su código, **sin salir a la red ni escribir nada**. El de la papelera, con `product_missing` pero diciendo que está en la papelera |
 | `LNK-03` | La otra lo rechaza con `stock_changed` | Ese código; el par se borra y el motivo queda en la fila |
 | `LNK-04` | **Sin respuesta** | `uncertain`, y el par se mantiene |
 | `LNK-05` | Un 500, y un 401 del lote entero | El 500 queda `uncertain`; el 401 es `bootstrap_failed`, con el detalle en el mensaje, y borra el par |

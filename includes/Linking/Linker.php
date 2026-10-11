@@ -102,8 +102,13 @@ final class Linker {
 
 		$product = wc_get_product( $local );
 
-		if ( ! $product instanceof \WC_Product || 'trash' === $product->get_status() ) {
+		if ( ! $product instanceof \WC_Product ) {
 			return new \WP_Error( 'product_missing', __( 'Ese producto no existe en esta tienda.', 'woonderful-stock-sync-for-woocommerce' ) );
+		}
+
+		// El mismo código, que es el contrato; el texto, el de lo que ve el dueño.
+		if ( 'trash' === $product->get_status() ) {
+			return new \WP_Error( 'product_missing', __( 'Ese producto está en la papelera.', 'woonderful-stock-sync-for-woocommerce' ) );
 		}
 
 		if ( ! Links::holds_own_stock( $product ) ) {

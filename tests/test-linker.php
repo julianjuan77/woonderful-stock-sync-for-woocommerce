@@ -223,6 +223,12 @@ class Test_Linker extends WP_UnitTestCase {
 		$this->assertSame( 'product_not_managing_stock', Linker::link( $unmanag, 900, 10, 7 )->get_error_code() );
 		$this->assertSame( 'product_missing', Linker::link( 99999, 900, 10, 7 )->get_error_code() );
 
+		$trashed = $this->product( 10 );
+		wp_trash_post( $trashed );
+		$refused = Linker::link( $trashed, 900, 10, 7 );
+		$this->assertSame( 'product_missing', $refused->get_error_code() );
+		$this->assertStringContainsString( 'papelera', $refused->get_error_message(), 'no dice que no existe: está en la papelera' );
+
 		Peers::pair( self::OTHER, self::REST_URL, self::SECRET, 'Mayorista', Peers::MASTER );
 		$this->assertSame( 'wss_not_master', Linker::link( $local, 900, 10, 7 )->get_error_code() );
 
