@@ -4314,3 +4314,70 @@ plugin puede hacer solo. Sí se usa para el caso del punto 3, donde aplicar ser�
 - **Si el supuesto falla** —si un dueño mandara a la papelera para recontar y cargar el número
   al restaurar—, aplicar lo retenido descontaría dos veces. Entonces la papelera tendría que ir
   por el camino del punto 3, y la pantalla avisar al restaurar que hay ventas pendientes.
+
+## ADR-019 — Volver a gestionar el stock no es un movimiento
+
+Estado: Propuesta
+Temas: modulos
+Cubre: includes/Detector/Detector.php, includes/Linking/Links.php
+
+### En pocas palabras
+
+Cuando un producto vinculado deja de gestionar su stock, WooCommerce borra su número. Al volver a
+gestionarlo, el dueño carga uno nuevo, y el detector (ADR-006) lo toma como un cambio desde 0: un
+ajuste por **todo** lo cargado, que viaja a la otra tienda y se le suma. Lo encontró la prueba del
+2026-10-11: la minorista volvió a gestionar el Mate de Calabaza con 20, mandó "+20", y la mayorista
+pasó de 20 a 40. Pasa en las dos tiendas —en la maestra igual—, haya ventas retenidas o no.
+
+Con esta decisión, **volver a gestionar el stock no manda nada a la otra tienda**: el número que
+carga el dueño queda en su tienda, y el libro de esa tienda arranca desde ahí.
+
+---
+
+| Opción | Por qué sí o por qué no |
+| --- | --- |
+| **A — No viaja nada; el libro arranca del número cargado** ✅ | Cada tienda se queda con su número. Simple, y no hay forma de que un error se multiplique. Contra: si el dueño carga uno que no coincide con el de la otra, quedan distintas, y sólo se ve en Productos |
+| B — La diferencia contra el número de antes | Al reactivar con 20 un producto que tenía 21, mandar −1. Pero el 20 que cuenta el dueño ya incluye lo que se vendió en la otra mientras tanto, y la otra ya lo descontó: se descontaría dos veces |
+| C — Reactivar es revincular | La maestra le pasa su número a la otra, como al vincular (ADR-008). Las dos quedan iguales siempre. Pero lo que el dueño carga en la secundaria no vale, la maestra tiene que enterarse de que la otra reactivó, y lo que viaja en ese momento se pierde. Bastante más trabajo |
+
+**Qué cambia:**
+
+1. **El detector reconoce la reactivación** porque, antes del cambio, el producto no tenía número
+   en la base (`_stock` vacío). No es lo mismo que tener 0: un producto que gestiona su stock con
+   0 sí tiene número, y ese cambio sigue siendo un movimiento como hoy.
+2. **No escribe movimiento.** Nada viaja a la otra tienda.
+3. **Si el producto está vinculado, el libro absorbe el número cargado:** el `base_stock` del
+   vínculo se corre lo necesario para que el libro dé el número nuevo, como hace la purga
+   (ADR-004). Sin esto, la auditoría de la noche lo vería como discrepancia, y aceptarla mandaría
+   la diferencia a la otra: el mismo error, un día después.
+4. **Queda en Registros:** "Se volvió a gestionar el stock del producto X con N: no se mandó a la
+   otra tienda".
+
+---
+
+**Decisión:** opción A.
+
+**Por qué:** lo que carga el dueño al reactivar es un recuento del depósito, no una entrada de
+mercadería. Mandarlo como diferencia siempre está mal: desde 0, suma todo; desde el número de
+antes, descuenta dos veces lo vendido mientras tanto. No mandar nada es lo único que nunca empeora
+a la otra tienda.
+
+**Por qué no B:** descuenta dos veces lo que se vendió en la otra mientras éste no gestionaba su
+stock, que es justo cuando hubo ventas retenidas (ADR-018).
+
+**Por qué no C:** resuelve un caso raro con una pieza nueva —que la secundaria avise que
+reactivó— y le quita al dueño el número que acaba de contar. Si hiciera falta, se puede sumar
+después sobre A.
+
+**Consecuencias:**
+
+- **Si el dueño carga un número que no coincide con el de la otra**, las dos quedan distintas. La
+  reconciliación no lo detecta —compara cada tienda con su libro (ADR-010)— y la diferencia sólo
+  se ve en Productos, con los dos números lado a lado. Se corrige a mano en cualquiera de las dos:
+  ese cambio sí viaja.
+- **Una entrada de mercadería cargada justo al reactivar** tampoco viaja. Si el dueño reactiva y
+  suma mercadería en el mismo guardado, la otra no se entera. Hay que hacerlo en dos pasos:
+  reactivar con lo que hay, y después cargar la entrada.
+- **Si el supuesto falla** —si WooCommerce dejara un número guardado al dejar de gestionar el
+  stock—, el detector no reconocería la reactivación y seguiría el comportamiento de hoy. Se
+  prueba con un producto real en el test, no con el valor armado a mano.
