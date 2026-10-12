@@ -1,6 +1,6 @@
 # Woonderful Stock Sync for WooCommerce — Estado del proyecto
 
-> Plugin: `woonderful-stock-sync-for-woocommerce` | WP 6.5+ | PHP 8.1+ | WooCommerce 9.1+
+> Plugin: `woonderful-stock-sync-for-woocommerce` 1.0.0 | WP 6.5+ | PHP 8.1+ | WooCommerce 9.1+
 > Repo: [woonderful-stock-sync-for-woocommerce](https://github.com/julianjuan77/woonderful-stock-sync-for-woocommerce)
 > Creado: 2026-09-20 · Última sesión: 2026-10-11 — El orden de lo que sale después de una caída (ADR-017) las ventas retenidas cuando el producto vuelve (ADR-018) volver a gestionar el stock (ADR-019) y la cancelación con su motivo (ADR-020). Las pruebas manuales repetidas, el bloque 9 —readme, .pot y check-release— la comparación entre tiendas (ADR-021) e Igualar stock (ADR-022). Antes, 2026-10-10 — Configuración rediseñada, y pausar y desemparejar (ADR-015). Antes, 2026-10-09 — el rediseño de Productos, Resumen y Registros, el logo y las fuentes de la marca dentro del plugin (ADR-013 §2.1). Antes, 2026-10-07 — los ADRs de la interfaz (ADR-013, con la configuración inicial, y ADR-014) y el bloque 8 entero: de la base (8.1) a la configuración inicial (8.10). Antes, 2026-10-06 — los ADRs del log (ADR-011) y de los avisos (ADR-012), y el bloque 10 entero: la tabla del log, el estado de la otra tienda, los eventos de cada pieza, los pares rotos, la purga y los avisos por email
 
@@ -42,8 +42,7 @@ configuración inicial con los requisitos y el email de prueba.
 **2026-10-11:** el plan de pruebas manuales (Claude Doc "Woonderful Stock Sync — Pruebas
 manuales") está corrido entero, con el bloque 10 —papelera, borrado, stock reactivado— sumado
 hoy: todos los bloques OK salvo el 8, por la 8.2, que necesita un período sin movimientos. El
-bloque 9 (publicación) está hecho. El zip para instalar sale con `make package-plugin`. **Lo que falta:** la versión 1.0.0,
-el Plugin Check de WordPress.org, las pruebas manuales de ADR-021/022 y "Stock distinto", y las
+bloque 9 (publicación) está hecho. Versión 1.0.0 (2026-10-11). El zip para instalar sale con `make package-plugin`. **Lo que falta:** el Plugin Check de WordPress.org, las pruebas manuales de ADR-021/022 y "Stock distinto", y las
 preguntas abiertas del SPEC (multisite, volumen, reservas asimétricas).
 
 El JavaScript se compila con `npm run build` y se prueba con `npm run lint:js` y

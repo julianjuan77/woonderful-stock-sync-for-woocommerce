@@ -3,7 +3,7 @@ Contributors: julianjuan77
 Tags: woocommerce, stock, inventario, sincronizacion, multitienda
 Requires at least: 6.5
 Tested up to: 7.1
-Stable tag: 0.1.0
+Stable tag: 1.0.0
 Requires PHP: 8.1
 Requires Plugins: woocommerce
 WC requires at least: 9.1
@@ -106,5 +106,14 @@ La interfaz usa tres fuentes con licencia SIL Open Font License 1.1, incluidas e
 
 == Changelog ==
 
-= 0.1.0 =
-* Primera versión.
+= 1.0.0 =
+Primera versión.
+
+* Pool único entre dos tiendas WooCommerce: ventas, cancelaciones, reembolsos y cambios a mano o por importación se propagan a la otra.
+* Vinculación en la tienda maestra, a mano o en lote, con sugerencias por SKU y los dos stocks a la vista antes de confirmar.
+* Entrega con reintentos y en orden después de una caída; envío al terminar el pedido con PHP-FPM o LiteSpeed.
+* Reconciliación nocturna: completa lo que no llegó, revisa cada tienda contra sus movimientos y compara las dos tiendas entre sí.
+* Igualar stock: cuando las dos tiendas tienen un número distinto, el dueño elige cuál vale y quedan iguales.
+* Papelera, productos borrados y gestión de stock reactivada: las ventas retenidas se aplican al volver o se descartan con aviso.
+* Avisos por email agrupados, registro de lo que pasó e historial por producto.
+* Pausar la sincronización y desemparejar las tiendas desde Configuración.
