@@ -42,7 +42,7 @@ configuración inicial con los requisitos y el email de prueba.
 **2026-10-11:** el plan de pruebas manuales (Claude Doc "Woonderful Stock Sync — Pruebas
 manuales") está corrido entero, con el bloque 10 —papelera, borrado, stock reactivado— sumado
 hoy: todos los bloques OK salvo el 8, por la 8.2, que necesita un período sin movimientos. El
-bloque 9 (publicación) está hecho. Versión 1.0.0 (2026-10-11). El zip para instalar sale con `make package-plugin`. **Lo que falta:** el Plugin Check de WordPress.org, las pruebas manuales de ADR-021/022 y "Stock distinto", y las
+bloque 9 (publicación) está hecho. Versión 1.0.0 (2026-10-11). El zip para instalar sale con `make package-plugin`. **Plugin Check** (2026-10-11, en `sandbox`): sin errores de código. Para WordPress.org lo frenan dos cosas: el nombre y el slug tienen "woo", prohibido allá, y el readme tiene que estar en inglés. Advertencias aceptadas: consultas directas con el nombre de la tabla interpolado (de `$wpdb->prefix`), placeholders armados con `implode()`, y las variables `$wss_*` de `uninstall.php`. **Lo que falta:** las pruebas manuales de ADR-021/022 y "Stock distinto", y las
 preguntas abiertas del SPEC (multisite, volumen, reservas asimétricas).
 
 El JavaScript se compila con `npm run build` y se prueba con `npm run lint:js` y

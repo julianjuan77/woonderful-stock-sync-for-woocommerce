@@ -133,14 +133,13 @@ final class Products {
 
 		$posts = get_posts(
 			array(
-				'post_type'        => array( 'product', 'product_variation' ),
-				'post__in'         => $ids,
-				'post_status'      => array_keys( get_post_stati() ),
-				'numberposts'      => -1,
-				'orderby'          => 'ID',
-				'order'            => 'ASC',
-				'fields'           => 'ids',
-				'suppress_filters' => true,
+				'post_type'   => array( 'product', 'product_variation' ),
+				'post__in'    => $ids,
+				'post_status' => array_keys( get_post_stati() ),
+				'numberposts' => -1,
+				'orderby'     => 'ID',
+				'order'       => 'ASC',
+				'fields'      => 'ids',
 			)
 		);
 
