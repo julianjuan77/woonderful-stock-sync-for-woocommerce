@@ -4599,3 +4599,61 @@ par sin sincronizar mientras tanto. Elegir cuál vale cubre los dos casos sin cu
 - **"Igualar stock" aparece en todo par al día, no sólo en los que difieren:** la diferencia sale
   de la copia del catálogo, que puede tener un día, y el email manda al botón. El modal mira los
   dos números en el momento y, si coinciden, lo dice.
+
+## ADR-023 — Una pestaña "Movimientos" en Registros
+
+Estado: Propuesta
+Temas: rest-api, modulos
+Cubre: includes/Log/Events.php, includes/Admin/Api.php, src/screens/Logs.js
+
+### En pocas palabras
+
+Registros muestra lo que pasa y no es un movimiento (ADR-011): vinculaciones, caídas, avisos,
+discrepancias. Las ventas, cancelaciones y ajustes se ven sólo en el historial de cada producto
+(UC-03). En producción, Julián necesitó verlos todos juntos (2026-10-12).
+
+Con esta decisión, **Registros tiene dos pestañas: "Avisos", lo de hoy, y "Movimientos"**, la
+lista de todos los movimientos de stock del libro de esta tienda.
+
+---
+
+| Opción | Por qué sí o por qué no |
+| --- | --- |
+| A — Mezclar los movimientos en la lista de Registros | Una sola lista. Pero cada venta suma renglones y, con volumen, tapan los avisos que importan |
+| **B — Una pestaña "Movimientos" aparte** ✅ | Los avisos quedan limpios y los movimientos se revisan juntos, con sus propios filtros. Contra: dos listas en vez de una |
+| C — Dejarlo como está | Nada que hacer. Pero revisar las ventas del día obliga a abrir producto por producto |
+
+**Qué cambia:**
+
+1. **`GET /movements`** (admin, `manage_woocommerce`): los movimientos del libro de esta tienda,
+   de lo más nuevo a lo más viejo, de a 50. Los propios ("Acá") y los recibidos ("En la otra
+   tienda"), con el producto de acá —el propio por `origin_product`, el recibido por su
+   vínculo; si el vínculo ya no está, sin producto—, el motivo, la referencia, la diferencia, el
+   stock de antes y el de después, y cómo terminó: la entrega de los propios, la aplicación de
+   los recibidos. Los mismos campos que el historial de un producto.
+2. **Filtros:** período (hoy, 7 días, 30 días, todo, como Registros), motivo (venta, cancelación,
+   devolución, ajuste, vincular, desvincular) y búsqueda por nombre, SKU o ID del producto, con
+   la misma búsqueda de Registros (`products_matching`).
+3. **La pantalla:** agrupada por día como Registros. Cada renglón con la hora, de qué tienda,
+   el producto —clic abre su historial—, el texto del movimiento (`movement_text()`), y el estado
+   cuando no terminó bien: "esperando", "abandonado", "retenido", "descartado".
+4. **Lo que no cambia:** el libro, la retención de 90 días (ADR-004) y la pestaña de avisos.
+
+---
+
+**Decisión:** opción B.
+
+**Por qué:** los movimientos son muchos y parecidos; los avisos, pocos y distintos. Juntos, se
+pierden los avisos.
+
+**Por qué no A:** con unas decenas de ventas por día, la primera página de Registros serían sólo
+ventas.
+
+**Por qué no C:** revisar las ventas del día producto por producto no escala.
+
+**Consecuencias:**
+
+- **Se ve lo que queda en el libro:** lo confirmado de más de 90 días ya se purgó y no aparece.
+- **Cada tienda muestra su libro.** Una venta aparece en las dos, como "Acá" en una y "En la otra
+  tienda" en la otra.
+- **Un recibido cuyo vínculo ya se borró** aparece sin producto de acá, con el ID del de allá.
