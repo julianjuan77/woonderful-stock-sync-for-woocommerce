@@ -2197,8 +2197,9 @@ p.wss-meta {
 
 .wss-badges {
 	display: inline-flex;
-	flex-wrap: wrap;
+	flex-wrap: nowrap;
 	gap: 6px;
+	white-space: nowrap;
 }
 
 .wss-sku {
@@ -2240,19 +2241,6 @@ p.wss-meta {
 	background: var(--woon-warning-bg);
 	color: var(--woon-warning);
 	box-shadow: inset 0 0 0 1px var(--woon-warning);
-}
-
-.wss-tab.is-differs {
-	color: var(--woon-warning);
-
-	&.is-active {
-		border-bottom-color: var(--woon-warning);
-	}
-
-	.wss-count {
-		background: var(--woon-warning-bg);
-		color: var(--woon-warning);
-	}
 }
 
 .woon-badge.wss-badge-suggest {

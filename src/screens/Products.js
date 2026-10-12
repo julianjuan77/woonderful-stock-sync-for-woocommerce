@@ -457,7 +457,6 @@ export default function Products( { apiFetch, status } ) {
 			: STATE_TABS.map( ( [ value, label ] ) => ( {
 					key: value,
 					label,
-					tone: 'differs' === value ? 'is-differs' : '',
 					count: counts[ value ],
 					active: state === value,
 					onClick: () => pickState( value ),
@@ -549,7 +548,7 @@ export default function Products( { apiFetch, status } ) {
 							key={ tab.key }
 							role="tab"
 							aria-selected={ tab.active }
-							className={ `wss-tab ${ tab.tone ?? '' } ${
+							className={ `wss-tab ${
 								tab.active ? 'is-active' : ''
 							}` }
 							onClick={ tab.onClick }
@@ -1243,6 +1242,14 @@ function Row( { row, actions, selected, onSelect, onHistory } ) {
 					</span>
 					{ 'suggestion' === row.motive && ! row.unlinking && (
 						<SuggestionBadge />
+					) }
+					{ row.differs && ! row.unlinking && (
+						<span className="woon-badge wss-badge-diff">
+							{ __(
+								'Stock distinto',
+								'woonderful-stock-sync-for-woocommerce'
+							) }
+						</span>
 					) }
 				</span>
 				{ ( row.reason ||
