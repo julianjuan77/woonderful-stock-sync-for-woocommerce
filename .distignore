@@ -1,0 +1,22 @@
+# Lo que no va al zip (scripts/package-plugin.sh). vendor/ se arma aparte, sin lo de
+# desarrollo; src/ y package.json sí van: son la fuente del JS compilado.
+.git
+.gitignore
+.distignore
+node_modules
+tests
+docs
+dist
+STATUS.md
+phpcs.xml
+phpstan.neon.dist
+phpunit.xml.dist
+.phpunit.result.cache
+.phpcs-cache
+*.log
+.DS_Store
+rediseno*
+.editorconfig
+.eslintrc.js
+.stylelintrc.json
+__tests__

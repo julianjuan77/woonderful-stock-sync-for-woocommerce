@@ -42,8 +42,9 @@ configuración inicial con los requisitos y el email de prueba.
 **2026-10-11:** el plan de pruebas manuales (Claude Doc "Woonderful Stock Sync — Pruebas
 manuales") está corrido entero, con el bloque 10 —papelera, borrado, stock reactivado— sumado
 hoy: todos los bloques OK salvo el 8, por la 8.2, que necesita un período sin movimientos. El
-bloque 9 (publicación) está hecho. **Lo que falta:** un empaquetado propio para este plugin
-—`make release-plugin` es el de los comerciales—, con `vendor/` de producción y `src/`.
+bloque 9 (publicación) está hecho. El zip para instalar sale con `make package-plugin`. **Lo que falta:** la versión 1.0.0,
+el Plugin Check de WordPress.org, las pruebas manuales de ADR-021/022 y "Stock distinto", y las
+preguntas abiertas del SPEC (multisite, volumen, reservas asimétricas).
 
 El JavaScript se compila con `npm run build` y se prueba con `npm run lint:js` y
 `npm run test:unit`, desde la carpeta del plugin.
@@ -221,7 +222,7 @@ es lo normal: loguearlo en cada pasada sería ruido.
 |---|---|---|
 | 9.1 | `readme.txt`. Recomendar un cron real del servidor contra `wp-cron.php` con `DISABLE_WP_CRON`: sin él, la pasada de cada minuto depende de que alguien visite el sitio. **Créditos de las fuentes** —Bricolage Grotesque, DM Sans, JetBrains Mono, SIL OFL 1.1— (ADR-013 §2.1) | ✅ |
 | 9.2 | `.pot` con `wp i18n make-pot`: `languages/woonderful-stock-sync-for-woocommerce.pot`, 578 cadenas (las del JS, de `build/`). Se genera en `/tmp` del contenedor y se copia: la carpeta montada no deja escribir. "desde %s" con fecha pasó a `_x()`, porque con tienda significa otra cosa | ✅ |
-| 9.3 | `make check-release` sobre una copia como la que se publicaría —sin `.git`, `node_modules`, tests ni docs; con `vendor/` de producción (`composer install --no-dev`, sólo el autoloader) y con `src/`, la fuente del JS—: sin errores. `license.txt` agregado. La advertencia que queda es PHPCS, que el entorno no tiene en su raíz y ya cubre `make lint-plugin`. **Pendiente:** `make release-plugin` es para los plugins comerciales —exige el bundle de licencias y saca `vendor/` y `src/`—; éste necesita su propio empaquetado | ✅ |
+| 9.3 | `make check-release` sobre una copia como la que se publicaría —sin `.git`, `node_modules`, tests ni docs; con `vendor/` de producción (`composer install --no-dev`, sólo el autoloader) y con `src/`, la fuente del JS—: sin errores. `license.txt` agregado. La advertencia que queda es PHPCS, que el entorno no tiene en su raíz y ya cubre `make lint-plugin`. El zip lo arma `make package-plugin PLUGIN=plugins/woonderful-stock-sync-for-woocommerce` (2026-10-11): `vendor/` de producción, `src/`, y afuera lo del `.distignore`; queda en `dist/` del entorno, ~600 KB y 123 archivos | ✅ |
 
 ---
 
