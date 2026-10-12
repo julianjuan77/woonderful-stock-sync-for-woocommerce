@@ -65,6 +65,7 @@ final class Api {
 			'/status'                         => array( 'GET', 'status' ),
 			'/reconcile'                      => array( 'POST', 'reconcile' ),
 			'/log'                            => array( 'GET', 'log' ),
+			'/movements'                      => array( 'GET', 'movements' ),
 			'/settings'                       => array( 'GET, POST', 'settings' ),
 			'/store'                          => array( 'POST', 'store' ),
 			'/pairing/code'                   => array( 'POST', 'pairing_code' ),
@@ -333,6 +334,58 @@ final class Api {
 				'items'  => array_map( array( self::class, 'entry' ), $list['items'] ),
 				'total'  => $list['total'],
 				'levels' => $list['levels'],
+			),
+			200
+		);
+	}
+
+	/**
+	 * Los movimientos de stock del libro de esta tienda, de a 50 (ADR-023): la pestaña
+	 * Movimientos de Registros. Mismos filtros de fecha y de búsqueda que `log`, y el motivo.
+	 *
+	 * @param \WP_REST_Request $request `from`, `to`, `reason`, `search` y `page`.
+	 */
+	public static function movements( \WP_REST_Request $request ): \WP_REST_Response {
+		$filters = array();
+
+		foreach ( array( 'since' => array( 'from', '00:00:00' ), 'until' => array( 'to', '23:59:59' ) ) as $key => $bound ) { // phpcs:ignore WordPress.Arrays.ArrayDeclarationSpacing.AssociativeArrayFound
+			$day = (string) $request[ $bound[0] ];
+
+			if ( 1 === preg_match( '/^\d{4}-\d{2}-\d{2}$/', $day ) ) {
+				$filters[ $key ] = get_gmt_from_date( $day . ' ' . $bound[1] );
+			}
+		}
+
+		$reason = sanitize_key( (string) $request['reason'] );
+
+		if ( in_array( $reason, array( 'sale', 'cancel', 'refund', 'adjustment', 'bootstrap', 'unlink' ), true ) ) {
+			$filters['reason'] = $reason;
+		}
+
+		$search = trim( (string) $request['search'] );
+
+		if ( '' !== $search ) {
+			$filters['products'] = self::products_matching( $search );
+		}
+
+		$list  = Events::movements( $filters, max( 1, (int) $request['page'] ), 50 );
+		$items = array();
+
+		foreach ( $list['items'] as $movement ) {
+			$items[] = array_merge(
+				self::entry( $movement ),
+				array(
+					'product'        => $movement['product'],
+					'name'           => null === $movement['product'] ? null : self::product_name( (int) $movement['product'] ),
+					'remote_product' => $movement['remote_product'],
+				)
+			);
+		}
+
+		return new \WP_REST_Response(
+			array(
+				'items' => $items,
+				'total' => $list['total'],
 			),
 			200
 		);

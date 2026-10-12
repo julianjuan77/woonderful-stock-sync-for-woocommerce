@@ -4602,7 +4602,7 @@ par sin sincronizar mientras tanto. Elegir cuál vale cubre los dos casos sin cu
 
 ## ADR-023 — Una pestaña "Movimientos" en Registros
 
-Estado: Propuesta
+Estado: Aprobada · 2026-10-12 · aprobada por Julián
 Temas: rest-api, modulos
 Cubre: includes/Log/Events.php, includes/Admin/Api.php, src/screens/Logs.js
 

@@ -1249,6 +1249,7 @@ Mutaciones: sin revisar el SKU fresco, o el vinculado allá, cae `BLK-03`.
 | --- | --- | --- |
 | `ADM-33` | **El CSS de las fuentes** | Cuatro archivos, todos del plugin y todos presentes en `assets/fonts/`; ningún pedido a Google (ADR-013 §2.1) |
 | `ADM-34` | **Registros busca por producto**: por parte del nombre, por SKU y por ID, y algo que no es ningún producto | Cada búsqueda trae los eventos de ese producto; la que no encuentra, nada. `levels` cuenta los de cada nivel |
+| `ADM-35` | **La pestaña Movimientos** (ADR-023): una venta propia, una cancelación recibida y una recibida de un vínculo borrado | Las tres, de la más nueva a la más vieja, con el producto de acá —la del vínculo borrado sin él y con el de allá—; el motivo filtra y la búsqueda encuentra la propia por nombre y la recibida por el ID de acá |
 
 ## [`tests/test-pause.php`](test-pause.php) — pausar y desemparejar (ADR-015)
 

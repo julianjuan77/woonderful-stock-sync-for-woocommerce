@@ -454,9 +454,12 @@ se resuelve con un menú de las dos salidas, cada una con lo que hace. `POST /re
 vuelve `200` con "no se pudo mirar".
 
 **Registros** (`src/screens/Logs.js`) pide `GET /log`: de a 50, filtrado por nivel, tipo, período
-(hoy, 7 días, 30 días o todo, que la pantalla manda como `from`) y producto. **Lista sólo eventos**:
-los movimientos de stock están en el historial de cada producto, para que una tanda de ventas no tape
-lo que se viene a buscar (decidido con Julián, 2026-10-09). La búsqueda (`search`) es de productos
+(hoy, 7 días, 30 días o todo, que la pantalla manda como `from`) y producto. **La pestaña Avisos
+lista sólo eventos**, para que una tanda de ventas no tape lo que se viene a buscar (decidido con
+Julián, 2026-10-09). **La pestaña Movimientos** (ADR-023) pide `GET /movements`
+(`Events::movements()`): el libro de esta tienda, propios y recibidos, de a 50, con el producto de
+acá —el recibido por su vínculo; sin vínculo, `remote_product`—, filtrado por período, motivo y la
+misma búsqueda. Cada renglón lleva el producto delante y el estado sólo si no terminó bien. La búsqueda (`search`) es de productos
 de acá: el ID, o parte del nombre o del SKU (`Api::products_matching()`, hasta 200), y trae sus
 eventos. La respuesta trae `levels`, cuántos hay de cada nivel con los demás filtros, para los
 botones de nivel. La pantalla agrupa por día, y junta en un renglón los seguidos del mismo tipo que
@@ -874,3 +877,4 @@ Ver `DECISIONS.md`. Índice de las aprobadas:
 | ADR-020 | La cancelación tiene su propio motivo | rest-api, modulos |
 | ADR-021 | Cada noche, la maestra compara su stock con el de la otra y avisa las diferencias | modulos, opciones, uninstall |
 | ADR-022 | "Igualar stock": un botón para que las dos tiendas vuelvan a tener el mismo número | rest-api, modulos |
+| ADR-023 | Una pestaña "Movimientos" en Registros | rest-api, modulos |

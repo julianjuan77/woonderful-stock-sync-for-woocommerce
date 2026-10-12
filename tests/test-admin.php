@@ -512,6 +512,47 @@ class Test_Admin extends WP_UnitTestCase {
 	}
 
 	/**
+	 * ADM-35 — **La pestaña Movimientos** (ADR-023): los del libro, de lo más nuevo a lo más
+	 * viejo, propios y recibidos, con el producto de acá; uno recibido de un vínculo que ya no
+	 * está, sin producto y con el de allá. Filtra por motivo y busca por producto.
+	 */
+	public function test_the_movements_list(): void {
+		global $wpdb;
+
+		$this->as_user( 'administrator' );
+		$token = uniqid( 'adm35' );
+		$green = $this->linked( 5, 5, 900, "Alpargata verde {$token}" );
+		$blue  = $this->linked( 5, 5, 901, 'Ojota azul' );
+		$table = Installer::table( 'movements' );
+		$base  = array(
+			'origin_store' => self::REMOTE_STORE,
+			'generation'   => 1,
+			'delta'        => 1,
+			'reason'       => 'cancel',
+			'application'  => 'applied',
+		);
+
+		\Woonderful\StockSync\Ledger\Ledger::record( $green, -2, 'sale', 'pedido #4512' );
+		$wpdb->insert( $table, $base + array( 'origin_seq' => 50, 'created_at' => gmdate( 'Y-m-d H:i:s', time() + 1 ), 'origin_product' => 901, 'link_id' => (int) Links::for_product( $blue )->id ) ); // phpcs:ignore WordPress.DB, WordPress.Arrays.ArrayDeclarationSpacing.AssociativeArrayFound
+		$wpdb->insert( $table, $base + array( 'origin_seq' => 51, 'created_at' => gmdate( 'Y-m-d H:i:s', time() + 2 ), 'origin_product' => 777, 'link_id' => 99999 ) ); // phpcs:ignore WordPress.DB, WordPress.Arrays.ArrayDeclarationSpacing.AssociativeArrayFound
+
+		$data = $this->send( 'GET', '/movements', array() )->get_data();
+
+		$this->assertSame( 3, $data['total'] );
+		$this->assertSame( array( null, $blue, $green ), array_column( $data['items'], 'product' ) );
+		$this->assertSame( 777, $data['items'][0]['remote_product'], 'sin vínculo: el de allá' );
+		$this->assertSame( 'Ojota azul', $data['items'][1]['name'] );
+		$this->assertStringContainsString( 'cancelación', $data['items'][1]['text'] );
+		$this->assertStringContainsString( 'venta (pedido #4512)', $data['items'][2]['text'] );
+		$this->assertSame( 'movement', $data['items'][2]['type'] );
+
+		$this->assertSame( 2, $this->send( 'GET', '/movements', array( 'reason' => 'cancel' ) )->get_data()['total'] );
+		$this->assertSame( array( $green ), array_column( $this->send( 'GET', '/movements', array( 'search' => "verde {$token}" ) )->get_data()['items'], 'product' ) );
+		$this->assertSame( array( $blue ), array_column( $this->send( 'GET', '/movements', array( 'search' => (string) $blue ) )->get_data()['items'], 'product' ), 'el recibido, por su vínculo' );
+		$this->assertSame( 0, $this->send( 'GET', '/movements', array( 'search' => 'no-existe-' . $token ) )->get_data()['total'] );
+	}
+
+	/**
 	 * Un pedido a `wss-admin/v1` con parámetros.
 	 *
 	 * @param string               $method El método.

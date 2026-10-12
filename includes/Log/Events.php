@@ -274,6 +274,102 @@ final class Events {
 	}
 
 	/**
+	 * Los movimientos del libro de esta tienda, de lo más nuevo a lo más viejo (ADR-023): los
+	 * propios y los recibidos, con el producto de acá. El recibido lo encuentra por su vínculo;
+	 * si el vínculo ya no está, va sin producto.
+	 *
+	 * @param array<string, mixed> $filters `since` y `until` (UTC), `reason` y `products` (de acá).
+	 * @param int                  $page    Desde 1.
+	 * @param int                  $per     Por página.
+	 *
+	 * @return array{items: array<int, array<string, mixed>>, total: int}
+	 */
+	public static function movements( array $filters, int $page = 1, int $per = 50 ): array {
+		global $wpdb;
+
+		$table  = Installer::table( 'movements' );
+		$links  = Installer::table( 'links' );
+		$where  = array( '1 = 1' );
+		$values = array();
+
+		$bounds = array(
+			'since' => '>=',
+			'until' => '<=',
+		);
+
+		foreach ( $bounds as $key => $operator ) {
+			if ( isset( $filters[ $key ] ) ) {
+				$where[]  = "m.created_at {$operator} %s";
+				$values[] = (string) $filters[ $key ];
+			}
+		}
+
+		if ( isset( $filters['reason'] ) ) {
+			$where[]  = 'm.reason = %s';
+			$values[] = (string) $filters['reason'];
+		}
+
+		if ( isset( $filters['products'] ) ) {
+			$products = array_values( array_filter( array_map( 'intval', (array) $filters['products'] ) ) );
+
+			if ( array() === $products ) {
+				return array(
+					'items' => array(),
+					'total' => 0,
+				);
+			}
+
+			$in       = implode( ',', $products );
+			$where[]  = "( ( m.origin_store = %s AND m.origin_product IN ( {$in} ) ) OR ( m.origin_store <> %s AND l.local_product IN ( {$in} ) ) )";
+			$values[] = Store::id();
+			$values[] = Store::id();
+		}
+
+		$from = "{$table} m LEFT JOIN {$links} l ON l.id = m.link_id AND m.origin_store <> %s WHERE " . implode( ' AND ', $where );
+
+		array_unshift( $values, Store::id() );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		$total = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$from}", ...$values ) );
+		$rows  = (array) $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT m.id, m.created_at, m.origin_store, m.origin_product, m.delta, m.reason, m.reference, m.delivery, m.application, m.details, l.local_product
+				   FROM {$from}
+				  ORDER BY m.created_at DESC, m.id DESC
+				  LIMIT %d OFFSET %d",
+				...array_merge( $values, array( $per, ( max( 1, $page ) - 1 ) * $per ) )
+			)
+		);
+		// phpcs:enable
+
+		$items = array_map(
+			static function ( $row ): array {
+				$own = Store::id() === (string) $row->origin_store;
+
+				return array(
+					'type'           => 'movement',
+					'at'             => (string) $row->created_at,
+					'own'            => $own,
+					'delta'          => (int) $row->delta,
+					'reason'         => (string) $row->reason,
+					'reference'      => null === $row->reference ? null : (string) $row->reference,
+					'delivery'       => null === $row->delivery ? null : (string) $row->delivery,
+					'application'    => null === $row->application ? null : (string) $row->application,
+					'stocks'         => self::stocks_of( $own, (string) $row->reason, null === $row->details ? null : json_decode( (string) $row->details, true ) ),
+					'product'        => $own ? (int) $row->origin_product : ( null === $row->local_product ? null : (int) $row->local_product ),
+					'remote_product' => $own ? null : (int) $row->origin_product,
+				);
+			},
+			$rows
+		);
+
+		return array(
+			'items' => $items,
+			'total' => $total,
+		);
+	}
+
+	/**
 	 * Cuáles de esos productos tienen la sugerencia descartada: su último `discarded` es
 	 * posterior a su último `undiscarded` (ADR-011 §3).
 	 *

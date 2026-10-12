@@ -17,6 +17,54 @@ const PERIODS = [
 	[ 0, __( 'Todo', 'woonderful-stock-sync-for-woocommerce' ) ],
 ];
 
+// Los motivos de un movimiento, para el filtro de la pestaña Movimientos (ADR-023).
+const REASONS = [
+	[ 'sale', __( 'Venta', 'woonderful-stock-sync-for-woocommerce' ) ],
+	[ 'cancel', __( 'Cancelación', 'woonderful-stock-sync-for-woocommerce' ) ],
+	[ 'refund', __( 'Devolución', 'woonderful-stock-sync-for-woocommerce' ) ],
+	[ 'adjustment', __( 'Ajuste', 'woonderful-stock-sync-for-woocommerce' ) ],
+	[
+		'bootstrap',
+		__(
+			'Stock inicial del vínculo',
+			'woonderful-stock-sync-for-woocommerce'
+		),
+	],
+	[
+		'unlink',
+		__( 'Desvinculación', 'woonderful-stock-sync-for-woocommerce' ),
+	],
+];
+
+// Cómo terminó un movimiento, sólo cuando no terminó bien: entregado y aplicado no se dicen.
+const MOVEMENT_STATES = {
+	pending: [
+		'info',
+		__( 'esperando', 'woonderful-stock-sync-for-woocommerce' ),
+	],
+	in_flight: [
+		'info',
+		__( 'esperando', 'woonderful-stock-sync-for-woocommerce' ),
+	],
+	abandoned: [
+		'error',
+		__( 'abandonado', 'woonderful-stock-sync-for-woocommerce' ),
+	],
+	held: [
+		'warning',
+		__( 'retenido', 'woonderful-stock-sync-for-woocommerce' ),
+	],
+	discarded: [
+		'warning',
+		__( 'descartado', 'woonderful-stock-sync-for-woocommerce' ),
+	],
+};
+
+const movementState = ( entry ) =>
+	MOVEMENT_STATES[ entry.context?.delivery ] ??
+	MOVEMENT_STATES[ entry.context?.application ] ??
+	null;
+
 const KIND_LABELS = {
 	linked: __( 'Vinculado', 'woonderful-stock-sync-for-woocommerce' ),
 	link_failed: __(
@@ -213,8 +261,10 @@ const getInitialFilters = () => {
 		window.location.hash.split( '?' )[ 1 ] || ''
 	);
 	return {
+		view: 'movements' === params.get( 'view' ) ? 'movements' : 'events',
 		level: params.get( 'level' ) || '',
 		kind: params.get( 'kind' ) || '',
+		reason: '',
 		days: 0,
 		search: '',
 		product: params.get( 'product' ) || '',
@@ -298,8 +348,11 @@ export default function Logs( { apiFetch, navigate } ) {
 		setLoading( true );
 		setError( null );
 		try {
-			const { days, ...rest } = filters;
-			const query = { page, ...rest };
+			const { days, view, level, kind, reason, ...rest } = filters;
+			const movements = 'movements' === view && '' === rest.product;
+			const query = movements
+				? { page, reason, ...rest }
+				: { page, level, kind, ...rest };
 			if ( days > 0 ) {
 				const from = new Date();
 				from.setDate( from.getDate() - ( days - 1 ) );
@@ -310,7 +363,9 @@ export default function Logs( { apiFetch, navigate } ) {
 					( [ , value ] ) => '' !== value
 				)
 			);
-			const data = await apiFetch( { path: `/log?${ params }` } );
+			const data = await apiFetch( {
+				path: `${ movements ? '/movements' : '/log' }?${ params }`,
+			} );
 			setEntries( data.items );
 			setTotal( data.total );
 			setLevels( data.levels ?? null );
@@ -355,6 +410,7 @@ export default function Logs( { apiFetch, navigate } ) {
 			...prev,
 			level: '',
 			kind: '',
+			reason: '',
 			days: 0,
 			search: '',
 		} ) );
@@ -375,6 +431,35 @@ export default function Logs( { apiFetch, navigate } ) {
 		setOpen( ( prev ) => ( { ...prev, [ key ]: ! prev[ key ] } ) );
 
 	const history = '' !== filters.product;
+	const movements = 'movements' === filters.view && ! history;
+
+	let subtitle = __(
+		'Lo que pasó entre las dos tiendas: vínculos, reconciliaciones, discrepancias y cortes de conexión.',
+		'woonderful-stock-sync-for-woocommerce'
+	);
+	let emptyTitle = __(
+		'No hay registros con estos filtros',
+		'woonderful-stock-sync-for-woocommerce'
+	);
+	if ( history ) {
+		subtitle = __(
+			'Sus movimientos de stock y lo que le pasó, de lo más nuevo a lo más viejo.',
+			'woonderful-stock-sync-for-woocommerce'
+		);
+		emptyTitle = __(
+			'Todavía no tiene movimientos ni eventos',
+			'woonderful-stock-sync-for-woocommerce'
+		);
+	} else if ( movements ) {
+		subtitle = __(
+			'Cada movimiento de stock de esta tienda: lo que pasó acá y lo que llegó de la otra.',
+			'woonderful-stock-sync-for-woocommerce'
+		);
+		emptyTitle = __(
+			'No hay movimientos con estos filtros',
+			'woonderful-stock-sync-for-woocommerce'
+		);
+	}
 	const errors = levels?.error ?? 0;
 	const counts = levels
 		? { '': levels.info + levels.warning + levels.error, ...levels }
@@ -399,17 +484,7 @@ export default function Logs( { apiFetch, navigate } ) {
 									'woonderful-stock-sync-for-woocommerce'
 							  ) }
 					</h1>
-					<p className="wss-header__subtitle">
-						{ history
-							? __(
-									'Sus movimientos de stock y lo que le pasó, de lo más nuevo a lo más viejo.',
-									'woonderful-stock-sync-for-woocommerce'
-							  )
-							: __(
-									'Lo que pasó entre las dos tiendas: vínculos, reconciliaciones, discrepancias y cortes de conexión.',
-									'woonderful-stock-sync-for-woocommerce'
-							  ) }
-					</p>
+					<p className="wss-header__subtitle">{ subtitle }</p>
 				</div>
 				{ history && (
 					<div className="wss-header__actions">
@@ -427,6 +502,73 @@ export default function Logs( { apiFetch, navigate } ) {
 			</header>
 
 			{ ! history && (
+				<div className="wss-tabs wss-log-tabs" role="tablist">
+					{ [
+						[
+							'events',
+							__(
+								'Avisos',
+								'woonderful-stock-sync-for-woocommerce'
+							),
+						],
+						[
+							'movements',
+							__(
+								'Movimientos',
+								'woonderful-stock-sync-for-woocommerce'
+							),
+						],
+					].map( ( [ value, label ] ) => (
+						<button
+							key={ value }
+							role="tab"
+							aria-selected={ filters.view === value }
+							className={ `wss-tab ${
+								filters.view === value ? 'is-active' : ''
+							}` }
+							onClick={ () => updateFilter( 'view', value ) }
+						>
+							{ label }
+						</button>
+					) ) }
+				</div>
+			) }
+
+			{ movements && (
+				<div className="wss-log-filters">
+					<div className="wss-select">
+						<select
+							aria-label={ __(
+								'Motivo',
+								'woonderful-stock-sync-for-woocommerce'
+							) }
+							value={ filters.reason }
+							onChange={ ( e ) =>
+								updateFilter( 'reason', e.target.value )
+							}
+						>
+							<option value="">
+								{ __(
+									'Todos los motivos',
+									'woonderful-stock-sync-for-woocommerce'
+								) }
+							</option>
+							{ REASONS.map( ( [ value, label ] ) => (
+								<option key={ value } value={ value }>
+									{ label }
+								</option>
+							) ) }
+						</select>
+					</div>
+					<Periods
+						filters={ filters }
+						updateFilter={ updateFilter }
+					/>
+					<SearchBox search={ search } onSearch={ onSearch } />
+				</div>
+			) }
+
+			{ ! history && ! movements && (
 				<div className="wss-log-filters">
 					<div
 						className="wss-seg"
@@ -485,78 +627,49 @@ export default function Logs( { apiFetch, navigate } ) {
 							) }
 						</select>
 					</div>
-					<div
-						className="wss-seg"
-						role="group"
-						aria-label={ __(
-							'Período',
-							'woonderful-stock-sync-for-woocommerce'
-						) }
-					>
-						{ PERIODS.map( ( [ days, label ] ) => (
-							<button
-								key={ days }
-								className={ `wss-seg__btn ${
-									filters.days === days ? 'is-on' : ''
-								}` }
-								aria-pressed={ filters.days === days }
-								onClick={ () => updateFilter( 'days', days ) }
-							>
-								{ label }
-							</button>
-						) ) }
-					</div>
-					<div className="wss-search wss-log-search">
-						<IconSearch />
-						<input
-							type="search"
-							value={ search }
-							aria-label={ __(
-								'Buscar producto',
-								'woonderful-stock-sync-for-woocommerce'
-							) }
-							placeholder={ __(
-								'Producto, SKU o ID',
-								'woonderful-stock-sync-for-woocommerce'
-							) }
-							onChange={ ( e ) => onSearch( e.target.value ) }
-						/>
-					</div>
+					<Periods
+						filters={ filters }
+						updateFilter={ updateFilter }
+					/>
+					<SearchBox search={ search } onSearch={ onSearch } />
 				</div>
 			) }
 
-			{ ! history && errors > 0 && 'error' !== filters.level && (
-				<button
-					className="wss-log-alert"
-					onClick={ () => updateFilter( 'level', 'error' ) }
-				>
-					<Level level="error" />
-					<span>
-						<b>
-							{ sprintf(
-								/* translators: %d: cuántos errores. */
-								_n(
-									'%d error',
-									'%d errores',
-									errors,
-									'woonderful-stock-sync-for-woocommerce'
-								),
-								errors
+			{ ! history &&
+				! movements &&
+				errors > 0 &&
+				'error' !== filters.level && (
+					<button
+						className="wss-log-alert"
+						onClick={ () => updateFilter( 'level', 'error' ) }
+					>
+						<Level level="error" />
+						<span>
+							<b>
+								{ sprintf(
+									/* translators: %d: cuántos errores. */
+									_n(
+										'%d error',
+										'%d errores',
+										errors,
+										'woonderful-stock-sync-for-woocommerce'
+									),
+									errors
+								) }
+							</b>{ ' ' }
+							{ __(
+								'con estos filtros.',
+								'woonderful-stock-sync-for-woocommerce'
 							) }
-						</b>{ ' ' }
-						{ __(
-							'con estos filtros.',
-							'woonderful-stock-sync-for-woocommerce'
-						) }
-					</span>
-					<span className="wss-log-alert__go">
-						{ __(
-							'Ver errores',
-							'woonderful-stock-sync-for-woocommerce'
-						) }
-					</span>
-				</button>
-			) }
+						</span>
+						<span className="wss-log-alert__go">
+							{ __(
+								'Ver errores',
+								'woonderful-stock-sync-for-woocommerce'
+							) }
+						</span>
+					</button>
+				) }
 
 			{ error && (
 				<div className="woon-notice woon-notice--error">
@@ -574,17 +687,7 @@ export default function Logs( { apiFetch, navigate } ) {
 			{ ! loading && ! error && entries.length === 0 && (
 				<div className="woon-card">
 					<div className="woon-empty">
-						<h3 className="woon-empty__title">
-							{ history
-								? __(
-										'Todavía no tiene movimientos ni eventos',
-										'woonderful-stock-sync-for-woocommerce'
-								  )
-								: __(
-										'No hay registros con estos filtros',
-										'woonderful-stock-sync-for-woocommerce'
-								  ) }
-						</h3>
+						<h3 className="woon-empty__title">{ emptyTitle }</h3>
 						{ ! history && (
 							<>
 								<p className="woon-empty__text">
@@ -653,6 +756,53 @@ export default function Logs( { apiFetch, navigate } ) {
 	);
 }
 
+function Periods( { filters, updateFilter } ) {
+	return (
+		<div
+			className="wss-seg"
+			role="group"
+			aria-label={ __(
+				'Período',
+				'woonderful-stock-sync-for-woocommerce'
+			) }
+		>
+			{ PERIODS.map( ( [ days, label ] ) => (
+				<button
+					key={ days }
+					className={ `wss-seg__btn ${
+						filters.days === days ? 'is-on' : ''
+					}` }
+					aria-pressed={ filters.days === days }
+					onClick={ () => updateFilter( 'days', days ) }
+				>
+					{ label }
+				</button>
+			) ) }
+		</div>
+	);
+}
+
+function SearchBox( { search, onSearch } ) {
+	return (
+		<div className="wss-search wss-log-search">
+			<IconSearch />
+			<input
+				type="search"
+				value={ search }
+				aria-label={ __(
+					'Buscar producto',
+					'woonderful-stock-sync-for-woocommerce'
+				) }
+				placeholder={ __(
+					'Producto, SKU o ID',
+					'woonderful-stock-sync-for-woocommerce'
+				) }
+				onChange={ ( e ) => onSearch( e.target.value ) }
+			/>
+		</div>
+	);
+}
+
 function Group( { item, open, toggle, onHistory, inHistory } ) {
 	const first = item.group[ 0 ].entry;
 	const last = item.group[ item.group.length - 1 ].entry;
@@ -704,9 +854,26 @@ function Group( { item, open, toggle, onHistory, inHistory } ) {
 
 function Entry( { entry, child, open, onToggle, onHistory, inHistory } ) {
 	const movement = 'movement' === entry.type;
+	const state = movement ? movementState( entry ) : null;
 	const level = RECOVERED.includes( entry.kind )
 		? 'ok'
-		: entry.level ?? 'info';
+		: entry.level ?? state?.[ 0 ] ?? 'info';
+	// En la pestaña Movimientos el producto no se sobreentiende, como en su historial.
+	let product = null;
+	if ( movement && ! inHistory ) {
+		product =
+			entry.name ??
+			( entry.product
+				? `#${ entry.product }`
+				: sprintf(
+						/* translators: %d: el producto de la otra tienda. */
+						__(
+							'#%d de la otra tienda',
+							'woonderful-stock-sync-for-woocommerce'
+						),
+						entry.remote_product
+				  ) );
+	}
 	const extra =
 		'peer_back' === entry.kind && entry.context?.minutes
 			? sprintf(
@@ -743,8 +910,16 @@ function Entry( { entry, child, open, onToggle, onHistory, inHistory } ) {
 						: KIND_LABELS[ entry.kind ] ?? entry.kind }
 				</span>
 				<span className="wss-log-row__text">
+					{ product && (
+						<b className="wss-log-row__product">{ product }</b>
+					) }
 					{ entry.text }
 					<StockChange stocks={ entry.stocks } />
+					{ state && (
+						<span className="wss-log-row__extra">
+							{ state[ 1 ] }
+						</span>
+					) }
 					{ extra && (
 						<span className="wss-log-row__extra">{ extra }</span>
 					) }
