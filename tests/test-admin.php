@@ -563,7 +563,15 @@ class Test_Admin extends WP_UnitTestCase {
 		$this->assertSame( array( $blue ), $products( array( 'reason' => 'cancel' ) ) );
 		$this->assertSame( array( $green ), $products( array( 'search' => (string) $green ) ), 'el de acá, no el ID de allá' );
 		$this->assertSame( array( $blue, $blue ), $products( array( 'search' => (string) $blue ) ) );
-		$this->assertSame( array( $blue ), $products( array( 'search' => (string) $blue, 'reason' => 'sale' ) ) );
+		$this->assertSame(
+			array( $blue ),
+			$products(
+				array(
+					'search' => (string) $blue,
+					'reason' => 'sale',
+				)
+			)
+		);
 		$this->assertSame( array( $blue, $green ), $products( array( 'from' => gmdate( 'Y-m-d', time() - 3 * DAY_IN_SECONDS ) ) ), 'la de hace 10 días no' );
 
 		for ( $seq = 70; $seq < 120; $seq++ ) {
