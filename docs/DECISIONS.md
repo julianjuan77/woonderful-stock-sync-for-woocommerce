@@ -4657,3 +4657,73 @@ ventas.
 - **Cada tienda muestra su libro.** Una venta aparece en las dos, como "Acá" en una y "En la otra
   tienda" en la otra.
 - **Un recibido cuyo vínculo ya se borró** aparece sin producto de acá, con el ID del de allá.
+
+## ADR-024 — Productos muestra lo que no gestiona stock en una de las dos tiendas
+
+Estado: Propuesta
+Temas: rest-api, modulos
+Cubre: includes/Catalog/Rows.php, includes/Admin/Api.php, src/screens/Products.js, src/style.scss
+
+### En pocas palabras
+
+Productos lista sólo lo que lleva su propio stock (ADR-014 §3), y la copia del catálogo de la
+otra tienda sólo cuenta como coincidencia lo que allá lo lleva. En producción, una variación que
+no gestiona stock en una de las dos tiendas no aparecía, o aparecía como "sin coincidencia"
+(2026-10-12). Reproducido en octubre con el Termo Acero:
+
+| Variación | Gestiona stock | Hoy, en la mayorista |
+| --- | --- | --- |
+| Negro | en ninguna | no aparece |
+| Rojo | sólo en la minorista | no aparece |
+| Verde | sólo en la mayorista | "Sin vincular · sin coincidencia" |
+
+Con esta decisión, **lo que gestiona stock en una tienda y no en la otra se lista siempre, con
+su motivo**, y lo que no gestiona en ninguna —o no tiene par por SKU— se ve con una opción de la
+lista, detrás de una rueda dentada.
+
+---
+
+| Opción | Por qué sí o por qué no |
+| --- | --- |
+| A — Listar todo lo que no gestiona stock | Nada escondido. Pero los servicios, envíos y combos que no llevan stock a propósito llenan "Sin vincular" |
+| **B — Siempre lo que difiere entre las dos; lo demás, con una opción** ✅ | Muestra el error —una tienda gestiona y la otra no— sin llenar la lista de lo que no tiene nada que sincronizar. Contra: un producto sin SKU, o con otro SKU allá, sólo se ve con la opción |
+| C — Sólo variaciones | Es lo que se vio en producción. Pero deja afuera el mismo problema en un simple |
+
+**Qué cambia:**
+
+1. **Dos motivos nuevos** de un sin vincular, para simples y variaciones, con un par por SKU en
+   la otra tienda (normalizado, como la sugerencia; ADR-014 §3):
+   - **`not_managing`, "No gestiona stock"**: acá no lo lleva y allá sí.
+   - **`remote_not_managing`, "En la otra tienda no gestiona stock"**: acá sí y allá no. Hoy
+     sale como "sin coincidencia".
+   Los dos se ven siempre, cuentan en "Sin vincular" y entran en el email de lo que no
+   sincroniza (ADR-012 §3): para que sincronice, hay que activar la gestión en una tienda.
+2. **Detrás de la opción**, con el motivo `not_managing`: lo que no gestiona stock acá y
+   tampoco allá, o acá no lo lleva y no tiene par por SKU. No cuentan ni se avisan: un servicio o
+   un combo no tiene nada que sincronizar.
+3. **La rueda dentada**, junto al buscador de Productos: un menú de opciones de la lista. Por
+   ahora una, "Mostrar los que no gestionan stock" (`show_unmanaged` en `GET /products`).
+   Queda guardada en el navegador de cada uno. El menú es para sumar otras opciones.
+4. **Sin acciones:** no se pueden vincular hasta que gestionen stock de los dos lados. Un padre
+   variable sin stock propio sigue sin listarse como fila: se ven sus variaciones.
+5. **Lo que no cambia:** el padre que lleva el stock de sus variaciones (`stock_in_parent`), un
+   vinculado que deja de gestionar su stock (sigue suspendido, ROW-16), y la vinculación.
+
+---
+
+**Decisión:** opción B.
+
+**Por qué:** lo que importa es la diferencia entre las dos tiendas, que es un error a corregir;
+lo que no gestiona en ninguna casi siempre es a propósito.
+
+**Por qué no A:** "Sin vincular" se llenaría de productos que no hay que tocar, y el email de la
+noche los avisaría.
+
+**Por qué no C:** el problema es el mismo en un simple.
+
+**Consecuencias:**
+
+- **Un producto sin SKU o con SKU distinto** que no gestiona stock sólo se ve con la opción.
+- **"Sin vincular" y el email suben** con los que difieren entre las tiendas, que hoy no se
+  avisan.
+- **La opción es por navegador,** no por usuario: en otra computadora arranca apagada.
