@@ -2235,6 +2235,26 @@ p.wss-meta {
 	background: var(--woon-spark-soft);
 }
 
+// Lo que tiene un número distinto en cada tienda, en el naranja de los números que difieren.
+.woon-badge.wss-badge-diff {
+	background: var(--woon-warning-bg);
+	color: var(--woon-warning);
+	box-shadow: inset 0 0 0 1px var(--woon-warning);
+}
+
+.wss-tab.is-differs {
+	color: var(--woon-warning);
+
+	&.is-active {
+		border-bottom-color: var(--woon-warning);
+	}
+
+	.wss-count {
+		background: var(--woon-warning-bg);
+		color: var(--woon-warning);
+	}
+}
+
 .woon-badge.wss-badge-suggest {
 	background: var(--woon-spark-soft);
 	color: var(--woon-spark-ink);

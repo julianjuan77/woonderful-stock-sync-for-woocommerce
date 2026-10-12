@@ -17,6 +17,11 @@ const STATE_TABS = [
 		'suspended',
 		__( 'Suspendidos', 'woonderful-stock-sync-for-woocommerce' ),
 	],
+	// Vinculados con un número distinto en cada tienda: se igualan desde el menú (ADR-022).
+	[
+		'differs',
+		__( 'Stock distinto', 'woonderful-stock-sync-for-woocommerce' ),
+	],
 ];
 
 // Los motivos de un sin vincular: reemplazan a las pestañas de estado al entrar en "Sin
@@ -452,6 +457,7 @@ export default function Products( { apiFetch, status } ) {
 			: STATE_TABS.map( ( [ value, label ] ) => ( {
 					key: value,
 					label,
+					tone: 'differs' === value ? 'is-differs' : '',
 					count: counts[ value ],
 					active: state === value,
 					onClick: () => pickState( value ),
@@ -543,7 +549,7 @@ export default function Products( { apiFetch, status } ) {
 							key={ tab.key }
 							role="tab"
 							aria-selected={ tab.active }
-							className={ `wss-tab ${
+							className={ `wss-tab ${ tab.tone ?? '' } ${
 								tab.active ? 'is-active' : ''
 							}` }
 							onClick={ tab.onClick }
@@ -1084,6 +1090,20 @@ function GroupRow( {
 						{ badge[ 1 ] }
 					</span>
 					{ selectable.length > 0 && <SuggestionBadge /> }
+					{ ( summary?.differs ?? 0 ) > 0 && (
+						<span className="woon-badge wss-badge-diff">
+							{ sprintf(
+								/* translators: %d: cuántas variaciones. */
+								_n(
+									'%d con stock distinto',
+									'%d con stock distinto',
+									summary.differs,
+									'woonderful-stock-sync-for-woocommerce'
+								),
+								summary.differs
+							) }
+						</span>
+					) }
 				</span>
 			</td>
 			<td className="wss-actions">

@@ -213,6 +213,8 @@ es lo normal: loguearlo en cada pasada sería ruido.
 
 **Igualar stock** (ADR-022, 2026-10-11): el email de diferencias decía que se corrigiera a mano, pero eso viaja como diferencia y no iguala. Ahora el menú de cada par tiene "Igualar stock": muestra los dos números en el momento y el dueño elige cuál vale. `LNK-22`…`LNK-25`.
 
+**Stock distinto en Productos** (2026-10-11, pedido de Julián): una pestaña "Stock distinto", en naranja, con los vinculados cuyo número difiere del de la otra según la copia; y en un variable plegado, "N con stock distinto". `ROW-17`.
+
 ### 9. Publicación
 
 | | Tarea | Estado |

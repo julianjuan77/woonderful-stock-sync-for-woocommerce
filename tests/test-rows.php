@@ -372,7 +372,7 @@ class Test_Rows extends WP_UnitTestCase {
 		}
 
 		Links::create( $variations[0], self::REMOTE_STORE, 950, 1, 39 );
-		$this->remote( 950, 'V39', array( 'linked' => 1 ) );
+		$this->remote( 950, 'V39', array( 'stock' => 39, 'linked' => 1 ) ); // phpcs:ignore WordPress.Arrays.ArrayDeclarationSpacing.AssociativeArrayFound
 
 		for ( $i = 0; $i < 50; $i++ ) {
 			$this->simple( 'P' . $i );
@@ -497,5 +497,51 @@ class Test_Rows extends WP_UnitTestCase {
 		$this->assertSame( State::SUSPENDED, $row['state'] );
 		$this->assertSame( 'dejó de llevar su propio stock', $row['reason'] );
 		$this->assertNull( $row['stock'] );
+	}
+
+	/**
+	 * ROW-17 — **Stock distinto**: un vinculado con otro número allá se marca, se cuenta, se
+	 * filtra, y su padre dice cuántas variaciones difieren. Uno igual, o suspendido, no.
+	 */
+	public function test_linked_rows_with_a_different_stock_are_flagged(): void {
+		$parent = new WC_Product_Variable();
+		$parent->set_name( $this->run . ' corralera' );
+		$parent_id = (int) $parent->save();
+
+		$ids = array();
+
+		foreach ( array( 34, 35 ) as $size ) {
+			$variation = new WC_Product_Variation();
+			$variation->set_parent_id( $parent_id );
+			$variation->set_manage_stock( true );
+			$variation->set_stock_quantity( 10 );
+			$ids[] = (int) $variation->save();
+		}
+
+		$this->remote( 980, 'C34', array( 'stock' => 12, 'linked' => 1 ) ); // phpcs:ignore WordPress.Arrays.ArrayDeclarationSpacing.AssociativeArrayFound
+		$this->remote( 981, 'C35', array( 'stock' => 10, 'linked' => 1 ) ); // phpcs:ignore WordPress.Arrays.ArrayDeclarationSpacing.AssociativeArrayFound
+		Links::create( $ids[0], self::REMOTE_STORE, 980, 1, 10 );
+		Links::create( $ids[1], self::REMOTE_STORE, 981, 1, 10 );
+
+		$suspended = $this->simple( 'SUSP', 4 );
+		$this->remote( 982, 'SUSP', array( 'stock' => 9, 'status' => 'trash', 'linked' => 1 ) ); // phpcs:ignore WordPress.Arrays.ArrayDeclarationSpacing.AssociativeArrayFound
+		Links::create( $suspended, self::REMOTE_STORE, 982, 1, 4 );
+
+		$all = Rows::page( array( 'search' => $this->run ) );
+
+		$this->assertTrue( array_column( $all['rows'], 'differs', 'id' )[ $ids[0] ] );
+		$this->assertFalse( array_column( $all['rows'], 'differs', 'id' )[ $ids[1] ] );
+		$this->assertFalse( array_column( $all['rows'], 'differs', 'id' )[ $suspended ], 'suspendido es otra cosa' );
+		$this->assertSame( 1, $all['counts'][ Rows::DIFFERS ] );
+		$this->assertSame( 1, $all['summary'][ $parent_id ][ Rows::DIFFERS ] );
+
+		$filtered = Rows::page(
+			array(
+				'search' => $this->run,
+				'state'  => Rows::DIFFERS,
+			)
+		);
+
+		$this->assertSame( array( $ids[0] ), array_column( $filtered['rows'], 'id' ) );
 	}
 }

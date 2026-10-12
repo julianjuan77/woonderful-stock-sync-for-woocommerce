@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-10-11T23:47:40+00:00\n"
+"POT-Creation-Date: 2026-10-12T00:22:12+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: woonderful-stock-sync-for-woocommerce\n"
@@ -96,25 +96,25 @@ msgstr ""
 
 #: includes/Admin/Page.php:57
 #: build/index.js:1
-#: build/index.js:54
+#: build/index.js:55
 msgid "Resumen"
 msgstr ""
 
 #: includes/Admin/Page.php:58
-#: build/index.js:44
-#: build/index.js:55
-#: build/index.js:64
+#: build/index.js:45
+#: build/index.js:56
+#: build/index.js:65
 msgid "Productos"
 msgstr ""
 
 #: includes/Admin/Page.php:59
-#: build/index.js:65
 #: build/index.js:66
+#: build/index.js:67
 msgid "Registros"
 msgstr ""
 
 #: includes/Admin/Page.php:60
-#: build/index.js:66
+#: build/index.js:67
 msgid "Configuración"
 msgstr ""
 
@@ -207,7 +207,7 @@ msgid "El refresco del catálogo empieza por la página 1."
 msgstr ""
 
 #. translators: %d: el ID del producto.
-#: includes/Catalog/Rows.php:361
+#: includes/Catalog/Rows.php:377
 #, php-format
 msgid "Producto borrado (#%d)"
 msgstr ""
@@ -247,7 +247,7 @@ msgid "No se pudo leer el stock de la otra tienda."
 msgstr ""
 
 #: includes/Cli/Command.php:210
-#: build/index.js:57
+#: build/index.js:58
 msgid "La otra tienda no respondió: no se sabe si igualó. El plugin le pregunta solo dentro de 10 minutos."
 msgstr ""
 
@@ -670,7 +670,7 @@ msgid "Acá"
 msgstr ""
 
 #: includes/Log/Events.php:536
-#: build/index.js:44
+#: build/index.js:45
 msgid "En la otra tienda"
 msgstr ""
 
@@ -1131,8 +1131,8 @@ msgstr ""
 #: build/index.js:1
 #: build/index.js:25
 #: build/index.js:30
-#: build/index.js:60
-#: build/index.js:66
+#: build/index.js:61
+#: build/index.js:67
 msgid "Cargando…"
 msgstr ""
 
@@ -1251,13 +1251,13 @@ msgstr ""
 
 #. translators: %s: la otra tienda.
 #: build/index.js:7
-#: build/index.js:50
+#: build/index.js:51
 #, js-format
 msgid "desde %s"
 msgstr ""
 
 #: build/index.js:7
-#: build/index.js:50
+#: build/index.js:51
 msgid "desde acá"
 msgstr ""
 
@@ -1344,8 +1344,8 @@ msgid "Cortada"
 msgstr ""
 
 #: build/index.js:15
-#: build/index.js:39
-#: build/index.js:48
+#: build/index.js:40
+#: build/index.js:49
 msgid "En pausa"
 msgstr ""
 
@@ -1354,14 +1354,14 @@ msgid "Stock ↔"
 msgstr ""
 
 #: build/index.js:15
-#: build/index.js:48
-#: build/index.js:52
+#: build/index.js:49
+#: build/index.js:53
 msgid "Secundaria"
 msgstr ""
 
 #: build/index.js:15
-#: build/index.js:48
-#: build/index.js:52
+#: build/index.js:49
+#: build/index.js:53
 msgid "Maestra"
 msgstr ""
 
@@ -1434,7 +1434,7 @@ msgid "En %s"
 msgstr ""
 
 #: build/index.js:19
-#: build/index.js:45
+#: build/index.js:46
 msgid "Producto"
 msgstr ""
 
@@ -1500,13 +1500,13 @@ msgid "Última página"
 msgstr ""
 
 #: build/index.js:21
-#: build/index.js:35
+#: build/index.js:36
 msgid "Reasignar"
 msgstr ""
 
 #: build/index.js:21
 #: build/index.js:29
-#: build/index.js:35
+#: build/index.js:36
 msgid "Vincular"
 msgstr ""
 
@@ -1584,10 +1584,10 @@ msgstr ""
 
 #: build/index.js:23
 #: build/index.js:29
-#: build/index.js:37
-#: build/index.js:52
-#: build/index.js:64
-#: build/index.js:66
+#: build/index.js:38
+#: build/index.js:53
+#: build/index.js:65
+#: build/index.js:67
 msgid "Cancelar"
 msgstr ""
 
@@ -1600,7 +1600,7 @@ msgid "Confirmar"
 msgstr ""
 
 #: build/index.js:23
-#: build/index.js:35
+#: build/index.js:36
 msgid "Igualar stock"
 msgstr ""
 
@@ -1633,7 +1633,7 @@ msgid "Vale el de esta tienda (%d)"
 msgstr ""
 
 #: build/index.js:25
-#: build/index.js:56
+#: build/index.js:57
 msgid "Vinculación masiva"
 msgstr ""
 
@@ -1670,8 +1670,8 @@ msgid "Vinculados: %1$d. Omitidos: %2$d."
 msgstr ""
 
 #: build/index.js:29
-#: build/index.js:52
-#: build/index.js:54
+#: build/index.js:53
+#: build/index.js:55
 msgid "Listo"
 msgstr ""
 
@@ -1681,7 +1681,7 @@ msgstr ""
 
 #. translators: %s: el producto.
 #: build/index.js:30
-#: build/index.js:65
+#: build/index.js:66
 #, js-format
 msgid "Historial de %s"
 msgstr ""
@@ -1691,7 +1691,7 @@ msgid "Todavía no tiene movimientos ni eventos."
 msgstr ""
 
 #: build/index.js:30
-#: build/index.js:45
+#: build/index.js:46
 msgid "Movimiento"
 msgstr ""
 
@@ -1700,7 +1700,7 @@ msgid "Evento"
 msgstr ""
 
 #: build/index.js:30
-#: build/index.js:39
+#: build/index.js:40
 msgid "Todos"
 msgstr ""
 
@@ -1717,7 +1717,11 @@ msgid "Suspendidos"
 msgstr ""
 
 #: build/index.js:30
-#: build/index.js:35
+msgid "Stock distinto"
+msgstr ""
+
+#: build/index.js:30
+#: build/index.js:36
 msgid "Con sugerencia"
 msgstr ""
 
@@ -1754,7 +1758,7 @@ msgid "El stock está en el padre: llevalo a cada variación"
 msgstr ""
 
 #: build/index.js:30
-#: build/index.js:39
+#: build/index.js:40
 msgid "Vinculado"
 msgstr ""
 
@@ -1790,242 +1794,250 @@ msgstr[1] ""
 msgid "%1$d/%2$d vinculadas"
 msgstr ""
 
-#. translators: %d: cuántas sugerencias.
+#. translators: %d: cuántas variaciones.
 #: build/index.js:34
-#: build/index.js:63
+#, js-format
+msgid "%d con stock distinto"
+msgid_plural "%d con stock distinto"
+msgstr[0] ""
+msgstr[1] ""
+
+#. translators: %d: cuántas sugerencias.
+#: build/index.js:35
+#: build/index.js:64
 #, js-format
 msgid "Aceptar %d"
 msgstr ""
 
-#: build/index.js:34
+#: build/index.js:35
 msgid "Desvinculando"
-msgstr ""
-
-#. translators: %s: el producto.
-#: build/index.js:35
-#, js-format
-msgid "Seleccionar %s"
-msgstr ""
-
-#: build/index.js:35
-msgid "Ver el historial"
-msgstr ""
-
-#: build/index.js:35
-msgid "Sugerido · mismo SKU"
-msgstr ""
-
-#: build/index.js:35
-msgid "Sin par en la otra tienda"
-msgstr ""
-
-#: build/index.js:35
-#: build/index.js:37
-msgid "Desvincular"
-msgstr ""
-
-#: build/index.js:35
-msgid "Aceptar"
-msgstr ""
-
-#: build/index.js:35
-msgid "Elegir otro"
-msgstr ""
-
-#: build/index.js:35
-#: build/index.js:66
-msgid "Descartar"
-msgstr ""
-
-#: build/index.js:35
-msgid "Deshacer descarte"
-msgstr ""
-
-#: build/index.js:35
-msgid "Más acciones"
 msgstr ""
 
 #. translators: %s: el producto.
 #: build/index.js:36
 #, js-format
+msgid "Seleccionar %s"
+msgstr ""
+
+#: build/index.js:36
+msgid "Ver el historial"
+msgstr ""
+
+#: build/index.js:36
+msgid "Sugerido · mismo SKU"
+msgstr ""
+
+#: build/index.js:36
+msgid "Sin par en la otra tienda"
+msgstr ""
+
+#: build/index.js:36
+#: build/index.js:38
+msgid "Desvincular"
+msgstr ""
+
+#: build/index.js:36
+msgid "Aceptar"
+msgstr ""
+
+#: build/index.js:36
+msgid "Elegir otro"
+msgstr ""
+
+#: build/index.js:36
+#: build/index.js:67
+msgid "Descartar"
+msgstr ""
+
+#: build/index.js:36
+msgid "Deshacer descarte"
+msgstr ""
+
+#: build/index.js:36
+msgid "Más acciones"
+msgstr ""
+
+#. translators: %s: el producto.
+#: build/index.js:37
+#, js-format
 msgid "¿Desvincular %s?"
 msgstr ""
 
 #. translators: %d: cuántos productos.
-#: build/index.js:37
+#: build/index.js:38
 #, js-format
 msgid "¿Desvincular %d productos?"
 msgstr ""
 
-#: build/index.js:37
+#: build/index.js:38
 msgid "El stock deja de sincronizarse entre las dos tiendas. El stock de cada una no se toca, y podés volver a vincular cuando quieras."
 msgstr ""
 
 #. translators: %s: la tienda maestra.
-#: build/index.js:38
+#: build/index.js:39
 #, js-format
 msgid "Esta tienda es la secundaria: la vinculación se hace desde %s, la maestra. Acá se ve en modo lectura."
 msgstr ""
 
 #. translators: %s: la tienda maestra.
-#: build/index.js:39
+#: build/index.js:40
 #, js-format
 msgid "Ir a Productos en %s"
 msgstr ""
 
-#: build/index.js:39
-#: build/index.js:45
+#: build/index.js:40
+#: build/index.js:46
 msgid "Info"
 msgstr ""
 
-#: build/index.js:39
-#: build/index.js:52
+#: build/index.js:40
+#: build/index.js:53
 msgid "Avisos"
 msgstr ""
 
-#: build/index.js:39
+#: build/index.js:40
 msgid "Errores"
 msgstr ""
 
-#: build/index.js:39
-#: build/index.js:44
+#: build/index.js:40
+#: build/index.js:45
 msgid "Hoy"
 msgstr ""
 
-#: build/index.js:39
+#: build/index.js:40
 msgid "7 días"
 msgstr ""
 
-#: build/index.js:39
+#: build/index.js:40
 msgid "30 días"
 msgstr ""
 
-#: build/index.js:39
+#: build/index.js:40
 msgid "Todo"
 msgstr ""
 
-#: build/index.js:39
+#: build/index.js:40
 msgid "Vinculación fallida"
 msgstr ""
 
-#: build/index.js:39
+#: build/index.js:40
 msgid "Desvinculado"
 msgstr ""
 
-#: build/index.js:39
+#: build/index.js:40
 msgid "Vínculo sin confirmar"
 msgstr ""
 
-#: build/index.js:39
+#: build/index.js:40
 msgid "Vínculo borrado"
 msgstr ""
 
-#: build/index.js:39
+#: build/index.js:40
 msgid "Descartado"
 msgstr ""
 
-#: build/index.js:39
+#: build/index.js:40
 msgid "Descarte deshecho"
 msgstr ""
 
-#: build/index.js:39
+#: build/index.js:40
 msgid "La otra no responde"
 msgstr ""
 
-#: build/index.js:39
+#: build/index.js:40
 msgid "La otra volvió"
 msgstr ""
 
-#: build/index.js:39
+#: build/index.js:40
 msgid "La otra rechaza"
 msgstr ""
 
-#: build/index.js:39
+#: build/index.js:40
 msgid "La otra acepta de nuevo"
 msgstr ""
 
-#: build/index.js:39
+#: build/index.js:40
 msgid "Movimientos abandonados"
 msgstr ""
 
-#: build/index.js:39
+#: build/index.js:40
 msgid "Error del libro"
 msgstr ""
 
-#: build/index.js:39
+#: build/index.js:40
 msgid "Reconciliación"
 msgstr ""
 
-#: build/index.js:39
+#: build/index.js:40
 msgid "Discrepancia"
 msgstr ""
 
-#: build/index.js:39
+#: build/index.js:40
 msgid "Discrepancia cerrada"
 msgstr ""
 
-#: build/index.js:39
+#: build/index.js:40
 msgid "Discrepancia aceptada"
 msgstr ""
 
-#: build/index.js:39
+#: build/index.js:40
 msgid "Discrepancia restaurada"
 msgstr ""
 
-#: build/index.js:39
+#: build/index.js:40
 msgid "Par roto"
 msgstr ""
 
-#: build/index.js:39
+#: build/index.js:40
 msgid "Par restaurado"
 msgstr ""
 
-#: build/index.js:39
+#: build/index.js:40
 msgid "Resumen enviado"
 msgstr ""
 
-#: build/index.js:39
+#: build/index.js:40
 msgid "Producto avisado"
 msgstr ""
 
-#: build/index.js:39
+#: build/index.js:40
 msgid "Aviso sin enviar"
 msgstr ""
 
-#: build/index.js:39
+#: build/index.js:40
 msgid "Reanudada"
 msgstr ""
 
-#: build/index.js:39
+#: build/index.js:40
 msgid "Desemparejadas"
 msgstr ""
 
-#: build/index.js:39
+#: build/index.js:40
 msgid "Retenidas aplicadas"
 msgstr ""
 
-#: build/index.js:39
+#: build/index.js:40
 msgid "Retenidas sin aplicar"
 msgstr ""
 
-#: build/index.js:39
+#: build/index.js:40
 msgid "Stock reactivado"
 msgstr ""
 
-#: build/index.js:39
+#: build/index.js:40
 msgid "Stock distinto entre tiendas"
 msgstr ""
 
-#: build/index.js:39
+#: build/index.js:40
 msgid "Stock igual de nuevo"
 msgstr ""
 
-#: build/index.js:39
+#: build/index.js:40
 msgid "Stock igualado"
 msgstr ""
 
 #. translators: %d: cuántos productos.
-#: build/index.js:40
+#: build/index.js:41
 #, js-format
 msgid "Se vinculó %d producto."
 msgid_plural "Se vincularon %d productos."
@@ -2033,7 +2045,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %d: cuántos productos.
-#: build/index.js:41
+#: build/index.js:42
 #, js-format
 msgid "Se desvinculó %d producto."
 msgid_plural "Se desvincularon %d productos."
@@ -2041,7 +2053,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %d: cuántos productos.
-#: build/index.js:42
+#: build/index.js:43
 #, js-format
 msgid "Se descartó %d producto."
 msgid_plural "Se descartaron %d productos."
@@ -2049,7 +2061,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %d: cuántas.
-#: build/index.js:43
+#: build/index.js:44
 #, js-format
 msgid "Falló %d vinculación."
 msgid_plural "Fallaron %d vinculaciones."
@@ -2057,462 +2069,462 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %d: cuántos productos.
-#: build/index.js:44
+#: build/index.js:45
 #, js-format
 msgid "%d producto avisado."
 msgid_plural "%d productos avisados."
 msgstr[0] ""
 msgstr[1] ""
 
-#: build/index.js:44
 #: build/index.js:45
+#: build/index.js:46
 msgid "Error"
 msgstr ""
 
-#: build/index.js:44
+#: build/index.js:45
 msgid "Minutos sin responder"
 msgstr ""
 
-#: build/index.js:44
+#: build/index.js:45
 msgid "En total"
 msgstr ""
 
-#: build/index.js:44
+#: build/index.js:45
 msgid "El libro decía"
 msgstr ""
 
-#: build/index.js:44
+#: build/index.js:45
 msgid "Había"
 msgstr ""
 
-#: build/index.js:44
+#: build/index.js:45
 msgid "Diferencia"
 msgstr ""
 
-#: build/index.js:44
+#: build/index.js:45
 msgid "Ayer"
 msgstr ""
 
 #. translators: %d: minutos.
-#: build/index.js:45
+#: build/index.js:46
 #, js-format
 msgid "Sin responder %d min"
 msgstr ""
 
-#: build/index.js:45
+#: build/index.js:46
 msgid "Por qué falló"
 msgstr ""
 
-#: build/index.js:45
+#: build/index.js:46
 msgid "Quién"
 msgstr ""
 
-#: build/index.js:45
+#: build/index.js:46
 msgid "Ver el historial del producto"
 msgstr ""
 
-#: build/index.js:45
+#: build/index.js:46
 msgid "Ocultar JSON"
 msgstr ""
 
-#: build/index.js:45
+#: build/index.js:46
 msgid "Ver JSON"
 msgstr ""
 
-#: build/index.js:45
+#: build/index.js:46
 msgid "Copiado"
 msgstr ""
 
-#: build/index.js:45
+#: build/index.js:46
 msgid "Copiar"
 msgstr ""
 
-#: build/index.js:45
+#: build/index.js:46
 msgid "Aviso"
 msgstr ""
 
-#: build/index.js:45
+#: build/index.js:46
 msgid "Esta es la maestra: generar el código"
 msgstr ""
 
-#: build/index.js:45
+#: build/index.js:46
 msgid "Esta es la secundaria: pegar el código"
 msgstr ""
 
-#: build/index.js:45
+#: build/index.js:46
 msgid "La maestra es la que manda: al vincular, el stock que queda es el suyo, y la vinculación se hace desde acá."
 msgstr ""
 
 #. translators: %d: minutos.
-#: build/index.js:46
+#: build/index.js:47
 #, js-format
 msgid "En la otra tienda, elegí \"Esta es la secundaria: pegar el código\" y pegalo ahí. Vale %d minutos y para un solo canje. Esta pantalla se actualiza sola cuando la otra lo canjee."
 msgstr ""
 
-#: build/index.js:46
+#: build/index.js:47
 msgid "Generar el código"
 msgstr ""
 
-#: build/index.js:46
+#: build/index.js:47
 msgid "El código de la maestra"
 msgstr ""
 
-#: build/index.js:46
+#: build/index.js:47
 msgid "Emparejando…"
 msgstr ""
 
-#: build/index.js:46
-#: build/index.js:52
+#: build/index.js:47
+#: build/index.js:53
 msgid "Emparejar"
 msgstr ""
 
-#: build/index.js:46
+#: build/index.js:47
 msgid "Revisando…"
 msgstr ""
 
-#: build/index.js:46
+#: build/index.js:47
 msgid "Recomendado"
 msgstr ""
 
-#: build/index.js:46
+#: build/index.js:47
 msgid "Hay requisitos críticos sin cumplir: arreglalos y volvé a revisar."
 msgstr ""
 
-#: build/index.js:46
+#: build/index.js:47
 msgid "Volver a revisar"
 msgstr ""
 
-#: build/index.js:46
+#: build/index.js:47
 msgid "Mandar email de prueba"
 msgstr ""
 
 #. translators: %s: el destinatario.
-#: build/index.js:47
+#: build/index.js:48
 #, js-format
 msgid "Salió a %s: fijate si llegó, también en spam."
 msgstr ""
 
-#: build/index.js:47
+#: build/index.js:48
 msgid "No salió: el hosting no manda correo."
 msgstr ""
 
 #. translators: %s: qué cambió.
-#: build/index.js:48
+#: build/index.js:49
 #, js-format
 msgid "Cambios guardados: %s"
 msgstr ""
 
-#: build/index.js:48
+#: build/index.js:49
 msgid "Emparejada"
 msgstr ""
 
-#: build/index.js:48
+#: build/index.js:49
 msgid "Probando…"
 msgstr ""
 
-#: build/index.js:48
+#: build/index.js:49
 msgid "Probar conexión"
 msgstr ""
 
-#: build/index.js:48
+#: build/index.js:49
 msgid "Volver a emparejar"
 msgstr ""
 
-#: build/index.js:48
+#: build/index.js:49
 msgid "Dirección"
 msgstr ""
 
-#: build/index.js:48
+#: build/index.js:49
 msgid "Emparejadas desde"
 msgstr ""
 
-#: build/index.js:48
+#: build/index.js:49
 msgid "La otra tienda responde bien."
 msgstr ""
 
 #. translators: %s: el error.
-#: build/index.js:49
+#: build/index.js:50
 #, js-format
 msgid "La otra tienda no respondió: %s"
 msgstr ""
 
-#: build/index.js:49
+#: build/index.js:50
 msgid "Sincronización activa"
 msgstr ""
 
-#: build/index.js:49
+#: build/index.js:50
 msgid "Lo que se vende en una tienda se descuenta en la otra."
 msgstr ""
 
 #. translators: 1: cuándo, 2: quién.
-#: build/index.js:51
+#: build/index.js:52
 #, js-format
 msgid "En pausa desde %1$s (%2$s). Las ventas se siguen anotando y se mandan al reanudar."
 msgstr ""
 
-#: build/index.js:51
+#: build/index.js:52
 msgid "la sincronización se reanudó y lo anotado sale en la próxima pasada."
 msgstr ""
 
-#: build/index.js:51
+#: build/index.js:52
 msgid "la sincronización quedó en pausa en las dos tiendas."
 msgstr ""
 
-#: build/index.js:51
+#: build/index.js:52
 msgid "la sincronización se reanudó acá. La otra tienda no respondió: se va a enterar en cuanto vuelva."
 msgstr ""
 
-#: build/index.js:51
+#: build/index.js:52
 msgid "la sincronización quedó en pausa acá. La otra tienda no respondió: se va a enterar en cuanto vuelva."
 msgstr ""
 
-#: build/index.js:51
 #: build/index.js:52
+#: build/index.js:53
 msgid "Desemparejar"
 msgstr ""
 
-#: build/index.js:51
+#: build/index.js:52
 msgid "Corta del todo: las dos tiendas olvidan la conexión. Para volver hace falta un código nuevo."
-msgstr ""
-
-#. translators: %s: la otra tienda.
-#: build/index.js:52
-#, js-format
-msgid "¿Desemparejar de %s?"
-msgstr ""
-
-#: build/index.js:52
-msgid "Las dos tiendas dejan de sincronizar. Los vínculos se guardan por si vuelven a emparejar. Lo que se venda mientras tanto se manda al re-emparejar con esta misma tienda."
-msgstr ""
-
-#: build/index.js:52
-msgid "las dos tiendas quedaron desemparejadas."
-msgstr ""
-
-#: build/index.js:52
-msgid "esta tienda quedó desemparejada. La otra no respondió: va a ver que ésta rechaza sus pedidos; desemparejala también allá."
-msgstr ""
-
-#: build/index.js:52
-msgid "Requisitos"
-msgstr ""
-
-#: build/index.js:52
-#: build/index.js:60
-#: build/index.js:66
-msgid "Esta tienda"
-msgstr ""
-
-#: build/index.js:52
-msgid "Atrás"
-msgstr ""
-
-#: build/index.js:52
-msgid "Configurar más tarde"
-msgstr ""
-
-#: build/index.js:52
-msgid "Continuar"
-msgstr ""
-
-#: build/index.js:52
-msgid "La que manda: la vinculación se hace desde acá, y al vincular queda su stock. Genera el código de emparejamiento."
-msgstr ""
-
-#: build/index.js:52
-msgid "Sigue a la maestra: ve todo en modo lectura. Pega el código que generó la maestra."
-msgstr ""
-
-#: build/index.js:52
-#: build/index.js:66
-msgid "Nombre"
-msgstr ""
-
-#: build/index.js:52
-msgid "Con el que la ve la otra tienda y la nombran los avisos."
-msgstr ""
-
-#: build/index.js:52
-msgid "Rol"
-msgstr ""
-
-#: build/index.js:52
-msgid "Probando la conexión…"
 msgstr ""
 
 #. translators: %s: la otra tienda.
 #: build/index.js:53
 #, js-format
+msgid "¿Desemparejar de %s?"
+msgstr ""
+
+#: build/index.js:53
+msgid "Las dos tiendas dejan de sincronizar. Los vínculos se guardan por si vuelven a emparejar. Lo que se venda mientras tanto se manda al re-emparejar con esta misma tienda."
+msgstr ""
+
+#: build/index.js:53
+msgid "las dos tiendas quedaron desemparejadas."
+msgstr ""
+
+#: build/index.js:53
+msgid "esta tienda quedó desemparejada. La otra no respondió: va a ver que ésta rechaza sus pedidos; desemparejala también allá."
+msgstr ""
+
+#: build/index.js:53
+msgid "Requisitos"
+msgstr ""
+
+#: build/index.js:53
+#: build/index.js:61
+#: build/index.js:67
+msgid "Esta tienda"
+msgstr ""
+
+#: build/index.js:53
+msgid "Atrás"
+msgstr ""
+
+#: build/index.js:53
+msgid "Configurar más tarde"
+msgstr ""
+
+#: build/index.js:53
+msgid "Continuar"
+msgstr ""
+
+#: build/index.js:53
+msgid "La que manda: la vinculación se hace desde acá, y al vincular queda su stock. Genera el código de emparejamiento."
+msgstr ""
+
+#: build/index.js:53
+msgid "Sigue a la maestra: ve todo en modo lectura. Pega el código que generó la maestra."
+msgstr ""
+
+#: build/index.js:53
+#: build/index.js:67
+msgid "Nombre"
+msgstr ""
+
+#: build/index.js:53
+msgid "Con el que la ve la otra tienda y la nombran los avisos."
+msgstr ""
+
+#: build/index.js:53
+msgid "Rol"
+msgstr ""
+
+#: build/index.js:53
+msgid "Probando la conexión…"
+msgstr ""
+
+#. translators: %s: la otra tienda.
+#: build/index.js:54
+#, js-format
 msgid "Emparejada con %s, y la conexión responde."
 msgstr ""
 
 #. translators: %s: el error.
-#: build/index.js:54
+#: build/index.js:55
 #, js-format
 msgid "Quedó emparejada, pero la otra tienda no respondió a la prueba (%s). Revisá sus requisitos."
 msgstr ""
 
-#: build/index.js:54
-#: build/index.js:66
+#: build/index.js:55
+#: build/index.js:67
 msgid "Avisos por email"
 msgstr ""
 
-#: build/index.js:54
-#: build/index.js:66
+#: build/index.js:55
+#: build/index.js:67
 msgid "A quién"
 msgstr ""
 
-#: build/index.js:54
+#: build/index.js:55
 msgid "Vacío, al email del administrador. Avisa si la otra tienda no responde, si algo falla, y lo que no sincroniza."
 msgstr ""
 
-#: build/index.js:54
+#: build/index.js:55
 msgid "Ahora vinculá los productos: la vinculación masiva propone los pares con el mismo SKU."
 msgstr ""
 
-#: build/index.js:54
+#: build/index.js:55
 msgid "La vinculación se hace desde la maestra. Acá ves cómo va la sincronización."
 msgstr ""
 
-#: build/index.js:54
+#: build/index.js:55
 msgid "Ir a Productos"
 msgstr ""
 
-#: build/index.js:54
+#: build/index.js:55
 msgid "Ir al Resumen"
 msgstr ""
 
-#: build/index.js:54
+#: build/index.js:55
 msgid "Error al cargar los productos."
 msgstr ""
 
 #. translators: %s: el error.
-#: build/index.js:55
+#: build/index.js:56
 #, js-format
 msgid "No se pudo actualizar el catálogo de la otra tienda (%s). Se muestra la última copia."
 msgstr ""
 
-#: build/index.js:55
+#: build/index.js:56
 msgid "Sugerencia descartada."
 msgstr ""
 
-#: build/index.js:55
+#: build/index.js:56
 msgid "Se deshizo el descarte."
 msgstr ""
 
-#: build/index.js:55
+#: build/index.js:56
 msgid "Esta tienda todavía no está emparejada: no hay con qué vincular."
 msgstr ""
 
-#: build/index.js:55
+#: build/index.js:56
 msgid "Vinculá cada producto con su par en la otra tienda para que el stock se mantenga igual en las dos."
 msgstr ""
 
 #. translators: 1: página, 2: de cuántas.
-#: build/index.js:56
+#: build/index.js:57
 #, js-format
 msgid "Actualizando %1$d de %2$d…"
 msgstr ""
 
-#: build/index.js:56
+#: build/index.js:57
 msgid "Actualizar catálogo"
 msgstr ""
 
-#: build/index.js:56
+#: build/index.js:57
 msgid "← Todos los estados"
 msgstr ""
 
-#: build/index.js:56
+#: build/index.js:57
 msgid "Sin vincular:"
 msgstr ""
 
-#: build/index.js:56
+#: build/index.js:57
 msgid "Buscar por nombre o SKU, en las dos tiendas"
 msgstr ""
 
-#: build/index.js:56
+#: build/index.js:57
 msgid "Todavía no se trajo el catálogo de la otra tienda."
 msgstr ""
 
 #. translators: %d: minutos.
-#: build/index.js:57
+#: build/index.js:58
 #, js-format
 msgid "Catálogo de la otra tienda actualizado hace %d min."
 msgstr ""
 
-#: build/index.js:57
+#: build/index.js:58
 msgid "La otra tienda no respondió: no se sabe si lo vinculó. El plugin le pregunta solo dentro de 10 minutos."
 msgstr ""
 
-#: build/index.js:57
+#: build/index.js:58
 msgid "Listo, quedaron vinculados. El stock se sincroniza desde ahora."
 msgstr ""
 
 #. translators: %d: el stock.
-#: build/index.js:58
+#: build/index.js:59
 #, js-format
 msgid "Listo: las dos tiendas quedaron en %d."
 msgstr ""
 
 #. translators: 1: desvinculados, 2: los que fallaron.
-#: build/index.js:59
+#: build/index.js:60
 #, js-format
 msgid "Se desvincularon %1$d. %2$d no se pudieron: probá de nuevo."
 msgstr ""
 
 #. translators: %d: cuántos.
-#: build/index.js:60
+#: build/index.js:61
 #, js-format
 msgid "Desvinculando %d producto: la otra tienda se entera en menos de un minuto."
 msgid_plural "Desvinculando %d productos: la otra tienda se entera en menos de un minuto."
 msgstr[0] ""
 msgstr[1] ""
 
-#: build/index.js:60
+#: build/index.js:61
 msgid "Desvinculando: la otra tienda se entera en menos de un minuto."
 msgstr ""
 
-#: build/index.js:60
+#: build/index.js:61
 msgid "No hay productos que coincidan"
 msgstr ""
 
-#: build/index.js:60
+#: build/index.js:61
 msgid "Probá con otro nombre o SKU, o cambiá el filtro."
 msgstr ""
 
-#: build/index.js:60
-#: build/index.js:66
+#: build/index.js:61
+#: build/index.js:67
 msgid "Limpiar filtros"
 msgstr ""
 
-#: build/index.js:60
+#: build/index.js:61
 msgid "Seleccionar todo lo de la página"
 msgstr ""
 
-#: build/index.js:60
+#: build/index.js:61
 msgid "Stock"
 msgstr ""
 
-#: build/index.js:60
+#: build/index.js:61
 msgid "La otra tienda"
 msgstr ""
 
-#: build/index.js:60
+#: build/index.js:61
 msgid "Estado"
 msgstr ""
 
-#: build/index.js:60
+#: build/index.js:61
 msgid "Acciones en lote"
 msgstr ""
 
 #. translators: 1: cuántos van, 2: de cuántos.
-#: build/index.js:61
+#: build/index.js:62
 #, js-format
 msgid "Desvinculando %1$d de %2$d…"
 msgstr ""
 
 #. translators: %d: cuántos.
-#: build/index.js:62
+#: build/index.js:63
 #, js-format
 msgid "%d seleccionado"
 msgid_plural "%d seleccionados"
@@ -2520,195 +2532,195 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %d: cuántos vinculados.
-#: build/index.js:64
+#: build/index.js:65
 #, js-format
 msgid "Desvincular %d"
 msgstr ""
 
-#: build/index.js:64
+#: build/index.js:65
 msgid "Error al cargar registros."
 msgstr ""
 
-#: build/index.js:65
+#: build/index.js:66
 msgid "Sus movimientos de stock y lo que le pasó, de lo más nuevo a lo más viejo."
 msgstr ""
 
-#: build/index.js:65
+#: build/index.js:66
 msgid "Lo que pasó entre las dos tiendas: vínculos, reconciliaciones, discrepancias y cortes de conexión."
 msgstr ""
 
-#: build/index.js:65
+#: build/index.js:66
 msgid "Ver todo el registro"
 msgstr ""
 
-#: build/index.js:65
+#: build/index.js:66
 msgid "Nivel"
 msgstr ""
 
-#: build/index.js:65
+#: build/index.js:66
 msgid "Tipo"
 msgstr ""
 
-#: build/index.js:65
+#: build/index.js:66
 msgid "Todos los tipos"
 msgstr ""
 
-#: build/index.js:65
+#: build/index.js:66
 msgid "Período"
 msgstr ""
 
-#: build/index.js:65
+#: build/index.js:66
 msgid "Buscar producto"
 msgstr ""
 
-#: build/index.js:65
+#: build/index.js:66
 msgid "Producto, SKU o ID"
 msgstr ""
 
 #. translators: %d: cuántos errores.
-#: build/index.js:66
+#: build/index.js:67
 #, js-format
 msgid "%d error"
 msgid_plural "%d errores"
 msgstr[0] ""
 msgstr[1] ""
 
-#: build/index.js:66
+#: build/index.js:67
 msgid "con estos filtros."
 msgstr ""
 
-#: build/index.js:66
+#: build/index.js:67
 msgid "Ver errores"
 msgstr ""
 
-#: build/index.js:66
+#: build/index.js:67
 msgid "Cargando registros…"
 msgstr ""
 
-#: build/index.js:66
+#: build/index.js:67
 msgid "Todavía no tiene movimientos ni eventos"
 msgstr ""
 
-#: build/index.js:66
+#: build/index.js:67
 msgid "No hay registros con estos filtros"
 msgstr ""
 
-#: build/index.js:66
+#: build/index.js:67
 msgid "Probá con otro período o tipo."
 msgstr ""
 
-#: build/index.js:66
+#: build/index.js:67
 msgid "La conexión con la otra tienda, los avisos y qué pasa con tus datos."
 msgstr ""
 
-#: build/index.js:66
+#: build/index.js:67
 msgid "Emparejamiento"
 msgstr ""
 
-#: build/index.js:66
+#: build/index.js:67
 msgid "Emparejar de nuevo reemplaza el emparejamiento actual. Si volvés a emparejar con la misma tienda, los vínculos se mantienen."
 msgstr ""
 
-#: build/index.js:66
+#: build/index.js:67
 msgid "Así la nombran los avisos y la otra tienda. Si lo cambiás, la otra lo recibe al guardar."
 msgstr ""
 
-#: build/index.js:66
+#: build/index.js:67
 msgid "Avisarme por email"
 msgstr ""
 
-#: build/index.js:66
+#: build/index.js:67
 msgid "Cuando la otra tienda no responde, cuando algo falla y cuando hay productos que no sincronizan."
 msgstr ""
 
-#: build/index.js:66
+#: build/index.js:67
 msgid "Apagado. Todo se sigue registrando en Registros."
 msgstr ""
 
-#: build/index.js:66
+#: build/index.js:67
 msgid "Vacío, al email del administrador."
 msgstr ""
 
-#: build/index.js:66
+#: build/index.js:67
 msgid "Datos"
 msgstr ""
 
-#: build/index.js:66
+#: build/index.js:67
 msgid "Eliminar todos los datos al desinstalar"
 msgstr ""
 
-#: build/index.js:66
+#: build/index.js:67
 msgid "Al borrar el plugin se pierden para siempre los vínculos, el libro de movimientos —el historial de stock—, los registros y la configuración."
 msgstr ""
 
-#: build/index.js:66
+#: build/index.js:67
 msgid "Si borrás el plugin, los vínculos y los registros quedan guardados por si lo volvés a instalar."
 msgstr ""
 
-#: build/index.js:66
+#: build/index.js:67
 msgid "Ocultar los requisitos"
 msgstr ""
 
-#: build/index.js:66
+#: build/index.js:67
 msgid "Revisar los requisitos del plugin"
 msgstr ""
 
-#: build/index.js:66
+#: build/index.js:67
 msgid "Tenés cambios sin guardar"
 msgstr ""
 
-#: build/index.js:66
+#: build/index.js:67
 msgid "Cambios guardados."
 msgstr ""
 
-#: build/index.js:66
+#: build/index.js:67
 msgid "Guardando…"
 msgstr ""
 
-#: build/index.js:66
+#: build/index.js:67
 msgid "Guardar cambios"
 msgstr ""
 
-#: build/index.js:66
+#: build/index.js:67
 msgid "Configuración inicial"
 msgstr ""
 
-#: build/index.js:66
-msgid "Revisamos lo que el plugin necesita, nombramos la tienda, la emparejamos con la otra y configuramos los avisos."
-msgstr ""
-
-#. translators: %s: la otra tienda.
 #: build/index.js:67
-#, js-format
-msgid "En pausa con %s"
+msgid "Revisamos lo que el plugin necesita, nombramos la tienda, la emparejamos con la otra y configuramos los avisos."
 msgstr ""
 
 #. translators: %s: la otra tienda.
 #: build/index.js:68
 #, js-format
-msgid "%s no responde"
+msgid "En pausa con %s"
 msgstr ""
 
 #. translators: %s: la otra tienda.
 #: build/index.js:69
 #, js-format
-msgid "Conectada con %s"
+msgid "%s no responde"
 msgstr ""
 
-#. translators: %s: desde cuándo.
+#. translators: %s: la otra tienda.
 #: build/index.js:70
 #, js-format
-msgid "Desde %s"
+msgid "Conectada con %s"
 msgstr ""
 
 #. translators: %s: desde cuándo.
 #: build/index.js:71
 #, js-format
-msgid "La otra tienda rechaza los pedidos de ésta desde %s. Esperar no lo arregla: revisá el emparejamiento en Configuración."
+msgid "Desde %s"
 msgstr ""
 
 #. translators: %s: desde cuándo.
 #: build/index.js:72
+#, js-format
+msgid "La otra tienda rechaza los pedidos de ésta desde %s. Esperar no lo arregla: revisá el emparejamiento en Configuración."
+msgstr ""
+
+#. translators: %s: desde cuándo.
+#: build/index.js:73
 #, js-format
 msgid "La otra tienda no responde desde %s. Los stocks pueden verse descuadrados: la cola y la reconciliación lo reparan solas cuando vuelva."
 msgstr ""

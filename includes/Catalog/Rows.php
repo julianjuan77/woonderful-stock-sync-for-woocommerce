@@ -70,7 +70,13 @@ final class Rows {
 	/**
 	 * Los estados del filtro, además de los de `State`.
 	 */
-	public const STATES = array( 'all', self::SUGGESTION, State::UNLINKED, State::LINKED, State::SUSPENDED );
+	public const STATES = array( 'all', self::SUGGESTION, State::UNLINKED, State::LINKED, State::SUSPENDED, self::DIFFERS );
+
+	/**
+	 * Vinculado y al día, con un stock distinto del de la otra según la copia (ADR-021): un
+	 * filtro, como la sugerencia, no un estado.
+	 */
+	public const DIFFERS = 'differs';
 
 	/**
 	 * Los estados de un producto que se listan: también la papelera, que es un motivo.
@@ -124,10 +130,18 @@ final class Rows {
 				++$counts[ self::SUGGESTION ];
 			}
 
+			if ( $row['differs'] ) {
+				++$counts[ self::DIFFERS ];
+			}
+
 			// El resumen del padre, con todas sus variaciones: contraído, es lo único que se ve.
 			if ( $row['parent'] > 0 ) {
 				$summary[ $row['group'] ]['total']           = ( $summary[ $row['group'] ]['total'] ?? 0 ) + 1;
 				$summary[ $row['group'] ][ $row['state'] ] = ( $summary[ $row['group'] ][ $row['state'] ] ?? 0 ) + 1;
+
+				if ( $row['differs'] ) {
+					$summary[ $row['group'] ][ self::DIFFERS ] = ( $summary[ $row['group'] ][ self::DIFFERS ] ?? 0 ) + 1;
+				}
 			}
 		}
 
@@ -135,7 +149,7 @@ final class Rows {
 		$motive = (string) ( $filters['motive'] ?? '' );
 		$rows   = array_filter(
 			$rows,
-			static fn ( array $row ) => ( 'all' === $state || $state === $row['state'] || ( self::SUGGESTION === $state && self::SUGGESTION === $row['motive'] ) )
+			static fn ( array $row ) => ( 'all' === $state || $state === $row['state'] || ( self::SUGGESTION === $state && self::SUGGESTION === $row['motive'] ) || ( self::DIFFERS === $state && $row['differs'] ) )
 				&& ( '' === $motive || $motive === $row['motive'] )
 		);
 
@@ -224,7 +238,8 @@ final class Rows {
 				// Sin vínculo acá, pero la otra todavía no se enteró: no se vincula hasta que sí.
 				$row['unlinking'] = array_key_exists( $id, $leaving );
 			} elseif ( isset( $links[ $id ] ) ) {
-				$row['remote'] = $remote[ $links[ $id ] ] ?? array( 'id' => $links[ $id ] );
+				$row['remote']  = $remote[ $links[ $id ] ] ?? array( 'id' => $links[ $id ] );
+				$row['differs'] = State::LINKED === $state['state'] && null !== ( $row['remote']['stock'] ?? null ) && $row['stock'] !== (int) $row['remote']['stock'];
 			}
 
 			$rows[] = $row;
@@ -343,6 +358,7 @@ final class Rows {
 			'motive'      => null,
 			'remote'      => null,
 			'suggestion'  => null,
+			'differs'     => false,
 		);
 	}
 
