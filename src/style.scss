@@ -3078,6 +3078,15 @@ h2.wss-confirm__title {
 	margin-right: 8px;
 	font-weight: 600;
 	color: var(--woon-ink);
+
+	&.is-link {
+		cursor: pointer;
+
+		&:hover {
+			color: var(--woon-primary);
+			text-decoration: underline;
+		}
+	}
 }
 
 .wss-log-filters {

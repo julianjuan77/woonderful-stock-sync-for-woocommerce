@@ -513,43 +513,97 @@ class Test_Admin extends WP_UnitTestCase {
 
 	/**
 	 * ADM-35 — **La pestaña Movimientos** (ADR-023): los del libro, de lo más nuevo a lo más
-	 * viejo, propios y recibidos, con el producto de acá; uno recibido de un vínculo que ya no
-	 * está, sin producto y con el de allá. Filtra por motivo y busca por producto.
+	 * viejo, propios ("Acá") y recibidos ("En la otra tienda"), con el producto de acá y cómo
+	 * terminaron; uno recibido de un vínculo que ya no está, sin producto y con el de allá.
 	 */
 	public function test_the_movements_list(): void {
-		global $wpdb;
-
 		$this->as_user( 'administrator' );
 		$token = uniqid( 'adm35' );
 		$green = $this->linked( 5, 5, 900, "Alpargata verde {$token}" );
 		$blue  = $this->linked( 5, 5, 901, 'Ojota azul' );
-		$table = Installer::table( 'movements' );
-		$base  = array(
-			'origin_store' => self::REMOTE_STORE,
-			'generation'   => 1,
-			'delta'        => 1,
-			'reason'       => 'cancel',
-			'application'  => 'applied',
-		);
 
 		\Woonderful\StockSync\Ledger\Ledger::record( $green, -2, 'sale', 'pedido #4512' );
-		$wpdb->insert( $table, $base + array( 'origin_seq' => 50, 'created_at' => gmdate( 'Y-m-d H:i:s', time() + 1 ), 'origin_product' => 901, 'link_id' => (int) Links::for_product( $blue )->id ) ); // phpcs:ignore WordPress.DB, WordPress.Arrays.ArrayDeclarationSpacing.AssociativeArrayFound
-		$wpdb->insert( $table, $base + array( 'origin_seq' => 51, 'created_at' => gmdate( 'Y-m-d H:i:s', time() + 2 ), 'origin_product' => 777, 'link_id' => 99999 ) ); // phpcs:ignore WordPress.DB, WordPress.Arrays.ArrayDeclarationSpacing.AssociativeArrayFound
+		$this->received( 50, 1, 'cancel', 901, (int) Links::for_product( $blue )->id, 'applied' );
+		$this->received( 51, 2, 'sale', 777, 99999, 'held' );
 
-		$data = $this->send( 'GET', '/movements', array() )->get_data();
+		$items = $this->send( 'GET', '/movements', array() )->get_data()['items'];
 
-		$this->assertSame( 3, $data['total'] );
-		$this->assertSame( array( null, $blue, $green ), array_column( $data['items'], 'product' ) );
-		$this->assertSame( 777, $data['items'][0]['remote_product'], 'sin vínculo: el de allá' );
-		$this->assertSame( 'Ojota azul', $data['items'][1]['name'] );
-		$this->assertStringContainsString( 'cancelación', $data['items'][1]['text'] );
-		$this->assertStringContainsString( 'venta (pedido #4512)', $data['items'][2]['text'] );
-		$this->assertSame( 'movement', $data['items'][2]['type'] );
+		$this->assertSame( array( null, $blue, $green ), array_column( $items, 'product' ) );
 
-		$this->assertSame( 2, $this->send( 'GET', '/movements', array( 'reason' => 'cancel' ) )->get_data()['total'] );
-		$this->assertSame( array( $green ), array_column( $this->send( 'GET', '/movements', array( 'search' => "verde {$token}" ) )->get_data()['items'], 'product' ) );
-		$this->assertSame( array( $blue ), array_column( $this->send( 'GET', '/movements', array( 'search' => (string) $blue ) )->get_data()['items'], 'product' ), 'el recibido, por su vínculo' );
-		$this->assertSame( 0, $this->send( 'GET', '/movements', array( 'search' => 'no-existe-' . $token ) )->get_data()['total'] );
+		$this->assertSame( 777, $items[0]['remote_product'], 'sin vínculo: el de allá' );
+		$this->assertNull( $items[0]['name'] );
+		$this->assertSame( 'held', $items[0]['context']['application'] );
+
+		$this->assertSame( 'Ojota azul', $items[1]['name'] );
+		$this->assertStringStartsWith( 'En la otra tienda: cancelación', $items[1]['text'] );
+
+		$this->assertSame( "Alpargata verde {$token}", $items[2]['name'] );
+		$this->assertStringStartsWith( 'Acá: venta (pedido #4512)', $items[2]['text'] );
+		$this->assertSame( 'pending', $items[2]['context']['delivery'] );
+	}
+
+	/**
+	 * ADM-36 — **Los filtros de Movimientos**: el motivo, la búsqueda por el producto de acá —un
+	 * recibido cuyo ID de allá coincide con uno de acá no entra—, los dos juntos, el período y la
+	 * página 2.
+	 */
+	public function test_the_movements_filters(): void {
+		$this->as_user( 'administrator' );
+		$green = $this->linked( 5, 5, 900, 'Alpargata verde' );
+		$blue  = $this->linked( 5, 5, 901, 'Ojota azul' );
+		$link  = (int) Links::for_product( $blue )->id;
+
+		\Woonderful\StockSync\Ledger\Ledger::record( $green, -2, 'sale' );
+		// Allá su ID es el de la verde de acá; acá es la azul.
+		$this->received( 60, 1, 'cancel', $green, $link, 'applied' );
+		$this->received( 61, 1, 'sale', $green, $link, 'applied', 10 );
+
+		$products = fn ( array $params ) => array_column( $this->send( 'GET', '/movements', $params )->get_data()['items'], 'product' );
+
+		$this->assertSame( array( $blue ), $products( array( 'reason' => 'cancel' ) ) );
+		$this->assertSame( array( $green ), $products( array( 'search' => (string) $green ) ), 'el de acá, no el ID de allá' );
+		$this->assertSame( array( $blue, $blue ), $products( array( 'search' => (string) $blue ) ) );
+		$this->assertSame( array( $blue ), $products( array( 'search' => (string) $blue, 'reason' => 'sale' ) ) );
+		$this->assertSame( array( $blue, $green ), $products( array( 'from' => gmdate( 'Y-m-d', time() - 3 * DAY_IN_SECONDS ) ) ), 'la de hace 10 días no' );
+
+		for ( $seq = 70; $seq < 120; $seq++ ) {
+			$this->received( $seq, 1, 'adjustment', 901, $link, 'applied', 20 );
+		}
+
+		$second = $this->send( 'GET', '/movements', array( 'page' => 2 ) )->get_data();
+
+		$this->assertSame( 53, $second['total'] );
+		$this->assertCount( 3, $second['items'] );
+	}
+
+	/**
+	 * Un movimiento recibido de la otra tienda.
+	 *
+	 * @param int    $seq         Su secuencia allá.
+	 * @param int    $delta       Unidades.
+	 * @param string $reason      El motivo.
+	 * @param int    $remote      El producto allá.
+	 * @param int    $link_id     El vínculo de acá.
+	 * @param string $application Cómo terminó.
+	 * @param int    $days_ago    Hace cuántos días; 0, unos segundos después de ahora.
+	 */
+	private function received( int $seq, int $delta, string $reason, int $remote, int $link_id, string $application, int $days_ago = 0 ): void {
+		global $wpdb;
+
+		$wpdb->insert( // phpcs:ignore WordPress.DB
+			Installer::table( 'movements' ),
+			array(
+				'origin_store'   => self::REMOTE_STORE,
+				'origin_seq'     => $seq,
+				'generation'     => 1,
+				'delta'          => $delta,
+				'reason'         => $reason,
+				'origin_product' => $remote,
+				'link_id'        => $link_id,
+				'application'    => $application,
+				'created_at'     => gmdate( 'Y-m-d H:i:s', 0 === $days_ago ? time() + $seq : time() - $days_ago * DAY_IN_SECONDS ),
+			)
+		);
 	}
 
 	/**

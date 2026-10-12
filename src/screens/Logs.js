@@ -38,6 +38,19 @@ const REASONS = [
 
 // Cómo terminó un movimiento, sólo cuando no terminó bien: entregado y aplicado no se dicen.
 const MOVEMENT_STATES = {
+	// Los del stock inicial de un vínculo: en camino, sin confirmar, o rechazado por la otra.
+	syncing: [
+		'info',
+		__( 'esperando', 'woonderful-stock-sync-for-woocommerce' ),
+	],
+	uncertain: [
+		'info',
+		__( 'esperando', 'woonderful-stock-sync-for-woocommerce' ),
+	],
+	failed: [
+		'error',
+		__( 'rechazado', 'woonderful-stock-sync-for-woocommerce' ),
+	],
 	pending: [
 		'info',
 		__( 'esperando', 'woonderful-stock-sync-for-woocommerce' ),
@@ -343,8 +356,12 @@ export default function Logs( { apiFetch, navigate } ) {
 	const [ filters, setFilters ] = useState( getInitialFilters );
 	const [ search, setSearch ] = useState( '' );
 	const searchTimer = useRef();
+	const lastFetch = useRef( 0 );
 
 	const fetchLogs = useCallback( async () => {
+		// Sólo vale la respuesta del último pedido: al cambiar de pestaña, una más lenta de la
+		// otra llegaría después y mostraría avisos en Movimientos.
+		const ticket = ++lastFetch.current;
 		setLoading( true );
 		setError( null );
 		try {
@@ -366,11 +383,17 @@ export default function Logs( { apiFetch, navigate } ) {
 			const data = await apiFetch( {
 				path: `${ movements ? '/movements' : '/log' }?${ params }`,
 			} );
+			if ( ticket !== lastFetch.current ) {
+				return;
+			}
 			setEntries( data.items );
 			setTotal( data.total );
 			setLevels( data.levels ?? null );
 			setName( data.name ?? null );
 		} catch ( e ) {
+			if ( ticket !== lastFetch.current ) {
+				return;
+			}
 			setError(
 				e?.message ||
 					__(
@@ -379,7 +402,9 @@ export default function Logs( { apiFetch, navigate } ) {
 					)
 			);
 		} finally {
-			setLoading( false );
+			if ( ticket === lastFetch.current ) {
+				setLoading( false );
+			}
 		}
 	}, [ apiFetch, page, filters ] );
 
@@ -417,8 +442,17 @@ export default function Logs( { apiFetch, navigate } ) {
 		setPage( 1 );
 	};
 
+	// La pestaña va en la dirección: al recargar, sigue en la misma.
+	const viewParams = ( view ) =>
+		'movements' === view ? { view: 'movements' } : undefined;
+
+	const pickView = ( view ) => {
+		navigate( 'logs', viewParams( view ) );
+		updateFilter( 'view', view );
+	};
+
 	const showAll = () => {
-		navigate( 'logs' );
+		navigate( 'logs', viewParams( filters.view ) );
 		updateFilter( 'product', '' );
 	};
 
@@ -526,7 +560,7 @@ export default function Logs( { apiFetch, navigate } ) {
 							className={ `wss-tab ${
 								filters.view === value ? 'is-active' : ''
 							}` }
-							onClick={ () => updateFilter( 'view', value ) }
+							onClick={ () => pickView( value ) }
 						>
 							{ label }
 						</button>
@@ -911,7 +945,27 @@ function Entry( { entry, child, open, onToggle, onHistory, inHistory } ) {
 				</span>
 				<span className="wss-log-row__text">
 					{ product && (
-						<b className="wss-log-row__product">{ product }</b>
+						<b
+							className={ `wss-log-row__product ${
+								entry.product ? 'is-link' : ''
+							}` }
+							role={ entry.product ? 'link' : undefined }
+							tabIndex={ entry.product ? 0 : undefined }
+							onClick={ ( e ) => {
+								if ( entry.product ) {
+									e.stopPropagation();
+									onHistory( entry.product );
+								}
+							} }
+							onKeyDown={ ( e ) => {
+								if ( entry.product && 'Enter' === e.key ) {
+									e.stopPropagation();
+									onHistory( entry.product );
+								}
+							} }
+						>
+							{ product }
+						</b>
 					) }
 					{ entry.text }
 					<StockChange stocks={ entry.stocks } />
