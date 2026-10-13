@@ -583,6 +583,7 @@ final class Api {
 				'motive'         => sanitize_key( (string) $request['motive'] ),
 				'search'         => sanitize_text_field( (string) $request['search'] ),
 				'show_discarded' => rest_sanitize_boolean( (string) $request['show_discarded'] ),
+				'show_unmanaged' => rest_sanitize_boolean( (string) $request['show_unmanaged'] ),
 			),
 			max( 1, (int) $request['page'] )
 		);

@@ -507,7 +507,13 @@ reglas que `wp wss status`, pero con la copia en vez de preguntarle a la otra. E
 vincular, en este orden: en la papelera, descartado, sin SKU, SKU duplicado —acá o allá—, sin
 coincidencia —ninguno allá, o el único ya tiene par—, con sugerencia. **El SKU se compara sin
 espacios a los costados y sin mayúsculas** (`Rows::normalize()`). Un variable que lleva el stock en
-el padre tiene su propia fila, que lo dice. Lo descartado se esconde salvo pedido o buscado. **Primero lo vinculado**: los productos se ordenan vinculado, parcial —un variable con alguna variación vinculada—, suspendido, con sugerencia, sin vincular y descartado (`Rows::rank()`); dentro de cada uno, por ID. Si la copia tiene más de 10 minutos, la pantalla la refresca al abrirse. Todos los filtros son botones, como en woonderful-sync.
+el padre tiene su propia fila, que lo dice. **Lo que no gestiona stock** (ADR-024,
+`Rows::unmanaged()`): un simple o una variación de acá sin su stock y sin vínculo tiene fila con
+`not_managing`; se ve si el único de allá con su SKU lleva el stock, y si no —en ninguna, o sin
+par— lleva `hidden` y sólo sale con `show_unmanaged`, la opción de la rueda dentada (guardada en
+`localStorage`). Uno de acá con stock cuyo único par por SKU allá no lo lleva dice
+`remote_not_managing` en vez de sin coincidencia. Los visibles cuentan en `linking()` y entran en
+el email de la noche (`Rows::mismatched()`); ninguno tiene acciones. Lo descartado se esconde salvo pedido o buscado. **Primero lo vinculado**: los productos se ordenan vinculado, parcial —un variable con alguna variación vinculada—, suspendido, con sugerencia, sin vincular y descartado (`Rows::rank()`); dentro de cada uno, por ID. Si la copia tiene más de 10 minutos, la pantalla la refresca al abrirse. Todos los filtros son botones, como en woonderful-sync.
 **Los productos variables aparecen contraídos**: un renglón con su resumen —cuántas variaciones y
 en qué estado—, que se abre con un clic. También con un filtro (pedido de Julián,
 2026-10-10); con una búsqueda se ven abiertos, porque lo que se busca suele ser una variación. **Se pagina de a 50 productos, no de a 50 filas**: un padre va
@@ -878,3 +884,4 @@ Ver `DECISIONS.md`. Índice de las aprobadas:
 | ADR-021 | Cada noche, la maestra compara su stock con el de la otra y avisa las diferencias | modulos, opciones, uninstall |
 | ADR-022 | "Igualar stock": un botón para que las dos tiendas vuelvan a tener el mismo número | rest-api, modulos |
 | ADR-023 | Una pestaña "Movimientos" en Registros | rest-api, modulos |
+| ADR-024 | Productos muestra lo que no gestiona stock en una de las dos tiendas | rest-api, modulos |

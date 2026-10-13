@@ -4660,7 +4660,7 @@ ventas.
 
 ## ADR-024 — Productos muestra lo que no gestiona stock en una de las dos tiendas
 
-Estado: Propuesta
+Estado: Aprobada · 2026-10-12 · aprobada por Julián
 Temas: rest-api, modulos
 Cubre: includes/Catalog/Rows.php, includes/Admin/Api.php, src/screens/Products.js, src/style.scss
 

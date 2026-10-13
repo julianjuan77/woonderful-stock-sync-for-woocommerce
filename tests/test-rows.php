@@ -544,4 +544,41 @@ class Test_Rows extends WP_UnitTestCase {
 
 		$this->assertSame( array( $ids[0] ), array_column( $filtered['rows'], 'id' ) );
 	}
+
+	/**
+	 * ROW-18 — **Lo que no gestiona stock en una de las dos** (ADR-024): acá no y allá sí se ve
+	 * como "no gestiona stock"; acá sí y allá no, "en la otra tienda no gestiona stock". En
+	 * ninguna, o sin par por SKU, sólo con la opción, y no cuenta.
+	 */
+	public function test_what_does_not_manage_stock_on_one_side_is_listed(): void {
+		$here_only  = $this->simple( 'ACA' );
+		$there_only = $this->simple( 'ALLA', null );
+		$neither    = $this->simple( 'NINGUNA', null );
+		$alone      = $this->simple( 'SOLO', null );
+
+		$this->remote( 990, 'ACA', array( 'stock' => null ) );
+		$this->remote( 991, 'ALLA', array( 'stock' => 4 ) );
+		$this->remote( 992, 'NINGUNA', array( 'stock' => null ) );
+
+		$motives = fn ( array $filters = array() ) => array_column( $this->rows( $filters ), 'motive', 'id' );
+
+		$default = $motives();
+
+		$this->assertSame( Rows::REMOTE_NOT_MANAGING, $default[ $here_only ] );
+		$this->assertSame( Rows::NOT_MANAGING, $default[ $there_only ] );
+		$this->assertArrayNotHasKey( $neither, $default );
+		$this->assertArrayNotHasKey( $alone, $default );
+
+		$all = $motives( array( 'show_unmanaged' => true ) );
+
+		$this->assertSame( Rows::NOT_MANAGING, $all[ $neither ] );
+		$this->assertSame( Rows::NOT_MANAGING, $all[ $alone ] );
+
+		$this->assertContains( $there_only, Rows::mismatched() );
+		$this->assertNotContains( $neither, Rows::mismatched() );
+		$this->assertNull( $this->rows()[ $there_only ]['stock'] );
+
+		// "Sin vincular" de Resumen es el mismo número que el filtro, sin la opción.
+		$this->assertSame( Rows::page( array( 'state' => 'unlinked' ) )['counts']['unlinked'], Rows::linking()['unlinked'] );
+	}
 }

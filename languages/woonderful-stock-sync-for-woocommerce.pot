@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-10-12T23:28:45+00:00\n"
+"POT-Creation-Date: 2026-10-13T00:09:03+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: woonderful-stock-sync-for-woocommerce\n"
@@ -66,23 +66,23 @@ msgstr ""
 msgid "La tienda necesita un nombre."
 msgstr ""
 
-#: includes/Admin/Api.php:655
+#: includes/Admin/Api.php:656
 msgid "vinculado desde la pantalla"
 msgstr ""
 
-#: includes/Admin/Api.php:677
+#: includes/Admin/Api.php:678
 msgid "reasignado desde la pantalla"
 msgstr ""
 
-#: includes/Admin/Api.php:690
+#: includes/Admin/Api.php:691
 msgid "Hay que elegir cuál de los dos números vale."
 msgstr ""
 
-#: includes/Admin/Api.php:774
+#: includes/Admin/Api.php:775
 msgid "Vincular se hace desde la tienda maestra."
 msgstr ""
 
-#: includes/Admin/Api.php:778
+#: includes/Admin/Api.php:779
 msgid "La sincronización está en pausa: no se vincula hasta reanudarla."
 msgstr ""
 
@@ -207,7 +207,7 @@ msgid "El refresco del catálogo empieza por la página 1."
 msgstr ""
 
 #. translators: %d: el ID del producto.
-#: includes/Catalog/Rows.php:377
+#: includes/Catalog/Rows.php:407
 #, php-format
 msgid "Producto borrado (#%d)"
 msgstr ""
@@ -992,7 +992,7 @@ msgid "Estos productos no se pudieron vincular, o no se sabe si la otra tienda l
 msgstr ""
 
 #. translators: %d: horas.
-#: includes/Log/Notifier.php:703
+#: includes/Log/Notifier.php:709
 #, php-format
 msgid "%d hora"
 msgid_plural "%d horas"
@@ -1743,11 +1743,23 @@ msgid "SKU duplicado"
 msgstr ""
 
 #: build/index.js:30
+msgid "No gestiona stock"
+msgstr ""
+
+#: build/index.js:30
+msgid "Allá no gestiona stock"
+msgstr ""
+
+#: build/index.js:30
 msgid "En la papelera"
 msgstr ""
 
 #: build/index.js:30
 msgid "Descartados"
+msgstr ""
+
+#: build/index.js:30
+msgid "En la otra tienda no gestiona stock"
 msgstr ""
 
 #: build/index.js:30
@@ -2504,6 +2516,14 @@ msgstr ""
 
 #: build/index.js:58
 msgid "Buscar por nombre o SKU, en las dos tiendas"
+msgstr ""
+
+#: build/index.js:58
+msgid "Opciones de la lista"
+msgstr ""
+
+#: build/index.js:58
+msgid "Mostrar los que no gestionan stock"
 msgstr ""
 
 #: build/index.js:58

@@ -68,6 +68,16 @@ final class Rows {
 	public const STOCK_IN_PARENT = 'stock_in_parent';
 
 	/**
+	 * Acá no lleva su propio stock (ADR-024).
+	 */
+	public const NOT_MANAGING = 'not_managing';
+
+	/**
+	 * Acá lo lleva, y el de allá con el mismo SKU no (ADR-024).
+	 */
+	public const REMOTE_NOT_MANAGING = 'remote_not_managing';
+
+	/**
 	 * Los estados del filtro, además de los de `State`.
 	 */
 	public const STATES = array( 'all', self::SUGGESTION, State::UNLINKED, State::LINKED, State::SUSPENDED, self::DIFFERS );
@@ -99,6 +109,12 @@ final class Rows {
 	public static function page( array $filters, int $page = 1 ): array {
 		$rows   = self::all();
 		$search = self::normalize( (string) ( $filters['search'] ?? '' ) );
+
+		// Lo que no gestiona stock en ninguna, o no tiene par por SKU, sólo con la opción
+		// (ADR-024): no se cuenta ni se busca.
+		if ( true !== ( $filters['show_unmanaged'] ?? false ) ) {
+			$rows = array_filter( $rows, static fn ( array $row ) => ! $row['hidden'] );
+		}
 
 		if ( '' !== $search ) {
 			$rows = array_filter( $rows, static fn ( array $row ) => self::matches( $row, $search ) );
@@ -221,6 +237,7 @@ final class Rows {
 		$links    = self::links_of( array_keys( $linkable ) );
 		$skus     = self::sku_counts( $linkable );
 		$by_sku   = self::remote_by_sku( $remote );
+		$any_sku  = self::remote_by_sku( $remote, true );
 		$discards = Events::discarded_among( array_keys( $linkable ) );
 		$leaving  = Ledger::unlinking_among( array_keys( $linkable ) );
 		$rows     = array();
@@ -233,7 +250,7 @@ final class Rows {
 			$row['reason'] = null === $state['reason'] ? null : Events::reason_text( (string) $state['reason'] );
 
 			if ( State::UNLINKED === $state['state'] ) {
-				list( $row['motive'], $row['suggestion'] ) = self::motive( $item, isset( $discards[ $id ] ), $skus, $by_sku, $linked );
+				list( $row['motive'], $row['suggestion'] ) = self::motive( $item, isset( $discards[ $id ] ), $skus, $by_sku, $linked, $any_sku );
 
 				// Sin vínculo acá, pero la otra todavía no se enteró: no se vincula hasta que sí.
 				$row['unlinking'] = array_key_exists( $id, $leaving );
@@ -257,6 +274,18 @@ final class Rows {
 			$row['state']  = $state['state'];
 			$row['reason'] = null === $state['reason'] ? null : Events::reason_text( (string) $state['reason'] );
 			$row['remote'] = $remote[ (int) $orphans[ $id ]->remote_product ] ?? array( 'id' => (int) $orphans[ $id ]->remote_product );
+
+			$rows[] = $row;
+		}
+
+		// Lo que acá no lleva su propio stock y no está vinculado (ADR-024): se ve si el de
+		// allá con el mismo SKU sí lo lleva; si no, sólo con la opción.
+		foreach ( self::unmanaged( $local, $remote, Links::all() ) as $id => $hidden ) {
+			$row = self::row( $local[ $id ], $local );
+
+			$row['state']  = State::UNLINKED;
+			$row['motive'] = self::NOT_MANAGING;
+			$row['hidden'] = $hidden;
 
 			$rows[] = $row;
 		}
@@ -301,7 +330,7 @@ final class Rows {
 		}
 
 		return array(
-			'unlinked' => $count + count( array_filter( $local, static fn ( array $item ) => $item['stock_in_parent'] ) ),
+			'unlinked' => $count + count( array_filter( $local, static fn ( array $item ) => $item['stock_in_parent'] ) ) + count( array_filter( self::unmanaged( $local, self::remote(), Links::all() ), static fn ( bool $hidden ) => ! $hidden ) ),
 			// Todos, también los de un producto borrado: se listan como suspendidos.
 			'linked'   => count( Links::all() ),
 		);
@@ -359,6 +388,7 @@ final class Rows {
 			'remote'      => null,
 			'suggestion'  => null,
 			'differs'     => false,
+			'hidden'      => false,
 		);
 	}
 
@@ -389,10 +419,11 @@ final class Rows {
 	 * @param array<string, int>                              $skus      Cuántos de acá tienen cada SKU.
 	 * @param array<string, array<int, array<string, mixed>>> $by_sku    Los vinculables de allá, por SKU.
 	 * @param array<int, true>                                $linked    Los de allá que ya tienen par.
+	 * @param array<string, array<int, array<string, mixed>>> $any_sku   Los de allá por SKU, también sin su stock.
 	 *
 	 * @return array{0: string, 1: array<string, mixed>|null}
 	 */
-	private static function motive( array $item, bool $discarded, array $skus, array $by_sku, array $linked ): array {
+	private static function motive( array $item, bool $discarded, array $skus, array $by_sku, array $linked, array $any_sku = array() ): array {
 		if ( 'trash' === $item['status'] ) {
 			return array( self::TRASHED, null );
 		}
@@ -411,6 +442,11 @@ final class Rows {
 
 		if ( ( $skus[ $sku ] ?? 0 ) > 1 || count( $there ) > 1 ) {
 			return array( self::DUPLICATE_SKU, null );
+		}
+
+		// El único de allá con ese SKU no lleva su stock: no es que no haya par (ADR-024).
+		if ( array() === $there && 1 === count( $any_sku[ $sku ] ?? array() ) && null === $any_sku[ $sku ][0]['stock'] ) {
+			return array( self::REMOTE_NOT_MANAGING, null );
 		}
 
 		if ( array() === $there || isset( $linked[ (int) $there[0]['id'] ] ) ) {
@@ -542,21 +578,66 @@ final class Rows {
 	}
 
 	/**
+	 * Lo de acá que no lleva su propio stock y no está vinculado, por ID: si se oculta (ADR-024).
+	 *
+	 * Simples y variaciones; no los padres, ni la variación que toma el stock de su padre, ni lo
+	 * que está en la papelera. Se ve si el único de allá con su SKU lleva el stock; si no hay par
+	 * o allá tampoco lo lleva, se oculta.
+	 *
+	 * @param array<int, array<string, mixed>> $local  Los de acá.
+	 * @param array<int, array<string, mixed>> $remote La copia de allá.
+	 * @param array<int, \stdClass>            $links  Los vínculos, por producto de acá.
+	 *
+	 * @return array<int, bool>
+	 */
+	private static function unmanaged( array $local, array $remote, array $links ): array {
+		$any_sku = self::remote_by_sku( $remote, true );
+		$result  = array();
+
+		foreach ( $local as $id => $item ) {
+			if ( $item['own_stock'] || isset( $links[ $id ] ) || 'trash' === $item['status'] || in_array( $item['type'], array( 'variable', 'grouped', 'external' ), true ) ) {
+				continue;
+			}
+
+			if ( 'variation' === $item['type'] && ( $local[ $item['parent'] ]['manage'] ?? false ) ) {
+				continue;
+			}
+
+			$there = $any_sku[ self::normalize( $item['sku'] ) ] ?? array();
+
+			$result[ $id ] = ! ( 1 === count( $there ) && null !== $there[0]['stock'] && '' !== self::normalize( $item['sku'] ) );
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Lo de acá que no lleva su stock y el de allá sí: lo que se ve sin la opción, cuenta en "Sin
+	 * vincular" y entra en el email de la noche (ADR-024).
+	 *
+	 * @return int[]
+	 */
+	public static function mismatched(): array {
+		return array_keys( array_filter( self::unmanaged( self::local(), self::remote(), Links::all() ), static fn ( bool $hidden ) => ! $hidden ) );
+	}
+
+	/**
 	 * Los vinculables de allá, por SKU normalizado: llevan su propio stock, no están en la
 	 * papelera y no son un padre variable —aunque lleve el stock de sus variaciones, lo que se
 	 * vincula es cada variación—.
 	 *
 	 * @param array<int, array<string, mixed>> $remote La copia.
+	 * @param bool                             $any    También los que no llevan su stock (ADR-024).
 	 *
 	 * @return array<string, array<int, array<string, mixed>>>
 	 */
-	private static function remote_by_sku( array $remote ): array {
+	private static function remote_by_sku( array $remote, bool $any = false ): array {
 		$by_sku = array();
 
 		foreach ( $remote as $product ) {
 			$sku = self::normalize( $product['sku'] );
 
-			if ( '' !== $sku && null !== $product['stock'] && 'trash' !== $product['status'] && 'variable' !== $product['type'] ) {
+			if ( '' !== $sku && ( $any || null !== $product['stock'] ) && 'trash' !== $product['status'] && 'variable' !== $product['type'] ) {
 				$by_sku[ $sku ][] = $product;
 			}
 		}

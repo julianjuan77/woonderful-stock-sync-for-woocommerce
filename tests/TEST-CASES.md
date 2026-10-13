@@ -1242,6 +1242,7 @@ Mutaciones: sin revisar el SKU fresco, o el vinculado allá, cae `BLK-03`.
 | `ROW-15` | **Un vinculado que se borró** (ADR-018 §6) | Se lista igual: suspendido, "se borró", sin stock, con el de allá; cuenta en `linking()['linked']` |
 | `ROW-16` | Un vinculado que dejó de llevar su stock | Se lista suspendido, con el motivo y sin stock |
 | `ROW-17` | **Una variación con 10 acá y 12 allá, otra igual, y un suspendido con números distintos** | Sólo la primera con `differs`; `counts.differs` 1; el padre con `differs` 1 en su resumen; el filtro `differs` trae sólo esa |
+| `ROW-18` | **Acá sí y allá no; acá no y allá sí; en ninguna; sin par por SKU** (ADR-024) | `remote_not_managing` y `not_managing` se ven; los otros dos sólo con `show_unmanaged`, como `not_managing`; `mismatched()` trae sólo el que allá gestiona; sin stock; `linking()` igual al filtro |
 
 ## Las fuentes de la marca
 

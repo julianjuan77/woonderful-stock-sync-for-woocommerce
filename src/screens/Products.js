@@ -46,6 +46,14 @@ const MOTIVE_TABS = [
 		__( 'SKU duplicado', 'woonderful-stock-sync-for-woocommerce' ),
 	],
 	[
+		'not_managing',
+		__( 'No gestiona stock', 'woonderful-stock-sync-for-woocommerce' ),
+	],
+	[
+		'remote_not_managing',
+		__( 'Allá no gestiona stock', 'woonderful-stock-sync-for-woocommerce' ),
+	],
+	[
 		'trashed',
 		__( 'En la papelera', 'woonderful-stock-sync-for-woocommerce' ),
 	],
@@ -57,6 +65,15 @@ const MOTIVE_TABS = [
 
 const MOTIVE_TEXT = {
 	no_sku: __( 'Sin SKU', 'woonderful-stock-sync-for-woocommerce' ),
+	// Hasta que gestione stock de los dos lados no se puede vincular (ADR-024).
+	not_managing: __(
+		'No gestiona stock',
+		'woonderful-stock-sync-for-woocommerce'
+	),
+	remote_not_managing: __(
+		'En la otra tienda no gestiona stock',
+		'woonderful-stock-sync-for-woocommerce'
+	),
 	duplicate_sku: __(
 		'SKU duplicado',
 		'woonderful-stock-sync-for-woocommerce'
@@ -124,6 +141,9 @@ export default function Products( { apiFetch, status } ) {
 	const [ motive, setMotive ] = useState( initialMotive );
 	const [ search, setSearch ] = useState( '' );
 	const [ query, setQuery ] = useState( '' );
+	const [ showUnmanaged, setShowUnmanaged ] = useState( () =>
+		readOption( SHOW_UNMANAGED )
+	);
 	const [ loading, setLoading ] = useState( false );
 	const [ error, setError ] = useState( null );
 	const [ refreshing, setRefreshing ] = useState( null );
@@ -171,6 +191,7 @@ export default function Products( { apiFetch, status } ) {
 				search: query,
 				// Los descartados son un motivo más: sólo se piden al elegirlo.
 				show_discarded: 'discarded' === motive ? '1' : '',
+				show_unmanaged: showUnmanaged ? '1' : '',
 			} );
 			const next = await apiFetch( { path: `/products?${ params }` } );
 			setData( next );
@@ -187,7 +208,7 @@ export default function Products( { apiFetch, status } ) {
 		} finally {
 			setLoading( false );
 		}
-	}, [ apiFetch, page, state, motive, query ] );
+	}, [ apiFetch, page, state, motive, query, showUnmanaged ] );
 
 	// La copia se refresca de a una página por request, con el avance (ADR-014 §1).
 	const refresh = useCallback( async () => {
@@ -572,6 +593,28 @@ export default function Products( { apiFetch, status } ) {
 						onChange={ ( e ) => setSearch( e.target.value ) }
 					/>
 				</div>
+				<Menu
+					icon={ <IconGear /> }
+					label={ __(
+						'Opciones de la lista',
+						'woonderful-stock-sync-for-woocommerce'
+					) }
+					items={ [
+						[
+							__(
+								'Mostrar los que no gestionan stock',
+								'woonderful-stock-sync-for-woocommerce'
+							),
+							() => {
+								writeOption( SHOW_UNMANAGED, ! showUnmanaged );
+								setShowUnmanaged( ! showUnmanaged );
+								setPage( 1 );
+							},
+							false,
+							showUnmanaged,
+						],
+					] }
+				/>
 			</div>
 
 			{ data?.catalog && (
@@ -1276,10 +1319,15 @@ function SuggestionBadge() {
 }
 
 function RowActions( { row, actions } ) {
+	// Sin acciones: no se pueden vincular hasta que se corrija en la tienda (ADR-024).
 	if (
 		row.unlinking ||
-		'stock_in_parent' === row.motive ||
-		'trashed' === row.motive
+		[
+			'stock_in_parent',
+			'trashed',
+			'not_managing',
+			'remote_not_managing',
+		].includes( row.motive )
 	) {
 		return null;
 	}
@@ -1390,7 +1438,7 @@ function RowActions( { row, actions } ) {
 // Alto de cada ítem del menú, para saber si entra abajo.
 const MENU_ITEM = 38;
 
-function Menu( { items } ) {
+function Menu( { items, icon = <IconDots />, label = null } ) {
 	const [ open, setOpen ] = useState( false );
 	const [ place, setPlace ] = useState( null );
 	const ref = useRef();
@@ -1442,29 +1490,43 @@ function Menu( { items } ) {
 		<div className="wss-menu" ref={ ref }>
 			<button
 				className="wss-iconbtn"
-				aria-label={ __(
-					'Más acciones',
-					'woonderful-stock-sync-for-woocommerce'
-				) }
+				aria-label={
+					label ??
+					__(
+						'Más acciones',
+						'woonderful-stock-sync-for-woocommerce'
+					)
+				}
 				aria-expanded={ open }
 				onClick={ toggleMenu }
 			>
-				<IconDots />
+				{ icon }
 			</button>
 			{ open && (
 				<div className="wss-pop is-fixed" style={ place }>
-					{ items.map( ( [ label, run, danger ] ) => (
+					{ items.map( ( [ text, run, danger, checked ] ) => (
 						<button
-							key={ label }
+							key={ text }
 							className={ `wss-pop__item ${
 								danger ? 'is-danger' : ''
 							}` }
+							role={
+								undefined === checked
+									? undefined
+									: 'menuitemcheckbox'
+							}
+							aria-checked={ checked }
 							onClick={ () => {
 								setOpen( false );
 								run();
 							} }
 						>
-							{ label }
+							{ undefined !== checked && (
+								<span className="wss-pop__check">
+									{ checked ? '✓' : '' }
+								</span>
+							) }
+							{ text }
 						</button>
 					) ) }
 				</div>
@@ -1605,6 +1667,38 @@ function IconLink() {
 				stroke="currentColor"
 				strokeWidth="1.5"
 				strokeLinecap="round"
+			/>
+		</svg>
+	);
+}
+
+// Las opciones de la lista son de cada navegador: comodidades, no estado del plugin.
+const SHOW_UNMANAGED = 'wss_show_unmanaged';
+
+function readOption( key ) {
+	try {
+		return '1' === window.localStorage.getItem( key );
+	} catch ( e ) {
+		return false;
+	}
+}
+
+function writeOption( key, on ) {
+	try {
+		window.localStorage.setItem( key, on ? '1' : '0' );
+	} catch ( e ) {}
+}
+
+function IconGear() {
+	return (
+		<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+			<path
+				fill="none"
+				stroke="currentColor"
+				strokeWidth="1.8"
+				strokeLinecap="round"
+				strokeLinejoin="round"
+				d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.85 1 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"
 			/>
 		</svg>
 	);

@@ -2414,6 +2414,13 @@ p.wss-meta {
 		z-index: 100000;
 	}
 
+	&__check {
+		display: inline-block;
+		width: 16px;
+		color: var(--woon-primary);
+		font-weight: 700;
+	}
+
 	&__item {
 		display: block;
 		width: 100%;

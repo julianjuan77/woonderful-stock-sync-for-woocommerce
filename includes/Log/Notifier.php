@@ -633,11 +633,17 @@ final class Notifier {
 		$cutoff = gmdate( 'Y-m-d H:i:s', $now - self::after_hours() * HOUR_IN_SECONDS );
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// También lo que acá no lleva su stock y allá sí (ADR-024): para que sincronice hay que
+		// activarlo en una de las dos.
+		$mismatched = implode( ',', array_map( 'intval', Rows::mismatched() ) );
+		$mismatched = '' === $mismatched ? '0' : $mismatched;
+
 		$rows = (array) $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT p.ID, p.post_title FROM {$wpdb->posts} p
-				   JOIN {$wpdb->postmeta} m ON m.post_id = p.ID AND m.meta_key = '_manage_stock' AND m.meta_value = 'yes'
-				  WHERE p.post_type IN ( 'product', 'product_variation' )
+				   LEFT JOIN {$wpdb->postmeta} m ON m.post_id = p.ID AND m.meta_key = '_manage_stock'
+				  WHERE ( m.meta_value = 'yes' OR p.ID IN ( {$mismatched} ) )
+				    AND p.post_type IN ( 'product', 'product_variation' )
 				    AND p.post_status = 'publish'
 				    AND p.post_date_gmt <= %s
 				    AND p.ID NOT IN ( SELECT local_product FROM {$links} )
