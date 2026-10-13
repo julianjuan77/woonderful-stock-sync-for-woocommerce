@@ -2015,6 +2015,27 @@ p.woon-footnote {
 	justify-content: space-between;
 	gap: var(--woon-sp-4);
 	flex-wrap: wrap;
+
+	// Las pestañas no se achican: si no entran con el buscador, el buscador baja. Achicadas,
+	// la última quedaba cortada debajo de él.
+	// Si no entran, bajan de línea: desplazándose, las últimas quedaban escondidas.
+	.wss-tabs {
+		flex: 1 0 auto;
+		flex-wrap: wrap;
+		max-width: 100%;
+		overflow: visible;
+	}
+
+	&__side {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		margin-left: auto;
+
+		.wss-menu {
+			margin-left: 0;
+		}
+	}
 }
 
 .wss-tabs {

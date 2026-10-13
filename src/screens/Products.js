@@ -581,40 +581,45 @@ export default function Products( { apiFetch, status } ) {
 						</button>
 					) ) }
 				</div>
-				<div className="wss-search">
-					<IconSearch />
-					<input
-						type="search"
-						value={ search }
-						placeholder={ __(
-							'Buscar por nombre o SKU, en las dos tiendas',
+				<div className="wss-toolbar__side">
+					<div className="wss-search">
+						<IconSearch />
+						<input
+							type="search"
+							value={ search }
+							placeholder={ __(
+								'Buscar por nombre o SKU, en las dos tiendas',
+								'woonderful-stock-sync-for-woocommerce'
+							) }
+							onChange={ ( e ) => setSearch( e.target.value ) }
+						/>
+					</div>
+					<Menu
+						icon={ <IconGear /> }
+						label={ __(
+							'Opciones de la lista',
 							'woonderful-stock-sync-for-woocommerce'
 						) }
-						onChange={ ( e ) => setSearch( e.target.value ) }
+						items={ [
+							[
+								__(
+									'Mostrar los que no gestionan stock',
+									'woonderful-stock-sync-for-woocommerce'
+								),
+								() => {
+									writeOption(
+										SHOW_UNMANAGED,
+										! showUnmanaged
+									);
+									setShowUnmanaged( ! showUnmanaged );
+									setPage( 1 );
+								},
+								false,
+								showUnmanaged,
+							],
+						] }
 					/>
 				</div>
-				<Menu
-					icon={ <IconGear /> }
-					label={ __(
-						'Opciones de la lista',
-						'woonderful-stock-sync-for-woocommerce'
-					) }
-					items={ [
-						[
-							__(
-								'Mostrar los que no gestionan stock',
-								'woonderful-stock-sync-for-woocommerce'
-							),
-							() => {
-								writeOption( SHOW_UNMANAGED, ! showUnmanaged );
-								setShowUnmanaged( ! showUnmanaged );
-								setPage( 1 );
-							},
-							false,
-							showUnmanaged,
-						],
-					] }
-				/>
 			</div>
 
 			{ data?.catalog && (
