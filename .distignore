@@ -20,3 +20,5 @@ rediseno*
 .eslintrc.js
 .stylelintrc.json
 __tests__
+README.md
+.github
