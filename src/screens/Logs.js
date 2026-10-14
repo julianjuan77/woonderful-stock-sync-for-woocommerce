@@ -10,6 +10,19 @@ const LEVELS = [
 	[ 'error', __( 'Errores', 'woonderful-stock-sync-for-woocommerce' ) ],
 ];
 
+// Cómo terminó un movimiento, como los niveles de Avisos: lo que hay que revisar, a la vista.
+const OUTCOMES = [
+	[ '', __( 'Todos', 'woonderful-stock-sync-for-woocommerce' ) ],
+	[ 'ok', __( 'Bien', 'woonderful-stock-sync-for-woocommerce' ) ],
+	[ 'waiting', __( 'Esperando', 'woonderful-stock-sync-for-woocommerce' ) ],
+	[
+		'problem',
+		__( 'Con problemas', 'woonderful-stock-sync-for-woocommerce' ),
+	],
+];
+
+const OUTCOME_DOTS = { ok: 'ok', waiting: 'info', problem: 'error' };
+
 const PERIODS = [
 	[ 1, __( 'Hoy', 'woonderful-stock-sync-for-woocommerce' ) ],
 	[ 7, __( '7 días', 'woonderful-stock-sync-for-woocommerce' ) ],
@@ -278,6 +291,7 @@ const getInitialFilters = () => {
 		level: params.get( 'level' ) || '',
 		kind: params.get( 'kind' ) || '',
 		reason: '',
+		outcome: '',
 		days: 0,
 		search: '',
 		product: params.get( 'product' ) || '',
@@ -348,6 +362,7 @@ export default function Logs( { apiFetch, navigate } ) {
 	const [ entries, setEntries ] = useState( [] );
 	const [ total, setTotal ] = useState( 0 );
 	const [ levels, setLevels ] = useState( null );
+	const [ outcomes, setOutcomes ] = useState( null );
 	const [ name, setName ] = useState( null );
 	const [ page, setPage ] = useState( 1 );
 	const [ loading, setLoading ] = useState( false );
@@ -365,10 +380,11 @@ export default function Logs( { apiFetch, navigate } ) {
 		setLoading( true );
 		setError( null );
 		try {
-			const { days, view, level, kind, reason, ...rest } = filters;
+			const { days, view, level, kind, reason, outcome, ...rest } =
+				filters;
 			const movements = 'movements' === view && '' === rest.product;
 			const query = movements
-				? { page, reason, ...rest }
+				? { page, reason, outcome, ...rest }
 				: { page, level, kind, ...rest };
 			if ( days > 0 ) {
 				const from = new Date();
@@ -389,6 +405,7 @@ export default function Logs( { apiFetch, navigate } ) {
 			setEntries( data.items );
 			setTotal( data.total );
 			setLevels( data.levels ?? null );
+			setOutcomes( data.outcomes ?? null );
 			setName( data.name ?? null );
 		} catch ( e ) {
 			if ( ticket !== lastFetch.current ) {
@@ -436,6 +453,7 @@ export default function Logs( { apiFetch, navigate } ) {
 			level: '',
 			kind: '',
 			reason: '',
+			outcome: '',
 			days: 0,
 			search: '',
 		} ) );
@@ -569,6 +587,43 @@ export default function Logs( { apiFetch, navigate } ) {
 
 			{ movements && (
 				<div className="wss-log-filters">
+					<div
+						className="wss-seg"
+						role="group"
+						aria-label={ __(
+							'Cómo terminó',
+							'woonderful-stock-sync-for-woocommerce'
+						) }
+					>
+						{ OUTCOMES.map( ( [ value, label ] ) => (
+							<button
+								key={ value || 'all' }
+								className={ `wss-seg__btn ${
+									filters.outcome === value ? 'is-on' : ''
+								}` }
+								aria-pressed={ filters.outcome === value }
+								onClick={ () =>
+									updateFilter( 'outcome', value )
+								}
+							>
+								{ value && (
+									<span
+										className={ `wss-dot wss-dot--${ OUTCOME_DOTS[ value ] }` }
+									/>
+								) }
+								{ label }
+								{ outcomes && (
+									<span className="wss-count">
+										{ value
+											? outcomes[ value ]
+											: outcomes.ok +
+											  outcomes.waiting +
+											  outcomes.problem }
+									</span>
+								) }
+							</button>
+						) ) }
+					</div>
 					<div className="wss-select">
 						<select
 							aria-label={ __(

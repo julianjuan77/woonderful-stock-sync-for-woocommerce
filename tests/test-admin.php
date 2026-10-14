@@ -540,6 +540,20 @@ class Test_Admin extends WP_UnitTestCase {
 		$this->assertSame( "Alpargata verde {$token}", $items[2]['name'] );
 		$this->assertStringStartsWith( 'Acá: venta (pedido #4512)', $items[2]['text'] );
 		$this->assertSame( 'pending', $items[2]['context']['delivery'] );
+
+		// Cómo terminó: la propia sin entregar espera, la aplicada está bien, la retenida tiene
+		// un problema. Los conteos no dependen del filtro elegido.
+		$expected = array(
+			'ok'      => 1,
+			'waiting' => 1,
+			'problem' => 1,
+		);
+		$problems = $this->send( 'GET', '/movements', array( 'outcome' => 'problem' ) )->get_data();
+
+		$this->assertSame( $expected, $this->send( 'GET', '/movements', array() )->get_data()['outcomes'] );
+		$this->assertSame( $expected, $problems['outcomes'] );
+		$this->assertSame( array( null ), array_column( $problems['items'], 'product' ) );
+		$this->assertSame( array( $green ), array_column( $this->send( 'GET', '/movements', array( 'outcome' => 'waiting' ) )->get_data()['items'], 'product' ) );
 	}
 
 	/**

@@ -274,15 +274,26 @@ final class Events {
 	}
 
 	/**
+	 * Cómo terminó un movimiento, para el filtro de Movimientos: los propios por su entrega, los
+	 * recibidos por su aplicación. Lo que no está acá —un bootstrap `confirmed`— ya está en `ok`.
+	 */
+	private const OUTCOMES = array(
+		'ok'      => "( m.delivery = 'confirmed' OR m.application = 'applied' )",
+		'waiting' => "m.delivery IN ( 'pending', 'in_flight', 'syncing', 'uncertain' )",
+		'problem' => "( m.delivery IN ( 'abandoned', 'failed' ) OR m.application IN ( 'held', 'discarded' ) )",
+	);
+
+	/**
 	 * Los movimientos del libro de esta tienda, de lo más nuevo a lo más viejo (ADR-023): los
 	 * propios y los recibidos, con el producto de acá. El recibido lo encuentra por su vínculo;
 	 * si el vínculo ya no está, va sin producto.
 	 *
-	 * @param array<string, mixed> $filters `since` y `until` (UTC), `reason` y `products` (de acá).
+	 * @param array<string, mixed> $filters `since` y `until` (UTC), `reason`, `products` (de acá) y
+	 *                                      `outcome` (`ok`, `waiting` o `problem`).
 	 * @param int                  $page    Desde 1.
 	 * @param int                  $per     Por página.
 	 *
-	 * @return array{items: array<int, array<string, mixed>>, total: int}
+	 * @return array{items: array<int, array<string, mixed>>, total: int, outcomes: array<string, int>}
 	 */
 	public static function movements( array $filters, int $page = 1, int $per = 50 ): array {
 		global $wpdb;
@@ -314,8 +325,9 @@ final class Events {
 
 			if ( array() === $products ) {
 				return array(
-					'items' => array(),
-					'total' => 0,
+					'items'    => array(),
+					'total'    => 0,
+					'outcomes' => array_fill_keys( array_keys( self::OUTCOMES ), 0 ),
 				);
 			}
 
@@ -325,11 +337,22 @@ final class Events {
 			$values[] = Store::id();
 		}
 
-		$from = "{$table} m LEFT JOIN {$links} l ON l.id = m.link_id AND m.origin_store <> %s WHERE " . implode( ' AND ', $where );
+		$join = "{$table} m LEFT JOIN {$links} l ON l.id = m.link_id AND m.origin_store <> %s WHERE ";
 
 		array_unshift( $values, Store::id() );
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+
+		// Cuántos de cada uno con los demás filtros, como los niveles de Avisos: sin el propio.
+		$sums     = implode( ', ', array_map( static fn ( string $key, string $condition ) => "SUM( {$condition} ) AS {$key}", array_keys( self::OUTCOMES ), self::OUTCOMES ) );
+		$counted  = (array) $wpdb->get_row( $wpdb->prepare( "SELECT {$sums} FROM {$join}" . implode( ' AND ', $where ), ...$values ) );
+		$outcomes = array_map( static fn ( $count ) => (int) $count, array_merge( array_fill_keys( array_keys( self::OUTCOMES ), 0 ), $counted ) );
+
+		if ( isset( $filters['outcome'], self::OUTCOMES[ $filters['outcome'] ] ) ) {
+			$where[] = self::OUTCOMES[ $filters['outcome'] ];
+		}
+
+		$from  = $join . implode( ' AND ', $where );
 		$total = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$from}", ...$values ) );
 		$rows  = (array) $wpdb->get_results(
 			$wpdb->prepare(
@@ -364,8 +387,9 @@ final class Events {
 		);
 
 		return array(
-			'items' => $items,
-			'total' => $total,
+			'items'    => $items,
+			'total'    => $total,
+			'outcomes' => $outcomes,
 		);
 	}
 

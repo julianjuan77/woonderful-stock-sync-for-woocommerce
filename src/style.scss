@@ -3175,6 +3175,10 @@ h2.wss-confirm__title {
 	height: 7px;
 	border-radius: 50%;
 
+	&--ok {
+		background: var(--woon-success);
+	}
+
 	&--info {
 		background: var(--woon-info);
 	}

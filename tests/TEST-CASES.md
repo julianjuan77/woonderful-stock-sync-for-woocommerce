@@ -1250,7 +1250,7 @@ Mutaciones: sin revisar el SKU fresco, o el vinculado allá, cae `BLK-03`.
 | --- | --- | --- |
 | `ADM-33` | **El CSS de las fuentes** | Cuatro archivos, todos del plugin y todos presentes en `assets/fonts/`; ningún pedido a Google (ADR-013 §2.1) |
 | `ADM-34` | **Registros busca por producto**: por parte del nombre, por SKU y por ID, y algo que no es ningún producto | Cada búsqueda trae los eventos de ese producto; la que no encuentra, nada. `levels` cuenta los de cada nivel |
-| `ADM-35` | **La pestaña Movimientos** (ADR-023): una venta propia sin entregar, una cancelación recibida y una venta recibida de un vínculo borrado, retenida | De la más nueva a la más vieja, con el producto de acá; la del vínculo borrado sin producto ni nombre, con el de allá y `held`; los textos empiezan con "En la otra tienda" y "Acá"; la propia, `pending` |
+| `ADM-35` | **La pestaña Movimientos** (ADR-023): una venta propia sin entregar, una cancelación recibida y una venta recibida de un vínculo borrado, retenida | De la más nueva a la más vieja, con el producto de acá; la del vínculo borrado sin producto ni nombre, con el de allá y `held`; los textos empiezan con "En la otra tienda" y "Acá"; la propia, `pending`; `outcomes` cuenta 1 bien, 1 esperando y 1 con problemas, igual con el filtro puesto, y `outcome` trae sólo los suyos |
 | `ADM-36` | **Los filtros de Movimientos**: motivo, búsqueda —con un recibido cuyo ID de allá es el de un producto de acá—, los dos juntos, período y página 2 | Cada uno trae lo suyo; la búsqueda es por el producto de acá; la de hace 10 días queda afuera de los últimos 3; la página 2 trae lo que pasa de 50 |
 
 ## [`tests/test-pause.php`](test-pause.php) — pausar y desemparejar (ADR-015)

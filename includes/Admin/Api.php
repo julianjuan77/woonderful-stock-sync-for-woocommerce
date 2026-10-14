@@ -343,7 +343,7 @@ final class Api {
 	 * Los movimientos de stock del libro de esta tienda, de a 50 (ADR-023): la pestaña
 	 * Movimientos de Registros. Mismos filtros de fecha y de búsqueda que `log`, y el motivo.
 	 *
-	 * @param \WP_REST_Request $request `from`, `to`, `reason`, `search` y `page`.
+	 * @param \WP_REST_Request $request `from`, `to`, `reason`, `outcome`, `search` y `page`.
 	 */
 	public static function movements( \WP_REST_Request $request ): \WP_REST_Response {
 		$filters = array();
@@ -360,6 +360,12 @@ final class Api {
 
 		if ( in_array( $reason, array( 'sale', 'cancel', 'refund', 'adjustment', 'bootstrap', 'unlink' ), true ) ) {
 			$filters['reason'] = $reason;
+		}
+
+		$outcome = sanitize_key( (string) $request['outcome'] );
+
+		if ( in_array( $outcome, array( 'ok', 'waiting', 'problem' ), true ) ) {
+			$filters['outcome'] = $outcome;
 		}
 
 		$search = trim( (string) $request['search'] );
@@ -384,8 +390,9 @@ final class Api {
 
 		return new \WP_REST_Response(
 			array(
-				'items' => $items,
-				'total' => $list['total'],
+				'items'    => $items,
+				'total'    => $list['total'],
+				'outcomes' => $list['outcomes'],
 			),
 			200
 		);
