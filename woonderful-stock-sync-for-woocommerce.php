@@ -3,7 +3,7 @@
  * Plugin Name:       Woonderful Stock Sync for WooCommerce
  * Plugin URI:        https://github.com/julianjuan77/woonderful-stock-sync-for-woocommerce
  * Description:       Sincroniza el stock entre dos tiendas WooCommerce que despachan del mismo depósito. Pool único, sin reparto.
- * Version:           1.0.0
+ * Version:           1.1.0
  * Requires at least: 6.5
  * Requires PHP:      8.1
  * Requires Plugins:  woocommerce
@@ -23,7 +23,7 @@ namespace Woonderful\StockSync;
 
 defined( 'ABSPATH' ) || exit;
 
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';
 
 define( 'WSS_PLUGIN_FILE', __FILE__ );
 define( 'WSS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );

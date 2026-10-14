@@ -3,7 +3,7 @@ Contributors: julianjuan77
 Tags: woocommerce, stock, inventario, sincronizacion, multitienda
 Requires at least: 6.5
 Tested up to: 7.1
-Stable tag: 1.0.0
+Stable tag: 1.1.0
 Requires PHP: 8.1
 Requires Plugins: woocommerce
 WC requires at least: 9.1
@@ -105,6 +105,13 @@ La interfaz usa tres fuentes con licencia SIL Open Font License 1.1, incluidas e
 * JetBrains Mono — Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono).
 
 == Changelog ==
+
+= 1.1.0 =
+* Registros tiene dos pestañas: Avisos y Movimientos, con todos los movimientos de stock de la tienda, filtrables por cómo terminaron (bien, esperando, con problemas), tipo, período y producto.
+* Las listas de tipos de Registros muestran sólo los que hay, con su cantidad.
+* Productos muestra lo que gestiona stock en una tienda y no en la otra; lo que no gestiona en ninguna, con la opción de la rueda dentada.
+* Los filtros de Productos ya no quedan tapados por el buscador.
+* Un vínculo rechazado o en curso se ve como tal en Movimientos.
 
 = 1.0.0 =
 Primera versión.
