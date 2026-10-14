@@ -578,6 +578,18 @@ class Test_Rows extends WP_UnitTestCase {
 		$this->assertNotContains( $neither, Rows::mismatched() );
 		$this->assertNull( $this->rows()[ $there_only ]['stock'] );
 
+		// Una sola pestaña para los dos lados; cada fila dice el suyo.
+		$tab = Rows::page(
+			array(
+				'search' => $this->run,
+				'state'  => 'unlinked',
+				'motive' => Rows::NOT_MANAGING,
+			)
+		);
+		$this->assertSame( 2, $tab['motives'][ Rows::NOT_MANAGING ] );
+		$this->assertArrayNotHasKey( Rows::REMOTE_NOT_MANAGING, $tab['motives'] );
+		$this->assertEqualsCanonicalizing( array( $here_only, $there_only ), array_column( $tab['rows'], 'id' ) );
+
 		// "Sin vincular" de Resumen es el mismo número que el filtro, sin la opción.
 		$this->assertSame( Rows::page( array( 'state' => 'unlinked' ) )['counts']['unlinked'], Rows::linking()['unlinked'] );
 	}

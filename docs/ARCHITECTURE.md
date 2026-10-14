@@ -512,7 +512,8 @@ el padre tiene su propia fila, que lo dice. **Lo que no gestiona stock** (ADR-02
 `not_managing`; se ve si el único de allá con su SKU lleva el stock, y si no —en ninguna, o sin
 par— lleva `hidden` y sólo sale con `show_unmanaged`, la opción de la rueda dentada (guardada en
 `localStorage`). Uno de acá con stock cuyo único par por SKU allá no lo lleva dice
-`remote_not_managing` en vez de sin coincidencia. Los visibles cuentan en `linking()` y entran en
+`remote_not_managing` en vez de sin coincidencia. Los dos motivos van en una sola pestaña, "No
+gestiona stock" (`Rows::tab_of()`); cada fila dice de qué lado falta. Los visibles cuentan en `linking()` y entran en
 el email de la noche (`Rows::mismatched()`); ninguno tiene acciones. Lo descartado se esconde salvo pedido o buscado. **Primero lo vinculado**: los productos se ordenan vinculado, parcial —un variable con alguna variación vinculada—, suspendido, con sugerencia, sin vincular y descartado (`Rows::rank()`); dentro de cada uno, por ID. Si la copia tiene más de 10 minutos, la pantalla la refresca al abrirse. Todos los filtros son botones, como en woonderful-sync.
 **Los productos variables aparecen contraídos**: un renglón con su resumen —cuántas variaciones y
 en qué estado—, que se abre con un clic. También con un filtro (pedido de Julián,

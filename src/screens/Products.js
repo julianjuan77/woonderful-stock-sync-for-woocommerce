@@ -50,10 +50,6 @@ const MOTIVE_TABS = [
 		__( 'No gestiona stock', 'woonderful-stock-sync-for-woocommerce' ),
 	],
 	[
-		'remote_not_managing',
-		__( 'Allá no gestiona stock', 'woonderful-stock-sync-for-woocommerce' ),
-	],
-	[
 		'trashed',
 		__( 'En la papelera', 'woonderful-stock-sync-for-woocommerce' ),
 	],

@@ -126,7 +126,8 @@ final class Rows {
 
 		foreach ( $rows as $row ) {
 			if ( State::UNLINKED === $row['state'] ) {
-				$motives[ $row['motive'] ] = ( $motives[ $row['motive'] ] ?? 0 ) + 1;
+				$tab             = self::tab_of( (string) $row['motive'] );
+				$motives[ $tab ] = ( $motives[ $tab ] ?? 0 ) + 1;
 			}
 		}
 
@@ -166,7 +167,7 @@ final class Rows {
 		$rows   = array_filter(
 			$rows,
 			static fn ( array $row ) => ( 'all' === $state || $state === $row['state'] || ( self::SUGGESTION === $state && self::SUGGESTION === $row['motive'] ) || ( self::DIFFERS === $state && $row['differs'] ) )
-				&& ( '' === $motive || $motive === $row['motive'] )
+				&& ( '' === $motive || self::tab_of( $motive ) === self::tab_of( (string) $row['motive'] ) )
 		);
 
 		// De a 50 productos, no de a 50 filas: un padre va entero, con todas sus variaciones, en
@@ -190,6 +191,16 @@ final class Rows {
 			'summary' => array_intersect_key( $summary, $shown ),
 			'motives' => $motives,
 		);
+	}
+
+	/**
+	 * La pestaña de un motivo: los dos de lo que no gestiona stock van juntos, y cada fila dice
+	 * de qué lado falta.
+	 *
+	 * @param string $motive El motivo.
+	 */
+	private static function tab_of( string $motive ): string {
+		return self::REMOTE_NOT_MANAGING === $motive ? self::NOT_MANAGING : $motive;
 	}
 
 	/**
