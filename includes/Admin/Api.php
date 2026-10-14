@@ -334,6 +334,7 @@ final class Api {
 				'items'  => array_map( array( self::class, 'entry' ), $list['items'] ),
 				'total'  => $list['total'],
 				'levels' => $list['levels'],
+				'kinds'  => (object) $list['kinds'],
 			),
 			200
 		);
@@ -393,6 +394,7 @@ final class Api {
 				'items'    => $items,
 				'total'    => $list['total'],
 				'outcomes' => $list['outcomes'],
+				'reasons'  => (object) $list['reasons'],
 			),
 			200
 		);

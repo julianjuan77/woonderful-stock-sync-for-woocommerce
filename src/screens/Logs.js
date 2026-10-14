@@ -363,6 +363,8 @@ export default function Logs( { apiFetch, navigate } ) {
 	const [ total, setTotal ] = useState( 0 );
 	const [ levels, setLevels ] = useState( null );
 	const [ outcomes, setOutcomes ] = useState( null );
+	// Cuántos hay de cada tipo con los demás filtros: la lista muestra sólo los que hay.
+	const [ types, setTypes ] = useState( null );
 	const [ name, setName ] = useState( null );
 	const [ page, setPage ] = useState( 1 );
 	const [ loading, setLoading ] = useState( false );
@@ -406,6 +408,7 @@ export default function Logs( { apiFetch, navigate } ) {
 			setTotal( data.total );
 			setLevels( data.levels ?? null );
 			setOutcomes( data.outcomes ?? null );
+			setTypes( data.kinds ?? data.reasons ?? null );
 			setName( data.name ?? null );
 		} catch ( e ) {
 			if ( ticket !== lastFetch.current ) {
@@ -641,11 +644,7 @@ export default function Logs( { apiFetch, navigate } ) {
 									'woonderful-stock-sync-for-woocommerce'
 								) }
 							</option>
-							{ REASONS.map( ( [ value, label ] ) => (
-								<option key={ value } value={ value }>
-									{ label }
-								</option>
-							) ) }
+							{ typeOptions( REASONS, types, filters.reason ) }
 						</select>
 					</div>
 					<Periods
@@ -706,12 +705,10 @@ export default function Logs( { apiFetch, navigate } ) {
 									'woonderful-stock-sync-for-woocommerce'
 								) }
 							</option>
-							{ Object.entries( KIND_LABELS ).map(
-								( [ value, label ] ) => (
-									<option key={ value } value={ value }>
-										{ label }
-									</option>
-								)
+							{ typeOptions(
+								Object.entries( KIND_LABELS ),
+								types,
+								filters.kind
 							) }
 						</select>
 					</div>
@@ -806,6 +803,21 @@ export default function Logs( { apiFetch, navigate } ) {
 			) }
 		</div>
 	);
+}
+
+// Los tipos con al menos uno, con su cantidad. El elegido queda aunque llegue a cero, para que
+// no desaparezca de la lista al cambiar otro filtro.
+function typeOptions( all, counts, selected ) {
+	return all
+		.filter(
+			( [ value ] ) =>
+				! counts || ( counts[ value ] ?? 0 ) > 0 || value === selected
+		)
+		.map( ( [ value, label ] ) => (
+			<option key={ value } value={ value }>
+				{ counts ? `${ label } (${ counts[ value ] ?? 0 })` : label }
+			</option>
+		) );
 }
 
 function Periods( { filters, updateFilter } ) {

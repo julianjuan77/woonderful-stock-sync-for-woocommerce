@@ -509,6 +509,16 @@ class Test_Admin extends WP_UnitTestCase {
 		$this->assertSame( array( $green ), $products( (string) $green ) );
 		$this->assertSame( array(), $products( 'no-existe-' . $token ) );
 		$this->assertSame( 3, $this->call( 'GET', '/log' )->get_data()['levels'][ Events::INFO ] );
+
+		// La lista de tipos: sólo los que hay, con su cantidad, sin contar el tipo elegido.
+		$kinds = (array) $this->send( 'GET', '/log', array( 'kind' => Events::RECONCILED ) )->get_data()['kinds'];
+		$this->assertSame(
+			array(
+				Events::LINKED     => 2,
+				Events::RECONCILED => 1,
+			),
+			array_intersect_key( $kinds, array_flip( array( Events::LINKED, Events::RECONCILED, Events::UNLINKED ) ) )
+		);
 	}
 
 	/**
@@ -552,6 +562,15 @@ class Test_Admin extends WP_UnitTestCase {
 
 		$this->assertSame( $expected, $this->send( 'GET', '/movements', array() )->get_data()['outcomes'] );
 		$this->assertSame( $expected, $problems['outcomes'] );
+		// Los tipos, con los demás filtros —acá, con problemas— y sin el propio.
+		$this->assertSame( array( 'sale' => 1 ), (array) $problems['reasons'] );
+		$this->assertSame(
+			array(
+				'sale'   => 2,
+				'cancel' => 1,
+			),
+			(array) $this->send( 'GET', '/movements', array( 'reason' => 'cancel' ) )->get_data()['reasons']
+		);
 		$this->assertSame( array( null ), array_column( $problems['items'], 'product' ) );
 		$this->assertSame( array( $green ), array_column( $this->send( 'GET', '/movements', array( 'outcome' => 'waiting' ) )->get_data()['items'], 'product' ) );
 	}

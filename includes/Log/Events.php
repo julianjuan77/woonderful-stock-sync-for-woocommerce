@@ -108,7 +108,8 @@ final class Events {
 
 	/**
 	 * Los eventos, de lo más nuevo a lo más viejo, filtrados y paginados, y cuántos hay de cada
-	 * nivel con los mismos filtros salvo el nivel: los botones de nivel muestran su cuenta.
+	 * nivel con los mismos filtros salvo el nivel: los botones de nivel muestran su cuenta. Y
+	 * cuántos de cada tipo, salvo el tipo: la lista de tipos muestra sólo los que hay.
 	 *
 	 * Sin `product`, `products` ni `kind`, no trae las marcas `notified`: son una por producto
 	 * avisado, y el email que las produjo ya es un `digest_sent`.
@@ -119,7 +120,7 @@ final class Events {
 	 * @param int                  $page     La página, desde 1.
 	 * @param int                  $per_page Cuántos, hasta 100.
 	 *
-	 * @return array{items: array<int, array<string, mixed>>, total: int, levels: array<string, int>}
+	 * @return array{items: array<int, array<string, mixed>>, total: int, levels: array<string, int>, kinds: array<string, int>}
 	 */
 	public static function list( array $filters = array(), int $page = 1, int $per_page = 50 ): array {
 		global $wpdb;
@@ -128,6 +129,8 @@ final class Events {
 
 		list( $sql, $values )     = self::where( $filters );
 		list( $any, $any_values ) = self::where( array_diff_key( $filters, array( 'level' => true ) ) );
+		// Para la lista de tipos: sin el tipo, y con las marcas "ya avisé", que también se piden.
+		list( $all, $all_values ) = self::where( array( 'all_kinds' => true ) + array_diff_key( $filters, array( 'kind' => true ) ) );
 
 		$per_page = max( 1, min( 100, $per_page ) );
 
@@ -135,6 +138,7 @@ final class Events {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		$total  = (int) $wpdb->get_var( array() === $values ? "SELECT COUNT(*) FROM {$table} WHERE {$sql}" : $wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE {$sql}", $values ) );
 		$counts = (array) $wpdb->get_results( array() === $any_values ? "SELECT level, COUNT(*) AS n FROM {$table} WHERE {$any} GROUP BY level" : $wpdb->prepare( "SELECT level, COUNT(*) AS n FROM {$table} WHERE {$any} GROUP BY level", $any_values ) );
+		$types  = (array) $wpdb->get_results( array() === $all_values ? "SELECT kind, COUNT(*) AS n FROM {$table} WHERE {$all} GROUP BY kind" : $wpdb->prepare( "SELECT kind, COUNT(*) AS n FROM {$table} WHERE {$all} GROUP BY kind", $all_values ) );
 		$rows   = (array) $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT * FROM {$table} WHERE {$sql} ORDER BY id DESC LIMIT %d OFFSET %d",
@@ -153,6 +157,7 @@ final class Events {
 			'items'  => array_map( array( self::class, 'row' ), $rows ),
 			'total'  => $total,
 			'levels' => $levels,
+			'kinds'  => array_column( array_map( static fn ( $type ) => array( (string) $type->kind, (int) $type->n ), $types ), 1, 0 ),
 		);
 	}
 
@@ -177,7 +182,7 @@ final class Events {
 		// Las marcas de "ya avisé" son la memoria del resumen, una por producto: en la lista
 		// general parecían un email cada una. Se ven al pedirlas, o al mirar productos; el
 		// email queda como un solo `digest_sent`.
-		if ( ! isset( $filters['product'] ) && ! isset( $filters['products'] ) && ( $filters['kind'] ?? '' ) === '' ) {
+		if ( ! isset( $filters['product'] ) && ! isset( $filters['products'] ) && ! isset( $filters['all_kinds'] ) && ( $filters['kind'] ?? '' ) === '' ) {
 			$where[]  = 'kind <> %s';
 			$values[] = self::NOTIFIED;
 		}
@@ -293,7 +298,7 @@ final class Events {
 	 * @param int                  $page    Desde 1.
 	 * @param int                  $per     Por página.
 	 *
-	 * @return array{items: array<int, array<string, mixed>>, total: int, outcomes: array<string, int>}
+	 * @return array{items: array<int, array<string, mixed>>, total: int, outcomes: array<string, int>, reasons: array<string, int>}
 	 */
 	public static function movements( array $filters, int $page = 1, int $per = 50 ): array {
 		global $wpdb;
@@ -315,11 +320,6 @@ final class Events {
 			}
 		}
 
-		if ( isset( $filters['reason'] ) ) {
-			$where[]  = 'm.reason = %s';
-			$values[] = (string) $filters['reason'];
-		}
-
 		if ( isset( $filters['products'] ) ) {
 			$products = array_values( array_filter( array_map( 'intval', (array) $filters['products'] ) ) );
 
@@ -328,6 +328,7 @@ final class Events {
 					'items'    => array(),
 					'total'    => 0,
 					'outcomes' => array_fill_keys( array_keys( self::OUTCOMES ), 0 ),
+					'reasons'  => array(),
 				);
 			}
 
@@ -343,13 +344,35 @@ final class Events {
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
-		// Cuántos de cada uno con los demás filtros, como los niveles de Avisos: sin el propio.
+		// Cuántos de cada uno con los demás filtros, como los niveles de Avisos: cada conteo sin
+		// su propio filtro. El motivo y cómo terminó se agregan después.
+		$outcome = isset( $filters['outcome'], self::OUTCOMES[ $filters['outcome'] ] ) ? self::OUTCOMES[ $filters['outcome'] ] : null;
+		$reason  = isset( $filters['reason'] ) ? (string) $filters['reason'] : null;
+
+		$by_outcome = $where;
+		$by_values  = $values;
+
+		if ( null !== $reason ) {
+			$by_outcome[] = 'm.reason = %s';
+			$by_values[]  = $reason;
+		}
+
 		$sums     = implode( ', ', array_map( static fn ( string $key, string $condition ) => "SUM( {$condition} ) AS {$key}", array_keys( self::OUTCOMES ), self::OUTCOMES ) );
-		$counted  = (array) $wpdb->get_row( $wpdb->prepare( "SELECT {$sums} FROM {$join}" . implode( ' AND ', $where ), ...$values ) );
+		$counted  = (array) $wpdb->get_row( $wpdb->prepare( "SELECT {$sums} FROM {$join}" . implode( ' AND ', $by_outcome ), ...$by_values ) );
 		$outcomes = array_map( static fn ( $count ) => (int) $count, array_merge( array_fill_keys( array_keys( self::OUTCOMES ), 0 ), $counted ) );
 
-		if ( isset( $filters['outcome'], self::OUTCOMES[ $filters['outcome'] ] ) ) {
-			$where[] = self::OUTCOMES[ $filters['outcome'] ];
+		$by_reason = null === $outcome ? $where : array_merge( $where, array( $outcome ) );
+		$reasons   = array();
+
+		foreach ( (array) $wpdb->get_results( $wpdb->prepare( "SELECT m.reason, COUNT(*) AS n FROM {$join}" . implode( ' AND ', $by_reason ) . ' GROUP BY m.reason', ...$values ) ) as $type ) {
+			$reasons[ (string) $type->reason ] = (int) $type->n;
+		}
+
+		$where  = $by_outcome;
+		$values = $by_values;
+
+		if ( null !== $outcome ) {
+			$where[] = $outcome;
 		}
 
 		$from  = $join . implode( ' AND ', $where );
@@ -390,6 +413,7 @@ final class Events {
 			'items'    => $items,
 			'total'    => $total,
 			'outcomes' => $outcomes,
+			'reasons'  => $reasons,
 		);
 	}
 

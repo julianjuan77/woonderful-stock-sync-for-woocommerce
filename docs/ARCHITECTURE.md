@@ -461,7 +461,10 @@ Julián, 2026-10-09). **La pestaña Movimientos** (ADR-023) pide `GET /movements
 acá —el recibido por su vínculo; sin vínculo, `remote_product`—, filtrado por período, motivo y la
 misma búsqueda, y por cómo terminó (`outcome`: bien, esperando, con problemas —abandonado, rechazado,
 retenido o descartado—), con `outcomes`, cuántos de cada uno con los demás filtros, para los
-botones. Cada renglón lleva el producto delante y el estado sólo si no terminó bien. La búsqueda (`search`) es de productos
+botones. Cada renglón lleva el producto delante y el estado sólo si no terminó bien. **Las listas
+de tipos de las dos pestañas muestran sólo los que hay**, con su cantidad: `GET /log` devuelve
+`kinds` y `GET /movements`, `reasons`, contados con los demás filtros y sin el de tipo; el
+elegido queda en la lista aunque llegue a cero. La búsqueda (`search`) es de productos
 de acá: el ID, o parte del nombre o del SKU (`Api::products_matching()`, hasta 200), y trae sus
 eventos. La respuesta trae `levels`, cuántos hay de cada nivel con los demás filtros, para los
 botones de nivel. La pantalla agrupa por día, y junta en un renglón los seguidos del mismo tipo que
