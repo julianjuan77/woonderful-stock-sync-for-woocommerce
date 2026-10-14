@@ -627,7 +627,7 @@ export default function Logs( { apiFetch, navigate } ) {
 					<div className="wss-select">
 						<select
 							aria-label={ __(
-								'Motivo',
+								'Tipo',
 								'woonderful-stock-sync-for-woocommerce'
 							) }
 							value={ filters.reason }
@@ -637,7 +637,7 @@ export default function Logs( { apiFetch, navigate } ) {
 						>
 							<option value="">
 								{ __(
-									'Todos los motivos',
+									'Todos los tipos',
 									'woonderful-stock-sync-for-woocommerce'
 								) }
 							</option>
