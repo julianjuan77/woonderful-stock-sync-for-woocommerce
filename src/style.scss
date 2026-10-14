@@ -3227,29 +3227,6 @@ h2.wss-confirm__title {
 	}
 }
 
-.wss-log-alert {
-	display: flex;
-	align-items: center;
-	gap: 12px;
-	width: 100%;
-	margin-bottom: 20px;
-	padding: 12px 16px;
-	border: 1px solid #f0c9c9;
-	border-radius: 10px;
-	background: var(--woon-danger-bg);
-	font: inherit;
-	color: var(--woon-text);
-	text-align: left;
-	cursor: pointer;
-
-	&__go {
-		margin-left: auto;
-		font-weight: 600;
-		color: var(--woon-danger);
-		white-space: nowrap;
-	}
-}
-
 .wss-log-day {
 	margin-bottom: 24px;
 

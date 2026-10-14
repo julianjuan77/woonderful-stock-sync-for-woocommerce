@@ -494,7 +494,6 @@ export default function Logs( { apiFetch, navigate } ) {
 			'woonderful-stock-sync-for-woocommerce'
 		);
 	}
-	const errors = levels?.error ?? 0;
 	const counts = levels
 		? { '': levels.info + levels.warning + levels.error, ...levels }
 		: {};
@@ -668,42 +667,6 @@ export default function Logs( { apiFetch, navigate } ) {
 					<SearchBox search={ search } onSearch={ onSearch } />
 				</div>
 			) }
-
-			{ ! history &&
-				! movements &&
-				errors > 0 &&
-				'error' !== filters.level && (
-					<button
-						className="wss-log-alert"
-						onClick={ () => updateFilter( 'level', 'error' ) }
-					>
-						<Level level="error" />
-						<span>
-							<b>
-								{ sprintf(
-									/* translators: %d: cuántos errores. */
-									_n(
-										'%d error',
-										'%d errores',
-										errors,
-										'woonderful-stock-sync-for-woocommerce'
-									),
-									errors
-								) }
-							</b>{ ' ' }
-							{ __(
-								'con estos filtros.',
-								'woonderful-stock-sync-for-woocommerce'
-							) }
-						</span>
-						<span className="wss-log-alert__go">
-							{ __(
-								'Ver errores',
-								'woonderful-stock-sync-for-woocommerce'
-							) }
-						</span>
-					</button>
-				) }
 
 			{ error && (
 				<div className="woon-notice woon-notice--error">
