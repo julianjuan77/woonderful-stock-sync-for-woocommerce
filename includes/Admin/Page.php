@@ -35,7 +35,11 @@ final class Page {
 	}
 
 	/**
-	 * El menú propio, con el ícono de Woonderful, y un submenú por pantalla.
+	 * El menú propio, con el ícono de Woonderful.
+	 *
+	 * Un solo ítem y ningún submenú: la app ya trae su propia barra lateral con las cinco
+	 * pantallas, y repetirlas en el menú de WordPress era la misma lista dos veces. Sin
+	 * `add_submenu_page`, WordPress no dibuja desplegable: queda el ítem solo.
 	 */
 	public static function menu(): void {
 		$icon_path = WSS_PLUGIN_DIR . 'assets/brand/woonderful-icon-menu.svg';
@@ -52,18 +56,6 @@ final class Page {
 			$icon,
 			57
 		);
-
-		$subpages = array(
-			''            => __( 'Resumen', 'woonderful-stock-sync-for-woocommerce' ),
-			'#/products'  => __( 'Productos', 'woonderful-stock-sync-for-woocommerce' ),
-			'#/logs'      => __( 'Registros', 'woonderful-stock-sync-for-woocommerce' ),
-			'#/settings'  => __( 'Configuración', 'woonderful-stock-sync-for-woocommerce' ),
-			'#/manual'    => __( 'Manual', 'woonderful-stock-sync-for-woocommerce' ),
-		);
-
-		foreach ( $subpages as $route => $title ) {
-			add_submenu_page( self::SLUG, $title, $title, self::CAPABILITY, self::SLUG . $route, array( self::class, 'render' ) );
-		}
 	}
 
 	/**

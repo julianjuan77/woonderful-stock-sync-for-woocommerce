@@ -22,13 +22,13 @@ describe( 'screenFromHash', () => {
 		);
 	} );
 
-	it( 'la sidebar tiene las cinco pantallas, y la configuración inicial no', () => {
+	it( 'la sidebar tiene las cinco pantallas en orden, y la configuración inicial no', () => {
 		expect( NAV ).toEqual( [
 			'dashboard',
 			'products',
 			'logs',
-			'settings',
 			'manual',
+			'settings',
 		] );
 		expect( HIDDEN ).toEqual( [ 'setup' ] );
 	} );

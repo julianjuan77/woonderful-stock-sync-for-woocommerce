@@ -153,7 +153,8 @@ class Test_Admin extends WP_UnitTestCase {
 	}
 
 	/**
-	 * ADM-04 — El menú pide `manage_woocommerce`, y tiene una entrada por pantalla.
+	 * ADM-04 — El menú pide `manage_woocommerce` y es una sola entrada, sin submenú: la app
+	 * ya lista las pantallas en su propia barra lateral.
 	 */
 	public function test_the_menu_needs_manage_woocommerce(): void {
 		global $menu, $submenu;
@@ -167,11 +168,8 @@ class Test_Admin extends WP_UnitTestCase {
 
 		$this->assertCount( 1, $entry );
 		$this->assertSame( Page::CAPABILITY, $entry[0][1] );
-		$this->assertCount( 5, $submenu[ Page::SLUG ] );
-
-		// El manual tiene su entrada, como el resto de las pantallas.
-		$routes = array_column( $submenu[ Page::SLUG ], 2 );
-		$this->assertContains( Page::SLUG . '#/manual', $routes );
+		// Sin `add_submenu_page`, WordPress no arma el desplegable y el ítem queda solo.
+		$this->assertArrayNotHasKey( Page::SLUG, (array) $submenu );
 	}
 
 	/**

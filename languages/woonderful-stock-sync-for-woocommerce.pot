@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-10-24T00:16:29+00:00\n"
+"POT-Creation-Date: 2026-10-24T16:26:26+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: woonderful-stock-sync-for-woocommerce\n"
@@ -86,47 +86,19 @@ msgstr ""
 msgid "La sincronización está en pausa: no se vincula hasta reanudarla."
 msgstr ""
 
-#: includes/Admin/Page.php:47
+#: includes/Admin/Page.php:51
 msgid "Woonderful Stock Sync"
 msgstr ""
 
-#: includes/Admin/Page.php:48
+#: includes/Admin/Page.php:52
 msgid "Stock Sync"
 msgstr ""
 
-#: includes/Admin/Page.php:57
-#: build/index.js:1
-#: build/index.js:56
-msgid "Resumen"
-msgstr ""
-
-#: includes/Admin/Page.php:58
-#: build/index.js:45
-#: build/index.js:57
-#: build/index.js:66
-msgid "Productos"
-msgstr ""
-
-#: includes/Admin/Page.php:59
-#: build/index.js:67
-msgid "Registros"
-msgstr ""
-
-#: includes/Admin/Page.php:60
-#: build/index.js:67
-msgid "Configuración"
-msgstr ""
-
-#: includes/Admin/Page.php:61
-#: build/index.js:67
-msgid "Manual"
-msgstr ""
-
-#: includes/Admin/Page.php:74
+#: includes/Admin/Page.php:66
 msgid "No tenés permisos para acceder a esta página."
 msgstr ""
 
-#: includes/Admin/Page.php:83
+#: includes/Admin/Page.php:75
 msgid "Cargando Woonderful Stock Sync…"
 msgstr ""
 
@@ -1153,6 +1125,11 @@ msgid "Error al conectar con la API."
 msgstr ""
 
 #: build/index.js:1
+#: build/index.js:56
+msgid "Resumen"
+msgstr ""
+
+#: build/index.js:1
 msgid "Estado de la sincronización entre tus dos tiendas."
 msgstr ""
 
@@ -2156,6 +2133,12 @@ msgid "Minutos sin responder"
 msgstr ""
 
 #: build/index.js:45
+#: build/index.js:57
+#: build/index.js:66
+msgid "Productos"
+msgstr ""
+
+#: build/index.js:45
 msgid "En total"
 msgstr ""
 
@@ -2662,6 +2645,10 @@ msgid "No hay movimientos con estos filtros"
 msgstr ""
 
 #: build/index.js:67
+msgid "Registros"
+msgstr ""
+
+#: build/index.js:67
 msgid "Ver todo el registro"
 msgstr ""
 
@@ -2691,6 +2678,10 @@ msgstr ""
 
 #: build/index.js:67
 msgid "Probá con otro período o tipo."
+msgstr ""
+
+#: build/index.js:67
+msgid "Configuración"
 msgstr ""
 
 #: build/index.js:67
@@ -2763,6 +2754,10 @@ msgstr ""
 
 #: build/index.js:67
 msgid "Guardar cambios"
+msgstr ""
+
+#: build/index.js:67
+msgid "Manual"
 msgstr ""
 
 #: build/index.js:67

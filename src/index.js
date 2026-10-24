@@ -72,20 +72,6 @@ const App = () => {
 		return () => window.removeEventListener( 'hashchange', onHashChange );
 	}, [] );
 
-	// El submenú de WordPress marca la página, no la ruta: sin esto, siempre resalta Resumen.
-	useEffect( () => {
-		document
-			.querySelectorAll(
-				'#toplevel_page_woonderful-stock-sync .wp-submenu a'
-			)
-			.forEach( ( link ) => {
-				const route = link.getAttribute( 'href' ).split( '#/' )[ 1 ];
-				const active = ( route || 'dashboard' ) === currentScreen;
-				link.classList.toggle( 'current', active );
-				link.parentElement.classList.toggle( 'current', active );
-			} );
-	}, [ currentScreen ] );
-
 	const navigate = ( screen, params ) => {
 		const query = params
 			? `?${ new URLSearchParams( params ).toString() }`
