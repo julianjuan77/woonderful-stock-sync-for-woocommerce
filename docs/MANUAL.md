@@ -8,18 +8,18 @@ las dos.
 
 ### Pool único: nada de repartir
 
-Si en el depósito hay 10 mates, las dos tiendas muestran **10**. No 5 y 5, no 7 y 3.
+Si en el depósito hay 10 tazas, las dos tiendas muestran **10**. No 5 y 5, no 7 y 3.
 
 ```
-          Depósito: 10 mates
-                 │
-        ┌────────┴────────┐
-   Pampa Hogar        Pampa Mayorista
-   muestra 10           muestra 10
+            Depósito: 10 tazas
+                     │
+            ┌────────┴────────┐
+    Tienda Minorista   Tienda Mayorista
+       muestra 10         muestra 10
 ```
 
-Se vende 1 en Pampa Hogar → las dos quedan en **9**.
-Entran 20 de mercadería (los cargás en una sola tienda) → las dos quedan en **29**.
+Se vende 1 en la minorista → las dos quedan en **9**.
+Entran 20 de mercadería (las cargás en una sola tienda) → las dos quedan en **29**.
 
 ### Lo que viaja es la diferencia, no el número
 
@@ -64,8 +64,8 @@ Elegí como maestra la tienda donde ya cargás la mercadería. En los ejemplos d
 
 | | Tienda | Rol |
 |---|---|---|
-| **A** | Pampa Hogar (minorista) | **Maestra** |
-| **B** | Pampa Mayorista | Secundaria |
+| **A** | Tienda Minorista | **Maestra** |
+| **B** | Tienda Mayorista | Secundaria |
 
 ### 2.2 Los requisitos
 
@@ -97,8 +97,8 @@ Es un código que se genera de un lado y se pega del otro.
 El código **vale 15 minutos y sirve una sola vez**. La pantalla de la maestra se actualiza
 sola cuando la otra lo canjea.
 
-Después ponele **nombre** a cada tienda ("Pampa Hogar", "Pampa Mayorista"): es con el que la
-nombra la otra pantalla y con el que firman los emails.
+Después ponele **nombre** a cada tienda ("Tienda Minorista", "Tienda Mayorista"): es con el
+que la nombra la otra pantalla y con el que firman los emails.
 
 ### 2.4 Los avisos por email
 
@@ -115,14 +115,14 @@ situación distinta de las que te vas a encontrar.
 
 | # | Producto | SKU | Situación |
 |---|---|---|---|
-| 1 | Mate de calabaza forrado | `MAT-001` | El caso fácil: mismo SKU en las dos |
-| 2 | Termo acero 1 L | `TER-500-NE/RO/VE` | Variable: se vincula variación por variación |
-| 3 | Bombilla de alpaca | `BOM-100` | El SKU está repetido en la mayorista |
-| 4 | Yerba orgánica 1 kg | *(sin SKU en la mayorista)* | Sin SKU: se vincula a mano |
-| 5 | Set de cuchillos criollos | `CUC-220` | Existe sólo en Pampa Hogar |
-| 6 | Alpargata de yute 38 | `ALP-038` | Acepta reservas: el stock puede ser negativo |
+| 1 | Taza de cerámica 350 ml | `MUG-350` | El caso fácil: mismo SKU en las dos |
+| 2 | Botella térmica 500 ml | `BTL-500-NE/RO/VE` | Variable: se vincula variación por variación |
+| 3 | Cuaderno A5 tapa dura | `NOT-A5` | El SKU está repetido en la mayorista |
+| 4 | Vela aromática 200 g | *(sin SKU en la mayorista)* | Sin SKU: se vincula a mano |
+| 5 | Juego de posavasos de corcho | `COA-040` | Existe sólo en la minorista |
+| 6 | Mochila de lona | `BAG-220` | Acepta reservas: el stock puede ser negativo |
 | 7 | Grabado láser (servicio) | `GRA-001` | No gestiona stock: no participa |
-| 8 | Canasta regalo | `CAN-900` | No querés sincronizarla: se descarta |
+| 8 | Caja de regalo | `GFT-900` | No querés sincronizarla: se descarta |
 
 ---
 
@@ -142,7 +142,7 @@ Con vos confirmando, lo que ves en pantalla es el catálogo de ese instante.
 
 > ⚠️ **La regla más importante del plugin:**
 > **cargá el stock real en la maestra ANTES de vincular.**
-> Si vinculás el Mate con 0 en Pampa Hogar y 40 en Pampa Mayorista, las dos quedan en **0** y
+> Si vinculás la Taza con 0 en la minorista y 40 en la mayorista, las dos quedan en **0** y
 > esos 40 se pierden. El plugin te muestra los dos números antes de confirmar — ese es el
 > momento de mirarlos.
 
@@ -161,21 +161,21 @@ se reemplaza por el de ésta.
 37 productos con el SKU repetido quedan aparte: se vinculan a mano.
 ```
 
-Con el catálogo de ejemplo, la masiva resuelve **el Mate (1)** y **las variaciones del Termo
-(2)** que tengan SKU de los dos lados. El resto queda para resolver de a uno.
+Con el catálogo de ejemplo, la masiva resuelve **la Taza (1)** y **las variaciones de la
+Botella (2)** que tengan SKU de los dos lados. El resto queda para resolver de a uno.
 
 Lanzarla de nuevo más adelante **no rompe nada**: los que ya están vinculados no se tocan,
 sólo se ofrecen los pares nuevos.
 
-### 4.3 Producto 1 — Mate de calabaza forrado: el caso fácil
+### 4.3 Producto 1 — Taza de cerámica: el caso fácil
 
-Mismo SKU `MAT-001` en las dos, los dos publicados.
+Mismo SKU `MUG-350` en las dos, los dos publicados.
 
 En **Productos** de la maestra la fila se ve así:
 
 ```
-Mate de calabaza forrado        Stock: 12
-MAT-001                         La otra tienda: Mate de calabaza · MAT-001 · 9
+Taza de cerámica 350 ml         Stock: 12
+MUG-350                         La otra tienda: Taza de cerámica · MUG-350 · 9
                                 Sin vincular · Sugerido · mismo SKU      [ Aceptar ]
 ```
 
@@ -190,20 +190,20 @@ Las dos quedan con ....... 12
 Confirmás, y listo: estado **Vinculado**, las dos en 12, y desde ese momento cada venta de
 cualquiera de las dos descuenta en las dos.
 
-### 4.4 Producto 2 — Termo acero 1 L: un variable
+### 4.4 Producto 2 — Botella térmica: un variable
 
 Un producto variable **no se vincula como producto**. Se vincula **cada variación**, porque
 cada una lleva su propio stock. El padre es una fila que se despliega y no tiene botones.
 
 ```
-▸ Termo acero 1 L · Variable · 3 variaciones · 2/3 vinculadas
-    Negro   TER-500-NE   Stock 8    ↔  Mayorista 8    Vinculado
-    Rojo    TER-500-RO   Stock 5    ↔  Mayorista 5    Vinculado
-    Verde   TER-500-VE   Stock 3    ↔  —              Sin vincular · En la otra
+▸ Botella térmica 500 ml · Variable · 3 variaciones · 2/3 vinculadas
+    Negro   BTL-500-NE   Stock 8    ↔  Mayorista 8    Vinculado
+    Rojo    BTL-500-RO   Stock 5    ↔  Mayorista 5    Vinculado
+    Verde   BTL-500-VE   Stock 3    ↔  —              Sin vincular · En la otra
                                                       tienda no gestiona stock
 ```
 
-Qué hacer con el Verde: en Pampa Mayorista, abrir esa variación en WooCommerce y **activar
+Qué hacer con el Verde: en la mayorista, abrir esa variación en WooCommerce y **activar
 "Gestionar stock"**. En cuanto lo tenga, aparece la sugerencia y la vinculás.
 
 **Dos trampas de los variables:**
@@ -214,12 +214,12 @@ Qué hacer con el Verde: en Pampa Mayorista, abrir esa variación en WooCommerce
 - **Una variación sin SKU propio** no se sugiere, aunque WooCommerce muestre el del padre.
   Vinculala a mano.
 
-### 4.5 Producto 3 — Bombilla de alpaca: SKU duplicado
+### 4.5 Producto 3 — Cuaderno A5: SKU duplicado
 
-En Pampa Mayorista hay **dos** productos con el SKU `BOM-100` (quedó una copia vieja).
+En la mayorista hay **dos** productos con el SKU `NOT-A5` (quedó una copia vieja).
 
 ```
-Bombilla de alpaca    BOM-100    Stock 22
+Cuaderno A5 tapa dura    NOT-A5    Stock 22
 Sin vincular · SKU duplicado
 ```
 
@@ -230,32 +230,32 @@ El plugin **no elige por vos** cuál de los dos es. Tenés dos salidas:
 2. **Vincularlo a mano:** en la fila, **Vincular** → buscás por nombre o SKU en la otra
    tienda → elegís el correcto → confirmás.
 
-### 4.6 Producto 4 — Yerba orgánica: sin SKU
+### 4.6 Producto 4 — Vela aromática: sin SKU
 
-En Pampa Mayorista nunca le cargaron SKU.
+En la mayorista nunca le cargaron SKU.
 
 ```
-Yerba orgánica 1 kg    YER-1000    Stock 60
+Vela aromática 200 g    CND-200    Stock 60
 Sin vincular · Sin coincidencia
 ```
 
-Igual que arriba: le ponés el SKU en la mayorista, o lo vinculás a mano. **El SKU no es
+Igual que arriba: le ponés el SKU en la mayorista, o la vinculás a mano. **El SKU no es
 condición para vincular** — es sólo lo que permite sugerir.
 
 Y una vez vinculado, **el SKU deja de importar del todo**: podés cambiarlo, borrarlo o
 pasárselo a otro producto y el par sigue funcionando igual. La identidad es el par, no el
 SKU.
 
-### 4.7 Producto 5 — Set de cuchillos: existe en una sola tienda
+### 4.7 Producto 5 — Juego de posavasos: existe en una sola tienda
 
-`CUC-220` sólo está en Pampa Hogar.
+`COA-040` sólo está en la minorista.
 
 ```
-Set de cuchillos criollos    CUC-220    Stock 4
+Juego de posavasos de corcho    COA-040    Stock 4
 Sin vincular · Sin coincidencia
 ```
 
-No hay nada que vincular: hacen falta dos productos. O lo creás en Pampa Mayorista —y ahí
+No hay nada que vincular: hacen falta dos productos. O lo creás en la mayorista —y ahí
 aparece la sugerencia— o lo **descartás** (§ 4.9).
 
 > Un producto que existe **sólo en la secundaria** no aparece en la lista de la maestra, y
@@ -277,9 +277,9 @@ La distinción que hace el plugin:
 | No gestiona stock en **ninguna** de las dos | Sólo con la rueda dentada. Es a propósito: un servicio, un combo, un envío |
 | Gestiona en **una** y en la otra no | **Siempre**, con su motivo. Casi siempre es un error de carga, y hay que activarlo del otro lado |
 
-### 4.9 Producto 8 — Canasta regalo: descartar
+### 4.9 Producto 8 — Caja de regalo: descartar
 
-La Canasta la armás sólo para Pampa Hogar y no querés verla nunca más en la lista de
+La caja de regalo la armás sólo para la minorista y no querés verla nunca más en la lista de
 pendientes. En su fila: **Más acciones → Descartar**.
 
 Qué pasa:
@@ -338,7 +338,7 @@ pasando por abajo y qué mirar cuando algo llama la atención.
 
 | Qué hacés | Qué viaja | Se lee en el historial como |
 |---|---|---|
-| Se vende 1 mate en cualquiera de las dos | `-1` | **Venta** |
+| Se vende 1 taza en cualquiera de las dos | `-1` | **Venta** |
 | Reembolsás 1 **con** "Reponer artículos reembolsados" | `+1` | **Devolución** |
 | Reembolsás 1 **sin** esa casilla | nada | — |
 | Se cancela un pedido y WooCommerce repone | `+N` | **Cancelación** |
@@ -354,14 +354,14 @@ importador de CSV. Todos pasan por el mismo punto.
 > WooCommerce, el plugin no lo ve en el momento. La revisión de la noche lo detecta y te lo
 > reporta como discrepancia (§ 5.4).
 
-### 5.2 Producto 6 — Alpargata de yute: reservas y stock negativo
+### 5.2 Producto 6 — Mochila de lona: reservas y stock negativo
 
-`ALP-038` está configurada en WooCommerce para **aceptar reservas** (pedidos con stock 0).
+`BAG-220` está configurada en WooCommerce para **aceptar reservas** (pedidos con stock 0).
 
-Con 0 en el depósito se venden 3 pares: el pool queda en **-3** en las dos tiendas. No es un
-error: son tres pares que debés.
+Con 0 en el depósito se venden 3: el pool queda en **-3** en las dos tiendas. No es un
+error: son tres mochilas que debés.
 
-Llegan 10 de fábrica y los cargás en la maestra: el pool pasa a **7**. Las reservas se
+Llegan 10 del proveedor y las cargás en la maestra: el pool pasa a **7**. Las reservas se
 descontaron una sola vez, como corresponde.
 
 ### 5.3 Cuánto tarda
@@ -401,7 +401,7 @@ Se parecen y se arreglan distinto. Esta es la diferencia:
 Aparece en **Resumen**, bajo *Discrepancias*:
 
 ```
-Mate de calabaza forrado   #412
+Taza de cerámica 350 ml   #412
 Hay 47    ·   Libro 50    ·   Diferencia -3
                                            [ Resolver ▾ ]
 ```
@@ -421,13 +421,13 @@ crece y no bloquea nada. Y si los números vuelven a coincidir solos, se cierra 
 Aparece en **Productos**, filtro **Stock distinto**, y te llega por email.
 
 ```
-Mate de calabaza forrado   Stock 12   ·   La otra tienda 15
+Taza de cerámica 350 ml   Stock 12   ·   La otra tienda 15
 ```
 
 Las dos tiendas cierran bien contra su propio libro, pero no coinciden entre ellas. Pasa, por
 ejemplo, cuando volvés a activar "Gestionar stock" en un producto vinculado (§ 5.6).
 
-> ⚠️ **Corregirlo a mano no sirve.** Si en Pampa Hogar cambiás el 12 por 15, viaja un `+3` y
+> ⚠️ **Corregirlo a mano no sirve.** Si en la minorista cambiás el 12 por 15, viaja un `+3` y
 > la otra pasa a 18. La distancia entre las dos no cambia nunca.
 
 Lo que iguala es el botón: **Más acciones → Igualar stock**. El modal pide los dos números en
@@ -507,7 +507,7 @@ no hace lo que esperabas.
 El cartel aparece arriba de todo, en Resumen y en Productos:
 
 ```
-Sin conexión con Pampa Mayorista
+Sin conexión con Tienda Mayorista
 Desde las 14:30. Los cambios quedan en la cola y se mandan solos
 cuando vuelva: no hace falta hacer nada.
 ```
