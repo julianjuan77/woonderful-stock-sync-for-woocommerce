@@ -4,11 +4,10 @@
 
 # Parte 1 — Inicio rápido
 
-Cuatro pasos para dejar el plugin andando. Si los seguís en orden, al terminar una venta en
-cualquiera de tus dos tiendas descuenta el stock en las dos.
+Cuatro pasos para dejar el plugin funcionando.
 
-**Antes de empezar necesitás:** las dos tiendas con WooCommerce funcionando, acceso de
-administrador a cada una, y el plugin instalado en **las dos**.
+**Antes de empezar necesitás:** las dos tiendas con WooCommerce instalado, acceso de
+administrador a cada una, y el plugin de sincronización instalado en **ambas**.
 
 ---
 
@@ -32,22 +31,22 @@ bien: arreglalo y apretá *Volver a revisar*.
 **Los dos últimos son recomendaciones**, no bloquean nada:
 
 - **PHP-FPM o LiteSpeed** — sin eso una venta tarda hasta un minuto en salir, en vez de salir
-  al instante. Funciona igual.
-- **El correo sale** — mandá el email de prueba. Si no llega, no vas a recibir los avisos.
+  al instante. Pero funciona igual.
+- **El correo sale** — mandá el email de prueba. Si no llega, no vas a recibir los avisos, pero no impide el funcionamiento del plugin.
 
 ### 1.2 Esta tienda
 
 Dos campos:
 
 - **Nombre** — con el que la nombra la otra tienda y con el que firman los emails. Poné algo
-  que distingas de un vistazo: "Tienda Minorista", "Mayorista", el nombre de la marca.
+  que distingas de un vistazo, por ej: "Tienda Minorista", "Mayorista", el nombre de la marca, etc.
 - **Rol** — y esta es **la decisión importante del plugin**.
 
 > **📷 Captura —** el paso "Esta tienda", con el nombre cargado y las dos tarjetas de rol.
 
 | Rol | Qué significa |
 |---|---|
-| **Maestra** | Tu puesto de trabajo. Desde acá vinculás los productos y desde acá se lanza todo lo que hay que decidir. **Al vincular, el stock que queda es el suyo.** |
+| **Maestra** | Desde acá vinculás los productos y desde acá se lanza todo lo que hay que decidir. **Al vincular, el stock que manda es el de la maestra.** |
 | **Secundaria** | Ve exactamente lo mismo, pero en modo lectura. |
 
 **Elegí como maestra la tienda donde ya cargás la mercadería.** Es la regla que te va a
@@ -91,10 +90,45 @@ Cuando terminan, las dos muestran **Emparejada** y la barra lateral dice *Conect
 
 ---
 
+## Antes de vincular — el SKU
+
+El **SKU** (*stock keeping unit*) es el código con el que identificás un producto en tu
+catálogo: `MUG-350`, `TAZA-BLANCA`, `1024`. Lo elegís vos y WooCommerce no lo usa para nada
+más que para buscar y para que vos lo reconozcas.
+
+**En WooCommerce el SKU es opcional**, y en este plugin también: podés vincular dos productos
+que no tengan SKU, o que lo tengan distinto en cada tienda.
+
+**Pero conviene usarlo, y que sea el mismo de los dos lados.** Es lo único que le permite al
+plugin **proponerte los pares solos**. La diferencia es concreta:
+
+| | Con el mismo SKU en las dos | Sin SKU, o con SKU distinto |
+|---|---|---|
+| **Al arrancar** | Vinculación masiva: un catálogo entero en una confirmación | A mano, producto por producto |
+| **Un producto nuevo** | Aparece sugerido y lo aceptás de un clic | Lo buscás a mano en la otra tienda |
+
+Cuanto peor esté el SKU, más trabajo manual vas a tener **al arrancar**. Después no cambia
+nada: una vez vinculado un producto, **el SKU deja de importar** — podés cambiarlo, borrarlo
+o pasárselo a otro producto y el par sigue funcionando igual.
+
+> **Cómo se carga un SKU en WooCommerce:** está en la pestaña **Inventario** de cada
+> producto. La documentación oficial lo explica en
+> [WooCommerce Product Editor settings](https://woocommerce.com/document/managing-products/product-editor-settings/)
+> *(en inglés)*, donde además aclara que **cada SKU tiene que ser único dentro de tu tienda**
+> — si repetís uno, el plugin no va a poder adivinar cuál es cuál.
+
+---
+
 ## Paso 3 — Vincular un producto simple
 
 Estar emparejadas no alcanza: **el plugin todavía no sabe qué producto de una tienda es cuál
 en la otra**. Eso lo decidís vos, producto por producto, y se hace **desde la maestra**.
+
+> **¿Qué es un producto simple?** El tipo por defecto de WooCommerce: un artículo único, sin
+> variantes — una taza, un libro, una mochila. Lleva un solo precio y un solo stock. Si
+> necesitás repasar cómo se crean, está en
+> [Adding and Managing Products](https://woocommerce.com/document/managing-products/)
+> *(en inglés)*.
 
 Entrá a **Productos**. Vas a ver tu catálogo con el estado de cada uno.
 
@@ -141,6 +175,11 @@ Los que quedan afuera se resuelven de a uno, y de eso habla la Parte 2.
 Un producto variable —una remera con talles, una botella con colores— **no se vincula como
 producto**. Se vincula **cada variación por separado**, porque cada una lleva su propio stock.
 
+> **¿Qué es un producto variable?** Uno que se vende en versiones distintas del mismo
+> artículo: talles, colores, medidas. Cada combinación es una **variación**, y cada variación
+> puede tener su propio precio, su propio SKU y su propio stock. Cómo se arman está en
+> [Variable Products](https://woocommerce.com/document/variable-product/) *(en inglés)*.
+
 En la lista, el variable es una fila que se despliega. El padre no tiene botones.
 
 > **📷 Captura —** la fila de un variable desplegada, con sus tres variaciones debajo.
@@ -154,9 +193,16 @@ En la lista, el variable es una fila que se despliega. El padre no tiene botones
 
 El padre muestra cómo va: **2/3 vinculadas**, y el estado **Parcial** mientras le falte alguna.
 
-**Para que una variación se pueda vincular, tiene que tener su propio SKU y gestionar su
-propio stock en las dos tiendas.** Si no, la fila te dice qué le falta, y eso se arregla en
-WooCommerce. Los casos están en la Parte 2.
+**La condición para vincular una variación es que gestione su propio stock en las dos
+tiendas.** Dos trampas habituales, las dos se arreglan en WooCommerce:
+
+- **El stock está cargado en el producto padre** en vez de en cada variación. Hay que pasarlo
+  a las variaciones: si no, el plugin no sabría a cuál descontarle una venta.
+- **Una variación no gestiona stock en una de las dos tiendas.** Hay que activárselo del lado
+  que le falta.
+
+El SKU, en cambio, **no es condición**: sin SKU propio la variación no se sugiere sola, pero
+la podés vincular a mano. Esos casos están en la Parte 2.
 
 ---
 
@@ -173,8 +219,9 @@ siempre, en WooCommerce; el plugin propaga cada cambio a la otra tienda.
    no administra inventario.
 2. **Un producto nuevo no sincroniza hasta que lo vinculás.** Crearlo en las dos tiendas con
    el mismo SKU sólo lo vuelve candidato. A las 24 horas te llega un email recordándotelo.
-3. **Un mismo archivo CSV se importa en una sola tienda, y esa tienda es la maestra.**
-   Importarlo en las dos suma dos veces y es el único error que el plugin no puede deshacer.
+3. **Cargá el stock siempre en la maestra.** También funciona si lo cargás en la
+   secundaria, pero tener un solo lugar te evita confundirte. Cargar el mismo stock en las
+   dos suma dos veces, y es el único error que el plugin no puede deshacer.
 
 ---
 
