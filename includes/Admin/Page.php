@@ -120,8 +120,10 @@ final class Page {
 			'wss-admin',
 			'wssAdmin',
 			array(
-				'nonce'   => wp_create_nonce( 'wp_rest' ),
-				'version' => \Woonderful\StockSync\VERSION,
+				'nonce'     => wp_create_nonce( 'wp_rest' ),
+				'version'   => \Woonderful\StockSync\VERSION,
+				// Las capturas del manual: la ruta sólo se conoce en tiempo de ejecución.
+				'manualUrl' => plugins_url( 'assets/manual/', WSS_PLUGIN_FILE ),
 			)
 		);
 	}

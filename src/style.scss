@@ -4002,6 +4002,30 @@ h2.wss-confirm__title {
 		}
 	}
 
+	// Las capturas: a todo el ancho del cuerpo, no al de la medida de lectura.
+	&__figure {
+		margin: var(--woon-sp-5) 0;
+
+		// `max-width` y no `width`: una captura de un modal es más angosta que el cuerpo y
+		// estirarla la dejaría borrosa.
+		img {
+			display: block;
+			max-width: 100%;
+			height: auto;
+			border: 1px solid var(--woon-border);
+			border-radius: var(--woon-radius-md);
+			background: var(--woon-surface);
+		}
+
+		figcaption {
+			margin-top: var(--woon-sp-2);
+			font-family: var(--woon-font-body);
+			font-size: var(--woon-fs-sm);
+			line-height: var(--woon-lh-body);
+			color: var(--woon-text-muted);
+		}
+	}
+
 	&__table-wrap {
 		margin: 0 0 var(--woon-sp-4);
 		overflow-x: auto;

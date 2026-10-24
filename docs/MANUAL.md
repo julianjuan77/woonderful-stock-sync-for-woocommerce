@@ -221,11 +221,7 @@ MUG-350                         La otra tienda: Taza de cerámica · MUG-350 · 
 
 Apretás **Aceptar**. La pantalla te muestra los dos números y cuál va a quedar:
 
-```
-Stock acá ................ 12   (el de la maestra)
-Stock en la otra tienda ... 9
-Las dos quedan con ....... 12
-```
+![Antes de confirmar, la pantalla muestra el stock de cada tienda y con cuál van a quedar las dos.](vincular-modal.jpg)
 
 Confirmás, y listo: estado **Vinculado**, las dos en 12, y desde ese momento cada venta de
 cualquiera de las dos descuenta en las dos.
@@ -347,6 +343,8 @@ trabajar el arranque:
 
 **Todos · Con sugerencia · Sin coincidencia · Sin SKU · Stock en el padre · SKU duplicado ·
 No gestiona stock · En la papelera · Descartados**
+
+![Productos en la maestra con el filtro Sin vincular. Cada fila dice por qué ese producto todavía no sincroniza, y los motivos son también filtros.](productos-sin-vincular.jpg)
 
 El orden natural para dejar el catálogo limpio: primero **Con sugerencia** (un clic cada
 uno), después **SKU duplicado** y **Sin SKU** (arreglás el catálogo o vinculás a mano), y al
@@ -532,6 +530,8 @@ El plazo de las 24 horas y el destinatario se pueden cambiar por consola:
 están el interruptor de los avisos y el destinatario.
 
 ### 5.8 Las cuatro pantallas
+
+![Resumen: si está todo sincronizado, qué hay en camino, cuántos productos faltan vincular y cuándo fue la última reconciliación.](resumen.jpg)
 
 | Pantalla | Para qué |
 |---|---|

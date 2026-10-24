@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from '@wordpress/element';
+import { useState, useEffect, useRef, useMemo } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { MANUAL_HTML, MANUAL_TOC } from '../manual-content';
 
@@ -11,6 +11,16 @@ import { MANUAL_HTML, MANUAL_TOC } from '../manual-content';
 const Manual = () => {
 	const [ active, setActive ] = useState( MANUAL_TOC[ 0 ]?.id );
 	const body = useRef( null );
+
+	// Las capturas se guardan en assets/manual/ y su URL depende de dónde esté instalado el
+	// plugin, así que el HTML generado trae un marcador que se resuelve acá.
+	const html = useMemo(
+		() =>
+			MANUAL_HTML.split( '%%WSS_MANUAL_URL%%' ).join(
+				window.wssAdmin?.manualUrl ?? ''
+			),
+		[]
+	);
 
 	// El índice sigue a la lectura: se marca la última sección que pasó por arriba.
 	useEffect( () => {
@@ -113,7 +123,7 @@ const Manual = () => {
 					className="wss-manual__body"
 					ref={ body }
 					// eslint-disable-next-line react/no-danger
-					dangerouslySetInnerHTML={ { __html: MANUAL_HTML } }
+					dangerouslySetInnerHTML={ { __html: html } }
 				/>
 			</div>
 		</div>

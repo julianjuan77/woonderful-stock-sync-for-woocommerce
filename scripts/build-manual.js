@@ -18,6 +18,9 @@ const ROOT = path.resolve( __dirname, '..' );
 const SOURCE = path.join( ROOT, 'docs', 'MANUAL.md' );
 const TARGET = path.join( ROOT, 'src', 'manual-content.js' );
 
+// La URL de assets/manual/ no se conoce al compilar: la pone el navegador (Manual.js).
+const MANUAL_URL = '%%WSS_MANUAL_URL%%';
+
 const escape = ( text ) =>
 	text
 		.replace( /&/g, '&amp;' )
@@ -124,6 +127,21 @@ const convert = ( markdown ) => {
 			}
 			i++;
 			out.push( `<pre><code>${ escape( body.join( '\n' ) ) }</code></pre>` );
+			continue;
+		}
+
+		// Una captura, sola en su línea: `![epígrafe](archivo.png)`. El texto va al epígrafe y
+		// el `alt` queda vacío a propósito: el lector de pantalla ya lee el epígrafe, y
+		// repetirlo lo diría dos veces.
+		const image = line.trim().match( /^!\[([^\]]*)\]\(([^)\s]+)\)$/ );
+		if ( image ) {
+			i++;
+			out.push(
+				'<figure class="wss-manual__figure">' +
+					`<img src="${ MANUAL_URL }${ escape( image[ 2 ] ) }" alt="" loading="lazy" />` +
+					`<figcaption>${ inline( image[ 1 ] ) }</figcaption>` +
+					'</figure>'
+			);
 			continue;
 		}
 
