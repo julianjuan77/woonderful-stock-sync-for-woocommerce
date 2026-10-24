@@ -75,7 +75,7 @@ cosas. Las que fallan te dicen cómo arreglarlas.
 | Requisito | Si falla |
 |---|---|
 | PHP 8.1 o más y WooCommerce 9.1 o más | Actualizá desde el panel del hosting o desde Plugins |
-| Las tablas del plugin, en InnoDB | Desactivá y volvé a activar el plugin |
+| Las tablas del plugin, en InnoDB | Depende de cuál de los dos problemas sea: ver abajo |
 | No es una copia de otro sitio | Es un staging o una restauración: no sincroniza. Si es la tienda real que cambió de dirección, emparejala de nuevo |
 | HTTPS | Instalá el certificado **antes** de emparejar. Pasar a https después suspende la sincronización |
 | La API REST responde desde afuera | Algo la bloquea: un plugin de seguridad, el firewall del hosting. La otra tienda le habla a `/wp-json/wss/v1/` |
@@ -84,6 +84,40 @@ cosas. Las que fallan te dicen cómo arreglarlas.
 
 Los dos últimos no son críticos —el plugin funciona igual— pero sin cron todo va más lento y
 sin correo no te enterás de nada sin entrar al panel.
+
+#### Si falla "Las tablas del plugin, en InnoDB"
+
+El plugin guarda lo suyo en cuatro tablas propias —`wp_wss_movements`, `wp_wss_links`,
+`wp_wss_nonces` y `wp_wss_events`, con el prefijo que tenga tu instalación— y necesita que
+sean **InnoDB**, que es el motor de base de datos que sabe hacer transacciones. Sin
+transacciones, dos ventas a la vez pueden llevarse el mismo número de orden y la cuenta sale
+mal **en silencio**, que es lo peor que puede pasarle a un stock.
+
+Ese aviso tapa dos problemas distintos. La pantalla te dice **qué tabla** es la que falla, y
+según cuál sea el caso se arregla de una manera o de la otra:
+
+**1. La tabla no existe.** WordPress no la pudo crear, casi siempre porque el usuario de la
+base de datos no tiene permiso para crear tablas. Andá a **Plugins**, desactivá Woonderful
+Stock Sync y volvé a activarlo: al activarse lo intenta de nuevo. Si el aviso sigue ahí, es
+el permiso, y eso lo da el hosting.
+
+**2. La tabla existe pero es MyISAM.** Acá desactivar y volver a activar **no cambia nada**,
+y es la parte que confunde: WordPress crea las tablas en InnoDB, pero no convierte una que ya
+existe con otro motor, así que al reactivar se las encuentra hechas y las deja como están.
+Hay que convertirlas. Desde phpMyAdmin o desde la consola de la base:
+
+```sql
+ALTER TABLE wp_wss_movements ENGINE=InnoDB;
+ALTER TABLE wp_wss_links     ENGINE=InnoDB;
+ALTER TABLE wp_wss_nonces    ENGINE=InnoDB;
+ALTER TABLE wp_wss_events    ENGINE=InnoDB;
+```
+
+Si no tenés acceso, pedile al hosting que convierta esas cuatro tablas a InnoDB. Es un pedido
+de rutina, no toca nada del resto del sitio, y los datos no se pierden.
+
+> Hoy esto es raro: InnoDB es el motor por defecto de MySQL desde 2010 y de MariaDB desde
+> siempre. Si aparece, suele ser un hosting viejo o una migración que arrastró tablas MyISAM.
 
 ### 2.3 Emparejar las dos tiendas
 
