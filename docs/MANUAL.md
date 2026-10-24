@@ -65,6 +65,8 @@ Elegí como maestra la tienda donde ya cargás la mercadería. En los ejemplos d
 La primera pantalla que vas a ver es **Configuración inicial**, y arranca revisando siete
 cosas. Las que fallan te dicen cómo arreglarlas.
 
+![La revisión de requisitos, el primer paso de la configuración inicial. Los dos últimos no son críticos: salen como recomendación.](requisitos.jpg)
+
 | Requisito | Si falla |
 |---|---|
 | PHP 8.1 o más y WooCommerce 9.1 o más | Actualizá desde el panel del hosting o desde Plugins |
@@ -231,13 +233,7 @@ cualquiera de las dos descuenta en las dos.
 Un producto variable **no se vincula como producto**. Se vincula **cada variación**, porque
 cada una lleva su propio stock. El padre es una fila que se despliega y no tiene botones.
 
-```
-▸ Botella térmica 500 ml · Variable · 3 variaciones · 2/3 vinculadas
-    Negro   BTL-500-NE   Stock 8    ↔  Mayorista 8    Vinculado
-    Rojo    BTL-500-RO   Stock 5    ↔  Mayorista 5    Vinculado
-    Verde   BTL-500-VE   Stock 3    ↔  —              Sin vincular · En la otra
-                                                      tienda no gestiona stock
-```
+![La fila del variable desplegada: Negro y Rojo vinculados, y el Verde esperando que la otra tienda le active la gestión de stock.](productos-variable.jpg)
 
 Qué hacer con el Verde: en la mayorista, abrir esa variación en WooCommerce y **activar
 "Gestionar stock"**. En cuanto lo tenga, aparece la sugerencia y la vinculás.
@@ -477,15 +473,7 @@ ejemplo, cuando volvés a activar "Gestionar stock" en un producto vinculado (§
 Lo que iguala es el botón: **Más acciones → Igualar stock**. El modal pide los dos números en
 el momento y te deja elegir:
 
-```
-Stock en esta tienda ....... 12
-En la otra tienda .......... 15
-
-Contá lo que hay en el depósito y elegí cuál de los dos números es
-el correcto: las dos tiendas quedan con ese.
-
-[ Vale el de esta tienda (12) ]   [ Vale el de la otra (15) ]
-```
+![El modal pide los dos números en el momento, no la copia del catálogo, y te deja elegir cuál vale.](igualar-stock.jpg)
 
 ### 5.6 Volver a activar "Gestionar stock"
 
@@ -540,6 +528,8 @@ están el interruptor de los avisos y el destinatario.
 | **Registros** | Dos pestañas: **Avisos** (vínculos, reconciliaciones, cortes, discrepancias) y **Movimientos** (cada cambio de stock: cuál, cuánto, por qué, cómo terminó). Se filtra por período, tipo, nivel y producto |
 | **Configuración** | El emparejamiento, el nombre de la tienda, la pausa, los avisos por email y qué pasa con los datos al desinstalar |
 
+![Registros, pestaña Avisos: lo que pasó entre las dos tiendas, filtrable por período, tipo y nivel.](registros.jpg)
+
 Y en cada producto, **Ver el historial**: sus movimientos y lo que le pasó, de lo más nuevo a
 lo más viejo, en una sola línea de tiempo. Es lo primero que conviene abrir cuando un producto
 no hace lo que esperabas.
@@ -552,11 +542,7 @@ no hace lo que esperabas.
 
 El cartel aparece arriba de todo, en Resumen y en Productos:
 
-```
-Sin conexión con Tienda Mayorista
-Desde las 14:30. Los cambios quedan en la cola y se mandan solos
-cuando vuelva: no hace falta hacer nada.
-```
+![El cartel aparece arriba de todo y explica los stocks descuadrados de abajo: no son errores de cada producto, es una caída.](tienda-caida.jpg)
 
 **No hagas nada.** Es la respuesta correcta y es literal:
 

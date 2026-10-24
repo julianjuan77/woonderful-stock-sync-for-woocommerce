@@ -55,6 +55,15 @@ marca con la lectura, y enlace directo a una sección con `#/manual?s=<id>`.
 **Para corregir el manual:** se edita `docs/MANUAL.md` y se corre `npm run build`. No tocar
 `src/manual-content.js`, que es generado y está fuera del lint (`.eslintignore`).
 
+**Las capturas** van en `assets/manual/` y se insertan con `![epígrafe](archivo.jpg)` solo en
+su línea. Son ocho, 320 KB en total, en JPEG: la captura llega ya comprimida del navegador, así
+que PNG pesaba 3,5 veces lo mismo sin ganar nitidez. **Envejecen con cada cambio de interfaz y
+nada lo avisa**, así que conviene repasarlas antes de publicar una versión. Se sacan del par
+`sandbox` / `sandbox-b`, que tiene cargado el catálogo del manual —Taza, Botella variable,
+Cuaderno con SKU repetido, Vela sin SKU, Posavasos, Mochila, Grabado y Caja de regalo— además
+de las alpargatas de las pruebas manuales. Las dos tiendas se llaman "Tienda Minorista" y
+"Tienda Mayorista" para que las capturas coincidan con el texto.
+
 Dos cosas que costaron y conviene no volver a descubrir: `.woon-main` declara
 `overflow-y: auto` y eso vuelve inútil cualquier `position: sticky` adentro —el índice lo
 resuelve con `.woon-main:has(.wss-manual)`—, y el zip no lleva `docs/` (`.distignore`), así
