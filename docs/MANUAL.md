@@ -3,15 +3,14 @@
 ## 1. Qué hace y qué no hace
 
 Tenés **dos tiendas WooCommerce** y **un solo depósito**. Woonderful Stock Sync hace que las
-dos publiquen el mismo número, el real, y que una venta en cualquiera de las dos descuente en
-las dos.
+dos publiquen el mismo número, y que un cambio de stock se refleje en ambas.
 
 ### Pool único: nada de repartir
 
-Si en el depósito hay 10 tazas, las dos tiendas muestran **10**. No 5 y 5, no 7 y 3.
+Si en el depósito hay 10 productos, las dos tiendas muestran **10**.
 
 ```
-            Depósito: 10 tazas
+          Depósito: 10 productos
                      │
             ┌────────┴────────┐
     Tienda Minorista   Tienda Mayorista
@@ -52,13 +51,7 @@ El plugin se instala en **las dos** tiendas. Al configurarlo elegís un rol para
 
 - **Maestra** — tu puesto de trabajo. Es donde vinculás los productos, donde cargás el stock
   y donde importás los CSV. Su número es el que vale cuando un producto entra a sincronizar.
-- **Secundaria** — ve todo lo mismo, pero en modo lectura. Si intentás vincular algo ahí, la
-  pantalla te manda a la maestra con un enlace.
-
-**Que una sea maestra no la hace más importante para las ventas.** Una venta en la secundaria
-descuenta en las dos igual que una venta en la maestra. La maestra manda en lo que se decide
-**una vez por producto** (qué producto es cuál, con qué número arranca), no en lo que pasa
-todos los días.
+- **Secundaria** — ve todo lo mismo, pero en modo lectura.
 
 Elegí como maestra la tienda donde ya cargás la mercadería. En los ejemplos de este manual:
 
@@ -82,8 +75,13 @@ cosas. Las que fallan te dicen cómo arreglarlas.
 | La pasada corrió hace poco | Sin visitas, WordPress no dispara su cron. Pedile al hosting un cron real cada minuto |
 | El correo sale | Mandá el email de prueba. Si no llega, configurá un SMTP o no vas a recibir avisos |
 
-Los dos últimos no son críticos —el plugin funciona igual— pero sin cron todo va más lento y
-sin correo no te enterás de nada sin entrar al panel.
+El cron es una funcionalidad con la que se pueden programar tareas. En WordPress se dispara
+en cada visita al sitio: si nadie entra, no corre. El plugin lo usa para mandarle a la otra
+tienda los movimientos de stock, así que conviene configurar un cron real, que no dependa de
+las visitas y se ejecute cada minuto. Consultá con tu proveedor de hosting: muchos ya lo
+tienen configurado así.
+
+El plugin va a funcionar igual, pero los movimientos van a tardar en reflejarse.
 
 #### Si falla "Las tablas del plugin, en InnoDB"
 
@@ -161,6 +159,14 @@ situación distinta de las que te vas a encontrar.
 ---
 
 ## 4. Vincular los productos
+
+El plugin puede funcionar con o sin SKU. El SKU es un código alfanumérico único que se le
+asigna a cada producto para identificarlo, clasificarlo y seguir su inventario de manera
+interna. Si tenés variaciones, cada una lleva su propio SKU.
+
+El plugin te da la posibilidad de usarlo o de vincular los productos a mano. La ventaja es
+que si ya usás SKU la vinculación se hace en un minuto; si no, hay que vincularlos uno por
+uno.
 
 ### 4.1 Por qué hay que vincular
 
@@ -250,7 +256,8 @@ Qué hacer con el Verde: en la mayorista, abrir esa variación en WooCommerce y 
 
 ### 4.5 Producto 3 — Cuaderno A5: SKU duplicado
 
-En la mayorista hay **dos** productos con el SKU `NOT-A5` (quedó una copia vieja).
+En la mayorista hay **dos** productos con el mismo SKU `NOT-A5` (el plugin no puede adivinar
+cuál de los dos es).
 
 ```
 Cuaderno A5 tapa dura    NOT-A5    Stock 22
@@ -278,7 +285,8 @@ condición para vincular** — es sólo lo que permite sugerir.
 
 Y una vez vinculado, **el SKU deja de importar del todo**: podés cambiarlo, borrarlo o
 pasárselo a otro producto y el par sigue funcionando igual. La identidad es el par, no el
-SKU.
+SKU, y por eso todos los cambios en las vinculaciones se hacen desde el plugin y no tocando
+el SKU.
 
 ### 4.7 Producto 5 — Juego de posavasos: existe en una sola tienda
 
@@ -334,7 +342,7 @@ Arriba de la tabla:
 
 **Todos · Sin vincular · Vinculados · Suspendidos · Stock distinto**
 
-Al entrar en **Sin vincular**, esa fila se reemplaza por los motivos, que es como vas a
+Al entrar en **Sin vincular**, esa fila se reemplaza por los filtros de motivo, que es como
 trabajar el arranque:
 
 **Todos · Con sugerencia · Sin coincidencia · Sin SKU · Stock en el padre · SKU duplicado ·
@@ -355,7 +363,8 @@ final **Sin coincidencia** (creás el producto que falta, o descartás).
 > ⚠️ **Desvincular no es la forma de corregir un número.**
 > Si el par está bien y el número está mal, editás el stock en WooCommerce y listo (§ 5.1).
 > Si los dos números quedaron distintos, usás **Igualar stock** (§ 5.5).
-> Desvincular es para cuando **el par está mal**, no cuando el número está mal.
+> Desvincular es para cuando **el par está mal vinculado, se vinculó con un producto que no
+> era el deseado**, no cuando el número de stock está mal.
 
 Y ojo con **revincular**: mientras estuvo desvinculado cada tienda vendió por su cuenta, así
 que los números se separaron. Al revincular, el de la maestra **pisa** el de la secundaria y
@@ -415,7 +424,10 @@ Cada noche, la maestra dispara una **reconciliación**. Hace dos cosas:
    faltaba, con su diferencia original.
 2. **Revisa que el stock de cada tienda coincida con su propio libro.** Si no coincide, hubo
    una escritura que nadie registró: te la reporta como **discrepancia** y **no toca nada**,
-   porque no tiene forma de saber cuál de los dos números es el bueno.
+   porque no tiene forma de saber cuál de los dos números es el bueno. Esto puede pasar si
+   tenés un plugin que escribe directamente en la base de datos, o si hiciste un cambio desde
+   la base: no suele pasar, y tampoco es recomendable, porque WooCommerce ofrece mecanismos
+   para hacerlo.
 
 Además, la maestra **compara su stock con el de la otra tienda** y te avisa de los pares que
 quedaron con números distintos (§ 5.5).
@@ -505,15 +517,15 @@ Te avisa de **tres cosas**:
 Y las reglas que hacen que no te llene la casilla:
 
 - **Cada producto se avisa una sola vez.** Si sigue sin sincronizar seis meses, no te lo
-  vuelve a mencionar. Por eso conviene **descartar** lo que no querés sincronizar: es la
-  forma de decir "ya sé, dejame en paz".
+  vuelve a mencionar.
 - **Se agrupa por causa.** Si vaciás la papelera y 300 productos vinculados pierden su par,
   es **un** email que dice "300 productos", no 300 emails. Eso es un problema, no trescientos.
 - **Una tienda caída es una causa sola.** Mientras no responde, todo falla: las entregas, las
   vinculaciones, la reconciliación. Sale **un** email y nada por producto.
 - **Lo que pasa mientras estás mirando la pantalla no se avisa.** Si lanzás la masiva y falla,
   te lo dice la pantalla. El email es para lo que pasa cuando no hay nadie mirando.
-- **Tope de 10 emails por día.**
+- **Tope de 10 emails por día.** Por seguridad el plugin limita el envío para no saturar tu
+  servidor.
 
 El plazo de las 24 horas y el destinatario se pueden cambiar por consola:
 `wp wss notify --email=deposito@ejemplo.com --after=48`. En la pantalla de Configuración
@@ -646,7 +658,7 @@ y no se cruza nada.
 
 #### ¿Por qué un producto que creé en las dos tiendas no sincroniza?
 Porque crearlo no lo vincula. Entrá a **Productos** en la maestra, filtro **Con sugerencia**,
-y aceptalo. A las 24 horas te va a llegar un email recordándotelo.
+y aceptalo.
 
 #### Un producto está en "Sin vincular" y no sé si me olvidé o falló algo.
 Abrí su historial. **Vacío** = nunca se intentó, vinculalo. **Con un intento fallido** = ya se
@@ -665,8 +677,8 @@ así que las cuentas siguen dando.
 
 #### Restauré un backup de una de las tiendas y dejó de sincronizar.
 Es a propósito. El plugin detecta que el sitio es una copia del que se emparejó y se suspende,
-para no sincronizar desde un staging. Si es la tienda real y cambió de dirección, emparejala
-de nuevo.
+para no sincronizar desde un sitio de test. Si es la tienda real y cambió de dirección,
+emparejala de nuevo.
 
 #### ¿Puedo usarlo con tres tiendas?
 No. Exactamente dos.
