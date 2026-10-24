@@ -58,6 +58,7 @@ final class Page {
 			'#/products'  => __( 'Productos', 'woonderful-stock-sync-for-woocommerce' ),
 			'#/logs'      => __( 'Registros', 'woonderful-stock-sync-for-woocommerce' ),
 			'#/settings'  => __( 'Configuración', 'woonderful-stock-sync-for-woocommerce' ),
+			'#/manual'    => __( 'Manual', 'woonderful-stock-sync-for-woocommerce' ),
 		);
 
 		foreach ( $subpages as $route => $title ) {

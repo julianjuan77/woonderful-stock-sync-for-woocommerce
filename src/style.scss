@@ -3772,3 +3772,242 @@ h2.wss-confirm__title {
 	padding-bottom: 96px;
 }
 
+
+/* ── Manual ───────────────────────────────────────────────────────────── */
+
+// `.woon-main` declara `overflow-y: auto`, y eso lo vuelve el scrollport del índice: como
+// nunca desborda —la altura la da el contenido—, el `position: sticky` no se activa nunca y
+// el índice se va con el scroll. En el manual ese contenedor no tiene nada que recortar.
+.woon-main:has(.wss-manual) {
+	overflow-y: visible;
+}
+
+.wss-manual {
+	padding-bottom: 96px;
+
+	&__layout {
+		display: grid;
+		grid-template-columns: 220px minmax(0, 1fr);
+		gap: var(--woon-sp-7);
+		align-items: start;
+	}
+
+	// El índice acompaña: la barra del admin de WordPress ocupa los primeros 32 px.
+	&__toc {
+		position: sticky;
+		top: 64px;
+
+		ol {
+			margin: 0;
+			padding: 0;
+			list-style: none;
+			counter-reset: wss-manual-toc;
+		}
+
+		li {
+			margin: 0;
+			counter-increment: wss-manual-toc;
+		}
+	}
+
+	&__toc-item {
+		display: block;
+		width: 100%;
+		padding: 7px var(--woon-sp-3);
+		border: 0;
+		border-left: 2px solid var(--woon-border);
+		background: none;
+		font-family: var(--woon-font-body);
+		font-size: var(--woon-fs-sm);
+		line-height: 1.35;
+		text-align: left;
+		color: var(--woon-text-muted);
+		cursor: pointer;
+		transition: color var(--woon-dur) var(--woon-ease),
+			border-color var(--woon-dur) var(--woon-ease);
+
+		&::before {
+			content: counter(wss-manual-toc) ". ";
+			color: var(--woon-text-faint);
+		}
+
+		&:hover {
+			color: var(--woon-text);
+			border-left-color: var(--woon-border-strong);
+		}
+
+		&.is-active {
+			color: var(--woon-primary);
+			border-left-color: var(--woon-primary);
+			font-weight: 700;
+
+			&::before {
+				color: var(--woon-primary);
+			}
+		}
+	}
+
+	&__body {
+		max-width: 760px;
+		font-size: var(--woon-fs-body);
+		line-height: var(--woon-lh-body);
+		color: var(--woon-text);
+
+		> :first-child {
+			margin-top: 0;
+		}
+
+		h2 {
+			margin: var(--woon-sp-7) 0 var(--woon-sp-4);
+			padding-bottom: var(--woon-sp-2);
+			border-bottom: 1px solid var(--woon-border);
+			font-family: var(--woon-font-display);
+			font-size: 22px;
+			font-weight: 600;
+			letter-spacing: -0.01em;
+			line-height: 1.2;
+			color: var(--woon-ink);
+			scroll-margin-top: 64px;
+		}
+
+		h3 {
+			margin: var(--woon-sp-6) 0 var(--woon-sp-3);
+			font-family: var(--woon-font-display);
+			font-size: var(--woon-fs-h3);
+			font-weight: 600;
+			color: var(--woon-ink);
+			scroll-margin-top: 64px;
+		}
+
+		h4 {
+			margin: var(--woon-sp-5) 0 var(--woon-sp-2);
+			font-size: var(--woon-fs-body);
+			font-weight: 700;
+			color: var(--woon-ink);
+			scroll-margin-top: 64px;
+		}
+
+		p {
+			margin: 0 0 var(--woon-sp-4);
+		}
+
+		ul,
+		ol {
+			margin: 0 0 var(--woon-sp-4);
+			padding-left: var(--woon-sp-5);
+		}
+
+		li {
+			margin-bottom: var(--woon-sp-2);
+		}
+
+		strong {
+			font-weight: 700;
+			color: var(--woon-ink);
+		}
+
+		a {
+			color: var(--woon-primary);
+		}
+
+		code {
+			padding: 1px 5px;
+			border-radius: var(--woon-radius-sm);
+			background: var(--woon-surface-sunken);
+			font-family: var(--woon-font-mono);
+			font-size: 0.88em;
+			color: var(--woon-deep);
+		}
+
+		// Los esquemas y las pantallas de ejemplo: monoespaciado y sin ajuste de línea.
+		pre {
+			margin: 0 0 var(--woon-sp-4);
+			padding: var(--woon-sp-4);
+			overflow-x: auto;
+			border: 1px solid var(--woon-border);
+			border-radius: var(--woon-radius-md);
+			background: var(--woon-surface-2);
+
+			code {
+				padding: 0;
+				background: none;
+				font-size: var(--woon-fs-sm);
+				line-height: 1.5;
+				color: var(--woon-text);
+			}
+		}
+
+		hr {
+			margin: var(--woon-sp-6) 0;
+			border: 0;
+			border-top: 1px solid var(--woon-border);
+		}
+
+		blockquote {
+			margin: 0 0 var(--woon-sp-4);
+			padding: var(--woon-sp-4);
+			border: 1px solid var(--woon-border);
+			border-left: 3px solid var(--woon-light);
+			border-radius: var(--woon-radius-md);
+			background: var(--woon-surface-2);
+
+			p:last-child {
+				margin-bottom: 0;
+			}
+
+			// Las reglas que, si no se respetan, cuestan stock.
+			&.is-warning {
+				border-color: var(--woon-spark-line);
+				border-left-width: 3px;
+				background: var(--woon-spark-soft);
+				color: var(--woon-spark-ink);
+
+				strong {
+					color: inherit;
+				}
+			}
+		}
+	}
+
+	&__table-wrap {
+		margin: 0 0 var(--woon-sp-4);
+		overflow-x: auto;
+
+		table {
+			width: 100%;
+			border-collapse: collapse;
+			font-size: var(--woon-fs-sm);
+		}
+
+		th,
+		td {
+			padding: var(--woon-sp-3);
+			border-bottom: 1px solid var(--woon-border);
+			text-align: left;
+			vertical-align: top;
+		}
+
+		th {
+			border-bottom-color: var(--woon-border-strong);
+			font-weight: 700;
+			color: var(--woon-ink);
+			white-space: nowrap;
+		}
+
+		tbody tr:last-child td {
+			border-bottom: 0;
+		}
+	}
+}
+
+@media (max-width: 1100px) {
+
+	.wss-manual__layout {
+		grid-template-columns: 1fr;
+		gap: var(--woon-sp-5);
+	}
+
+	.wss-manual__toc {
+		position: static;
+	}
+}

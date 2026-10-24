@@ -3,7 +3,7 @@
  */
 
 // Las de la sidebar, en orden.
-export const NAV = [ 'dashboard', 'products', 'logs', 'settings' ];
+export const NAV = [ 'dashboard', 'products', 'logs', 'settings', 'manual' ];
 
 // Las que existen pero no están en la sidebar: la configuración inicial se abre sola.
 export const HIDDEN = [ 'setup' ];

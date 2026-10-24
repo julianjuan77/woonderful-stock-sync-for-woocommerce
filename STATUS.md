@@ -45,11 +45,21 @@ hoy: todos los bloques OK salvo el 8, por la 8.2, que necesita un período sin m
 bloque 9 (publicación) está hecho. **Cada versión lleva su tag `vX.Y.Z` y su GitHub Release con el zip y el changelog del readme** (`gh release create`). Versión 1.0.0 (2026-10-11) en producción; 1.1.0 (2026-10-14) con lo encontrado allá: Movimientos en Registros, lo que no gestiona stock en Productos y los filtros. El zip para instalar sale con `make package-plugin`. **Plugin Check** (2026-10-11, en `sandbox`): sin errores de código. Para WordPress.org lo frenan dos cosas: el nombre y el slug tienen "woo", prohibido allá, y el readme tiene que estar en inglés. Advertencias aceptadas: consultas directas con el nombre de la tabla interpolado (de `$wpdb->prefix`), placeholders armados con `implode()`, y las variables `$wss_*` de `uninstall.php`. **Lo que falta:** las pruebas manuales de ADR-021/022 y "Stock distinto", y las
 preguntas abiertas del SPEC (multisite, volumen, reservas asimétricas).
 
-**2026-10-23:** `docs/MANUAL.md` — el manual para el dueño de la tienda, con un catálogo de
-ocho productos de ejemplo que cubren cada estado (sugerencia, variable, SKU duplicado, sin
-SKU, sin coincidencia, reservas, sin gestión de stock, descartado). Falta la pantalla
-**Manual** que lo muestre dentro del plugin: ruta en `src/routing.js`, submenú en
-`Admin/Page.php` y `src/screens/Manual.js`.
+**2026-10-23:** el **Manual** dentro del plugin. El texto se escribe en `docs/MANUAL.md`
+—ocho productos de ejemplo que cubren cada estado: sugerencia, variable, SKU duplicado, sin
+SKU, sin coincidencia, reservas, sin gestión de stock, descartado— y `scripts/build-manual.js`
+lo convierte a `src/manual-content.js` al compilar (`npm run manual`, que `npm run build`
+dispara solo). La pantalla es `src/screens/Manual.js`: índice pegajoso a la izquierda, que se
+marca con la lectura, y enlace directo a una sección con `#/manual?s=<id>`.
+
+**Para corregir el manual:** se edita `docs/MANUAL.md` y se corre `npm run build`. No tocar
+`src/manual-content.js`, que es generado y está fuera del lint (`.eslintignore`).
+
+Dos cosas que costaron y conviene no volver a descubrir: `.woon-main` declara
+`overflow-y: auto` y eso vuelve inútil cualquier `position: sticky` adentro —el índice lo
+resuelve con `.woon-main:has(.wss-manual)`—, y el zip no lleva `docs/` (`.distignore`), así
+que el conversor se saltea solo cuando no encuentra el `.md` y ya existe el generado: si no,
+no se podría compilar desde el zip.
 
 El JavaScript se compila con `npm run build` y se prueba con `npm run lint:js` y
 `npm run test:unit`, desde la carpeta del plugin.

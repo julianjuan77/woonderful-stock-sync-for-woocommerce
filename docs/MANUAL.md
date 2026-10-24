@@ -607,44 +607,44 @@ En **Configuración → Datos** elegís qué pasa:
 
 ## 8. Preguntas frecuentes
 
-**¿Puedo tener precios distintos en cada tienda?**
+#### ¿Puedo tener precios distintos en cada tienda?
 Sí, y es lo normal. El plugin sólo toca el stock.
 
-**Cambié un SKU. ¿Se desvinculó?**
+#### Cambié un SKU. ¿Se desvinculó?
 No. Una vez vinculado, el SKU es informativo: podés cambiarlo, borrarlo o pasárselo a otro
 producto y el par sigue intacto. Hasta podés intercambiar los SKU de dos productos vinculados
 y no se cruza nada.
 
-**¿Por qué un producto que creé en las dos tiendas no sincroniza?**
+#### ¿Por qué un producto que creé en las dos tiendas no sincroniza?
 Porque crearlo no lo vincula. Entrá a **Productos** en la maestra, filtro **Con sugerencia**,
 y aceptalo. A las 24 horas te va a llegar un email recordándotelo.
 
-**Un producto está en "Sin vincular" y no sé si me olvidé o falló algo.**
+#### Un producto está en "Sin vincular" y no sé si me olvidé o falló algo.
 Abrí su historial. **Vacío** = nunca se intentó, vinculalo. **Con un intento fallido** = ya se
 intentó y algo anduvo mal, y el error está ahí.
 
-**¿Qué pasa si vendo la última unidad en las dos tiendas al mismo tiempo?**
+#### ¿Qué pasa si vendo la última unidad en las dos tiendas al mismo tiempo?
 Las dos ventas se cobran y el pool queda en **-1**: debés una unidad. El plugin **no bloquea
 ventas** — mientras el descuento viaja, las dos tiendas todavía muestran 1 — así que la
 ventana de sobreventa se vuelve muy chica pero no desaparece. Lo que sí garantiza es que
 ninguna de las dos ventas se pierda de la cuenta: nunca vas a terminar en 0 habiendo vendido
 dos.
 
-**¿Cuánto historial guarda?**
+#### ¿Cuánto historial guarda?
 90 días de movimientos. Al purgar, el punto de partida de cada producto absorbe lo borrado,
 así que las cuentas siguen dando.
 
-**Restauré un backup de una de las tiendas y dejó de sincronizar.**
+#### Restauré un backup de una de las tiendas y dejó de sincronizar.
 Es a propósito. El plugin detecta que el sitio es una copia del que se emparejó y se suspende,
 para no sincronizar desde un staging. Si es la tienda real y cambió de dirección, emparejala
 de nuevo.
 
-**¿Puedo usarlo con tres tiendas?**
+#### ¿Puedo usarlo con tres tiendas?
 No. Exactamente dos.
 
-**¿Sirve si cada tienda tiene su propio depósito?**
+#### ¿Sirve si cada tienda tiene su propio depósito?
 No. Todo el plugin asume un solo depósito compartido.
 
-**¿Y si vendo por peso o por metro, con decimales?**
+#### ¿Y si vendo por peso o por metro, con decimales?
 El plugin sincroniza cantidades enteras. Si detecta una extensión que pasa el stock a
 decimales, **te avisa** en vez de sincronizar mal en silencio.

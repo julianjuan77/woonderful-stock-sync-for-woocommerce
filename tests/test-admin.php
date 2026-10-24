@@ -167,7 +167,11 @@ class Test_Admin extends WP_UnitTestCase {
 
 		$this->assertCount( 1, $entry );
 		$this->assertSame( Page::CAPABILITY, $entry[0][1] );
-		$this->assertCount( 4, $submenu[ Page::SLUG ] );
+		$this->assertCount( 5, $submenu[ Page::SLUG ] );
+
+		// El manual tiene su entrada, como el resto de las pantallas.
+		$routes = array_column( $submenu[ Page::SLUG ], 2 );
+		$this->assertContains( Page::SLUG . '#/manual', $routes );
 	}
 
 	/**

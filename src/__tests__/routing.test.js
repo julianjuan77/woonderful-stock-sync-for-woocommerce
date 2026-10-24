@@ -15,12 +15,20 @@ describe( 'screenFromHash', () => {
 		expect( screenFromHash( '' ) ).toBe( 'dashboard' );
 	} );
 
-	it( 'la sidebar tiene las cuatro pantallas, y la configuración inicial no', () => {
+	it( 'el manual es una ruta más', () => {
+		expect( screenFromHash( '#/manual' ) ).toBe( 'manual' );
+		expect( screenFromHash( '#/manual?s=4-vincular-los-productos' ) ).toBe(
+			'manual'
+		);
+	} );
+
+	it( 'la sidebar tiene las cinco pantallas, y la configuración inicial no', () => {
 		expect( NAV ).toEqual( [
 			'dashboard',
 			'products',
 			'logs',
 			'settings',
+			'manual',
 		] );
 		expect( HIDDEN ).toEqual( [ 'setup' ] );
 	} );
