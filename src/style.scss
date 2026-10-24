@@ -37,6 +37,10 @@
 	--woon-font-display: "Bricolage Grotesque", system-ui, -apple-system, "Segoe UI", roboto, sans-serif;
 	--woon-font-body: "DM Sans", system-ui, -apple-system, "Segoe UI", roboto, sans-serif;
 	--woon-font-mono: "JetBrains Mono", ui-monospace, sfmono-regular, menlo, monospace;
+	// Para leer de corrido, no para interfaz: la del manual. Charter está en macOS y en casi
+	// todo Linux, Georgia en Windows; las tres se diseñaron para leer en pantalla. No se
+	// empaqueta ninguna: sin esto el manual sumaría 40 KB al plugin por un texto.
+	--woon-font-reading: charter, "Bitstream Charter", "Iowan Old Style", georgia, "Noto Serif", "Liberation Serif", serif;
 
 	--woon-fs-display: 28px;
 	--woon-fs-h2: 20px;
@@ -3848,10 +3852,31 @@ h2.wss-confirm__title {
 	}
 
 	&__body {
-		max-width: 760px;
-		font-size: var(--woon-fs-body);
-		line-height: var(--woon-lh-body);
+		max-width: 860px;
+		font-family: var(--woon-font-reading);
+		font-size: 16.5px;
+		line-height: 1.68;
 		color: var(--woon-text);
+
+		// El admin de WordPress define `font-size` y `line-height` sobre `p` y sobre `li`, y
+		// una regla propia le gana a lo heredado por más específico que sea el contenedor:
+		// sin esto el manual se lee en 13px y con el interlineado de la interfaz.
+		p,
+		li,
+		blockquote {
+			font-size: inherit;
+			line-height: inherit;
+		}
+
+		// La medida, y sólo sobre la prosa: lo que manda para leer de corrido es cuántas
+		// letras entran en el renglón, y se cuenta en caracteres porque cambia con la
+		// tipografía. Las tablas y los ejemplos no se leen de corrido: usan todo el ancho.
+		p,
+		ul,
+		ol,
+		blockquote {
+			max-width: 70ch;
+		}
 
 		> :first-child {
 			margin-top: 0;
@@ -3862,7 +3887,7 @@ h2.wss-confirm__title {
 			padding-bottom: var(--woon-sp-2);
 			border-bottom: 1px solid var(--woon-border);
 			font-family: var(--woon-font-display);
-			font-size: 22px;
+			font-size: 24px;
 			font-weight: 600;
 			letter-spacing: -0.01em;
 			line-height: 1.2;
@@ -3873,16 +3898,20 @@ h2.wss-confirm__title {
 		h3 {
 			margin: var(--woon-sp-6) 0 var(--woon-sp-3);
 			font-family: var(--woon-font-display);
-			font-size: var(--woon-fs-h3);
+			font-size: 19px;
 			font-weight: 600;
+			line-height: 1.3;
 			color: var(--woon-ink);
 			scroll-margin-top: 64px;
 		}
 
+		// Las preguntas frecuentes: en la misma tipografía del texto, para que la pregunta y
+		// su respuesta se lean como un bloque.
 		h4 {
 			margin: var(--woon-sp-5) 0 var(--woon-sp-2);
-			font-size: var(--woon-fs-body);
+			font-size: 1em;
 			font-weight: 700;
+			line-height: 1.4;
 			color: var(--woon-ink);
 			scroll-margin-top: 64px;
 		}
@@ -3976,7 +4005,9 @@ h2.wss-confirm__title {
 		table {
 			width: 100%;
 			border-collapse: collapse;
+			font-family: var(--woon-font-body);
 			font-size: var(--woon-fs-sm);
+			line-height: var(--woon-lh-body);
 		}
 
 		th,

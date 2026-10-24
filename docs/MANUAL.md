@@ -1,10 +1,5 @@
 # Manual de Woonderful Stock Sync
 
-> Para el dueño de la tienda. No hace falta saber nada de código.
-> Versión del plugin: 1.1.0 · Última revisión: 2026-10-23
-
----
-
 ## 1. Qué hace y qué no hace
 
 Tenés **dos tiendas WooCommerce** y **un solo depósito**. Woonderful Stock Sync hace que las
