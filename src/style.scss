@@ -3892,17 +3892,19 @@ h2.wss-confirm__title {
 			margin-top: 0;
 		}
 
-		// "Parte 1", "Parte 2": separan el manual en dos mitades.
+		// "Parte 1", "Parte 2": separan el manual en dos mitades. Van en el lila de la marca,
+		// el mismo de la línea de abajo, y con bastante aire arriba: lo que los hace leer
+		// como un corte y no como un título más de la seguidilla.
 		h1 {
-			margin: var(--woon-sp-8) 0 var(--woon-sp-5);
-			padding-bottom: var(--woon-sp-3);
+			margin: 96px 0 var(--woon-sp-6);
+			padding-bottom: var(--woon-sp-4);
 			border-bottom: 2px solid var(--woon-primary);
 			font-family: var(--woon-font-display);
 			font-size: 30px;
 			font-weight: 600;
 			letter-spacing: -0.02em;
 			line-height: 1.15;
-			color: var(--woon-ink);
+			color: var(--woon-primary);
 			scroll-margin-top: 64px;
 		}
 
