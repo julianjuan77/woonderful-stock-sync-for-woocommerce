@@ -37,10 +37,12 @@
 	--woon-font-display: "Bricolage Grotesque", system-ui, -apple-system, "Segoe UI", roboto, sans-serif;
 	--woon-font-body: "DM Sans", system-ui, -apple-system, "Segoe UI", roboto, sans-serif;
 	--woon-font-mono: "JetBrains Mono", ui-monospace, sfmono-regular, menlo, monospace;
-	// Para leer de corrido, no para interfaz: la del manual. Charter está en macOS y en casi
-	// todo Linux, Georgia en Windows; las tres se diseñaron para leer en pantalla. No se
-	// empaqueta ninguna: sin esto el manual sumaría 40 KB al plugin por un texto.
-	--woon-font-reading: charter, "Bitstream Charter", "Iowan Old Style", georgia, "Noto Serif", "Liberation Serif", serif;
+	// Para leer de corrido, no para interfaz: la del manual. Roboto primero —está en Android
+	// y en casi todo Linux—, y donde no está, la del sistema: San Francisco en macOS, Segoe
+	// UI en Windows. No se nombra `system-ui`: en varios Linux resuelve a una condensada,
+	// que es justo lo que no se quiere para un texto largo. No se empaqueta ninguna: sin
+	// esto el manual le sumaría 40 KB al plugin por un texto.
+	--woon-font-reading: roboto, -apple-system, "Segoe UI", "Noto Sans", "Liberation Sans", sans-serif;
 
 	--woon-fs-display: 28px;
 	--woon-fs-h2: 20px;
@@ -3854,8 +3856,8 @@ h2.wss-confirm__title {
 	&__body {
 		max-width: 860px;
 		font-family: var(--woon-font-reading);
-		font-size: 16.5px;
-		line-height: 1.68;
+		font-size: 16px;
+		line-height: 1.7;
 		color: var(--woon-text);
 
 		// El admin de WordPress define `font-size` y `line-height` sobre `p` y sobre `li`, y
@@ -3869,13 +3871,15 @@ h2.wss-confirm__title {
 		}
 
 		// La medida, y sólo sobre la prosa: lo que manda para leer de corrido es cuántas
-		// letras entran en el renglón, y se cuenta en caracteres porque cambia con la
-		// tipografía. Las tablas y los ejemplos no se leen de corrido: usan todo el ancho.
+		// letras entran en el renglón —entre 60 y 75—, y se mide en `ch` porque cambia con
+		// la tipografía. Ojo que `ch` es el ancho del cero, más ancho que la letra promedio:
+		// con Roboto, 62ch da unos 70 caracteres. Las tablas y los ejemplos no se leen de
+		// corrido y usan todo el ancho.
 		p,
 		ul,
 		ol,
 		blockquote {
-			max-width: 70ch;
+			max-width: 62ch;
 		}
 
 		> :first-child {
