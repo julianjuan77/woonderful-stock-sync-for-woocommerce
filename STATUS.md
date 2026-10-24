@@ -55,8 +55,14 @@ marca con la lectura, y enlace directo a una sección con `#/manual?s=<id>`.
 **Para corregir el manual:** se edita `docs/MANUAL.md` y se corre `npm run build`. No tocar
 `src/manual-content.js`, que es generado y está fuera del lint (`.eslintignore`).
 
+**2026-10-24: el manual reestructurado.** Parte 1, un inicio rápido de cuatro pasos que
+alcanza para dejar el plugin andando; Parte 2, once secciones por tema que se leen sueltas.
+El índice de la pantalla lista las dos partes como rótulo (los `#`) y las secciones como
+enlace (los `##`), y ya no renumera: los títulos traen su propio número y así coinciden con
+las referencias cruzadas del texto.
+
 **Las capturas** van en `assets/manual/` y se insertan con `![epígrafe](archivo.jpg)` solo en
-su línea. Son ocho, 320 KB en total, en JPEG: la captura llega ya comprimida del navegador, así
+su línea. Son veinticuatro, 824 KB en total, en JPEG: la captura llega ya comprimida del navegador, así
 que PNG pesaba 3,5 veces lo mismo sin ganar nitidez. **Envejecen con cada cambio de interfaz y
 nada lo avisa**, así que conviene repasarlas antes de publicar una versión. Se sacan del par
 `sandbox` / `sandbox-b`, que tiene cargado el catálogo del manual —Taza, Botella variable,

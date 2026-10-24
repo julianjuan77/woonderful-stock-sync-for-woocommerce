@@ -165,8 +165,9 @@ const convert = ( markdown ) => {
 			}
 
 			const id = slug( text );
-			if ( 2 === level ) {
-				toc.push( { id, text: text.replace( /\*\*/g, '' ) } );
+			// El índice lleva las partes (h1) como rótulo y las secciones (h2) como enlace.
+			if ( level <= 2 ) {
+				toc.push( { id, level, text: text.replace( /\*\*/g, '' ) } );
 			}
 			out.push( `<h${ level } id="${ id }">${ inline( text ) }</h${ level }>` );
 			continue;

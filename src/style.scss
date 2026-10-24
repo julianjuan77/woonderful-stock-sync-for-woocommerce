@@ -3807,12 +3807,27 @@ h2.wss-confirm__title {
 			margin: 0;
 			padding: 0;
 			list-style: none;
-			counter-reset: wss-manual-toc;
 		}
 
 		li {
 			margin: 0;
-			counter-increment: wss-manual-toc;
+		}
+	}
+
+	// El rótulo de cada parte: ordena un índice de diecisiete entradas.
+	&__toc-part {
+		display: block;
+		padding: var(--woon-sp-4) var(--woon-sp-3) var(--woon-sp-1);
+		border-left: 2px solid transparent;
+		font-family: var(--woon-font-display);
+		font-size: var(--woon-fs-xs);
+		font-weight: 600;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--woon-text-faint);
+
+		&:first-child {
+			padding-top: 0;
 		}
 	}
 
@@ -3832,11 +3847,6 @@ h2.wss-confirm__title {
 		transition: color var(--woon-dur) var(--woon-ease),
 			border-color var(--woon-dur) var(--woon-ease);
 
-		&::before {
-			content: counter(wss-manual-toc) ". ";
-			color: var(--woon-text-faint);
-		}
-
 		&:hover {
 			color: var(--woon-text);
 			border-left-color: var(--woon-border-strong);
@@ -3846,10 +3856,6 @@ h2.wss-confirm__title {
 			color: var(--woon-primary);
 			border-left-color: var(--woon-primary);
 			font-weight: 700;
-
-			&::before {
-				color: var(--woon-primary);
-			}
 		}
 	}
 
@@ -3884,6 +3890,20 @@ h2.wss-confirm__title {
 
 		> :first-child {
 			margin-top: 0;
+		}
+
+		// "Parte 1", "Parte 2": separan el manual en dos mitades.
+		h1 {
+			margin: var(--woon-sp-8) 0 var(--woon-sp-5);
+			padding-bottom: var(--woon-sp-3);
+			border-bottom: 2px solid var(--woon-primary);
+			font-family: var(--woon-font-display);
+			font-size: 30px;
+			font-weight: 600;
+			letter-spacing: -0.02em;
+			line-height: 1.15;
+			color: var(--woon-ink);
+			scroll-margin-top: 64px;
 		}
 
 		h2 {

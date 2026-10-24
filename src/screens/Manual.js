@@ -9,7 +9,9 @@ import { MANUAL_HTML, MANUAL_TOC } from '../manual-content';
  * contenido, sólo cómo se lee.
  */
 const Manual = () => {
-	const [ active, setActive ] = useState( MANUAL_TOC[ 0 ]?.id );
+	const [ active, setActive ] = useState(
+		MANUAL_TOC.find( ( { level } ) => 2 === level )?.id
+	);
 	const body = useRef( null );
 
 	// Las capturas se guardan en assets/manual/ y su URL depende de dónde esté instalado el
@@ -24,9 +26,9 @@ const Manual = () => {
 
 	// El índice sigue a la lectura: se marca la última sección que pasó por arriba.
 	useEffect( () => {
-		const headings = MANUAL_TOC.map( ( { id } ) =>
-			document.getElementById( id )
-		).filter( Boolean );
+		const headings = MANUAL_TOC.filter( ( { level } ) => 2 === level )
+			.map( ( { id } ) => document.getElementById( id ) )
+			.filter( Boolean );
 
 		if ( ! headings.length ) {
 			return;
@@ -103,16 +105,22 @@ const Manual = () => {
 					) }
 				>
 					<ol>
-						{ MANUAL_TOC.map( ( { id, text } ) => (
+						{ MANUAL_TOC.map( ( { id, level, text } ) => (
 							<li key={ id }>
-								<button
-									className={ `wss-manual__toc-item ${
-										active === id ? 'is-active' : ''
-									}` }
-									onClick={ () => goTo( id ) }
-								>
-									{ text.replace( /^\d+\.\s*/, '' ) }
-								</button>
+								{ 1 === level ? (
+									<span className="wss-manual__toc-part">
+										{ text }
+									</span>
+								) : (
+									<button
+										className={ `wss-manual__toc-item ${
+											active === id ? 'is-active' : ''
+										}` }
+										onClick={ () => goTo( id ) }
+									>
+										{ text }
+									</button>
+								) }
 							</li>
 						) ) }
 					</ol>

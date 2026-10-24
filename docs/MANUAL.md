@@ -1,385 +1,504 @@
 # Manual de Woonderful Stock Sync
 
-## 1. Qué hace y qué no hace
+---
 
-Tenés **dos tiendas WooCommerce** y **un solo depósito**. Woonderful Stock Sync hace que las
-dos publiquen el mismo número, y que un cambio de stock se refleje en ambas.
+# Parte 1 — Inicio rápido
+
+Cuatro pasos para dejar el plugin funcionando.
+
+**Antes de empezar necesitás:** las dos tiendas con WooCommerce instalado, acceso de
+administrador a cada una, y el plugin de sincronización instalado en **ambas**.
+
+---
+
+## Paso 1 — Configuración inicial
+
+La primera vez que entrás a **Stock Sync**, el plugin abre solo la configuración inicial. Son
+cinco pantallas y se hacen una vez.
+
+![La configuración inicial recién abierta, con los cinco pasos arriba: Requisitos · Esta tienda · Emparejar · Avisos · Listo.](setup-pasos.jpg)
+
+### 1.1 Requisitos
+
+Arranca revisando siete cosas de tu servidor. Las que fallan te dicen cómo arreglarlas.
+
+![La lista de requisitos con los tildes verdes.](requisitos.jpg)
+
+**Los cinco primeros son obligatorios.** Si alguno está en rojo, el plugin no va a sincronizar
+bien: arreglalo y apretá *Volver a revisar*.
+
+**Los dos últimos son recomendaciones**, no bloquean nada:
+
+- **PHP-FPM o LiteSpeed** — sin eso una venta tarda hasta un minuto en salir, en vez de salir
+  al instante. Pero funciona igual.
+- **El correo sale** — mandá el email de prueba. Si no llega, no vas a recibir los avisos,
+  pero no impide el funcionamiento del plugin.
+
+### 1.2 Esta tienda
+
+Dos campos:
+
+- **Nombre** — con el que la nombra la otra tienda y con el que firman los emails. Poné algo
+  que distingas de un vistazo, por ej: "Tienda Minorista", "Mayorista", el nombre de la marca, etc.
+- **Rol** — y esta es **la decisión importante del plugin**.
+
+![El paso "Esta tienda", con el nombre cargado y las dos tarjetas de rol.](setup-tienda.jpg)
+
+| Rol | Qué significa |
+|---|---|
+| **Maestra** | Desde acá vinculás los productos y desde acá se lanza todo lo que hay que decidir. **Al vincular, el stock que manda es el de la maestra.** |
+| **Secundaria** | Ve exactamente lo mismo, pero en modo lectura. |
+
+**Elegí como maestra la tienda donde ya cargás la mercadería.** Es la regla que te va a
+ahorrar problemas: el número que vale es siempre el de la maestra.
+
+> Que una sea maestra **no la hace más importante para las ventas**. Una venta en la
+> secundaria descuenta en las dos igual que una venta en la maestra.
+
+### 1.3 Avisos por email
+
+A quién le llegan. Vacío = al administrador del sitio. Podés cambiarlo después.
+
+---
+
+## Paso 2 — Emparejar las dos tiendas
+
+Es un código que se genera de un lado y se pega del otro. Vas a necesitar las dos tiendas
+abiertas, en dos pestañas.
+
+**En la maestra:**
+
+1. Elegí **"Esta es la maestra: generar el código"**.
+2. Apretá **Generar el código** y copialo.
+
+![El código generado en la maestra, con el aviso de que vale 15 minutos.](setup-codigo.jpg)
+
+**En la otra tienda:**
+
+3. Hacé la configuración inicial igual que en el paso 1, pero en **Rol** elegí **Secundaria**.
+4. En Emparejar, elegí **"Esta es la secundaria: pegar el código"**.
+5. Pegá el código y apretá **Emparejar**.
+
+![El paso de emparejar en la secundaria, con el campo para pegar el código.](setup-pegar-codigo.jpg)
+
+El código **vale 15 minutos y sirve una sola vez**. La pantalla de la maestra se actualiza
+sola en cuanto la otra lo canjea.
+
+Cuando terminan, las dos muestran **Emparejada** y la barra lateral dice *Conectada con…*
+
+![Las dos tiendas emparejadas, con el punto verde en la barra lateral.](emparejadas.jpg)
+
+---
+
+## Antes de vincular — el SKU
+
+El **SKU** (*stock keeping unit*) es el código con el que identificás un producto en tu
+catálogo: `MUG-350`, `TAZA-BLANCA`, `1024`. Lo elegís vos y WooCommerce no lo usa para nada
+más que para buscar y para que vos lo reconozcas.
+
+**En WooCommerce el SKU es opcional**, y en este plugin también: podés vincular dos productos
+que no tengan SKU, o que lo tengan distinto en cada tienda.
+
+**Pero conviene usarlo, y que sea el mismo de los dos lados.** Es lo único que le permite al
+plugin **proponerte los pares solos**. La diferencia es concreta:
+
+| | Con el mismo SKU en las dos | Sin SKU, o con SKU distinto |
+|---|---|---|
+| **Al arrancar** | Vinculación masiva: un catálogo entero en una confirmación | A mano, producto por producto |
+| **Un producto nuevo** | Aparece sugerido y lo aceptás de un clic | Lo buscás a mano en la otra tienda |
+
+Cuanto peor esté el SKU, más trabajo manual vas a tener **al arrancar**. Después no cambia
+nada: una vez vinculado un producto, **el SKU deja de importar** — podés cambiarlo, borrarlo
+o pasárselo a otro producto y el par sigue funcionando igual.
+
+> **Cómo se carga un SKU en WooCommerce:** está en la pestaña **Inventario** de cada
+> producto. La documentación oficial lo explica en
+> [WooCommerce Product Editor settings](https://woocommerce.com/document/managing-products/product-editor-settings/)
+> *(en inglés)*, donde además aclara que **cada SKU tiene que ser único dentro de tu tienda**
+> — si repetís uno, el plugin no va a poder adivinar cuál es cuál.
+
+---
+
+## Paso 3 — Vincular un producto simple
+
+Estar emparejadas no alcanza: **el plugin todavía no sabe qué producto de una tienda es cuál
+en la otra**. Eso lo decidís vos, producto por producto, y se hace **desde la maestra**.
+
+> **¿Qué es un producto simple?** El tipo por defecto de WooCommerce: un artículo único, sin
+> variantes — una taza, un libro, una mochila. Lleva un solo precio y un solo stock. Si
+> necesitás repasar cómo se crean, está en
+> [Adding and Managing Products](https://woocommerce.com/document/managing-products/)
+> *(en inglés)*.
+
+Entrá a **Productos**. Vas a ver tu catálogo con el estado de cada uno.
+
+![La pantalla Productos con varias filas sin vincular, una con la sugerencia resaltada en amarillo.](productos-lista.jpg)
+
+Cuando un producto tiene **el mismo SKU en las dos tiendas**, el plugin te lo propone solo:
+la fila muestra el producto de la otra tienda y la etiqueta **Sugerido · mismo SKU**.
+
+> ⚠️ **Antes de apretar nada, mirá el stock de la maestra.**
+> Al vincular, **el número de la maestra se escribe sobre el de la otra tienda**. Es la única
+> vez en toda la vida del producto que el plugin pisa un número en vez de sumar o restar. Si
+> en la maestra tenés 0 porque todavía no cargaste la mercadería, las dos van a quedar en 0.
+
+1. Apretá **Aceptar** en la fila.
+2. La pantalla te muestra los dos stocks y **con cuál van a quedar las dos**.
+
+![El modal de vincular: *Stock acá 12 · Stock en la otra tienda 9 · Las dos quedan con 12 (el de la maestra)*.](vincular-modal.jpg)
+
+3. Si el número es el correcto, apretá **Confirmar**.
+
+La fila pasa a **Vinculado** y desde ese momento cada venta de cualquiera de las dos tiendas
+descuenta en las dos.
+
+![La misma fila, ahora en verde y con los dos stocks iguales.](fila-vinculada.jpg)
+
+### Si tenés muchos productos
+
+No los vincules de a uno. Arriba a la derecha está **Vinculación masiva**: fija de golpe
+todos los pares que tienen **el mismo SKU, único y publicado en las dos tiendas**.
+
+Antes de confirmar te dice cuántos pares va a fijar, te recuerda que todos arrancan con el
+stock de la maestra, y cuántos quedan afuera por ser ambiguos.
+
+![El modal de vinculación masiva, con el total y el aviso del stock.](vinculacion-masiva.jpg)
+
+Los que quedan afuera se resuelven de a uno, y de eso habla la Parte 2.
+
+---
+
+## Paso 4 — Vincular una variación
+
+Un producto variable —una remera con talles, una botella con colores— **no se vincula como
+producto**. Se vincula **cada variación por separado**, porque cada una lleva su propio stock.
+
+> **¿Qué es un producto variable?** Uno que se vende en versiones distintas del mismo
+> artículo: talles, colores, medidas. Cada combinación es una **variación**, y cada variación
+> puede tener su propio precio, su propio SKU y su propio stock. Cómo se arman está en
+> [Variable Products](https://woocommerce.com/document/variable-product/) *(en inglés)*.
+
+En la lista, el variable es una fila que se despliega. El padre no tiene botones.
+
+![La fila de un variable desplegada, con sus tres variaciones debajo.](productos-variable.jpg)
+
+1. Apretá la flecha para desplegarlo.
+2. Cada variación con sugerencia tiene su propio **Aceptar**, igual que un producto simple.
+3. Si varias están sugeridas, el padre muestra **Aceptar 2** (o las que sean) y las vinculás
+   todas juntas.
+
+![El botón *Aceptar 2* en la fila del padre.](variable-aceptar.jpg)
+
+El padre muestra cómo va: **2/3 vinculadas**, y el estado **Parcial** mientras le falte alguna.
+
+**La condición para vincular una variación es que gestione su propio stock en las dos
+tiendas.** Dos trampas habituales, las dos se arreglan en WooCommerce:
+
+- **El stock está cargado en el producto padre** en vez de en cada variación. Hay que pasarlo
+  a las variaciones: si no, el plugin no sabría a cuál descontarle una venta.
+- **Una variación no gestiona stock en una de las dos tiendas.** Hay que activárselo del lado
+  que le falta.
+
+El SKU, en cambio, **no es condición**: sin SKU propio la variación no se sugiere sola, pero
+la podés vincular a mano. Esos casos están en la Parte 2.
+
+---
+
+## Listo
+
+Si llegaste hasta acá con tus productos en **Vinculado**, ya está: el plugin trabaja solo.
+
+**De acá en adelante no tenés que hacer nada.** Seguí cargando stock y vendiendo como
+siempre, en WooCommerce; el plugin propaga cada cambio a la otra tienda.
+
+**Las tres cosas que conviene que sepas desde el día uno:**
+
+1. **El stock se sigue editando en WooCommerce**, nunca desde el plugin. El plugin propaga,
+   no administra inventario.
+2. **Un producto nuevo no sincroniza hasta que lo vinculás.** Crearlo en las dos tiendas con
+   el mismo SKU sólo lo vuelve candidato. A las 24 horas te llega un email recordándotelo.
+3. **Cargá el stock siempre en la maestra.** También funciona si lo cargás en la
+   secundaria, pero tener un solo lugar te evita confundirte. Cargar el mismo stock en las
+   dos suma dos veces, y es el único error que el plugin no puede deshacer.
+
+---
+
+# Parte 2 — Sección por sección
+
+> Cada sección se puede leer suelta: no hace falta haber leído la anterior. Entrá por la que
+> te haga falta.
+
+## 5. Cómo funciona por abajo
+
+No hace falta leer esto para usar el plugin. Está acá porque explica **por qué** hace lo que
+hace, y eso vuelve previsibles un par de comportamientos que de otro modo parecen caprichos.
 
 ### Pool único: nada de repartir
 
-Si en el depósito hay 10 productos, las dos tiendas muestran **10**.
-
-```
-          Depósito: 10 productos
-                     │
-            ┌────────┴────────┐
-    Tienda Minorista   Tienda Mayorista
-       muestra 10         muestra 10
-```
-
-Se vende 1 en la minorista → las dos quedan en **9**.
-Entran 20 de mercadería (las cargás en una sola tienda) → las dos quedan en **29**.
+Las dos tiendas publican **el stock real completo**. Si en el depósito hay 10, las dos
+muestran 10 — no 5 y 5. Es un solo depósito visto desde dos lugares.
 
 ### Lo que viaja es la diferencia, no el número
 
-Esto es lo que hace que no se pierdan ventas. Cuando vendés 1, a la otra tienda no le llega
-*"quedan 9"*: le llega *"restá 1"*. Si justo en ese mismo segundo se vendió otro en la otra
-tienda, las dos terminan en **8**, que es lo correcto. Con un plugin que mandara el número
-entero, las dos habrían escrito "9" y habrías vendido una unidad que no tenés.
+Cuando vendés una unidad, a la otra tienda **no le llega "quedan 9": le llega "restá 1"**.
 
-### Lo que NO hace
+Parece un detalle y es lo que sostiene todo lo demás. Si en ese mismo segundo se vendió otra
+unidad en la otra tienda, las dos terminan en **8**, que es lo correcto. Un plugin que mandara
+el número entero haría que las dos escribieran "9", y habrías vendido una unidad que no tenés.
 
-| | |
-|---|---|
-| **No sincroniza precios** | Son distintos a propósito entre mayorista y minorista |
-| **No sincroniza títulos, fotos, categorías ni descripciones** | Sólo stock |
-| **No crea productos** | El producto tiene que existir en las dos tiendas; vos lo das de alta |
-| **No vincula productos solo** | Te los sugiere; vincular lo confirmás vos (y hay buenos motivos, § 3) |
-| **No edita stock** | El stock se sigue cargando en WooCommerce, como siempre. El plugin sólo lo propaga |
-| **No funciona con tres tiendas** | Exactamente dos |
+Por eso hay cosas que el plugin **no** puede hacer, y conviene saberlo: no puede "copiar" el
+stock de una tienda a la otra, porque copiar un número pisa lo que haya pasado en el medio.
+Cuando de verdad hace falta igualar dos números, hay una herramienta aparte para eso (§ 9).
 
-> **Si cada tienda tiene su propio depósito separado, este plugin no es para vos.** Todo el
-> diseño asume que las dos venden la misma mercadería física.
+### El libro de movimientos
 
----
+Cada cambio de stock queda anotado como un **movimiento**: cuánto, por qué y cuándo. Ese libro
+es el que permite reconstruir de dónde salió cada número, y es lo que ves en el historial de
+un producto (§ 12).
 
-## 2. Puesta en marcha
+Tres propiedades que salen de ahí:
 
-### 2.1 Las dos tiendas, y cuál manda
+- **Los movimientos no se pisan entre sí.** Dos ventas simultáneas suman −2.
+- **Pueden llegar en cualquier orden** y el resultado es el mismo.
+- **No se aplican dos veces.** Si uno llega repetido, se ignora.
 
-El plugin se instala en **las dos** tiendas. Al configurarlo elegís un rol para cada una:
+El libro guarda **90 días**. Al purgar lo viejo, el punto de partida de cada producto absorbe
+lo borrado, así que las cuentas siguen dando.
 
-- **Maestra** — tu puesto de trabajo. Es donde vinculás los productos, donde cargás el stock
-  y donde importás los CSV. Su número es el que vale cuando un producto entra a sincronizar.
-- **Secundaria** — ve todo lo mismo, pero en modo lectura.
+### Dos caminos: la cola y la reconciliación
 
-Elegí como maestra la tienda donde ya cargás la mercadería. En los ejemplos de este manual:
-
-| | Tienda | Rol |
+| | Qué es | Cuándo actúa |
 |---|---|---|
-| **A** | Tienda Minorista | **Maestra** |
-| **B** | Tienda Mayorista | Secundaria |
+| **La cola** | El camino rápido. Manda cada movimiento apenas ocurre | Siempre |
+| **La reconciliación** | La red de seguridad. Compara los dos libros y reentrega lo que falte | Cada noche, y cuando la lanzás a mano |
 
-### 2.2 Los requisitos
+Si la cola funcionó —el caso normal— la reconciliación no tiene nada que hacer. Si un mensaje
+se perdió, lo repara. Por eso **un movimiento que no se entrega no se pierde**: queda en el
+libro de quien lo emitió hasta que la otra tienda lo reciba.
 
-La primera pantalla que vas a ver es **Configuración inicial**, y arranca revisando siete
-cosas. Las que fallan te dicen cómo arreglarlas.
+## 6. Los estados de un producto
 
-![La revisión de requisitos, el primer paso de la configuración inicial. Los dos últimos no son críticos: salen como recomendación.](requisitos.jpg)
+En **Productos**, cada fila termina con un estado. Es lo primero que mirás cuando algo no
+sincroniza, y lo único que necesitás para saber si tenés que hacer algo.
 
-| Requisito | Si falla |
+![La columna Estado con varias filas: un Vinculado, un Sin vincular con su motivo debajo, y un Suspendido.](estados.jpg)
+
+**El estado no es un dato guardado: se calcula cada vez que abrís la pantalla**, mirando tu
+catálogo y el de la otra tienda. Eso tiene una consecuencia práctica que conviene saber desde
+el principio: **arreglás la causa y el estado se corrige solo.** No hay ningún botón de
+"reanudar" ni de "volver a intentar" porque no hace falta. La copia del catálogo de la otra
+tienda también se puede refrescar a mano, con **Actualizar catálogo** en Productos: sirve
+cuando hiciste un cambio allá y todavía no se refleja acá.
+
+---
+
+### 6.1 Los cuatro estados
+
+| Estado | Qué significa | ¿Hay que hacer algo? |
+|---|---|---|
+| **Vinculado** | Tiene par y está sincronizando. Es el estado normal. | No |
+| **Sin vincular** | Nadie fijó su par todavía. **Su stock no se sincroniza.** | Sí: vincularlo, o ignorarlo si no querés que sincronice |
+| **Suspendido** | **Tenía** par y el par se rompió. | Sí, y depende del motivo (§ 6.3) |
+| **Sin confirmar** | Se vinculó, pero la respuesta de la otra tienda se perdió. | No: el plugin lo resuelve solo |
+
+Y uno que no es un estado del producto: **Parcial**, que sólo aparece en la fila de un
+producto variable y resume cómo van sus variaciones — *2/3 vinculadas*.
+
+> **Sin vincular no es sinónimo de error.** Un producto que existe sólo en una tienda, un
+> servicio, una prueba: se quedan ahí para siempre y está bien. Por eso la lista de sin
+> vincular es una bandeja de trabajo, no una lista de problemas.
+
+---
+
+### 6.2 Sin vincular: el motivo dice qué le falta
+
+Debajo del estado, la fila te dice **por qué** ese producto todavía no tiene par. Cada motivo
+se resuelve distinto:
+
+| Motivo | Qué pasó | Qué hacer |
+|---|---|---|
+| **Con sugerencia** | Hay un producto con el mismo SKU en la otra tienda | Apretá **Aceptar**. Es el caso fácil |
+| **Sin coincidencia** | Ningún producto de la otra tienda tiene ese SKU | Creálo allá, vinculalo a mano, o descartalo |
+| **Sin SKU** | Este producto no tiene SKU cargado | Ponele uno, o vinculalo a mano |
+| **SKU duplicado** | Dos productos comparten ese SKU | El plugin no elige por vos: arreglá el catálogo o vinculá a mano |
+| **No gestiona stock** | Acá no lleva su propio stock y allá sí | Activale "Gestionar stock" en **esta** tienda |
+| **En la otra tienda no gestiona stock** | Al revés: acá sí y allá no | Activáselo en **la otra** |
+| **Stock en el padre** | Es un variable con el stock cargado en el producto padre | Pasá el stock a cada variación |
+| **En la papelera** | El de la otra tienda está en la papelera | Restauralo allá, o vinculá con otro |
+| **Sugerencia descartada** | Vos dijiste que no querés sincronizarlo | Nada. Si cambiás de idea, **Deshacer descarte** |
+
+![El filtro Sin vincular abierto, con la fila de motivos: Con sugerencia · Sin coincidencia · Sin SKU · Stock en el padre · SKU duplicado · No gestiona stock · En la papelera · Descartados.](productos-sin-vincular.jpg)
+
+**Los motivos son también filtros.** Al entrar en **Sin vincular**, la fila de estados se
+reemplaza por la de motivos, y ése es el orden natural para dejar un catálogo limpio: primero
+**Con sugerencia**, que se resuelve de a un clic; después **SKU duplicado** y **Sin SKU**, que
+se arreglan en WooCommerce; y al final **Sin coincidencia**, que casi siempre significa crear
+el producto que falta o descartarlo.
+
+> **Las descartadas están ocultas.** No aparecen en la lista salvo que filtres por
+> **Descartados** — ya las resolviste, no tienen por qué seguir pidiendo atención. El buscador
+> sí las encuentra siempre.
+
+---
+
+### 6.3 Suspendido: el par se rompió
+
+Suspendido significa que el producto **tenía** par y algo lo rompió. **El par, el stock base y
+el historial se conservan**: no perdiste nada, y en varios casos vuelve solo.
+
+Mientras está suspendido, las ventas que llegan de la otra tienda **quedan retenidas sin
+aplicarse**. No se pierden: esperan.
+
+La fila te dice exactamente cuál de los siete motivos es:
+
+| Lo que dice la fila | Qué hacer |
 |---|---|
-| PHP 8.1 o más y WooCommerce 9.1 o más | Actualizá desde el panel del hosting o desde Plugins |
-| Las tablas del plugin, en InnoDB | Depende de cuál de los dos problemas sea: ver abajo |
-| No es una copia de otro sitio | Es un staging o una restauración: no sincroniza. Si es la tienda real que cambió de dirección, emparejala de nuevo |
-| HTTPS | Instalá el certificado **antes** de emparejar. Pasar a https después suspende la sincronización |
-| La API REST responde desde afuera | Algo la bloquea: un plugin de seguridad, el firewall del hosting. La otra tienda le habla a `/wp-json/wss/v1/` |
-| La pasada corrió hace poco | Sin visitas, WordPress no dispara su cron. Pedile al hosting un cron real cada minuto |
-| El correo sale | Mandá el email de prueba. Si no llega, configurá un SMTP o no vas a recibir avisos |
+| **está en la papelera** | Restauralo. La fila vuelve a *Vinculado* sola |
+| **se borró** | Desvinculalo: ese par no vuelve |
+| **dejó de llevar su propio stock** | Volvé a activarle "Gestionar stock" |
+| **el de la otra tienda está en la papelera** | Restauralo allá |
+| **el de la otra tienda se borró** | Desvinculalo |
+| **el de la otra tienda dejó de llevar su propio stock** | Activáselo allá |
+| **el vínculo es con otra tienda, que ya no es la emparejada** | Quedó de un emparejamiento anterior: desvinculalo y vinculalo de nuevo |
 
-El cron es una funcionalidad con la que se pueden programar tareas. En WordPress se dispara
-en cada visita al sitio: si nadie entra, no corre. El plugin lo usa para mandarle a la otra
-tienda los movimientos de stock, así que conviene configurar un cron real, que no dependa de
-las visitas y se ejecute cada minuto. Consultá con tu proveedor de hosting: muchos ya lo
-tienen configurado así.
+![Una fila suspendida, con el motivo debajo del estado.](fila-suspendida.jpg)
 
-El plugin va a funcionar igual, pero los movimientos van a tardar en reflejarse.
+**Cuidado con restaurar un producto que estuvo tiempo en la papelera.** Las ventas que
+quedaron retenidas se aplican todas juntas en la próxima pasada, así que el stock puede bajar
+de golpe. Es correcto —esas ventas pasaron— y queda anotado en Registros, pero no te agarre
+de sorpresa.
 
-#### Si falla "Las tablas del plugin, en InnoDB"
-
-El plugin guarda lo suyo en cuatro tablas propias —`wp_wss_movements`, `wp_wss_links`,
-`wp_wss_nonces` y `wp_wss_events`, con el prefijo que tenga tu instalación— y necesita que
-sean **InnoDB**, que es el motor de base de datos que sabe hacer transacciones. Sin
-transacciones, dos ventas a la vez pueden llevarse el mismo número de orden y la cuenta sale
-mal **en silencio**, que es lo peor que puede pasarle a un stock.
-
-Ese aviso tapa dos problemas distintos. La pantalla te dice **qué tabla** es la que falla, y
-según cuál sea el caso se arregla de una manera o de la otra:
-
-**1. La tabla no existe.** WordPress no la pudo crear, casi siempre porque el usuario de la
-base de datos no tiene permiso para crear tablas. Andá a **Plugins**, desactivá Woonderful
-Stock Sync y volvé a activarlo: al activarse lo intenta de nuevo. Si el aviso sigue ahí, es
-el permiso, y eso lo da el hosting.
-
-**2. La tabla existe pero es MyISAM.** Acá desactivar y volver a activar **no cambia nada**,
-y es la parte que confunde: WordPress crea las tablas en InnoDB, pero no convierte una que ya
-existe con otro motor, así que al reactivar se las encuentra hechas y las deja como están.
-Hay que convertirlas. Desde phpMyAdmin o desde la consola de la base:
-
-```sql
-ALTER TABLE wp_wss_movements ENGINE=InnoDB;
-ALTER TABLE wp_wss_links     ENGINE=InnoDB;
-ALTER TABLE wp_wss_nonces    ENGINE=InnoDB;
-ALTER TABLE wp_wss_events    ENGINE=InnoDB;
-```
-
-Si no tenés acceso, pedile al hosting que convierta esas cuatro tablas a InnoDB. Es un pedido
-de rutina, no toca nada del resto del sitio, y los datos no se pierden.
-
-> Hoy esto es raro: InnoDB es el motor por defecto de MySQL desde 2010 y de MariaDB desde
-> siempre. Si aparece, suele ser un hosting viejo o una migración que arrastró tablas MyISAM.
-
-### 2.3 Emparejar las dos tiendas
-
-Es un código que se genera de un lado y se pega del otro.
-
-1. **En la maestra:** Configuración inicial → "Esta es la maestra: generar el código" →
-   **Generar el código**. Copialo.
-2. **En la secundaria:** Configuración inicial → "Esta es la secundaria: pegar el código" →
-   pegalo → **Emparejar**.
-
-El código **vale 15 minutos y sirve una sola vez**. La pantalla de la maestra se actualiza
-sola cuando la otra lo canjea.
-
-Después ponele **nombre** a cada tienda ("Tienda Minorista", "Tienda Mayorista"): es con el
-que la nombra la otra pantalla y con el que firman los emails.
-
-### 2.4 Los avisos por email
-
-En el último paso elegís a quién le llegan. Vacío = al administrador del sitio.
-
-Te avisa de tres cosas, y de nada más (§ 5.7).
+> ⚠️ **Que la otra tienda no responda NO suspende nada.**
+> Es la confusión más fácil de hacerse. Una caída es temporal y no rompió ningún par: los
+> productos **siguen vinculados**, sus ventas se acumulan y salen solas cuando la otra vuelva.
+> La caída se avisa **una vez y arriba de todo**, no producto por producto (§ 11).
 
 ---
 
-## 3. Los productos de ejemplo
+### 6.4 Sin confirmar
 
-Todo el manual usa este catálogo. Son ocho productos elegidos porque cada uno muestra una
-situación distinta de las que te vas a encontrar.
+Vinculaste, la otra tienda probablemente lo aplicó, pero la respuesta se perdió en el camino.
+El plugin **no adivina**: no lo da por vinculado ni por fallido, porque las dos suposiciones
+hacen daño si son la equivocada.
 
-| # | Producto | SKU | Situación |
-|---|---|---|---|
-| 1 | Taza de cerámica 350 ml | `MUG-350` | El caso fácil: mismo SKU en las dos |
-| 2 | Botella térmica 500 ml | `BTL-500-NE/RO/VE` | Variable: se vincula variación por variación |
-| 3 | Cuaderno A5 tapa dura | `NOT-A5` | El SKU está repetido en la mayorista |
-| 4 | Vela aromática 200 g | *(sin SKU en la mayorista)* | Sin SKU: se vincula a mano |
-| 5 | Juego de posavasos de corcho | `COA-040` | Existe sólo en la minorista |
-| 6 | Mochila de lona | `BAG-220` | Acepta reservas: el stock puede ser negativo |
-| 7 | Grabado láser (servicio) | `GRA-001` | No gestiona stock: no participa |
-| 8 | Caja de regalo | `GFT-900` | No querés sincronizarla: se descarta |
+**No tenés que hacer nada.** El plugin le pregunta solo a la otra tienda dentro de diez
+minutos y resuelve con lo que conteste. Si pasa mucho tiempo y sigue igual, el problema es la
+conexión entre tiendas: miralo en Configuración.
 
 ---
 
-## 4. Vincular los productos
+### 6.5 Stock distinto no es un estado
 
-El plugin puede funcionar con o sin SKU. El SKU es un código alfanumérico único que se le
-asigna a cada producto para identificarlo, clasificarlo y seguir su inventario de manera
-interna. Si tenés variaciones, cada una lleva su propio SKU.
+Arriba de la tabla hay un filtro **Stock distinto** que es fácil de confundir con un estado.
+No lo es: son pares **vinculados y sanos** que simplemente quedaron con un número diferente en
+cada tienda. Se resuelve con **Igualar stock** (§ 9), y por qué pasa está en § 11.
 
-El plugin te da la posibilidad de usarlo o de vincular los productos a mano. La ventaja es
-que si ya usás SKU la vinculación se hace en un minuto; si no, hay que vincularlos uno por
-uno.
+## 7. Vincular los casos difíciles
 
-### 4.1 Por qué hay que vincular
+La sugerencia por SKU resuelve el grueso de un catálogo. Esta sección es para lo que queda.
 
-El plugin **no empareja productos solo**, aunque tengan el mismo SKU. Te los **sugiere**, y
-vos confirmás.
+### 7.1 Vincular a mano
 
-El motivo es concreto: al vincular, **el número de la maestra se escribe en la secundaria**.
-Es la única vez en toda la vida del producto que el plugin pisa un número en vez de sumar o
-restar. Si lo hiciera solo, contra un SKU que estabas justo corrigiendo, te pisaría el stock
-del producto equivocado — y ese par no se vuelve a revisar nunca más.
+Sirve siempre: sin SKU, con SKU distinto, o cuando el plugin no quiso elegir por vos.
 
-Con vos confirmando, lo que ves en pantalla es el catálogo de ese instante.
+1. En la fila, apretá **Vincular**.
+2. Buscá el producto de la otra tienda por nombre o por SKU.
+3. Elegilo y confirmá.
 
-> ⚠️ **La regla más importante del plugin:**
-> **cargá el stock real en la maestra ANTES de vincular.**
-> Si vinculás la Taza con 0 en la minorista y 40 en la mayorista, las dos quedan en **0** y
-> esos 40 se pierden. El plugin te muestra los dos números antes de confirmar — ese es el
-> momento de mirarlos.
+![El modal de vincular a mano, con el buscador y un resultado elegido.](vincular-a-mano.jpg)
 
-### 4.2 El arranque: vinculación masiva
+La búsqueda va contra **el catálogo de la otra tienda**, no contra el tuyo. Si creaste el
+producto allá hace un rato y no aparece, apretá **Actualizar catálogo**: el plugin guarda una
+copia y puede tener hasta un día.
 
-Si ya tenés catálogo en las dos tiendas, no las vincules de a una. En **Productos** de la
-maestra está **Vinculación masiva**, que fija de golpe todos los pares **inequívocos**: un
-único producto con ese SKU de cada lado, los dos publicados.
+**El SKU no es condición para vincular.** Dos productos con nombres y SKU completamente
+distintos se pueden vincular sin problema: el par lo decidís vos.
 
-Antes de confirmar te dice:
+### 7.2 SKU duplicado
 
-```
-Se va a vincular 1.248 pares con el mismo SKU en las dos tiendas.
-Todos arrancan con el stock de la maestra: el de la otra tienda
-se reemplaza por el de ésta.
-37 productos con el SKU repetido quedan aparte: se vinculan a mano.
-```
+Dos productos comparten el mismo SKU, en una tienda o en la otra. **El plugin no elige por
+vos**, a propósito: elegir mal significa escribir el stock sobre el producto equivocado, y ese
+par no se vuelve a revisar nunca.
 
-Con el catálogo de ejemplo, la masiva resuelve **la Taza (1)** y **las variaciones de la
-Botella (2)** que tengan SKU de los dos lados. El resto queda para resolver de a uno.
+Dos salidas: arreglá el catálogo —borrá o renombrá el duplicado— y la sugerencia aparece sola,
+o vinculalo a mano (§ 7.1).
 
-Lanzarla de nuevo más adelante **no rompe nada**: los que ya están vinculados no se tocan,
-sólo se ofrecen los pares nuevos.
+### 7.3 El producto existe en una sola tienda
 
-### 4.3 Producto 1 — Taza de cerámica: el caso fácil
+No hay nada que vincular: hacen falta dos productos, uno de cada lado. O lo creás en la otra
+tienda, o lo descartás (§ 7.5).
 
-Mismo SKU `MUG-350` en las dos, los dos publicados.
+> **Un producto que existe sólo en la secundaria no aparece en la lista de la maestra**, y
+> está bien: no hay con qué aparearlo. Lo vas a ver en el listado de lectura de la secundaria.
+> El paso que falta es crearlo en la maestra.
 
-En **Productos** de la maestra la fila se ve así:
+### 7.4 Lo que no gestiona stock
 
-```
-Taza de cerámica 350 ml         Stock: 12
-MUG-350                         La otra tienda: Taza de cerámica · MUG-350 · 9
-                                Sin vincular · Sugerido · mismo SKU      [ Aceptar ]
-```
+Un servicio, un combo, un producto de envío: no tienen unidades que contar, así que **no
+participan de la sincronización** y por defecto **ni siquiera se listan**.
 
-Apretás **Aceptar**. La pantalla te muestra los dos números y cuál va a quedar:
-
-![Antes de confirmar, la pantalla muestra el stock de cada tienda y con cuál van a quedar las dos.](vincular-modal.jpg)
-
-Confirmás, y listo: estado **Vinculado**, las dos en 12, y desde ese momento cada venta de
-cualquiera de las dos descuenta en las dos.
-
-### 4.4 Producto 2 — Botella térmica: un variable
-
-Un producto variable **no se vincula como producto**. Se vincula **cada variación**, porque
-cada una lleva su propio stock. El padre es una fila que se despliega y no tiene botones.
-
-![La fila del variable desplegada: Negro y Rojo vinculados, y el Verde esperando que la otra tienda le active la gestión de stock.](productos-variable.jpg)
-
-Qué hacer con el Verde: en la mayorista, abrir esa variación en WooCommerce y **activar
-"Gestionar stock"**. En cuanto lo tenga, aparece la sugerencia y la vinculás.
-
-**Dos trampas de los variables:**
-
-- **"El stock está en el padre: llevalo a cada variación"** — si en WooCommerce pusiste la
-  cantidad en el producto padre en vez de en cada variación, el plugin no puede sincronizar:
-  no sabría a qué variación restarle. Hay que pasar el control de stock a las variaciones.
-- **Una variación sin SKU propio** no se sugiere, aunque WooCommerce muestre el del padre.
-  Vinculala a mano.
-
-### 4.5 Producto 3 — Cuaderno A5: SKU duplicado
-
-En la mayorista hay **dos** productos con el mismo SKU `NOT-A5` (el plugin no puede adivinar
-cuál de los dos es).
-
-```
-Cuaderno A5 tapa dura    NOT-A5    Stock 22
-Sin vincular · SKU duplicado
-```
-
-El plugin **no elige por vos** cuál de los dos es. Tenés dos salidas:
-
-1. **Arreglar el catálogo** en la mayorista —borrar o renombrar el duplicado— y la sugerencia
-   aparece sola.
-2. **Vincularlo a mano:** en la fila, **Vincular** → buscás por nombre o SKU en la otra
-   tienda → elegís el correcto → confirmás.
-
-### 4.6 Producto 4 — Vela aromática: sin SKU
-
-En la mayorista nunca le cargaron SKU.
-
-```
-Vela aromática 200 g    CND-200    Stock 60
-Sin vincular · Sin coincidencia
-```
-
-Igual que arriba: le ponés el SKU en la mayorista, o la vinculás a mano. **El SKU no es
-condición para vincular** — es sólo lo que permite sugerir.
-
-Y una vez vinculado, **el SKU deja de importar del todo**: podés cambiarlo, borrarlo o
-pasárselo a otro producto y el par sigue funcionando igual. La identidad es el par, no el
-SKU, y por eso todos los cambios en las vinculaciones se hacen desde el plugin y no tocando
-el SKU.
-
-### 4.7 Producto 5 — Juego de posavasos: existe en una sola tienda
-
-`COA-040` sólo está en la minorista.
-
-```
-Juego de posavasos de corcho    COA-040    Stock 4
-Sin vincular · Sin coincidencia
-```
-
-No hay nada que vincular: hacen falta dos productos. O lo creás en la mayorista —y ahí
-aparece la sugerencia— o lo **descartás** (§ 4.9).
-
-> Un producto que existe **sólo en la secundaria** no aparece en la lista de la maestra, y
-> está bien: no hay con qué aparearlo. Lo vas a ver en el listado de lectura de la
-> secundaria. El paso que falta es crearlo en la maestra.
-
-### 4.8 Producto 7 — Grabado láser: no gestiona stock
-
-Un servicio no tiene unidades que contar. En WooCommerce no tiene "Gestionar stock" activado,
-así que **no participa de la sincronización** y, por defecto, **ni siquiera se lista**.
-
-Si querés verlo: la **rueda dentada** al lado del buscador → **"Mostrar los que no gestionan
+Para verlos: la **rueda dentada** al lado del buscador → **"Mostrar los que no gestionan
 stock"**.
 
-La distinción que hace el plugin:
+![El menú de la rueda dentada con la opción.](rueda-dentada.jpg)
+
+El plugin distingue dos situaciones, y sólo una es un problema:
 
 | Situación | ¿Se lista? |
 |---|---|
-| No gestiona stock en **ninguna** de las dos | Sólo con la rueda dentada. Es a propósito: un servicio, un combo, un envío |
-| Gestiona en **una** y en la otra no | **Siempre**, con su motivo. Casi siempre es un error de carga, y hay que activarlo del otro lado |
+| No gestiona stock en **ninguna** de las dos | Sólo con la rueda dentada. Casi siempre es a propósito |
+| Gestiona en **una** y en la otra no | **Siempre**, con su motivo. Casi siempre es un error de carga |
 
-### 4.9 Producto 8 — Caja de regalo: descartar
+La opción queda guardada **en tu navegador**: en otra computadora arranca apagada.
 
-La caja de regalo la armás sólo para la minorista y no querés verla nunca más en la lista de
-pendientes. En su fila: **Más acciones → Descartar**.
+### 7.5 Descartar lo que no querés sincronizar
 
-Qué pasa:
+Para un producto que nunca va a tener par —una prueba, algo exclusivo de una tienda— está
+**Más acciones → Descartar**.
+
+Qué cambia:
 
 - Deja de sugerirse y **deja de entrar en el email** de la noche.
 - No entra en la vinculación masiva.
-- El estado **sigue siendo "Sin vincular"** (que es lo que efectivamente pasa); lo que cambia
-  es que deja de pedir atención.
-- Queda registrado quién la descartó y cuándo.
+- Desaparece de la lista, salvo que filtres por **Descartados**. El buscador lo encuentra igual.
+- El estado **sigue siendo "Sin vincular"**: es lo que efectivamente pasa.
 
-Es reversible (**Deshacer descarte**) y **no te prohíbe vincularla** más adelante si cambiás
-de idea. Las descartadas están ocultas salvo que filtres por **Descartados**, pero el
-buscador las encuentra siempre.
+Es reversible con **Deshacer descarte**, y **no te prohíbe vincularlo** más adelante si
+cambiás de idea.
 
-### 4.10 Los filtros de Productos
+> Descartar es la forma de decirle al plugin "ya sé, dejame en paz". Es lo que hace que el
+> email de la noche no se vuelva ruido.
 
-Arriba de la tabla:
+### 7.6 Vinculación masiva
 
-**Todos · Sin vincular · Vinculados · Suspendidos · Stock distinto**
+Fija de golpe todos los pares **inequívocos**: un único producto con ese SKU de cada lado, los
+dos publicados, los dos gestionando stock. Todo lo demás queda afuera para resolver de a uno.
 
-Al entrar en **Sin vincular**, esa fila se reemplaza por los filtros de motivo, que es como
-trabajar el arranque:
+Antes de confirmar te muestra cuántos pares va a fijar, te recuerda que **todos arrancan con
+el stock de la maestra**, y cuántos quedan afuera.
 
-**Todos · Con sugerencia · Sin coincidencia · Sin SKU · Stock en el padre · SKU duplicado ·
-No gestiona stock · En la papelera · Descartados**
+**Lanzarla de nuevo más adelante no rompe nada:** los que ya están vinculados no se tocan,
+sólo se ofrecen los pares nuevos. Es la forma normal de incorporar un lote de productos nuevos.
 
-![Productos en la maestra con el filtro Sin vincular. Cada fila dice por qué ese producto todavía no sincroniza, y los motivos son también filtros.](productos-sin-vincular.jpg)
-
-El orden natural para dejar el catálogo limpio: primero **Con sugerencia** (un clic cada
-uno), después **SKU duplicado** y **Sin SKU** (arreglás el catálogo o vinculás a mano), y al
-final **Sin coincidencia** (creás el producto que falta, o descartás).
-
-### 4.11 Desvincular, reasignar
-
-- **Desvincular** — el par se corta, el producto deja de sincronizar y **su stock no se toca
-  en ninguna de las dos tiendas**. El historial queda. Podés volver a vincularlo cuando
-  quieras.
-- **Reasignar** (*Elegir otro*) — lo vinculás a otro producto de la otra tienda. Por dentro
-  es cortar y volver a vincular, con el número de la maestra escribiéndose de nuevo.
-
-> ⚠️ **Desvincular no es la forma de corregir un número.**
-> Si el par está bien y el número está mal, editás el stock en WooCommerce y listo (§ 5.1).
-> Si los dos números quedaron distintos, usás **Igualar stock** (§ 5.5).
-> Desvincular es para cuando **el par está mal vinculado, se vinculó con un producto que no
-> era el deseado**, no cuando el número de stock está mal.
-
-Y ojo con **revincular**: mientras estuvo desvinculado cada tienda vendió por su cuenta, así
-que los números se separaron. Al revincular, el de la maestra **pisa** el de la secundaria y
-lo que ésta vendió en el medio no se recupera. Mirá los dos números antes de confirmar.
+Si alguno falla —porque alguien tocó el catálogo mientras tanto— la masiva **no se cae
+entera**: te devuelve cuántos vinculó y cuántos omitió, con el motivo de cada uno.
 
 ---
 
-## 5. El día a día
+## 8. El día a día
 
 Una vez vinculado el catálogo, **no hay nada que hacer**. Esta sección es para saber qué está
-pasando por abajo y qué mirar cuando algo llama la atención.
+pasando por abajo.
 
-### 5.1 Qué se propaga
+### 8.1 Qué se propaga
 
 | Qué hacés | Qué viaja | Se lee en el historial como |
 |---|---|---|
-| Se vende 1 taza en cualquiera de las dos | `-1` | **Venta** |
+| Se vende 1 en cualquiera de las dos | `-1` | **Venta** |
 | Reembolsás 1 **con** "Reponer artículos reembolsados" | `+1` | **Devolución** |
 | Reembolsás 1 **sin** esa casilla | nada | — |
 | Se cancela un pedido y WooCommerce repone | `+N` | **Cancelación** |
-| Editás el stock a mano en WooCommerce: 12 → 60 | `+48` | **Ajuste** |
+| Editás el stock a mano: 12 → 60 | `+48` | **Ajuste** |
 | Entra mercadería y la cargás | la diferencia | **Ajuste** |
 | Importás un CSV | las diferencias, en lotes | **Ajuste** |
 | Cambiás el SKU, el precio, el título, la foto | **nada** | — |
@@ -389,160 +508,153 @@ importador de CSV. Todos pasan por el mismo punto.
 
 > **La excepción:** un cambio escrito **directamente en la base de datos**, sin pasar por
 > WooCommerce, el plugin no lo ve en el momento. La revisión de la noche lo detecta y te lo
-> reporta como discrepancia (§ 5.4).
+> reporta como discrepancia (§ 11.3).
 
-### 5.2 Producto 6 — Mochila de lona: reservas y stock negativo
+### 8.2 Cuánto tarda
 
-`BAG-220` está configurada en WooCommerce para **aceptar reservas** (pedidos con stock 0).
+Una venta sale **al instante** si tu hosting tiene PHP-FPM o LiteSpeed (consultalo en la configuración del plugin), o **en menos de un
+minuto** si no. No hay un plazo garantizado: depende de tu servidor. 
 
-Con 0 en el depósito se venden 3: el pool queda en **-3** en las dos tiendas. No es un
-error: son tres mochilas que debés.
+Podes solicitar a tu proveedor de hosting que habilite PHP-FPM o LiteSpeed. 
 
-Llegan 10 del proveedor y las cargás en la maestra: el pool pasa a **7**. Las reservas se
-descontaron una sola vez, como corresponde.
+Si la otra tienda no contesta, el movimiento **no se pierde**: se reintenta, y a las 6 horas
+la cola deja de insistir y lo entrega la revisión de la noche.
 
-### 5.3 Cuánto tarda
+### 8.3 Reservas y stock negativo
 
-Una venta sale **enseguida** (si el hosting tiene PHP-FPM o LiteSpeed) o **en menos de un
-minuto** (con la pasada). No hay promesa de tiempo exacto: depende de tu servidor.
+Si un producto acepta reservas, **el stock puede quedar negativo**, y eso no es un error: son
+unidades que debés.
 
-Si la otra tienda no contesta, el movimiento **no se pierde**: queda anotado y se reintenta.
-A las 6 horas la cola deja de insistir, y entonces lo entrega la revisión de la noche.
+Con 0 en el depósito se venden 3 → el pool queda en **−3** en las dos tiendas. Llegan 10 del
+proveedor y los cargás → el pool pasa a **7**. Las reservas se descontaron una sola vez.
 
-### 5.4 La revisión de la noche
+### 8.4 Importar un CSV
 
-Cada noche, la maestra dispara una **reconciliación**. Hace dos cosas:
+> ⚠️ **Un mismo archivo se importa en una sola tienda, y esa tienda es la maestra.**
+> Importarlo en las dos genera dos ajustes que **se suman**: de 10 a 50 en cada una te deja
+> 90, no 50. Es el único error que el plugin no puede deshacer.
 
-1. **Compara los dos libros y reentrega lo que falte.** Si algún movimiento no llegó, se lo
-   manda. Nunca copia un número entero de una tienda a la otra: reenvía el movimiento que
-   faltaba, con su diferencia original.
-2. **Revisa que el stock de cada tienda coincida con su propio libro.** Si no coincide, hubo
-   una escritura que nadie registró: te la reporta como **discrepancia** y **no toca nada**,
-   porque no tiene forma de saber cuál de los dos números es el bueno. Esto puede pasar si
-   tenés un plugin que escribe directamente en la base de datos, o si hiciste un cambio desde
-   la base: no suele pasar, y tampoco es recomendable, porque WooCommerce ofrece mecanismos
-   para hacerlo.
+Cuando detecta una ráfaga de cambios, el plugin entra en **modo importación**: en vez de
+mandar de a uno, los agrupa en lotes, y al terminar dispara una reconciliación que verifica
+que el lote haya llegado completo.
 
-Además, la maestra **compara su stock con el de la otra tienda** y te avisa de los pares que
-quedaron con números distintos (§ 5.5).
-
-Podés lanzarla cuando quieras: en **Resumen** de la maestra, **Reconciliar ahora**. Es lo que
-conviene hacer apenas vuelve una tienda que estuvo caída, si no querés esperar a la noche.
-
-**Si la otra tienda no responde, no se reconcilia nada** y te lo dice. No es que no haya nada
-que reparar: es que no se pudo mirar.
-
-### 5.5 Las dos cosas que pueden salir mal con un número
-
-Se parecen y se arreglan distinto. Esta es la diferencia:
-
-#### a) Discrepancia — una tienda contra su propio libro
-
-Aparece en **Resumen**, bajo *Discrepancias*:
-
-```
-Taza de cerámica 350 ml   #412
-Hay 47    ·   Libro 50    ·   Diferencia -3
-                                           [ Resolver ▾ ]
-```
-
-Alguien escribió un número sin pasar por WooCommerce. Elegís:
-
-- **"El stock está bien"** — el 47 es el real. La diferencia se anota como un ajuste y viaja
-  a la otra tienda.
-- **"El libro está bien"** — el 50 es el real. El stock vuelve a 50 y la otra tienda no se
-  entera (su número ya era el correcto).
-
-Mientras la discrepancia está abierta **el producto sigue sincronizando normalmente**. No
-crece y no bloquea nada. Y si los números vuelven a coincidir solos, se cierra sola.
-
-#### b) Stock distinto — una tienda contra la otra
-
-Aparece en **Productos**, filtro **Stock distinto**, y te llega por email.
-
-```
-Taza de cerámica 350 ml   Stock 12   ·   La otra tienda 15
-```
-
-Las dos tiendas cierran bien contra su propio libro, pero no coinciden entre ellas. Pasa, por
-ejemplo, cuando volvés a activar "Gestionar stock" en un producto vinculado (§ 5.6).
-
-> ⚠️ **Corregirlo a mano no sirve.** Si en la minorista cambiás el 12 por 15, viaja un `+3` y
-> la otra pasa a 18. La distancia entre las dos no cambia nunca.
-
-Lo que iguala es el botón: **Más acciones → Igualar stock**. El modal pide los dos números en
-el momento y te deja elegir:
-
-![El modal pide los dos números en el momento, no la copia del catálogo, y te deja elegir cuál vale.](igualar-stock.jpg)
-
-### 5.6 Volver a activar "Gestionar stock"
+### 8.5 Volver a activar "Gestionar stock"
 
 Cuando a un producto vinculado le desactivás la gestión de stock, WooCommerce le borra el
 número. Al volver a activarla, el número que cargás es **un recuento tuyo del depósito**, así
 que **el plugin no lo manda a la otra tienda**: se queda en ésta.
 
-Queda anotado en Registros, y si el número no coincide con el de la otra, lo vas a ver como
-**Stock distinto** y lo resolvés con **Igualar stock**.
+Si no coincide con el de la otra, lo vas a ver como **Stock distinto** y lo resolvés con
+**Igualar stock** (§ 9.4).
 
-Y un detalle que ahorra un dolor de cabeza: si además entró mercadería, **hacelo en dos
-pasos**. Primero reactivás con lo que hay, guardás, y después cargás la entrada. Si lo hacés
-todo en el mismo guardado, la entrada no viaja.
-
-### 5.7 Los emails
-
-Te avisa de **tres cosas**:
-
-1. **Productos que no sincronizan** desde hace más de **24 horas**. Van separados
-   los que tienen sugerencia —un clic— de los que no —hay que arreglar el catálogo—.
-2. **Vinculaciones que fallaron.** Vos apretaste el botón y el plugin no pudo. Sale **en el
-   momento**, porque el plugin **no reintenta una vinculación solo** y si no te avisa, ese
-   producto se queda esperando para siempre.
-3. **Pares rotos** — un producto vinculado cuyo par del otro lado se borró. También en el
-   momento.
-
-Y las reglas que hacen que no te llene la casilla:
-
-- **Cada producto se avisa una sola vez.** Si sigue sin sincronizar seis meses, no te lo
-  vuelve a mencionar.
-- **Se agrupa por causa.** Si vaciás la papelera y 300 productos vinculados pierden su par,
-  es **un** email que dice "300 productos", no 300 emails. Eso es un problema, no trescientos.
-- **Una tienda caída es una causa sola.** Mientras no responde, todo falla: las entregas, las
-  vinculaciones, la reconciliación. Sale **un** email y nada por producto.
-- **Lo que pasa mientras estás mirando la pantalla no se avisa.** Si lanzás la masiva y falla,
-  te lo dice la pantalla. El email es para lo que pasa cuando no hay nadie mirando.
-- **Tope de 10 emails por día.** Por seguridad el plugin limita el envío para no saturar tu
-  servidor.
-
-El plazo de las 24 horas y el destinatario se pueden cambiar por consola:
-`wp wss notify --email=deposito@ejemplo.com --after=48`. En la pantalla de Configuración
-están el interruptor de los avisos y el destinatario.
-
-### 5.8 Las cuatro pantallas
-
-![Resumen: si está todo sincronizado, qué hay en camino, cuántos productos faltan vincular y cuándo fue la última reconciliación.](resumen.jpg)
-
-| Pantalla | Para qué |
-|---|---|
-| **Resumen** | De un vistazo: si está todo sincronizado, qué hay en camino, las discrepancias abiertas, cuántos productos faltan vincular y cuándo fue la última reconciliación. El botón **Reconciliar ahora** está acá |
-| **Productos** | La lista de qué sincroniza y qué no, con el motivo. En la maestra es donde se vincula; en la secundaria, sólo lectura |
-| **Registros** | Dos pestañas: **Avisos** (vínculos, reconciliaciones, cortes, discrepancias) y **Movimientos** (cada cambio de stock: cuál, cuánto, por qué, cómo terminó). Se filtra por período, tipo, nivel y producto |
-| **Configuración** | El emparejamiento, el nombre de la tienda, la pausa, los avisos por email y qué pasa con los datos al desinstalar |
-
-![Registros, pestaña Avisos: lo que pasó entre las dos tiendas, filtrable por período, tipo y nivel.](registros.jpg)
-
-Y en cada producto, **Ver el historial**: sus movimientos y lo que le pasó, de lo más nuevo a
-lo más viejo, en una sola línea de tiempo. Es lo primero que conviene abrir cuando un producto
-no hace lo que esperabas.
+> **Si además entró mercadería, hacelo en dos pasos.** Primero reactivás con lo que hay y
+> guardás; después cargás la entrada. Si hacés todo en el mismo guardado, la entrada no viaja.
 
 ---
 
-## 6. Cuando algo no cuadra
+## 9. Desvincular, reasignar, igualar stock
 
-### 6.1 "La otra tienda no responde"
+Tres acciones sobre un par que ya existe. Se parecen y hacen cosas muy distintas.
 
-El cartel aparece arriba de todo, en Resumen y en Productos:
+| Acción | Qué le hace al par | Qué le hace al stock |
+|---|---|---|
+| **Desvincular** | Lo corta | Nada, en ninguna de las dos tiendas |
+| **Reasignar** | Lo corta y arma otro | El de la maestra se escribe en el nuevo par |
+| **Igualar stock** | Lo deja igual | Las dos quedan con el número que elijas |
 
-![El cartel aparece arriba de todo y explica los stocks descuadrados de abajo: no son errores de cada producto, es una caída.](tienda-caida.jpg)
+![El menú *Más acciones* de una fila vinculada, con las tres opciones.](mas-acciones.jpg)
+
+### 9.1 Desvincular
+
+El par se corta, el producto deja de sincronizar y **su stock no se toca en ninguna de las dos
+tiendas**. El historial y el stock base quedan guardados.
+
+Las ventas que hubieran quedado retenidas se descartan: ese par ya no existe.
+
+### 9.2 Volver a vincular pesa más que vincular la primera vez
+
+Mientras estuvo desvinculado, cada tienda vendió por su cuenta y los dos números se separaron.
+Al volver a vincular, **el de la maestra pisa el de la secundaria**, y lo que la secundaria
+vendió en el medio no se recupera.
+
+Mirá los dos números antes de confirmar, y dejá el de la maestra en el número real **antes**
+de apretar.
+
+### 9.3 Reasignar
+
+Lo vinculás a otro producto de la otra tienda. Por dentro es cortar y volver a vincular, con
+todo lo que dice el punto anterior.
+
+Si el segundo paso falla, el producto queda **Sin vincular** — un estado válido y visible, que
+reintentás. Lo que nunca pasa es que un producto termine con dos pares.
+
+### 9.4 Igualar stock
+
+Es la salida cuando las dos tiendas quedaron con un número distinto en un par que por lo demás
+está sano.
+
+> ⚠️ **Corregirlo a mano no sirve.** Si una tiene 12 y la otra 15 y vos cambiás el 12 por 15,
+> viaja un `+3` y la otra pasa a 18. La distancia entre las dos no cambia nunca.
+
+**Más acciones → Igualar stock.** El modal pide los dos números **en el momento** —no la copia
+del catálogo, que puede tener un día— y te deja elegir cuál vale:
+
+![El modal de Igualar stock, con los dos números y los dos botones.](igualar-stock.jpg)
+
+- **"Vale el de esta tienda (N)"** — la otra pasa a N.
+- **"Vale el de la otra (M)"** — ésta pasa a M.
+
+Contá lo que hay en el depósito antes de elegir. Si ya coinciden, el modal te lo dice y no
+hace nada.
+
+> **Desvincular no es la herramienta para corregir un número.** Si el par está bien y el
+> número está mal, editás el stock en WooCommerce (§ 8.1) o usás Igualar stock. Se desvincula
+> cuando **el par** está mal.
+
+---
+
+## 10. Borrar un producto
+
+La respuesta corta: **desvinculalo primero, borralo después**. Y no, borrarlo de las dos
+tiendas no alcanza.
+
+### Por qué
+
+El par es un dato del plugin, **independiente de los productos**. Si vaciás la papelera en las
+dos tiendas sin desvincular, la fila del vínculo sobrevive apuntando a productos que ya no
+existen, y el plugin la sigue mostrando como suspendida — a propósito, justamente para que
+puedas desvincularla.
+
+### El orden
+
+1. En **Productos** de la maestra: **Más acciones → Desvincular**. Esto lo saca de la malla.
+   No toca el stock de ninguna de las dos tiendas.
+2. **Después** borralo en cada tienda desde WooCommerce, si querés que desaparezca del
+   catálogo.
+
+Al revés funciona igual, pero te deja un rato con una fila que apunta a la nada.
+
+> **El plugin nunca crea ni borra productos.** El catálogo de cada tienda es tuyo y son
+> independientes: borrar en una no borra en la otra.
+
+### Si lo mandaste a la papelera sin querer
+
+No pasó nada grave. **Restauralo** y la fila vuelve a *Vinculado* sola, con el mismo par y el
+mismo stock base.
+
+Lo único a tener en cuenta: mientras estuvo en la papelera, las ventas de la otra tienda
+**quedaron retenidas**. Al restaurarlo se aplican todas juntas y el stock puede bajar de
+golpe. Es correcto, y queda anotado en Registros.
+
+---
+
+## 11. Cuando algo no cuadra
+
+### 11.1 "La otra tienda no responde"
+
+Aparece un cartel arriba de todo, en Resumen y en Productos.
+
+![El cartel de tienda caída arriba de la pantalla Productos.](tienda-caida.jpg)
 
 **No hagas nada.** Es la respuesta correcta y es literal:
 
@@ -555,37 +667,47 @@ El cartel aparece arriba de todo, en Resumen y en Productos:
 
 Si querés acelerar: **Reconciliar ahora**, desde la maestra.
 
-### 6.2 "Rechaza los pedidos de esta tienda"
+### 11.2 "Rechaza los pedidos de esta tienda"
 
-Distinto del anterior, y **esperar no lo arregla**: la otra tienda contesta, pero no reconoce
-a ésta. Casi siempre es que se desemparejó de un solo lado. Revisá el emparejamiento en
-Configuración y, si hace falta, volvé a emparejar con un código nuevo.
+Distinto del anterior, y **esperar no lo arregla**: la otra tienda contesta, pero no reconoce a
+ésta. Casi siempre es que se desemparejó de un solo lado.
 
-### 6.3 Un producto quedó "Suspendido"
+Revisá el emparejamiento en Configuración y, si hace falta, volvé a emparejar con un código
+nuevo.
 
-Significa que el par se rompió: el producto del otro lado se borró o está en la papelera. La
-fila te dice cuál de las dos cosas.
+### 11.3 Discrepancia: una tienda contra su propio libro
 
-- **Si está en la papelera:** restauralo, y la fila vuelve a **Vinculado** sola, con el mismo
-  par y el mismo stock base. No hay botón de "reanudar" porque no hay nada que reanudar. Las
-  ventas que llegaron mientras tanto quedaron guardadas y **se aplican cuando el producto
-  vuelve** — así que el stock puede bajar de golpe al restaurarlo. Es correcto: esas ventas
-  pasaron.
-- **Si se borró y no va a volver:** desvinculalo. Queda libre para vincularlo a otro producto.
+Aparece en **Resumen**, bajo *Discrepancias*. Significa que alguien escribió un número sin
+pasar por WooCommerce, y el plugin **no toca nada** porque no sabe cuál de los dos es el bueno.
 
-### 6.4 Un producto quedó "Sin confirmar"
+![Una discrepancia en Resumen, con *Hay 9 · Libro 12* y el botón Resolver.](discrepancia.jpg)
 
-Vinculaste, y la respuesta de la otra tienda se perdió en el camino. El plugin **no adivina**:
-no lo da por vinculado ni por fallido. Le pregunta solo a la otra tienda dentro de 10 minutos
-y resuelve con lo que conteste. No tenés que hacer nada; si en un rato sigue igual, revisá la
-conexión.
+Elegís:
 
-### 6.5 Pausar la sincronización
+- **"El stock está bien"** — el número de la tienda es el real. La diferencia se anota como un
+  ajuste y viaja a la otra tienda.
+- **"El libro está bien"** — el valor del libro es el real. El stock vuelve a ese número y la
+  otra tienda no se entera.
 
-En **Configuración → Emparejamiento**, el interruptor **"Sincronización activa"**.
+Mientras la discrepancia está abierta **el producto sigue sincronizando normalmente**. No crece
+y no bloquea nada. Si los números vuelven a coincidir solos, se cierra sola.
 
-Es para un inventario, una migración, o cuando algo raro está pasando y querés frenar sin
-desarmar nada.
+### 11.4 Stock distinto: una tienda contra la otra
+
+Se parece a lo anterior y es otra cosa. Acá las dos tiendas **cierran bien contra su propio
+libro**, pero no coinciden entre ellas.
+
+Lo ves en **Productos**, filtro *Stock distinto*, y te llega por email. Se resuelve con
+**Igualar stock** (§ 9.4), nunca corrigiendo a mano.
+
+### 11.5 Un producto quedó suspendido
+
+Está en § 6.3, con los siete motivos y qué hacer con cada uno.
+
+### 11.6 Pausar la sincronización
+
+En **Configuración → Emparejamiento**, el interruptor **"Sincronización activa"**. Es para un
+inventario, una migración, o cuando querés frenar sin desarmar nada.
 
 Mientras está en pausa:
 
@@ -596,43 +718,133 @@ Mientras está en pausa:
 **Al reanudar**, todo lo anotado sale en la próxima pasada, en orden. Si fue una pausa larga,
 lanzá una reconciliación manual para quedarte tranquilo.
 
-### 6.6 Desemparejar
+---
 
-Corta del todo: las dos tiendas olvidan la dirección y la clave de la otra. Para volver hace
-falta un código nuevo.
+## 12. Registros
 
-**Los vínculos y el historial se guardan.** Si volvés a emparejar con **la misma** tienda,
-todo queda como estaba y lo que se vendió mientras tanto se manda ahí. Si emparejás con
-**otra**, los vínculos viejos no se usan y hay que vincular de nuevo.
+Todo lo que el plugin hace queda anotado. Es donde mirás cuando querés entender **por qué** un
+número es el que es.
 
-### 6.7 Desinstalar
+![La pantalla Registros, pestaña Avisos.](registros.jpg)
 
-En **Configuración → Datos** elegís qué pasa:
+### 12.1 Las dos pestañas
 
-- **Sin marcar** (por defecto): si borrás el plugin, los vínculos y los registros quedan
-  guardados por si lo volvés a instalar.
-- **Marcado**: al borrar el plugin se pierden para siempre los vínculos, el libro de
-  movimientos, los registros y la configuración.
+| Pestaña | Qué tiene |
+|---|---|
+| **Avisos** | Lo que pasó entre las dos tiendas: vínculos, reconciliaciones, discrepancias, cortes de conexión |
+| **Movimientos** | Cada cambio de stock: cuál, cuánto, por qué y cómo terminó |
+
+Las dos se filtran por **período** (hoy, 7 días, 30 días, todo), por **tipo** y por
+**producto**.
+Avisos suma un filtro por **nivel** —Info, Avisos, Errores— y Movimientos, uno por **cómo
+terminó**.
+
+### 12.2 El historial de un producto
+
+Es lo primero que conviene abrir cuando un producto no hace lo que esperabas: en su fila,
+**Ver el historial**.
+
+![El historial de un producto, con movimientos y eventos mezclados.](historial.jpg)
+
+Muestra, en una sola línea de tiempo y de lo más nuevo a lo más viejo, **sus movimientos de
+stock** y **lo que le pasó** —cuándo se vinculó, quién lo descartó, qué intento falló—.
+
+### 12.3 Cómo leer un historial
+
+Hay una pregunta que el historial contesta y nada más la contesta:
+
+> **Un producto no sincroniza. ¿Me olvidé de vincularlo, o lo intenté y falló?**
+
+- **Historial vacío** → nunca se intentó. Vinculalo.
+- **Con un intento fallido anotado** → ya se intentó y algo anduvo mal, y el error está ahí.
+
+Desde afuera los dos casos se ven igual: una fila que no sincroniza. Por eso **se registran
+todos los intentos, hayan movido stock o no, y también los que fallaron**.
 
 ---
 
-## 7. Las cinco reglas de oro
+## 13. Los avisos por email
 
-1. **Cargá el stock real en la maestra antes de vincular.** Al vincular, su número pisa el de
-   la otra tienda.
-2. **El stock se edita en WooCommerce, nunca en el plugin.** El plugin propaga; no es un
-   gestor de inventario.
-3. **Un mismo CSV se importa en una sola tienda, y esa tienda es la maestra.** Importarlo en
-   las dos genera dos ajustes que se suman: de 10 a 50 en cada una te deja 90, no 50. Es el
-   único error que el plugin no puede deshacer.
-4. **Un producto nuevo no sincroniza hasta que lo vinculás.** Darlo de alta en las dos tiendas
-   con el mismo SKU sólo lo vuelve candidato.
-5. **Si los dos números no coinciden, usá "Igualar stock".** Corregirlo a mano mueve las dos y
-   la diferencia no cambia.
+El email existe para que te enteres **sin entrar al panel**. Está pensado para que no lo
+termines filtrando.
+
+### 13.1 De qué te avisa
+
+Tres cosas, y de ninguna más:
+
+1. **Productos que no sincronizan** desde hace más de **24 horas**. Van separados los que
+   tienen sugerencia —un clic— de los que no —hay que arreglar el catálogo—.
+2. **Vinculaciones que fallaron.** Vos apretaste el botón y el plugin no pudo. Sale **en el
+   momento**, porque el plugin **no reintenta una vinculación solo**: si no te avisa, ese
+   producto se queda esperando para siempre.
+3. **Pares rotos** — un producto vinculado cuyo par del otro lado se borró. También en el
+   momento.
+
+Más el aviso de **stock distinto** entre tiendas (§ 11.4) y el de que la otra tienda **volvió**.
+
+### 13.2 Por qué no te llena la casilla
+
+- **Cada producto se avisa una sola vez.** Si sigue sin sincronizar seis meses, no te lo vuelve
+  a mencionar. Por eso conviene **descartar** lo que no querés sincronizar (§ 7.5).
+- **Se agrupa por causa.** Si vaciás la papelera y 300 productos pierden su par, es **un** email
+  que dice "300 productos", no 300 emails. Eso es un problema, no trescientos.
+- **Una tienda caída es una causa sola.** Mientras no responde todo falla: las entregas, las
+  vinculaciones, la reconciliación. Sale **un** email y nada por producto.
+- **Lo que pasa mientras estás mirando la pantalla no se avisa.** Si lanzás la masiva y falla,
+  te lo dice la pantalla. El email es para lo que pasa cuando no hay nadie mirando.
+- **Tope de 10 emails por día.**
+
+### 13.3 Dónde se configura
+
+En **Configuración → Avisos por email**: el interruptor y el destinatario. Vacío = al
+administrador del sitio.
+
+Si los apagás, **todo se sigue registrando** en Registros: lo único que se apaga es el email.
+
+El plazo de las 24 horas se cambia por consola:
+`wp wss notify --email=deposito@ejemplo.com --after=48`.
 
 ---
 
-## 8. Preguntas frecuentes
+## 14. Configuración
+
+![La pantalla Configuración completa.](configuracion.jpg)
+
+### 14.1 Emparejamiento
+
+Muestra con qué tienda estás emparejado, desde cuándo y en qué rol.
+
+- **Probar conexión** — le pregunta a la otra tienda si responde. Útil cuando algo se ve raro.
+- **Volver a emparejar** — reemplaza el emparejamiento actual. Si volvés a emparejar con **la
+  misma** tienda, los vínculos se mantienen.
+- **Sincronización activa** — el interruptor de la pausa (§ 11.6).
+- **Desemparejar** — corta del todo.
+
+### 14.2 Desemparejar
+
+Las dos tiendas olvidan la dirección y la clave de la otra. Para volver hace falta un código
+nuevo.
+
+**Los vínculos y el historial se guardan.** Si volvés a emparejar con **la misma** tienda, todo
+queda como estaba y lo que se vendió mientras tanto se manda ahí. Con **otra** tienda, los
+vínculos viejos no se usan.
+
+### 14.3 El nombre de esta tienda
+
+Con el que la nombra la otra pantalla y con el que firman los emails. Si lo cambiás, la otra
+tienda lo recibe al guardar.
+
+### 14.4 Datos
+
+Qué pasa si algún día borrás el plugin:
+
+- **Sin marcar** (por defecto): los vínculos, el libro y los registros **quedan guardados** por
+  si lo volvés a instalar.
+- **Marcado**: al borrar el plugin se pierden para siempre.
+
+---
+
+## 15. Preguntas frecuentes
 
 #### ¿Puedo tener precios distintos en cada tienda?
 Sí, y es lo normal. El plugin sólo toca el stock.
@@ -647,31 +859,35 @@ Porque crearlo no lo vincula. Entrá a **Productos** en la maestra, filtro **Con
 y aceptalo.
 
 #### Un producto está en "Sin vincular" y no sé si me olvidé o falló algo.
-Abrí su historial. **Vacío** = nunca se intentó, vinculalo. **Con un intento fallido** = ya se
-intentó y algo anduvo mal, y el error está ahí.
+Abrí su historial (§ 12.3). Vacío = nunca se intentó. Con un intento fallido = ya se intentó y
+el error está ahí.
 
 #### ¿Qué pasa si vendo la última unidad en las dos tiendas al mismo tiempo?
-Las dos ventas se cobran y el pool queda en **-1**: debés una unidad. El plugin **no bloquea
-ventas** — mientras el descuento viaja, las dos tiendas todavía muestran 1 — así que la
-ventana de sobreventa se vuelve muy chica pero no desaparece. Lo que sí garantiza es que
-ninguna de las dos ventas se pierda de la cuenta: nunca vas a terminar en 0 habiendo vendido
-dos.
+Las dos ventas se cobran y el pool queda en **−1**: debés una unidad. El plugin **no bloquea
+ventas** — mientras el descuento viaja, las dos tiendas todavía muestran 1 — así que la ventana
+de sobreventa se vuelve muy chica pero no desaparece. Lo que sí garantiza es que ninguna de las
+dos ventas se pierda de la cuenta.
 
 #### ¿Cuánto historial guarda?
-90 días de movimientos. Al purgar, el punto de partida de cada producto absorbe lo borrado,
-así que las cuentas siguen dando.
+90 días de movimientos. Al purgar, el punto de partida de cada producto absorbe lo borrado, así
+que las cuentas siguen dando.
 
 #### Restauré un backup de una de las tiendas y dejó de sincronizar.
 Es a propósito. El plugin detecta que el sitio es una copia del que se emparejó y se suspende,
-para no sincronizar desde un sitio de test. Si es la tienda real y cambió de dirección,
+para no sincronizar desde un sitio de pruebas. Si es la tienda real y cambió de dirección,
 emparejala de nuevo.
 
 #### ¿Puedo usarlo con tres tiendas?
 No. Exactamente dos.
 
 #### ¿Sirve si cada tienda tiene su propio depósito?
-No. Todo el plugin asume un solo depósito compartido.
+No. Todo el plugin asume un solo depósito compartido. Si cada tienda tiene su stock separado,
+el pool único no tiene sentido.
 
 #### ¿Y si vendo por peso o por metro, con decimales?
 El plugin sincroniza cantidades enteras. Si detecta una extensión que pasa el stock a
 decimales, **te avisa** en vez de sincronizar mal en silencio.
+
+#### ¿Hace falta que las dos tiendas estén en el mismo servidor?
+No, pero **tienen que poder hablarse por internet**: cada una le hace pedidos a la otra. Una
+tienda detrás de un firewall que no acepte pedidos entrantes no puede participar.
