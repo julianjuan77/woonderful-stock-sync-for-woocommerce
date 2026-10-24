@@ -60,9 +60,9 @@ su línea. Son ocho, 320 KB en total, en JPEG: la captura llega ya comprimida de
 que PNG pesaba 3,5 veces lo mismo sin ganar nitidez. **Envejecen con cada cambio de interfaz y
 nada lo avisa**, así que conviene repasarlas antes de publicar una versión. Se sacan del par
 `sandbox` / `sandbox-b`, que tiene cargado el catálogo del manual —Taza, Botella variable,
-Cuaderno con SKU repetido, Vela sin SKU, Posavasos, Mochila, Grabado y Caja de regalo— además
-de las alpargatas de las pruebas manuales. Las dos tiendas se llaman "Tienda Minorista" y
-"Tienda Mayorista" para que las capturas coincidan con el texto.
+Cuaderno con SKU repetido, Vela sin SKU, Posavasos, Mochila, Grabado y Caja de regalo. Las
+dos tiendas se llaman "Tienda Minorista" y "Tienda Mayorista" para que las capturas coincidan
+con el texto.
 
 Dos cosas que costaron y conviene no volver a descubrir: `.woon-main` declara
 `overflow-y: auto` y eso vuelve inútil cualquier `position: sticky` adentro —el índice lo
@@ -80,8 +80,13 @@ Los emails de los sitios de prueba se ven en el Mailhog de cada uno: `sandbox` e
 emparejadas con rol. Con `DISABLE_WP_CRON` la pasada no corre sola: se dispara con
 `wp eval '\Woonderful\StockSync\Transport\Pass::run();'` pasados los 10 s del retardo. Para
 vincular: `wp wss link <acá> <allá> --stock=<acá> --remote-stock=<allá>` en la maestra.
-Quedaron vinculadas la "Alpargata verde 39" (A 15 ↔ B 13); la "roja 40" se desvinculó, y la
-"azul 38" es el vínculo armado a mano de E.1.
+**2026-10-24: las alpargatas de las pruebas manuales se borraron de las dos tiendas**, a
+pedido de Julián, para grabar el video de configuración con el catálogo limpio. Con ellas se
+fue el vínculo armado a mano de E.1. El par quedó **sin ningún vínculo** y con sólo el
+catálogo del manual: nueve productos en la maestra, nueve en la secundaria, cada uno en el
+estado que ilustra —sugerencia, SKU duplicado, sin coincidencia, variable parcial—. Es el
+punto de partida de una instalación nueva; si hace falta volver a probar un caso, se arma
+vinculando desde la pantalla.
 
 ---
 
@@ -312,7 +317,6 @@ seguridad y convenciones de código.
 | Un `reason` desconocido se guarda y su delta se aplica, que está bien para una etiqueta nueva. Pero si una versión futura suma un motivo con **significado especial**, como el `bootstrap`, la vieja lo aplicaría como un ajuste común. La sección *Compatibilidad entre versiones* de ADR-001 tiene que decir cómo se marca un movimiento que una versión vieja no debe aplicar | Revisión 2026-09-29 → ADR-001 |
 | **Un lote que siempre voltea al receptor arrastra a los otros 199.** Si el receptor muere con un error que `apply()` no puede atrapar —sin memoria, o el tiempo máximo de PHP—, las 200 filas reciben el mismo error, el mismo backoff, vuelven a salir juntas y a las 6 horas se abandonan todas. Un timeout de 30 s no tiene el problema: el receptor termina igual y el reintento deduplica. La mitigación posible es partir el lote a la mitad tras una falla del lote entero que no sea de red ni de autenticación. No se hace hasta ver el volumen real | Revisión 2026-09-29 → §6 del SPEC |
 | **En el sandbox faltaban `wp_wss_links` y `wp_wss_movements`** —sólo quedaba `wp_wss_nonces`— con `wss_schema_version` en 1: el sitio estaba suspendido por esquema, y `maybe_upgrade()` no lo arregla porque la versión está al día. No coincide con ninguno de los dos caminos de `uninstall.php`. Causa sin encontrar; se reparó reactivando el plugin. Si se repite, mirar quién hace `DROP TABLE` sobre el prefijo `wp_` | E.1, 2026-09-30 |
-| Las dos tiendas del sandbox tienen todavía el vínculo armado a mano en E.1 ("Alpargata azul 38"), con generación 1: no corresponde a ningún bootstrap. Si molesta, borrarlo de `wss_links` en las dos | E.1, 2026-09-30 |
 | **Un bootstrap incierto que nunca recibe respuesta** —por ejemplo, un 401 después de re-emparejar— retiene las ventas de ese producto para siempre, sin avisarle a nadie. No se pierden, pero nadie se entera; y el dueño ve `already_linked` si intenta revincular. Lo tiene que avisar el log (UC-08) | Resuelto en 10.3: `link_unresolved` (ADR-011) |
 | `wp wss link` sale con código 0 cuando el resultado queda incierto: un script no lo distingue de un éxito | Revisión 2026-10-02 |
 | `GET /movements/<origen>/<secuencia>` no exige que el origen consultado sea el de quien firma. Con dos tiendas no expone nada, pero conviene acotarlo | Revisión 2026-10-02 |
