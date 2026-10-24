@@ -32,7 +32,8 @@ bien: arreglalo y apretá *Volver a revisar*.
 
 - **PHP-FPM o LiteSpeed** — sin eso una venta tarda hasta un minuto en salir, en vez de salir
   al instante. Pero funciona igual.
-- **El correo sale** — mandá el email de prueba. Si no llega, no vas a recibir los avisos, pero no impide el funcionamiento del plugin.
+- **El correo sale** — mandá el email de prueba. Si no llega, no vas a recibir los avisos,
+  pero no impide el funcionamiento del plugin.
 
 ### 1.2 Esta tienda
 
@@ -235,9 +236,122 @@ Pool único, por qué viaja la diferencia y no el número, y qué pasa cuando la
 venden al mismo tiempo. Corto y conceptual: explica por qué el plugin hace lo que hace.
 
 ## 6. Los estados de un producto
-Vinculado, Sin vincular, Suspendido, Sin confirmar y Parcial. Qué significa cada uno, qué
-hacer con cada uno, y los motivos de un "sin vincular" (sin SKU, sin coincidencia, SKU
-duplicado, stock en el padre, no gestiona stock, en la papelera, descartado).
+
+En **Productos**, cada fila termina con un estado. Es lo primero que mirás cuando algo no
+sincroniza, y lo único que necesitás para saber si tenés que hacer algo.
+
+> **📷 Captura —** la columna Estado con varias filas: un Vinculado, un Sin vincular con su
+> motivo debajo, y un Suspendido.
+
+**El estado no es un dato guardado: se calcula cada vez que abrís la pantalla**, mirando tu
+catálogo y el de la otra tienda. Eso tiene una consecuencia práctica que conviene saber desde
+el principio: **arreglás la causa y el estado se corrige solo.** No hay ningún botón de
+"reanudar" ni de "volver a intentar" porque no hace falta.
+
+---
+
+### 6.1 Los cuatro estados
+
+| Estado | Qué significa | ¿Hay que hacer algo? |
+|---|---|---|
+| **Vinculado** | Tiene par y está sincronizando. Es el estado normal. | No |
+| **Sin vincular** | Nadie fijó su par todavía. **Su stock no se sincroniza.** | Sí: vincularlo, o descartarlo si no querés que sincronice |
+| **Suspendido** | **Tenía** par y el par se rompió. | Sí, y depende del motivo (§ 6.3) |
+| **Sin confirmar** | Se vinculó, pero la respuesta de la otra tienda se perdió. | No: el plugin lo resuelve solo |
+
+Y uno que no es un estado del producto: **Parcial**, que sólo aparece en la fila de un
+producto variable y resume cómo van sus variaciones — *2/3 vinculadas*.
+
+> **Sin vincular no es sinónimo de error.** Un producto que existe sólo en una tienda, un
+> servicio, una prueba: se quedan ahí para siempre y está bien. Por eso la lista de sin
+> vincular es una bandeja de trabajo, no una lista de problemas.
+
+---
+
+### 6.2 Sin vincular: el motivo dice qué le falta
+
+Debajo del estado, la fila te dice **por qué** ese producto todavía no tiene par. Cada motivo
+se resuelve distinto:
+
+| Motivo | Qué pasó | Qué hacer |
+|---|---|---|
+| **Con sugerencia** | Hay un producto con el mismo SKU en la otra tienda | Apretá **Aceptar**. Es el caso fácil |
+| **Sin coincidencia** | Ningún producto de la otra tienda tiene ese SKU | Creálo allá, vinculalo a mano, o descartalo |
+| **Sin SKU** | Este producto no tiene SKU cargado | Ponele uno, o vinculalo a mano |
+| **SKU duplicado** | Dos productos comparten ese SKU | El plugin no elige por vos: arreglá el catálogo o vinculá a mano |
+| **No gestiona stock** | Acá no lleva su propio stock y allá sí | Activale "Gestionar stock" en **esta** tienda |
+| **En la otra tienda no gestiona stock** | Al revés: acá sí y allá no | Activáselo en **la otra** |
+| **Stock en el padre** | Es un variable con el stock cargado en el producto padre | Pasá el stock a cada variación |
+| **En la papelera** | El de la otra tienda está en la papelera | Restauralo allá, o vinculá con otro |
+| **Sugerencia descartada** | Vos dijiste que no querés sincronizarlo | Nada. Si cambiás de idea, **Deshacer descarte** |
+
+> **📷 Captura —** el filtro Sin vincular abierto, con la fila de motivos: Con sugerencia ·
+> Sin coincidencia · Sin SKU · Stock en el padre · SKU duplicado · No gestiona stock · En la
+> papelera · Descartados.
+
+**Los motivos son también filtros.** Al entrar en **Sin vincular**, la fila de estados se
+reemplaza por la de motivos, y ése es el orden natural para dejar un catálogo limpio: primero
+**Con sugerencia**, que se resuelve de a un clic; después **SKU duplicado** y **Sin SKU**, que
+se arreglan en WooCommerce; y al final **Sin coincidencia**, que casi siempre significa crear
+el producto que falta o descartarlo.
+
+> **Las descartadas están ocultas.** No aparecen en la lista salvo que filtres por
+> **Descartados** — ya las resolviste, no tienen por qué seguir pidiendo atención. El buscador
+> sí las encuentra siempre.
+
+---
+
+### 6.3 Suspendido: el par se rompió
+
+Suspendido significa que el producto **tenía** par y algo lo rompió. **El par, el stock base y
+el historial se conservan**: no perdiste nada, y en varios casos vuelve solo.
+
+Mientras está suspendido, las ventas que llegan de la otra tienda **quedan retenidas sin
+aplicarse**. No se pierden: esperan.
+
+La fila te dice exactamente cuál de los siete motivos es:
+
+| Lo que dice la fila | Qué hacer |
+|---|---|
+| **está en la papelera** | Restauralo. La fila vuelve a *Vinculado* sola |
+| **se borró** | Desvinculalo: ese par no vuelve |
+| **dejó de llevar su propio stock** | Volvé a activarle "Gestionar stock" |
+| **el de la otra tienda está en la papelera** | Restauralo allá |
+| **el de la otra tienda se borró** | Desvinculalo |
+| **el de la otra tienda dejó de llevar su propio stock** | Activáselo allá |
+| **el vínculo es con otra tienda, que ya no es la emparejada** | Quedó de un emparejamiento anterior: desvinculalo y vinculalo de nuevo |
+
+> **📷 Captura —** una fila suspendida, con el motivo debajo del estado.
+
+**Cuidado con restaurar un producto que estuvo tiempo en la papelera.** Las ventas que
+quedaron retenidas se aplican todas juntas en la próxima pasada, así que el stock puede bajar
+de golpe. Es correcto —esas ventas pasaron— y queda anotado en Registros, pero no te agarre
+de sorpresa.
+
+> ⚠️ **Que la otra tienda no responda NO suspende nada.**
+> Es la confusión más fácil de hacerse. Una caída es temporal y no rompió ningún par: los
+> productos **siguen vinculados**, sus ventas se acumulan y salen solas cuando la otra vuelva.
+> La caída se avisa **una vez y arriba de todo**, no producto por producto (§ 11).
+
+---
+
+### 6.4 Sin confirmar
+
+Vinculaste, la otra tienda probablemente lo aplicó, pero la respuesta se perdió en el camino.
+El plugin **no adivina**: no lo da por vinculado ni por fallido, porque las dos suposiciones
+hacen daño si son la equivocada.
+
+**No tenés que hacer nada.** El plugin le pregunta solo a la otra tienda dentro de diez
+minutos y resuelve con lo que conteste. Si pasa mucho tiempo y sigue igual, el problema es la
+conexión: miralo en Configuración.
+
+---
+
+### 6.5 Stock distinto no es un estado
+
+Arriba de la tabla hay un filtro **Stock distinto** que es fácil de confundir con un estado.
+No lo es: son pares **vinculados y sanos** que simplemente quedaron con un número diferente en
+cada tienda. Se resuelve con **Igualar stock** (§ 9), y por qué pasa está en § 11.
 
 ## 7. Vincular los casos difíciles
 Lo que la sugerencia no resuelve: vincular a mano buscando en la otra tienda, el SKU
