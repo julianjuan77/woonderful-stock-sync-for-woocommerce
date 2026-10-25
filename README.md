@@ -35,6 +35,16 @@ tiendas muestran el stock real completo**, y una venta en cualquiera lo deja igu
 | Una tienda se queda sin stock mientras la otra tiene | Las dos venden hasta la última unidad |
 | Cada reposición se reparte y se carga dos veces | Se carga una vez, en la tienda maestra |
 
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=AT1QCQSzb34">
+    <img src=".github/readme/video-instalacion.jpg" alt="Ver en YouTube el video de instalación" width="640">
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=AT1QCQSzb34"><b>▶ La instalación y la configuración, paso a paso</b></a>
+</p>
+
 ## Cómo funciona
 
 ```mermaid
