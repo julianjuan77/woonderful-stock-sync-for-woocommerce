@@ -17,6 +17,10 @@ Sincroniza el stock entre dos tiendas WooCommerce que despachan del mismo depós
 
 Si tenés dos tiendas WooCommerce —por ejemplo, una mayorista y una minorista— y las dos venden de un mismo depósito, hoy probablemente repartís el stock entre ellas para no vender de más. Woonderful Stock Sync elimina ese reparto: las dos tiendas muestran el stock real completo, y lo que se vende en una se descuenta en la otra.
 
+La instalación y la configuración completas, paso a paso:
+
+https://www.youtube.com/watch?v=AT1QCQSzb34
+
 **Cómo funciona:**
 
 * **Pool único.** Si hay 10 unidades, las 10 se ven en cada tienda. Una venta en cualquiera las deja en 9 en las dos.
@@ -47,6 +51,8 @@ Nada de esto sale de las dos tiendas.
 2. En la tienda que va a ser la maestra, entrá a **Stock Sync** y seguí el asistente: revisa los requisitos, te pide el nombre de la tienda y genera un código de emparejamiento.
 3. En la otra tienda, abrí **Stock Sync** y pegá ese código.
 4. En la maestra, cargá el stock real de cada producto y vinculalos en **Stock Sync → Productos**. La vinculación masiva resuelve de una vez los que tienen el mismo SKU en las dos tiendas.
+
+El video de la pestaña **Descripción** recorre estos cuatro pasos.
 
 = Recomendado: un cron real del servidor =
 
